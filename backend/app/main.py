@@ -10,12 +10,13 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from app.api.auth import router as auth_router
 from app.api.insights import router as insights_router
 from app.api.transactions import router as transactions_router
 from app.api.upload import router as upload_router
 from app.core.config import settings
 from app.core.database import engine
-from app.models.user import Base, User
+from app.models.user import Base
 from app.models.transaction import Transaction  # noqa: F401 — registers table in metadata
 
 logging.basicConfig(
@@ -23,28 +24,6 @@ logging.basicConfig(
     format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
 )
 logger = logging.getLogger(__name__)
-
-
-async def _seed_dev_user() -> None:
-    """
-    WHAT: Creates the hardcoded dev seed user if it doesn't already exist.
-    WHY: Upload endpoint needs a real user_id FK target before auth is built.
-         UUID 00000000-0000-0000-0000-000000000001 is the conventional dev identity.
-    BREAKS IF REMOVED: Uploads fail with FK violation because user_id has no parent row.
-    """
-    import uuid
-    from app.core.database import AsyncSessionLocal
-    from sqlalchemy import select
-
-    seed_id = uuid.UUID("00000000-0000-0000-0000-000000000001")
-    async with AsyncSessionLocal() as session:
-        existing = await session.execute(select(User).where(User.id == seed_id))
-        if existing.scalar_one_or_none() is None:
-            session.add(User(id=seed_id, email="dev@mizan.local"))
-            await session.commit()
-            logger.info("Dev seed user created — id=%s", seed_id)
-        else:
-            logger.info("Dev seed user already exists — id=%s", seed_id)
 
 
 @asynccontextmanager
@@ -57,19 +36,14 @@ async def lifespan(app: FastAPI):
     logger.info("Mizan backend starting — environment: %s", settings.ENVIRONMENT)
     settings.log_api_key_status()
 
-    # WHY: len() check validates presence without touching the value.
-    # A missing DATABASE_URL would produce a confusing SQLAlchemy error later — fail fast instead.
     if not len(settings.DATABASE_URL) > 0:
         raise RuntimeError("DATABASE_URL env var is required but not set")
 
     # WHY: create_all in dev only — Alembic owns schema in staging/prod.
-    # This lets `docker compose up` work without running `alembic upgrade head` manually.
-    # ALTERNATIVE: Always use Alembic. TRADEOFF: Requires extra step in dev setup.
     if settings.ENVIRONMENT == "development":
         async with engine.begin() as conn:
             await conn.run_sync(Base.metadata.create_all)
         logger.info("Dev: tables created (or already exist).")
-        await _seed_dev_user()
 
     logger.info("Startup validation passed.")
     yield
@@ -83,8 +57,6 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-# WHY: CORS must be added before any route registration so it intercepts all preflight requests.
-# ALTERNATIVE: Allow all origins ("*"). TRADEOFF: Exposes API to any web page — security risk.
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[settings.FRONTEND_URL],
@@ -93,7 +65,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-
+app.include_router(auth_router)
 app.include_router(upload_router)
 app.include_router(transactions_router)
 app.include_router(insights_router)

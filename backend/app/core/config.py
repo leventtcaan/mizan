@@ -25,6 +25,12 @@ class Settings(BaseSettings):
     # WHY: Frontend URL is needed by CORS middleware to allow only our own origin.
     FRONTEND_URL: str = "http://localhost:3000"
 
+    # WHY: SECRET_KEY signs JWTs — must be random and long (32+ bytes of entropy).
+    # Default is safe for dev only; prod must override this via environment variable.
+    SECRET_KEY: str = "change-me-in-production-use-openssl-rand-hex-32"
+    JWT_ALGORITHM: str = "HS256"
+    JWT_EXPIRE_MINUTES: int = 60 * 24 * 7  # 7 days
+
     # WHY: "env_file" lets .env override Docker env vars during local dev without Docker.
     # case_sensitive=True prevents DATABASE_URL from matching database_url in .env.
     model_config = {"env_file": ".env", "case_sensitive": True, "extra": "ignore"}

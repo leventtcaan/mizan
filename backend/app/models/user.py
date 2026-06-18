@@ -55,6 +55,13 @@ class User(Base):
         index=True,
     )
 
+    # WHY: Nullable so existing rows (created before Phase 4) are valid without a hash.
+    # Phase 4 register endpoint sets this; dev seed user has no password (can't log in).
+    password_hash: Mapped[str | None] = mapped_column(
+        String(255),
+        nullable=True,
+    )
+
     # WHY: timezone=True stores UTC offset alongside the timestamp in PostgreSQL.
     # ALTERNATIVE: Store naive datetime. TRADEOFF: Naive datetimes silently break
     # when the server's timezone changes or data crosses regions.

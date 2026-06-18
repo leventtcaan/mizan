@@ -212,9 +212,8 @@ When context reaches ~70% capacity:
 
 ## Current Status
 
-**Post-Phase-3 hardening — COMPLETE.** All parser bugs fixed, upload batch isolation live.
-Full stack: upload → 3-layer OCR → LLM extract → regex fallback → dedup → sign-correct →
-persist (tagged with upload_batch_id) → LLM categorize → LLM coaching insight → frontend display.
+**Phase 4 — JWT auth COMPLETE.** Full auth flow live: register → login → JWT Bearer → all endpoints protected.
+Full stack: register/login → JWT → upload → 3-layer OCR → LLM extract → dedup → persist → LLM categorize → LLM coach → spending chart → frontend display.
 
 ### Known Issues (open)
 - **OCR quality on dense image PDFs**: some banks (Ziraat mobile) produce very small fonts
@@ -226,32 +225,44 @@ persist (tagged with upload_batch_id) → LLM categorize → LLM coaching insigh
   add the new column — must run `alembic upgrade head` inside the backend container after
   rebuild, or drop + recreate the DB in dev.
 
+### Phase 4 — JWT Auth (2026-06-18)
+- [x] `backend/requirements.txt` — added `python-jose[cryptography]==3.3.0`, `passlib[bcrypt]==1.7.4`
+- [x] `backend/app/core/config.py` — added `SECRET_KEY`, `JWT_ALGORITHM`, `JWT_EXPIRE_MINUTES`
+- [x] `backend/app/core/security.py` — `hash_password`, `verify_password`, `create_access_token`, `decode_access_token`
+- [x] `backend/app/models/user.py` — added `password_hash: String(255) nullable=True`
+- [x] `backend/alembic/versions/0003_add_password_hash_to_users.py` — ADD COLUMN, chains 0002→0003, downgrade
+- [x] `backend/app/api/auth.py` — POST /auth/register (409 on dup email, 422 on short pw), POST /auth/login (401 for both bad cases — anti-enum)
+- [x] `backend/app/core/dependencies.py` — `get_current_user(Bearer token → User ORM row)`
+- [x] `backend/app/main.py` — auth router registered; `_seed_dev_user()` removed
+- [x] `backend/app/api/upload.py` — `DEV_SEED_USER_ID` replaced with `Depends(get_current_user)`
+- [x] `backend/app/api/transactions.py` — `user_id` query param replaced with `Depends(get_current_user)`; `id`/`user_id` now strings (UUID serialization fix)
+- [x] `backend/app/api/insights.py` — `user_id` query param replaced with `Depends(get_current_user)`
+- [x] `frontend/src/lib/api.ts` — `getToken/setToken/clearToken`, `getStoredUser/setStoredUser`, `authHeaders()`, `register()`, `login()`, `getTransactions()`/`getInsights()` no longer take `userId` param
+- [x] `frontend/src/app/login/page.tsx` — login+register toggle form, JWT stored to localStorage on success, redirects to /transactions
+- [x] `frontend/src/app/transactions/page.tsx` — redirects to /login if no token; logout button; SpendingChart wired
+- [x] `frontend/src/app/upload/page.tsx` — redirects to /login if no token; uses Bearer token in upload
+- [x] `frontend/src/app/page.tsx` — "Ekstre Yükle" nav replaced with "Başla" → /login
+- [x] `frontend/package.json` — added `recharts==^2.12.0`
+- [x] `frontend/src/components/SpendingChart.tsx` — debit-only category bar chart with per-category color coding, Turkish locale ₺ formatting
+- [x] `.env.example` — added `SECRET_KEY` placeholder
+
 ---
 
 ## Next Session — Start Here
 
-**Phase 4 goal:** JWT auth + real multi-user support + spending summary chart.
+**Phase 5 goal:** Email verification + password reset + spending trends over time.
 
 Exact next tasks:
-1. `backend/requirements.txt` — add `python-jose[cryptography]==3.3.0`, `passlib[bcrypt]==1.7.4`
-2. `backend/app/core/security.py` — JWT create/verify (HS256, SECRET_KEY from settings), bcrypt password hash/verify
-3. `backend/app/models/user.py` — add `password_hash: String(255) nullable=True` column
-4. `backend/alembic/versions/0003_add_password_hash_to_users.py` — migration
-5. `backend/app/api/auth.py` — POST /auth/register (create user, return JWT), POST /auth/login (verify password, return JWT)
-6. `backend/app/core/config.py` — add `SECRET_KEY: str` setting
-7. `backend/app/main.py` — register auth router; remove `_seed_dev_user()` when auth is wired
-8. Replace `DEV_SEED_USER_ID` in `upload.py` + `insights.py` with `Depends(get_current_user)`
-9. `frontend/src/app/login/page.tsx` — login + register form, stores JWT in localStorage
-10. `frontend/src/lib/api.ts` — add `Authorization: Bearer <token>` header when JWT present
-11. `frontend/src/components/SpendingChart.tsx` — category bar chart (recharts); add `recharts` to package.json
+1. Run `alembic upgrade head` inside backend container — applies migration 0003 (password_hash)
+2. `npm install` inside frontend container — installs recharts
+3. Test the full auth flow: register → login → upload → transactions → logout
+4. Phase 5: add `is_verified: bool` to User model, send verification email via SMTP, forgot-password flow
 
 Start prompt for new session:
 ```
-Read CLAUDE.md. Post-Phase-3 hardening complete. Start Phase 4: JWT auth.
-Add python-jose + passlib, create security.py, add password_hash to User model,
-migration 0003, POST /auth/register + POST /auth/login endpoints, then replace
-DEV_SEED_USER_ID with Depends(get_current_user) throughout.
-Follow WHAT/WHY/BREAKS IF REMOVED docstring convention.
+Read CLAUDE.md. Phase 4 JWT auth complete. Run alembic upgrade head + npm install first.
+Then start Phase 5: email verification (is_verified column, SMTP send on register)
+and forgot-password flow (one-time token table, email reset link).
 ```
 
 ---

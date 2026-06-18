@@ -6,10 +6,10 @@
  * BREAKS IF REMOVED: Users have no way to submit bank statements.
  */
 
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { uploadStatement, type UploadResponse } from "@/lib/api";
+import { uploadStatement, getStoredUser, type UploadResponse } from "@/lib/api";
 
 type UploadState = "idle" | "uploading" | "success" | "error";
 
@@ -20,6 +20,12 @@ export default function UploadPage() {
   const [result, setResult] = useState<UploadResponse | null>(null);
   const [errorMsg, setErrorMsg] = useState("");
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+
+  useEffect(() => {
+    if (!getStoredUser()) {
+      router.replace("/login");
+    }
+  }, [router]);
 
   const handleFile = useCallback((file: File) => {
     setSelectedFile(file);
@@ -62,7 +68,6 @@ export default function UploadPage() {
   return (
     <main className="min-h-screen bg-gray-950 text-white flex flex-col items-center justify-center px-4">
       <div className="w-full max-w-lg">
-        {/* Header */}
         <div className="mb-8">
           <Link href="/" className="text-gray-500 text-sm hover:text-gray-300 transition-colors">
             ← Mizan
@@ -73,7 +78,6 @@ export default function UploadPage() {
           </p>
         </div>
 
-        {/* Drop zone */}
         <div
           onDrop={handleDrop}
           onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
@@ -109,7 +113,6 @@ export default function UploadPage() {
           )}
         </div>
 
-        {/* Upload button */}
         <button
           onClick={handleUpload}
           disabled={!selectedFile || state === "uploading"}
@@ -118,7 +121,6 @@ export default function UploadPage() {
           {state === "uploading" ? "Yükleniyor..." : "Yükle ve Analiz Et"}
         </button>
 
-        {/* Success state */}
         {state === "success" && result && (
           <div className="mt-6 p-4 rounded-xl bg-emerald-950 border border-emerald-800">
             <p className="text-emerald-300 font-medium">{result.message}</p>
@@ -135,7 +137,6 @@ export default function UploadPage() {
           </div>
         )}
 
-        {/* Error state */}
         {state === "error" && (
           <div className="mt-6 p-4 rounded-xl bg-red-950 border border-red-800">
             <p className="text-red-300 font-medium">Hata</p>

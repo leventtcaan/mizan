@@ -56,10 +56,10 @@ export default function HomePage() {
 
       <div className="mt-12 flex gap-4">
         <Link
-          href="/upload"
+          href="/login"
           className="px-6 py-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 font-semibold text-sm transition-colors"
         >
-          Ekstre Yükle
+          Başla
         </Link>
         <Link
           href="/transactions"

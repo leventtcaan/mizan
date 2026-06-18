@@ -5,7 +5,6 @@ WHY: Gives the frontend a way to display categorized transactions after upload c
 BREAKS IF REMOVED: Frontend has no way to retrieve or manage transaction data.
 """
 
-import uuid
 import logging
 from datetime import date, datetime
 
@@ -14,6 +13,8 @@ from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_session
+from app.core.dependencies import get_current_user
+from app.models.user import User
 from app.services.transaction_service import (
     delete_batch,
     get_transactions_for_user,
@@ -25,16 +26,10 @@ router = APIRouter(prefix="/transactions", tags=["transactions"])
 
 
 class TransactionResponse(BaseModel):
-    """
-    WHAT: API representation of a single transaction row.
-    WHY: Decouples the ORM model from the HTTP contract — column renames in the ORM
-         don't silently change the API shape that frontend depends on.
-    """
-
-    id: uuid.UUID
-    user_id: uuid.UUID
+    id: str
+    user_id: str
     upload_batch_id: str | None
-    amount: str  # WHY: Decimal serializes as string to avoid JSON float precision loss
+    amount: str
     transaction_type: str
     description: str
     transaction_date: date
@@ -53,25 +48,23 @@ class DeleteBatchResponse(BaseModel):
 
 @router.get("", response_model=list[TransactionResponse])
 async def list_transactions(
-    user_id: uuid.UUID,
     all: bool = False,
+    current_user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
 ) -> list[TransactionResponse]:
     """
-    WHAT: Returns transactions for the given user.
+    WHAT: Returns transactions for the authenticated user.
            Default: latest upload batch only.
            ?all=true: every batch ever uploaded.
-    WHY: Showing all batches by default mixes stale test uploads with the current
-         statement — confusing for the user and noisy for the LLM coach.
-         ?all=true is available for debugging and future batch-management UI.
+    WHY: user_id comes from the JWT — the caller can only see their own transactions.
     BREAKS IF REMOVED: Frontend cannot display transaction history.
     """
-    transactions = await get_transactions_for_user(user_id, session, all_batches=all)
+    transactions = await get_transactions_for_user(current_user.id, session, all_batches=all)
 
     return [
         TransactionResponse(
-            id=t.id,
-            user_id=t.user_id,
+            id=str(t.id),
+            user_id=str(t.user_id),
             upload_batch_id=t.upload_batch_id,
             amount=str(t.amount),
             transaction_type=t.transaction_type,
@@ -88,22 +81,21 @@ async def list_transactions(
 @router.delete("/batch/{upload_batch_id}", response_model=DeleteBatchResponse)
 async def delete_upload_batch(
     upload_batch_id: str,
-    user_id: uuid.UUID,
+    current_user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
 ) -> DeleteBatchResponse:
     """
-    WHAT: Deletes all transactions from a specific upload batch for the given user.
-    WHY: user_id is required so the service layer enforces ownership — one user
-         cannot delete another user's batch even if they know the UUID.
-         Returns 404 if the batch does not exist or belongs to a different user.
+    WHAT: Deletes all transactions from a specific upload batch for the authenticated user.
+    WHY: Ownership is enforced by the service layer using current_user.id — not a query param
+         that an attacker could forge.
     BREAKS IF REMOVED: No way to undo a bad upload; stale data accumulates indefinitely.
     """
-    deleted = await delete_batch(upload_batch_id, user_id, session)
+    deleted = await delete_batch(upload_batch_id, current_user.id, session)
 
     if deleted == 0:
         raise HTTPException(
             status_code=404,
-            detail=f"No transactions found for batch {upload_batch_id} and user {user_id}.",
+            detail=f"No transactions found for batch {upload_batch_id}.",
         )
 
     return DeleteBatchResponse(
