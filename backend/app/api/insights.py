@@ -88,7 +88,7 @@ async def get_insights(
     # ── LLM call ──────────────────────────────────────────────────────────────
     logger.info("Generating insight — user_id=%s transactions=%d", user_id_str, len(transactions))
     provider = get_provider(task_type="coach")
-    insight_text = await generate_insight(transactions, provider)
+    insight_text = await generate_insight(transactions, provider, user_id=current_user.id, session=session)
 
     # ── Cache write ───────────────────────────────────────────────────────────
     if batch_id:

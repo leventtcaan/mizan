@@ -1,0 +1,18 @@
+- generic [active] [ref=e1]:
+  - main [ref=e2]:
+    - generic [ref=e3]:
+      - generic [ref=e4]:
+        - generic [ref=e5]:
+          - link "← Mizan" [ref=e6] [cursor=pointer]:
+            - /url: /
+          - heading "İşlemler" [level=1] [ref=e7]
+        - generic [ref=e8]:
+          - generic [ref=e9]: verify@example.com
+          - button "Çıkış" [ref=e10] [cursor=pointer]
+          - link "+ Ekstre Yükle" [ref=e11] [cursor=pointer]:
+            - /url: /upload
+      - generic [ref=e12]:
+        - paragraph [ref=e13]: Davranışsal Analiz
+        - paragraph [ref=e14]: Analiz yapılıyor...
+      - paragraph [ref=e15]: Yükleniyor...
+  - alert [ref=e16]

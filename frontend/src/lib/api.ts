@@ -91,6 +91,19 @@ export interface InsightResponse {
   cached: boolean;
 }
 
+export interface NoteResponse {
+  id: string;
+  transaction_id: string;
+  note_text: string;
+  created_at: string;
+}
+
+export interface CategoryPatchResponse {
+  id: string;
+  category: string;
+  old_category: string | null;
+}
+
 // --- API functions ---
 
 export async function checkHealth(): Promise<HealthResponse> {
@@ -154,4 +167,41 @@ export async function getInsights(): Promise<InsightResponse> {
   });
   if (!response.ok) throw new Error(`Failed to fetch insights: ${response.status}`);
   return response.json() as Promise<InsightResponse>;
+}
+
+export async function addNote(transactionId: string, noteText: string): Promise<NoteResponse> {
+  const response = await fetch(`${API_BASE_URL}/transactions/${transactionId}/notes`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...authHeaders() },
+    body: JSON.stringify({ note_text: noteText }),
+  });
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ detail: "Failed to save note" }));
+    throw new Error((error as { detail: string }).detail ?? "Failed to save note");
+  }
+  return response.json() as Promise<NoteResponse>;
+}
+
+export async function getNotes(transactionId: string): Promise<NoteResponse[]> {
+  const response = await fetch(`${API_BASE_URL}/transactions/${transactionId}/notes`, {
+    headers: authHeaders(),
+  });
+  if (!response.ok) throw new Error(`Failed to fetch notes: ${response.status}`);
+  return response.json() as Promise<NoteResponse[]>;
+}
+
+export async function correctCategory(
+  transactionId: string,
+  category: string,
+): Promise<CategoryPatchResponse> {
+  const response = await fetch(`${API_BASE_URL}/transactions/${transactionId}/category`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", ...authHeaders() },
+    body: JSON.stringify({ category }),
+  });
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ detail: "Failed to update category" }));
+    throw new Error((error as { detail: string }).detail ?? "Failed to update category");
+  }
+  return response.json() as Promise<CategoryPatchResponse>;
 }

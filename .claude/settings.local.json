@@ -1,0 +1,21 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(docker exec mizan-backend-1 *)",
+      "Bash(curl -s http://localhost:8000/health)",
+      "Bash(python3 -m json.tool)",
+      "Bash(curl -s http://localhost:8000/openapi.json)",
+      "Bash(python3 -c ' *)",
+      "Bash(docker exec *)",
+      "mcp__playwright__browser_navigate",
+      "mcp__playwright__browser_snapshot",
+      "mcp__playwright__browser_click",
+      "mcp__playwright__browser_fill_form",
+      "Bash(curl -s -X POST http://localhost:8000/auth/register -H \"Content-Type: application/json\" -d '{\"email\":\"verify@mizan.test\",\"password\":\"testpassword123\"}')",
+      "Bash(curl -s -X POST http://localhost:8000/auth/register -H \"Content-Type: application/json\" -d '{\"email\":\"verify@example.com\",\"password\":\"testpassword123\"}')",
+      "mcp__playwright__browser_evaluate",
+      "mcp__playwright__browser_take_screenshot",
+      "mcp__playwright__browser_type"
+    ]
+  }
+}

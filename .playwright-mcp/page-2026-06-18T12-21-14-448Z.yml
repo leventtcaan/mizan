@@ -1,0 +1,85 @@
+- generic [active] [ref=e1]:
+  - main [ref=e2]:
+    - generic [ref=e3]:
+      - generic [ref=e4]:
+        - generic [ref=e5]:
+          - link "← Mizan" [ref=e6] [cursor=pointer]:
+            - /url: /
+          - heading "İşlemler" [level=1] [ref=e7]
+          - paragraph [ref=e17]: 3 işlem bulundu
+        - generic [ref=e8]:
+          - generic [ref=e9]: verify@example.com
+          - button "Çıkış" [ref=e10] [cursor=pointer]
+          - link "+ Ekstre Yükle" [ref=e11] [cursor=pointer]:
+            - /url: /upload
+      - generic [ref=e12]:
+        - paragraph [ref=e13]: Davranışsal Analiz
+        - paragraph [ref=e18]: Baktığımda harcamalarının neredeyse tamamı markete gitmiş. Bu, düzenli ve planlı bir yaşamın işareti olabilir — ama arada teknolojiye yaptığın küçük kaçamak da dikkat çekiyor. Belki de o anlık bir ihtiyaçtan çok, kendine küçük bir ödül vermek istemiş olabilirsin. Sence bu hafta market harcamalarını biraz daha detaylı gözden geçirmek, o “ufak kaçamakların” keyfini daha bilinçli çıkarmana yardımcı olur mu?
+      - generic [ref=e19]:
+        - paragraph [ref=e20]: Kategoriye Göre Harcama (₺)
+        - img [ref=e23]:
+          - generic [ref=e25]:
+            - generic [ref=e27]: yemek
+            - generic [ref=e29]: teknoloji
+          - generic [ref=e31]:
+            - generic [ref=e33]: "0"
+            - generic [ref=e35]: "65"
+            - generic [ref=e37]: "130"
+            - generic [ref=e39]: "195"
+            - generic [ref=e41]: "260"
+      - table [ref=e49]:
+        - rowgroup [ref=e50]:
+          - row "Tarih Açıklama Tutar (₺) Kategori" [ref=e51]:
+            - columnheader "Tarih" [ref=e52]
+            - columnheader "Açıklama" [ref=e53]
+            - columnheader "Tutar (₺)" [ref=e54]
+            - columnheader "Kategori" [ref=e55]
+            - columnheader [ref=e56]
+        - rowgroup [ref=e57]:
+          - row "15 Haz 2026 Migros Market Alışverişi -250,00 — ▲" [ref=e58] [cursor=pointer]:
+            - cell "15 Haz 2026" [ref=e59]
+            - cell "Migros Market Alışverişi" [ref=e60]
+            - cell "-250,00" [ref=e61]
+            - cell "—" [ref=e62]:
+              - generic [ref=e63]: —
+            - cell "▲" [ref=e64]
+          - row "Kategoriyi Düzelt market restoran ulasim eglence saglik fatura giyim nakit_atm transfer iade vergi teknoloji diger Notlar Kaydet" [ref=e65]:
+            - cell "Kategoriyi Düzelt market restoran ulasim eglence saglik fatura giyim nakit_atm transfer iade vergi teknoloji diger Notlar Kaydet" [ref=e66]:
+              - generic [ref=e67]:
+                - generic [ref=e68]:
+                  - generic [ref=e69]: Kategoriyi Düzelt
+                  - generic [ref=e70]:
+                    - button "market" [ref=e71] [cursor=pointer]
+                    - button "restoran" [ref=e72] [cursor=pointer]
+                    - button "ulasim" [ref=e73] [cursor=pointer]
+                    - button "eglence" [ref=e74] [cursor=pointer]
+                    - button "saglik" [ref=e75] [cursor=pointer]
+                    - button "fatura" [ref=e76] [cursor=pointer]
+                    - button "giyim" [ref=e77] [cursor=pointer]
+                    - button "nakit_atm" [ref=e78] [cursor=pointer]
+                    - button "transfer" [ref=e79] [cursor=pointer]
+                    - button "iade" [ref=e80] [cursor=pointer]
+                    - button "vergi" [ref=e81] [cursor=pointer]
+                    - button "teknoloji" [ref=e82] [cursor=pointer]
+                    - button "diger" [ref=e83] [cursor=pointer]
+                - generic [ref=e84]:
+                  - generic [ref=e85]: Notlar
+                  - generic [ref=e87]:
+                    - textbox "Not ekle... (Enter ile kaydet)" [ref=e88]
+                    - button "Kaydet" [disabled] [ref=e89]
+          - row "14 Haz 2026 Netflix Aboneliği -89,90 Teknoloji ▼" [ref=e90] [cursor=pointer]:
+            - cell "14 Haz 2026" [ref=e91]
+            - cell "Netflix Aboneliği" [ref=e92]
+            - cell "-89,90" [ref=e93]
+            - cell "Teknoloji" [ref=e94]:
+              - generic [ref=e95]: Teknoloji
+            - cell "▼" [ref=e96]
+          - row "10 Haz 2026 Maaş Yatırması +1.500,00 Transfer ▼" [ref=e97] [cursor=pointer]:
+            - cell "10 Haz 2026" [ref=e98]
+            - cell "Maaş Yatırması" [ref=e99]
+            - cell "+1.500,00" [ref=e100]
+            - cell "Transfer" [ref=e101]:
+              - generic [ref=e102]: Transfer
+            - cell "▼" [ref=e103]
+  - alert [ref=e16]
+  - generic [ref=e104]: "0"

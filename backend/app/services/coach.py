@@ -1,16 +1,14 @@
-"""
-WHAT: Behavioral coaching engine — analyzes categorized transactions and returns
-      an insight string explaining the user's spending psychology in Turkish.
-WHY: This is Mizan's core differentiator. Every other finance app shows pie charts;
-     Mizan explains WHY the user spends how they spend.
-BREAKS IF REMOVED: GET /insights returns no coaching; app is just a transaction viewer.
-"""
-
 import logging
+import uuid
 from collections import Counter
 from decimal import Decimal
 
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
 from app.models.transaction import Transaction
+from app.models.transaction_note import TransactionNote
+from app.models.user_correction import UserCorrection
 from app.services.llm_provider import LLMProvider
 
 logger = logging.getLogger(__name__)
@@ -36,17 +34,12 @@ Kategori dağılımı:
 En yüksek harcama kategorisi: {top_category}
 Toplam harcama: {total_spend} ₺
 Toplam gelir: {total_income} ₺
-
+{corrections_section}{notes_section}
 Bu kullanıcının harcama davranışı hakkında kısa bir koçluk yorumu yaz.
 """
 
 
 def _build_distribution(transactions: list[Transaction]) -> dict[str, Decimal]:
-    """
-    WHAT: Aggregates total spend per category from a list of transactions.
-    WHY: LLM performs better with aggregated numbers than a raw transaction list —
-         it focuses on patterns, not noise.
-    """
     totals: dict[str, Decimal] = {}
     for t in transactions:
         if t.transaction_type == "debit":
@@ -55,16 +48,65 @@ def _build_distribution(transactions: list[Transaction]) -> dict[str, Decimal]:
     return totals
 
 
+async def _fetch_corrections_context(user_id: uuid.UUID, session: AsyncSession) -> str:
+    """Returns top-5 most-corrected categories as a context string for the prompt."""
+    result = await session.execute(
+        select(UserCorrection)
+        .where(UserCorrection.user_id == user_id)
+        .order_by(UserCorrection.created_at.desc())
+        .limit(20)
+    )
+    corrections = result.scalars().all()
+    if not corrections:
+        return ""
+
+    pairs = Counter(
+        (c.old_category or "bilinmiyor", c.new_category) for c in corrections
+    )
+    top = pairs.most_common(5)
+    lines = "\n".join(
+        f"  '{old}' → '{new}' ({cnt} kez)" for (old, new), cnt in top
+    )
+    return f"\nKullanıcının düzelttiği kategoriler (AI hataları):\n{lines}\n"
+
+
+async def _fetch_notes_context(
+    transactions: list[Transaction],
+    user_id: uuid.UUID,
+    session: AsyncSession,
+) -> str:
+    """Returns user notes on the visible transactions, max 10 most recent."""
+    tx_ids = [t.id for t in transactions]
+    if not tx_ids:
+        return ""
+
+    result = await session.execute(
+        select(TransactionNote)
+        .where(
+            TransactionNote.transaction_id.in_(tx_ids),
+            TransactionNote.user_id == user_id,
+        )
+        .order_by(TransactionNote.created_at.desc())
+        .limit(10)
+    )
+    notes = result.scalars().all()
+    if not notes:
+        return ""
+
+    tx_map = {t.id: t.description for t in transactions}
+    lines = "\n".join(
+        f"  [{tx_map.get(n.transaction_id, '?')[:40]}]: {n.note_text}"
+        for n in notes
+    )
+    return f"\nKullanıcının işlem notları:\n{lines}\n"
+
+
 async def generate_insight(
     transactions: list[Transaction],
     provider: LLMProvider,
+    user_id: uuid.UUID | None = None,
+    session: AsyncSession | None = None,
 ) -> str:
-    """
-    WHAT: Builds a spending summary and calls the LLM to produce a coaching insight.
-    WHY: Summarizing before calling the LLM reduces token count and focuses the model
-         on behavioral patterns rather than individual transactions.
-    BREAKS IF REMOVED: GET /insights has no text to return.
-    """
     if not transactions:
         return "Henüz analiz edilecek işlem yok. Bir banka ekstresi yükleyin."
 
@@ -82,18 +124,23 @@ async def generate_insight(
         for cat, amount in sorted(distribution.items(), key=lambda x: x[1], reverse=True)
     )
 
+    corrections_section = ""
+    notes_section = ""
+    if user_id is not None and session is not None:
+        corrections_section = await _fetch_corrections_context(user_id, session)
+        notes_section = await _fetch_notes_context(transactions, user_id, session)
+
     prompt = _COACH_USER_TEMPLATE.format(
         count=len(transactions),
         distribution=dist_lines or "  Veri yok",
         top_category=top_category,
         total_spend=f"{total_spend:.2f}",
         total_income=f"{total_income:.2f}",
+        corrections_section=corrections_section,
+        notes_section=notes_section,
     )
 
     try:
-        # WHY: Temporarily override system prompt with coaching persona.
-        # provider.complete() uses the categorization system prompt by default;
-        # we pass the coach prompt via a direct client call to keep separation clean.
         insight = _call_with_coach_prompt(provider, prompt)
         logger.info("Coaching insight generated — %d chars", len(insight))
         return insight
@@ -103,19 +150,12 @@ async def generate_insight(
 
 
 def _call_with_coach_prompt(provider: LLMProvider, user_prompt: str) -> str:
-    """
-    WHAT: Calls the underlying OpenAI-compatible client with the coach system prompt.
-    WHY: provider.complete() hardcodes the categorization system prompt (circular import
-         from categorizer.py). Coach needs a different system prompt, so we call the
-         client directly via the provider's internal client attribute.
-    BREAKS IF REMOVED: Coaching insight uses the wrong system prompt (categorization).
-    """
     response = provider.client.chat.completions.create(
         model=provider.model,
         messages=[
             {"role": "system", "content": _COACH_SYSTEM_PROMPT},
             {"role": "user", "content": user_prompt},
         ],
-        temperature=0.7,  # WHY: Higher temperature for coaching — more human, less robotic
+        temperature=0.7,
     )
     return response.choices[0].message.content or ""

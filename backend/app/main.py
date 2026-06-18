@@ -11,14 +11,18 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.auth import router as auth_router
+from app.api.corrections import router as corrections_router
 from app.api.insights import router as insights_router
+from app.api.notes import router as notes_router
 from app.api.transactions import router as transactions_router
 from app.api.upload import router as upload_router
 from app.core.config import settings
 from app.core.database import engine
 from app.models.user import Base
 from app.models.transaction import Transaction  # noqa: F401 — registers table in metadata
+from app.models.transaction_note import TransactionNote  # noqa: F401 — registers table in metadata
 from app.models.upload_insight import UploadInsight  # noqa: F401 — registers table in metadata
+from app.models.user_correction import UserCorrection  # noqa: F401 — registers table in metadata
 
 logging.basicConfig(
     level=logging.INFO,
@@ -69,6 +73,8 @@ app.add_middleware(
 app.include_router(auth_router)
 app.include_router(upload_router)
 app.include_router(transactions_router)
+app.include_router(notes_router)
+app.include_router(corrections_router)
 app.include_router(insights_router)
 
 
