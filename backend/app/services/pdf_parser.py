@@ -66,7 +66,7 @@ _SKIP_KEYWORDS = {
 # WHY: PDF footers repeat running totals as labelled lines (e.g. "Borç: 1.234,56 TL").
 # These have a date-like format on the same row sometimes, so _SKIP_KEYWORDS alone
 # doesn't catch them — the label appears in the description, not the line start.
-_SUMMARY_DESCRIPTION_FRAGMENTS = ("borç:", "alacak:", "toplam", "bakiye")
+_SUMMARY_DESCRIPTION_FRAGMENTS = ("borç:", "alacak:", "toplam", "bakiye", "bekleyen işlemler")
 
 # WHY: 500,000 TRY is an implausibly high single transaction for a retail banking user.
 # OCR misreads (e.g. "1" → "7", or merged columns) routinely produce these.
@@ -534,6 +534,9 @@ def _parse_csv(contents: bytes) -> ParseResult:
         line = " ".join(cell.strip() for cell in row)
         transactions.extend(_extract_with_regex(line))
 
+    transactions = _deduplicate(transactions)
+    transactions = _filter_zero_amount(transactions)
+    transactions = _apply_sign_correction(transactions)
     logger.info("CSV parse complete — %d raw rows, %d transactions", raw_row_count, len(transactions))
     return ParseResult(
         transactions=transactions,

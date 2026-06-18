@@ -49,12 +49,15 @@ export default function SpendingChart({ transactions }: Props) {
         Kategoriye Göre Harcama (₺)
       </p>
       <ResponsiveContainer width="100%" height={220}>
-        <BarChart data={data} margin={{ top: 0, right: 8, left: 8, bottom: 0 }}>
+        <BarChart data={data} margin={{ top: 0, right: 8, left: 8, bottom: 40 }}>
           <XAxis
             dataKey="label"
             tick={{ fill: "#9ca3af", fontSize: 11 }}
             axisLine={false}
             tickLine={false}
+            angle={-35}
+            textAnchor="end"
+            interval={0}
           />
           <YAxis
             tick={{ fill: "#6b7280", fontSize: 10 }}

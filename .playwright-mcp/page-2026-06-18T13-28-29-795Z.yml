@@ -1,0 +1,24 @@
+- generic [active] [ref=e1]:
+  - main [ref=e2]:
+    - generic [ref=e3]:
+      - generic [ref=e4]:
+        - generic [ref=e5]:
+          - link "← Mizan" [ref=e6] [cursor=pointer]:
+            - /url: /
+          - heading "Ekstre Yükle" [level=1] [ref=e7]
+          - paragraph [ref=e8]: PDF veya CSV formatındaki banka ekstrenizi yükleyin.
+        - generic [ref=e9]:
+          - generic [ref=e10]: verify@example.com
+          - button "Çıkış" [ref=e11] [cursor=pointer]
+          - link "İşlemler" [ref=e12] [cursor=pointer]:
+            - /url: /transactions
+          - link "İlerleme" [ref=e13] [cursor=pointer]:
+            - /url: /progress
+      - generic [ref=e14] [cursor=pointer]:
+        - generic [ref=e15]: 📄
+        - generic [ref=e16]:
+          - paragraph [ref=e17]: Dosyayı buraya sürükleyin
+          - paragraph [ref=e18]: veya seçmek için tıklayın
+          - paragraph [ref=e19]: PDF · CSV · Maks 10 MB
+      - button "Yükle ve Analiz Et" [disabled] [ref=e20]
+  - alert [ref=e21]

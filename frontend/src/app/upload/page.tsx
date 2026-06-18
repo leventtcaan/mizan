@@ -9,7 +9,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { uploadStatement, getStoredUser, type UploadResponse } from "@/lib/api";
+import { uploadStatement, getStoredUser, clearToken, type UploadResponse } from "@/lib/api";
 
 type UploadState = "idle" | "uploading" | "success" | "error";
 
@@ -20,12 +20,15 @@ export default function UploadPage() {
   const [result, setResult] = useState<UploadResponse | null>(null);
   const [errorMsg, setErrorMsg] = useState("");
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [userEmail, setUserEmail] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!getStoredUser()) {
-      router.replace("/login");
-    }
+    const user = getStoredUser();
+    if (!user) { router.replace("/login"); return; }
+    setUserEmail(user.email);
   }, [router]);
+
+  const handleLogout = () => { clearToken(); router.push("/login"); };
 
   const handleFile = useCallback((file: File) => {
     setSelectedFile(file);
@@ -66,16 +69,41 @@ export default function UploadPage() {
   }, [selectedFile]);
 
   return (
-    <main className="min-h-screen bg-gray-950 text-white flex flex-col items-center justify-center px-4">
-      <div className="w-full max-w-lg">
-        <div className="mb-8">
-          <Link href="/" className="text-gray-500 text-sm hover:text-gray-300 transition-colors">
-            ← Mizan
-          </Link>
-          <h1 className="text-3xl font-bold mt-4">Ekstre Yükle</h1>
-          <p className="text-gray-400 mt-1 text-sm">
-            PDF veya CSV formatındaki banka ekstrenizi yükleyin.
-          </p>
+    <main className="min-h-screen bg-gray-950 text-white px-4 py-10">
+      <div className="max-w-lg mx-auto">
+        <div className="flex items-center justify-between mb-8">
+          <div>
+            <Link href="/" className="text-gray-500 text-sm hover:text-gray-300 transition-colors">
+              ← Mizan
+            </Link>
+            <h1 className="text-3xl font-bold mt-4">Ekstre Yükle</h1>
+            <p className="text-gray-400 mt-1 text-sm">
+              PDF veya CSV formatındaki banka ekstrenizi yükleyin.
+            </p>
+          </div>
+          <div className="flex items-center gap-3">
+            {userEmail && (
+              <span className="text-gray-500 text-xs hidden sm:block">{userEmail}</span>
+            )}
+            <button
+              onClick={handleLogout}
+              className="px-3 py-1.5 rounded-lg bg-gray-800 hover:bg-gray-700 text-sm text-gray-300 transition-colors"
+            >
+              Çıkış
+            </button>
+            <Link
+              href="/transactions"
+              className="px-3 py-1.5 rounded-lg bg-gray-800 hover:bg-gray-700 text-sm text-gray-300 transition-colors"
+            >
+              İşlemler
+            </Link>
+            <Link
+              href="/progress"
+              className="px-3 py-1.5 rounded-lg bg-gray-800 hover:bg-gray-700 text-sm text-gray-300 transition-colors"
+            >
+              İlerleme
+            </Link>
+          </div>
         </div>
 
         <div
