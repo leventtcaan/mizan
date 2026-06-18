@@ -14,6 +14,7 @@ const CATEGORIES = [
 
 interface TransactionTableProps {
   transactions: Transaction[];
+  onCategoryCorrection?: (txId: string, newCategory: string) => void;
 }
 
 function formatAmount(amount: string, type: string): string {
@@ -38,7 +39,7 @@ interface RowState {
   error: string | null;
 }
 
-export default function TransactionTable({ transactions }: TransactionTableProps) {
+export default function TransactionTable({ transactions, onCategoryCorrection }: TransactionTableProps) {
   const [rows, setRows] = useState<Record<string, RowState>>(() => {
     const init: Record<string, RowState> = {};
     for (const t of transactions) {
@@ -67,6 +68,7 @@ export default function TransactionTable({ transactions }: TransactionTableProps
     try {
       await correctCategory(id, newCat);
       setRows((prev) => ({ ...prev, [id]: { ...prev[id], category: newCat, saving: false } }));
+      onCategoryCorrection?.(id, newCat);
     } catch (err) {
       setRows((prev) => ({
         ...prev,

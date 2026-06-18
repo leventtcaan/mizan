@@ -212,15 +212,32 @@ When context reaches ~70% capacity:
 
 ## Current Status
 
-**MVP WORKING. Phases 1–6 complete.** 3 banks tested (Ziraat, VakıfBank, Yapı Kredi). JWT auth, OCR pipeline, LLM categorization + coaching, insight cache, rate limiting, spending chart — all live.
+**Phases 1–7 complete.** Chat interface (transaction notes), behavioral vector (category corrections), and insight cache invalidation all live. 3 banks tested (Ziraat, VakıfBank, Yapı Kredi).
 
-Full stack: register/login → JWT → upload (rate-limited) → 3-layer OCR → LLM extract → OCR description cleanup → dedup → zero-amount filter → persist → LLM categorize (13 categories) → insight cache check → LLM coach (if miss) → spending chart → frontend display.
+Full stack: register/login → JWT → upload (rate-limited) → 3-layer OCR → LLM extract → OCR description cleanup → dedup → zero-amount filter → persist → LLM categorize (13 categories) → insight cache check → LLM coach with behavioral context (corrections + notes injected) → spending chart → frontend display. Category correction invalidates insight cache → next /insights call regenerates with fresh behavioral context.
 
 ### Known Issues (open)
 - **Layer 3 vision LLM**: stub ready, not wired. Needed for banks with fonts <8pt (some Ziraat mobile PDFs still misread at 400 DPI even after OCR post-processing).
 - **Rate limiter is in-memory**: resets on backend restart. Redis needed for production multi-process deployment.
 - **Migration drift in dev**: `create_all` adds base schema but not Alembic migrations. Must run `alembic upgrade head` in backend container after any fresh DB creation.
 - **Insight cache `generated_at` timezone**: SQLite would return naive datetime; PostgreSQL returns tz-aware. Code uses `.replace(tzinfo=timezone.utc)` as safety — harmless on Postgres but check if switching DBs.
+
+### Phase 7 — Chat Interface + Behavioral Vector (2026-06-18)
+- [x] `backend/app/models/transaction_note.py` — TransactionNote table: id UUID, transaction_id FK CASCADE, user_id FK CASCADE, note_text Text, created_at tz-aware
+- [x] `backend/app/models/user_correction.py` — UserCorrection table: id UUID, transaction_id FK CASCADE, user_id FK CASCADE, old_category nullable, new_category, created_at tz-aware
+- [x] `backend/alembic/versions/0005_create_transaction_notes.py` — chains 0004→0005, has downgrade
+- [x] `backend/alembic/versions/0006_create_user_corrections.py` — chains 0005→0006, has downgrade
+- [x] `backend/app/api/notes.py` — POST /transactions/{id}/notes (201), GET /transactions/{id}/notes; ownership check via transaction FK; busts insight cache on POST
+- [x] `backend/app/api/corrections.py` — PATCH /transactions/{id}/category; VALID_CATEGORIES set (13); no-op if same→same; writes UserCorrection row + updates transaction; busts insight cache
+- [x] `backend/app/services/transaction_service.py` — `bust_insight_cache(user_id, session)` deletes UploadInsight row for user's latest batch; called by notes + corrections
+- [x] `backend/app/services/coach.py` — `generate_insight()` accepts optional `user_id` + `session`; `_fetch_corrections_context()` top-5 correction pairs (Counter); `_fetch_notes_context()` last-10 notes for visible transactions; both injected into coach prompt
+- [x] `backend/app/api/insights.py` — passes `user_id` + `session` to `generate_insight()`
+- [x] `backend/app/main.py` — notes_router + corrections_router registered; TransactionNote + UserCorrection imported for create_all
+- [x] `frontend/src/lib/api.ts` — `addNote()`, `getNotes()`, `correctCategory()`; `NoteResponse` + `CategoryPatchResponse` types; `extractErrorMessage()` helper normalizes string/array Pydantic detail field
+- [x] `frontend/src/components/NoteInput.tsx` — textarea + Kaydet button; Enter to submit; disabled when empty; optimistic note list display
+- [x] `frontend/src/components/TransactionTable.tsx` — click-to-expand rows; inline category chip picker (13 categories, current highlighted); NoteInput per row; `onCategoryCorrection` callback prop lifts correction to parent
+- [x] `frontend/src/app/transactions/page.tsx` — `handleCategoryCorrection` updates `transactions` state → SpendingChart re-renders with corrected category instantly
+- [x] `frontend/src/app/login/page.tsx` — error display uses `extractErrorMessage` via api.ts throw; no longer shows "[object Object]" for Pydantic validation arrays
 
 ### Phase 6 — Insight Cache + Rate Limiting (2026-06-18)
 - [x] `backend/app/core/rate_limiter.py` — `RateLimiter` sliding-window, thread-safe (Lock); singletons: `insight_limiter` (10/hr/user), `upload_user_limiter` (5/day/user), `upload_ip_limiter` (3/10min/IP)
@@ -264,46 +281,33 @@ Full stack: register/login → JWT → upload (rate-limited) → 3-layer OCR →
 
 ## Next Session — Start Here
 
-**Next goal: chat interface + behavioral vector (highest ROI backlog item)**
+**Next goal: month-over-month comparison (next highest ROI backlog item)**
 
-Pre-flight: run inside backend container:
+Pre-flight (fresh DB or new machine):
 ```
-alembic upgrade head   # applies 0003 + 0004
-pip install -r requirements.txt   # bcrypt 4.0.1, email-validator
-```
-Run inside frontend container:
-```
-npm install   # recharts
+# backend container
+alembic upgrade head   # applies through 0006
+pip install -r requirements.txt
 ```
 
-Chat interface tasks:
-1. `backend/app/models/transaction_note.py` — `TransactionNote` table: id, transaction_id FK, user_id FK, note_text, created_at
-2. `backend/alembic/versions/0005_create_transaction_notes.py`
-3. `backend/app/api/notes.py` — POST /transactions/{id}/notes, GET /transactions/{id}/notes
-4. `backend/app/services/coach.py` — include per-transaction notes in coaching prompt context
-5. `frontend/src/app/transactions/page.tsx` — inline note input per row (click to expand)
-6. `frontend/src/components/NoteInput.tsx` — textarea + save button, optimistic update
-
-Behavioral vector tasks (after chat):
-7. `backend/app/models/user_correction.py` — UserCorrection: transaction_id, old_category, new_category, created_at
-8. `backend/alembic/versions/0006_create_user_corrections.py`
-9. `backend/app/api/corrections.py` — PATCH /transactions/{id}/category (saves correction + updates transaction)
-10. `backend/app/services/coach.py` — fetch top-5 corrections for user, prepend to coach prompt as behavioral context
+Month-over-month tasks:
+1. `backend/app/api/transactions.py` — add GET /transactions/summary?months=3 → aggregate debit totals by (category, year-month); return list[{month, category, total}]
+2. `frontend/src/lib/api.ts` — add `getTransactionSummary(months)` + `MonthlySummary` type
+3. `frontend/src/components/MonthlyChart.tsx` — grouped bar chart by month (recharts BarChart, one bar per category, x-axis = month)
+4. `frontend/src/app/transactions/page.tsx` — fetch summary alongside transactions; render MonthlyChart below SpendingChart if ≥2 months of data exist
 
 Start prompt:
 ```
-Read CLAUDE.md. MVP complete — Phases 1–6 done, 3 banks working (Ziraat, VakıfBank, Yapı Kredi).
-Start next goal: chat interface (transaction notes) + behavioral vector (category corrections).
-Build TransactionNote model + migration 0005, then POST/GET /transactions/{id}/notes endpoints,
-then wire notes into coach.py prompt context. Then UserCorrection model + PATCH /transactions/{id}/category.
+Read CLAUDE.md. Phases 1–7 done. Start month-over-month comparison.
+Add GET /transactions/summary endpoint aggregating debit totals by (category, year-month).
+Build MonthlyChart frontend component. Wire into transactions page.
 ```
 
 ---
 
 ## Backlog (post-MVP, priority order)
 
-1. **Chat interface + behavioral vector** — inline transaction notes + category correction history; both feed coach prompt for personalized analysis [NEXT]
-2. **Month-over-month comparison** — `transaction_date` already in DB; aggregate by month, compute delta, show trend line on SpendingChart
+1. **Month-over-month comparison** [NEXT] — `transaction_date` already in DB; aggregate by month, compute delta, show trend line on SpendingChart
 3. **Manual transaction entry** — POST /transactions with amount/description/date/type; same categorize → coach pipeline
 4. **Multi-statement management** — date-range index; overlapping upload detection; user sees "period already uploaded" warning; dedup by (date, amount, description)
 5. **Goal setting** — user sets monthly budget per category; coach compares actuals to goals

@@ -43,6 +43,20 @@ export function setStoredUser(user: StoredUser): void {
   localStorage.setItem("mizan_user", JSON.stringify(user));
 }
 
+// --- Helper: normalize FastAPI error detail (string or Pydantic validation array) ---
+
+function extractErrorMessage(body: unknown, fallback: string): string {
+  if (!body || typeof body !== "object") return fallback;
+  const detail = (body as { detail?: unknown }).detail;
+  if (!detail) return fallback;
+  if (typeof detail === "string") return detail;
+  if (Array.isArray(detail) && detail.length > 0) {
+    const first = detail[0] as { msg?: string };
+    return first?.msg ?? fallback;
+  }
+  return fallback;
+}
+
 // --- Helper: authenticated fetch ---
 
 function authHeaders(): Record<string, string> {
@@ -119,8 +133,8 @@ export async function register(email: string, password: string): Promise<TokenRe
     body: JSON.stringify({ email, password }),
   });
   if (!response.ok) {
-    const error = await response.json().catch(() => ({ detail: "Registration failed" }));
-    throw new Error((error as { detail: string }).detail ?? "Registration failed");
+    const body = await response.json().catch(() => null);
+    throw new Error(extractErrorMessage(body, "Kayıt başarısız oldu"));
   }
   return response.json() as Promise<TokenResponse>;
 }
@@ -132,8 +146,8 @@ export async function login(email: string, password: string): Promise<TokenRespo
     body: JSON.stringify({ email, password }),
   });
   if (!response.ok) {
-    const error = await response.json().catch(() => ({ detail: "Login failed" }));
-    throw new Error((error as { detail: string }).detail ?? "Login failed");
+    const body = await response.json().catch(() => null);
+    throw new Error(extractErrorMessage(body, "Giriş başarısız oldu"));
   }
   return response.json() as Promise<TokenResponse>;
 }

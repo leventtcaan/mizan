@@ -12,6 +12,7 @@ from app.core.dependencies import get_current_user
 from app.models.transaction import Transaction
 from app.models.transaction_note import TransactionNote
 from app.models.user import User
+from app.services.transaction_service import bust_insight_cache
 
 logger = logging.getLogger(__name__)
 
@@ -76,6 +77,7 @@ async def add_note(
         note_text=body.note_text,
     )
     session.add(note)
+    await bust_insight_cache(current_user.id, session)
     await session.commit()
     await session.refresh(note)
 

@@ -15,7 +15,8 @@
       "Bash(curl -s -X POST http://localhost:8000/auth/register -H \"Content-Type: application/json\" -d '{\"email\":\"verify@example.com\",\"password\":\"testpassword123\"}')",
       "mcp__playwright__browser_evaluate",
       "mcp__playwright__browser_take_screenshot",
-      "mcp__playwright__browser_type"
+      "mcp__playwright__browser_type",
+      "Bash(curl -s -X POST http://localhost:8000/auth/register -H 'Content-Type: application/json' -d '{\"email\":\"bad@example.test\",\"password\":\"x\"}')"
     ]
   }
 }

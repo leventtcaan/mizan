@@ -15,6 +15,7 @@ from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.transaction import Transaction
+from app.models.upload_insight import UploadInsight
 from app.services.pdf_parser import RawTransaction
 
 logger = logging.getLogger(__name__)
@@ -169,6 +170,24 @@ async def get_latest_batch_id(
         .limit(1)
     )
     return result.scalar_one_or_none()
+
+
+async def bust_insight_cache(user_id: uuid.UUID, session: AsyncSession) -> None:
+    """
+    WHAT: Deletes the cached coaching insight for the user's current batch.
+    WHY: Called after a category correction or note is saved so the next /insights
+         request regenerates with fresh behavioral context (corrections + notes
+         are already injected into the coach prompt by coach.py).
+    BREAKS IF REMOVED: Insight cache never reflects user corrections/notes added
+         after the initial upload insight was generated.
+    """
+    batch_id = await get_latest_batch_id(user_id, session)
+    if batch_id is None:
+        return
+    await session.execute(
+        delete(UploadInsight).where(UploadInsight.upload_batch_id == batch_id)
+    )
+    logger.info("Insight cache busted — user_id=%s batch_id=%s", user_id, batch_id)
 
 
 async def delete_batch(

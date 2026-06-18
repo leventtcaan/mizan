@@ -35,10 +35,17 @@ export default function TransactionsPage() {
       .then((data) => { setTransactions(data); setTxState("ready"); })
       .catch(() => setTxState("error"));
 
+
     getInsights()
       .then((data) => { setInsight(data); setInsightState("ready"); })
       .catch(() => setInsightState("error"));
   }, []);
+
+  const handleCategoryCorrection = (txId: string, newCategory: string) => {
+    setTransactions((prev) =>
+      prev.map((t) => (t.id === txId ? { ...t, category: newCategory } : t))
+    );
+  };
 
   const handleLogout = () => {
     clearToken();
@@ -104,7 +111,12 @@ export default function TransactionsPage() {
             İşlemler yüklenemedi. Backend bağlantısını kontrol edin.
           </p>
         )}
-        {txState === "ready" && <TransactionTable transactions={transactions} />}
+        {txState === "ready" && (
+          <TransactionTable
+            transactions={transactions}
+            onCategoryCorrection={handleCategoryCorrection}
+          />
+        )}
       </div>
     </main>
   );
