@@ -518,6 +518,14 @@ def _deduplicate(transactions: list[RawTransaction]) -> list[RawTransaction]:
     return result
 
 
+def _filter_zero_amount(transactions: list[RawTransaction]) -> list[RawTransaction]:
+    result = [t for t in transactions if abs(float(t.amount)) >= 0.01]
+    removed = len(transactions) - len(result)
+    if removed:
+        logger.warning("Filtered %d zero-amount artifact(s)", removed)
+    return result
+
+
 # WHY: These keywords appear in the raw description (from OCR or LLM) and override
 # the generic _infer_type_from_line heuristic. Checked case-insensitively.
 _EXPENSE_KEYWORDS = {"pos alışveriş", "sanal pos", "atm p.ç"}
@@ -564,5 +572,6 @@ def _parse_text(text: str, layer: str) -> tuple[list[RawTransaction], str]:
         source = "regex"
 
     transactions = _deduplicate(transactions)
+    transactions = _filter_zero_amount(transactions)
     transactions = _apply_sign_correction(transactions)
     return transactions, source
