@@ -14,6 +14,7 @@ from app.api.auth import router as auth_router
 from app.api.corrections import router as corrections_router
 from app.api.insights import router as insights_router
 from app.api.notes import router as notes_router
+from app.api.progress import router as progress_router
 from app.api.transactions import router as transactions_router
 from app.api.upload import router as upload_router
 from app.core.config import settings
@@ -76,6 +77,7 @@ app.include_router(transactions_router)
 app.include_router(notes_router)
 app.include_router(corrections_router)
 app.include_router(insights_router)
+app.include_router(progress_router)
 
 
 @app.get("/health")

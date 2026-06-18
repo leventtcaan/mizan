@@ -1,0 +1,19 @@
+- generic [active] [ref=e1]:
+  - main [ref=e2]:
+    - generic [ref=e3]:
+      - generic [ref=e4]:
+        - generic [ref=e5]:
+          - link "← İşlemler" [ref=e6] [cursor=pointer]:
+            - /url: /transactions
+          - heading "İlerleme" [level=1] [ref=e7]
+          - paragraph [ref=e8]: Aylık harcama trendi ve karşılaştırma
+        - generic [ref=e9]:
+          - generic [ref=e10]: verify@example.com
+          - button "Çıkış" [ref=e11] [cursor=pointer]
+      - generic [ref=e12]:
+        - paragraph [ref=e13]: Aylık Trend (Son 3 Ay)
+        - paragraph [ref=e14]: Yükleniyor...
+      - generic [ref=e15]:
+        - paragraph [ref=e16]: Kategori Karşılaştırması
+        - paragraph [ref=e17]: Analiz yapılıyor...
+  - alert [ref=e18]

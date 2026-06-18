@@ -212,9 +212,9 @@ When context reaches ~70% capacity:
 
 ## Current Status
 
-**Phases 1–7 complete.** Chat interface (transaction notes), behavioral vector (category corrections), and insight cache invalidation all live. 3 banks tested (Ziraat, VakıfBank, Yapı Kredi).
+**Phases 1–8 complete.** Chat interface, behavioral vector, month-over-month progress tracking all live. 3 banks tested (Ziraat, VakıfBank, Yapı Kredi).
 
-Full stack: register/login → JWT → upload (rate-limited) → 3-layer OCR → LLM extract → OCR description cleanup → dedup → zero-amount filter → persist → LLM categorize (13 categories) → insight cache check → LLM coach with behavioral context (corrections + notes injected) → spending chart → frontend display. Category correction invalidates insight cache → next /insights call regenerates with fresh behavioral context.
+Full stack: register/login → JWT → upload (rate-limited) → 3-layer OCR → LLM extract → OCR description cleanup → dedup → zero-amount filter → persist → LLM categorize (13 categories) → insight cache check → LLM coach with behavioral context (corrections + notes injected) → spending chart + progress page (LineChart trend + category comparison with LLM one-liners) → frontend display. Category correction/note invalidates insight cache → regenerates with fresh behavioral context.
 
 ### Known Issues (open)
 - **Layer 3 vision LLM**: stub ready, not wired. Needed for banks with fonts <8pt (some Ziraat mobile PDFs still misread at 400 DPI even after OCR post-processing).
@@ -277,11 +277,21 @@ Full stack: register/login → JWT → upload (rate-limited) → 3-layer OCR →
 - [x] `frontend/src/components/SpendingChart.tsx` — debit-only bar chart, per-category colors, Turkish ₺ locale
 - [x] `.env.example` — `SECRET_KEY` placeholder
 
+### Phase 8 — Month-over-Month Progress Tracking (2026-06-18)
+- [x] `backend/app/api/progress.py` — GET /insights/progress (3 months of totals, Python-side aggregation, no date_trunc); GET /insights/comparison (this vs last month per category, LLM one-liner per category); both JWT-protected; router prefix="/insights"
+- [x] `backend/app/main.py` — progress_router registered
+- [x] `frontend/src/lib/api.ts` — `getProgress()`, `getComparison()`; `MonthlyTotal`, `ProgressResponse`, `CategoryTrend`, `ComparisonResponse` types
+- [x] `frontend/src/app/progress/page.tsx` — auth-guarded; recharts LineChart (Harcama red, Gelir green, 3-month x-axis with Turkish month labels); category comparison table (Kategori/Geçen Ay/Bu Ay/Değişim with ↑↓ color coding); LLM insight cards per category; empty state when <2 months data
+- [x] `frontend/src/app/transactions/page.tsx` — "İlerleme" nav link added
+- [x] `frontend/src/lib/categories.ts` — single source of truth for category display names (Turkish) and hex colors; imported by CategoryBadge, SpendingChart, TransactionTable, progress page
+- [x] Turkish category display names fixed across all UI: CategoryBadge, SpendingChart XAxis, TransactionTable correction picker, progress comparison table
+- [x] Rate-limited category correction (20/hr, correction_limiter singleton); GET /transactions/{id}/notes fetched on first row expand (notes persist across refresh)
+
 ---
 
 ## Next Session — Start Here
 
-**Next goal: month-over-month comparison (next highest ROI backlog item)**
+**Next goal: manual transaction entry (backlog #2)**
 
 Pre-flight (fresh DB or new machine):
 ```
@@ -290,29 +300,26 @@ alembic upgrade head   # applies through 0006
 pip install -r requirements.txt
 ```
 
-Month-over-month tasks:
-1. `backend/app/api/transactions.py` — add GET /transactions/summary?months=3 → aggregate debit totals by (category, year-month); return list[{month, category, total}]
-2. `frontend/src/lib/api.ts` — add `getTransactionSummary(months)` + `MonthlySummary` type
-3. `frontend/src/components/MonthlyChart.tsx` — grouped bar chart by month (recharts BarChart, one bar per category, x-axis = month)
-4. `frontend/src/app/transactions/page.tsx` — fetch summary alongside transactions; render MonthlyChart below SpendingChart if ≥2 months of data exist
+Manual transaction entry tasks:
+1. `backend/app/api/transactions.py` — POST /transactions body: {amount, transaction_type, description, transaction_date, category?}; same categorize pipeline as upload; returns TransactionResponse
+2. `frontend/src/components/AddTransactionModal.tsx` — modal form: amount, type (debit/credit), description, date, optional category select; calls POST /transactions
+3. `frontend/src/app/transactions/page.tsx` — "+ Ekle" button → opens modal; on success, prepend new transaction to state (no full refetch)
 
 Start prompt:
 ```
-Read CLAUDE.md. Phases 1–7 done. Start month-over-month comparison.
-Add GET /transactions/summary endpoint aggregating debit totals by (category, year-month).
-Build MonthlyChart frontend component. Wire into transactions page.
+Read CLAUDE.md. Phases 1–8 done (progress tracking complete, all verified).
+Start manual transaction entry: POST /transactions endpoint + AddTransactionModal frontend component.
 ```
 
 ---
 
 ## Backlog (post-MVP, priority order)
 
-1. **Month-over-month comparison** [NEXT] — `transaction_date` already in DB; aggregate by month, compute delta, show trend line on SpendingChart
-3. **Manual transaction entry** — POST /transactions with amount/description/date/type; same categorize → coach pipeline
-4. **Multi-statement management** — date-range index; overlapping upload detection; user sees "period already uploaded" warning; dedup by (date, amount, description)
-5. **Goal setting** — user sets monthly budget per category; coach compares actuals to goals
-6. **Subscription detection** — find recurring same-amount same-merchant transactions; surface as "you're paying X/month for Y"
-7. **Installment analysis** — detect taksit patterns (e.g. 3×500 TRY → "you have 2 payments left on this purchase")
+1. **Manual transaction entry** [NEXT] — POST /transactions with amount/description/date/type; same categorize → coach pipeline
+2. **Multi-statement management** — date-range index; overlapping upload detection; user sees "period already uploaded" warning; dedup by (date, amount, description)
+3. **Goal setting** — user sets monthly budget per category; coach compares actuals to goals
+4. **Subscription detection** — find recurring same-amount same-merchant transactions; surface as "you're paying X/month for Y"
+5. **Installment analysis** — detect taksit patterns (e.g. 3×500 TRY → "you have 2 payments left on this purchase")
 
 ---
 

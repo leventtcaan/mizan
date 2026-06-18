@@ -16,7 +16,12 @@
       "mcp__playwright__browser_evaluate",
       "mcp__playwright__browser_take_screenshot",
       "mcp__playwright__browser_type",
-      "Bash(curl -s -X POST http://localhost:8000/auth/register -H 'Content-Type: application/json' -d '{\"email\":\"bad@example.test\",\"password\":\"x\"}')"
+      "Bash(curl -s -X POST http://localhost:8000/auth/register -H 'Content-Type: application/json' -d '{\"email\":\"bad@example.test\",\"password\":\"x\"}')",
+      "Bash(curl -s -X POST http://localhost:8000/auth/login -H 'Content-Type: application/json' -d '{\"email\":\"verify@example.com\",\"password\":\"testpassword123\"}')",
+      "Bash(docker compose ps *)",
+      "Bash(docker compose *)",
+      "Bash(curl -s -X POST http://localhost:8000/auth/login -H \"Content-Type: application/json\" -d '{\"email\":\"verify@example.com\",\"password\":\"testpass123\"}')",
+      "Bash(curl -s http://localhost:8000/transactions/batches -H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIyMGQyYTFkNC0zZjE3LTQ0ZGMtOTdlMi0zYTk1ODY0MDljMGEiLCJleHAiOjE3ODIzOTIzOTV9.tSMzIjSfVZr1UC93qMQg95FVwcTWk1Dz9zXoyt3p8-U')"
     ]
   }
 }

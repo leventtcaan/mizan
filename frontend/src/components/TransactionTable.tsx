@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { Fragment, useState } from "react";
 import type { Transaction, NoteResponse } from "@/lib/api";
 import { correctCategory, getNotes } from "@/lib/api";
 import { CATEGORY_LABELS } from "@/lib/categories";
@@ -140,9 +140,8 @@ export default function TransactionTable({ transactions, onCategoryCorrection }:
               error: null,
             };
             return (
-              <>
+              <Fragment key={t.id}>
                 <tr
-                  key={t.id}
                   className="bg-gray-950 hover:bg-gray-900 transition-colors cursor-pointer"
                   onClick={() => void toggleExpand(t.id)}
                 >
@@ -208,7 +207,7 @@ export default function TransactionTable({ transactions, onCategoryCorrection }:
                     </td>
                   </tr>
                 )}
-              </>
+              </Fragment>
             );
           })}
         </tbody>

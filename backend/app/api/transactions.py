@@ -17,6 +17,7 @@ from app.core.dependencies import get_current_user
 from app.models.user import User
 from app.services.transaction_service import (
     delete_batch,
+    get_batch_summaries,
     get_transactions_for_user,
 )
 
@@ -40,10 +41,32 @@ class TransactionResponse(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class BatchSummaryResponse(BaseModel):
+    batch_id: str
+    uploaded_at: datetime
+    transaction_count: int
+    min_date: date
+    max_date: date
+
+
 class DeleteBatchResponse(BaseModel):
     upload_batch_id: str
     deleted_count: int
     message: str
+
+
+@router.get("/batches", response_model=list[BatchSummaryResponse])
+async def list_batches(
+    current_user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
+) -> list[BatchSummaryResponse]:
+    """
+    WHAT: Returns one summary row per upload batch for the authenticated user, newest first.
+    WHY: Frontend uses this to show which statement is currently displayed, let the user
+         toggle between batches, and render an upload history list.
+    """
+    summaries = await get_batch_summaries(current_user.id, session)
+    return [BatchSummaryResponse(**s) for s in summaries]
 
 
 @router.get("", response_model=list[TransactionResponse])

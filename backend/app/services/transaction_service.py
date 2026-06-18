@@ -10,6 +10,7 @@ import logging
 import uuid
 from datetime import date, datetime
 from decimal import Decimal, InvalidOperation
+from typing import Any
 
 from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -188,6 +189,65 @@ async def bust_insight_cache(user_id: uuid.UUID, session: AsyncSession) -> None:
         delete(UploadInsight).where(UploadInsight.upload_batch_id == batch_id)
     )
     logger.info("Insight cache busted — user_id=%s batch_id=%s", user_id, batch_id)
+
+
+def dedup_transactions_orm(transactions: list[Transaction]) -> list[Transaction]:
+    """
+    WHAT: Deduplicates ORM Transaction rows using (transaction_date, amount, description[:30]).
+    WHY: Users may upload the same statement twice or upload overlapping date ranges.
+         The progress page aggregates across ALL batches, so without dedup each overlap
+         is counted twice — inflating spending totals and poisoning coaching insights.
+         Same key logic as pdf_parser._deduplicate() but operates on ORM objects.
+    """
+    seen: set[tuple] = set()
+    result: list[Transaction] = []
+    for t in transactions:
+        key = (str(t.transaction_date), str(t.amount), t.description[:30])
+        if key not in seen:
+            seen.add(key)
+            result.append(t)
+    removed = len(transactions) - len(result)
+    if removed:
+        logger.info("Progress: removed %d duplicate transaction(s) across batches", removed)
+    return result
+
+
+async def get_batch_summaries(
+    user_id: uuid.UUID,
+    session: AsyncSession,
+) -> list[dict[str, Any]]:
+    """
+    WHAT: Returns one metadata dict per upload batch for a user, ordered newest-first.
+    WHY: Frontend needs to show which batch is currently displayed and allow toggling
+         to see all batches. Aggregated here so the API returns O(batches) rows,
+         not O(transactions) rows.
+    """
+    result = await session.execute(
+        select(Transaction)
+        .where(Transaction.user_id == user_id)
+        .where(Transaction.upload_batch_id.is_not(None))
+    )
+    all_txs = result.scalars().all()
+
+    batches: dict[str, dict[str, Any]] = {}
+    for t in all_txs:
+        bid = t.upload_batch_id
+        assert bid is not None
+        if bid not in batches:
+            batches[bid] = {
+                "batch_id": bid,
+                "uploaded_at": t.created_at,
+                "transaction_count": 0,
+                "min_date": t.transaction_date,
+                "max_date": t.transaction_date,
+            }
+        batches[bid]["transaction_count"] += 1
+        if t.transaction_date < batches[bid]["min_date"]:
+            batches[bid]["min_date"] = t.transaction_date
+        if t.transaction_date > batches[bid]["max_date"]:
+            batches[bid]["max_date"] = t.transaction_date
+
+    return sorted(batches.values(), key=lambda x: x["uploaded_at"], reverse=True)
 
 
 async def delete_batch(

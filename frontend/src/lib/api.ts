@@ -105,6 +105,44 @@ export interface InsightResponse {
   cached: boolean;
 }
 
+export interface BatchSummary {
+  batch_id: string;
+  uploaded_at: string;
+  transaction_count: number;
+  min_date: string;
+  max_date: string;
+}
+
+export interface MonthlyTotal {
+  month: string;
+  total_spent: string;
+  total_income: string;
+  by_category: Record<string, string>;
+}
+
+export interface ProgressResponse {
+  months: MonthlyTotal[];
+  batch_count: number;
+  total_transactions: number;
+  min_date: string | null;
+  max_date: string | null;
+}
+
+export interface CategoryTrend {
+  category: string;
+  this_month: string;
+  last_month: string;
+  change_pct: number;
+  trend: "up" | "down" | "same";
+  insight: string;
+}
+
+export interface ComparisonResponse {
+  this_month: string;
+  last_month: string;
+  categories: CategoryTrend[];
+}
+
 export interface NoteResponse {
   id: string;
   transaction_id: string;
@@ -167,10 +205,19 @@ export async function uploadStatement(file: File): Promise<UploadResponse> {
   return response.json() as Promise<UploadResponse>;
 }
 
-export async function getTransactions(): Promise<Transaction[]> {
-  const response = await fetch(`${API_BASE_URL}/transactions`, {
+export async function getBatches(): Promise<BatchSummary[]> {
+  const response = await fetch(`${API_BASE_URL}/transactions/batches`, {
     headers: authHeaders(),
   });
+  if (!response.ok) throw new Error(`Failed to fetch batches: ${response.status}`);
+  return response.json() as Promise<BatchSummary[]>;
+}
+
+export async function getTransactions(all = false): Promise<Transaction[]> {
+  const url = all
+    ? `${API_BASE_URL}/transactions?all=true`
+    : `${API_BASE_URL}/transactions`;
+  const response = await fetch(url, { headers: authHeaders() });
   if (!response.ok) throw new Error(`Failed to fetch transactions: ${response.status}`);
   return response.json() as Promise<Transaction[]>;
 }
@@ -202,6 +249,22 @@ export async function getNotes(transactionId: string): Promise<NoteResponse[]> {
   });
   if (!response.ok) throw new Error(`Failed to fetch notes: ${response.status}`);
   return response.json() as Promise<NoteResponse[]>;
+}
+
+export async function getProgress(): Promise<ProgressResponse> {
+  const response = await fetch(`${API_BASE_URL}/insights/progress`, {
+    headers: authHeaders(),
+  });
+  if (!response.ok) throw new Error(`Failed to fetch progress: ${response.status}`);
+  return response.json() as Promise<ProgressResponse>;
+}
+
+export async function getComparison(): Promise<ComparisonResponse> {
+  const response = await fetch(`${API_BASE_URL}/insights/comparison`, {
+    headers: authHeaders(),
+  });
+  if (!response.ok) throw new Error(`Failed to fetch comparison: ${response.status}`);
+  return response.json() as Promise<ComparisonResponse>;
 }
 
 export async function correctCategory(
