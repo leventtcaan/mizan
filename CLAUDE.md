@@ -212,15 +212,18 @@ When context reaches ~70% capacity:
 
 ## Current Status
 
-**Phases 1–8 complete.** Chat interface, behavioral vector, month-over-month progress tracking all live. 3 banks tested (Ziraat, VakıfBank, Yapı Kredi).
+**Phases 1–9 complete.** 3 banks tested (Ziraat, VakıfBank, Yapı Kredi). All caches active.
 
-Full stack: register/login → JWT → upload (rate-limited) → 3-layer OCR → LLM extract → OCR description cleanup → dedup → zero-amount filter → persist → LLM categorize (13 categories) → insight cache check → LLM coach with behavioral context (corrections + notes injected) → spending chart + progress page (LineChart trend + category comparison with LLM one-liners) → frontend display. Category correction/note invalidates insight cache → regenerates with fresh behavioral context.
+Full stack: register/login → JWT → upload (rate-limited, busts both caches) → 3-layer OCR → LLM extract → OCR description cleanup → dedup → zero-amount filter → persist → LLM categorize (13 categories) → insight cache check → LLM coach with behavioral context (corrections + notes injected) → spending chart + progress page (LineChart 3-month trend + cross-batch-deduped category comparison with LLM one-liners, 24h cached) → frontend display. Category correction invalidates insight cache + progress cache → regenerates fresh.
+
+Batch transparency: transactions page shows which statement is loaded (date range + count), toggle Son/Tüm ekstreler, batch upload history list. Progress page shows batch count + total transactions + date range header; single-month guard prevents misleading empty chart.
 
 ### Known Issues (open)
-- **Layer 3 vision LLM**: stub ready, not wired. Needed for banks with fonts <8pt (some Ziraat mobile PDFs still misread at 400 DPI even after OCR post-processing).
+- **Layer 3 vision LLM**: stub ready, not wired. Needed for banks with fonts <8pt (some Ziraat mobile PDFs misread at 400 DPI).
 - **Rate limiter is in-memory**: resets on backend restart. Redis needed for production multi-process deployment.
-- **Migration drift in dev**: `create_all` adds base schema but not Alembic migrations. Must run `alembic upgrade head` in backend container after any fresh DB creation.
-- **Insight cache `generated_at` timezone**: SQLite would return naive datetime; PostgreSQL returns tz-aware. Code uses `.replace(tzinfo=timezone.utc)` as safety — harmless on Postgres but check if switching DBs.
+- **Migration drift in dev**: `create_all` adds base schema but not Alembic migrations. Must run `alembic upgrade head` then `alembic stamp HEAD` in backend container after fresh DB.
+- **Insight cache `generated_at` timezone**: uses `.replace(tzinfo=timezone.utc)` as safety for SQLite compat — harmless on Postgres.
+- **Progress cache key**: SHA-256(user_id + sorted batch_ids). Key changes on new upload (automatic miss). Category corrections bust explicitly. If user deletes a batch without re-uploading, cache key also changes automatically.
 
 ### Phase 7 — Chat Interface + Behavioral Vector (2026-06-18)
 - [x] `backend/app/models/transaction_note.py` — TransactionNote table: id UUID, transaction_id FK CASCADE, user_id FK CASCADE, note_text Text, created_at tz-aware
@@ -277,6 +280,37 @@ Full stack: register/login → JWT → upload (rate-limited) → 3-layer OCR →
 - [x] `frontend/src/components/SpendingChart.tsx` — debit-only bar chart, per-category colors, Turkish ₺ locale
 - [x] `.env.example` — `SECRET_KEY` placeholder
 
+### Phase 9 — Batch Transparency + Progress Dedup + Progress Cache (2026-06-18)
+
+#### Batch transparency — transactions page
+- [x] `backend/app/api/transactions.py` — `GET /transactions/batches`: returns list of `BatchSummaryResponse` (batch_id, uploaded_at, transaction_count, min_date, max_date) ordered newest-first; declared before `GET /` to avoid route shadow
+- [x] `backend/app/services/transaction_service.py` — `get_batch_summaries(user_id, session)`: aggregates per-batch metadata in Python from Transaction rows; O(transactions) scan, O(batches) return
+- [x] `frontend/src/lib/api.ts` — `getBatches()` + `BatchSummary` type; `getTransactions(all=false)` param adds `?all=true` when showAll=true
+- [x] `frontend/src/app/transactions/page.tsx` — separate `useEffect` re-fetches transactions when `showAll` toggles; batch indicator pill shows date range + count; "Son Ekstre"/"Tüm Ekstreler" toggle group (indigo active); "Geçmiş" button (visible only when batches > 1) expands batch history list showing uploaded_at + date range + count per batch; "Son" badge on newest
+
+#### Progress dedup — cross-batch duplicate removal
+- [x] `backend/app/services/transaction_service.py` — `dedup_transactions_orm(transactions)`: same (transaction_date, amount, description[:30]) key as `pdf_parser._deduplicate()`; operates on ORM objects not RawTransaction; logs removed count at INFO
+- [x] `backend/app/api/progress.py` — `_aggregate_by_month()` calls `dedup_transactions_orm()` before grouping; returns `(months_dict, deduplicated_transactions)` tuple so endpoints get deduped count for context stats
+- [x] `frontend/src/app/progress/page.tsx` — context header shows batch_count + total_transactions (deduped) + date range; "çakışan işlemler tekilleştirildi" note appears when batch_count > 1; single-month guard: "Karşılaştırma için en az 2 ay verisi gerekli — şu an sadece 1 ay görünüyor." instead of blank chart
+
+#### Progress cache — 24h cache for both endpoints
+- [x] `backend/app/models/progress_insight.py` — `ProgressInsight` table: id UUID, user_id FK CASCADE, data_type VARCHAR(20) ("progress"|"comparison"), cache_key VARCHAR(64), data Text (JSON), generated_at tz-aware; UNIQUE(user_id, data_type) — each endpoint owns its own row, no column-sharing race
+- [x] `backend/alembic/versions/0007_create_progress_insights.py` — CREATE TABLE + unique constraint + user_id index, chains 0006→0007, has downgrade
+- [x] `backend/app/api/progress.py` — `_cache_key(user_id, batch_ids)`: SHA-256(user_id + "|" + sorted batch_ids joined); `_cache_get()`: SELECT by user_id+data_type, checks key match + TTL, returns JSON string or None; `_cache_set()`: pg_insert().on_conflict_do_update(constraint="uq_progress_insights_user_type") — safe for concurrent requests (last writer wins, both have identical data); both endpoints check cache before compute, return `cached: bool` in response
+- [x] `backend/app/services/transaction_service.py` — `bust_progress_cache(user_id, session)`: DELETE WHERE user_id = ?; deletes both progress + comparison rows
+- [x] `backend/app/api/corrections.py` — calls `bust_progress_cache` after `bust_insight_cache`; category change invalidates both coaching insight and comparison chart
+- [x] `backend/app/api/upload.py` — calls `bust_progress_cache` before commit; new upload clears stale comparison data immediately (cache key would auto-miss anyway, but eager bust is explicit)
+- [x] `backend/app/main.py` — ProgressInsight imported for create_all
+- [x] `frontend/src/lib/api.ts` — `ProgressResponse.cached: boolean`; `ComparisonResponse.cached: boolean`
+- [x] `frontend/src/app/progress/page.tsx` — "önbellekten" label shown in context header when progress.cached=true
+- **Measured speedup**: /insights/comparison 11.8s → 0.08s on cache hit (148x); 7 LLM calls per comparison = most expensive endpoint
+
+#### Bug fixes in this session
+- [x] `TransactionTable.tsx` — `<>` fragment → `<Fragment key={t.id}>` fixes React missing-key warning; key was on inner `<tr>` not the fragment
+- [x] `frontend/src/app/login/page.tsx` — register 422 showed "[object Object]"; fixed by `extractErrorMessage()` in api.ts that unwraps Pydantic validation array `detail[0].msg`
+- [x] `frontend/src/app/transactions/page.tsx` — SpendingChart was stale after inline category correction; fixed by lifting `transactions` state and passing `onCategoryCorrection` callback from TransactionTable → parent updates state → chart re-renders
+- [x] `frontend/src/components/TransactionTable.tsx` — notes not shown on page reload; fixed by fetching `GET /transactions/{id}/notes` on first row expand, gated by `notesLoaded: boolean` in RowState
+
 ### Phase 8 — Month-over-Month Progress Tracking (2026-06-18)
 - [x] `backend/app/api/progress.py` — GET /insights/progress (3 months of totals, Python-side aggregation, no date_trunc); GET /insights/comparison (this vs last month per category, LLM one-liner per category); both JWT-protected; router prefix="/insights"
 - [x] `backend/app/main.py` — progress_router registered
@@ -291,23 +325,24 @@ Full stack: register/login → JWT → upload (rate-limited) → 3-layer OCR →
 
 ## Next Session — Start Here
 
-**Next goal: manual transaction entry (backlog #2)**
+**Next goal: manual transaction entry (backlog #1)**
 
 Pre-flight (fresh DB or new machine):
 ```
 # backend container
-alembic upgrade head   # applies through 0006
+alembic upgrade head   # applies through 0007
+alembic stamp head     # sync version table if create_all ran first
 pip install -r requirements.txt
 ```
 
 Manual transaction entry tasks:
-1. `backend/app/api/transactions.py` — POST /transactions body: {amount, transaction_type, description, transaction_date, category?}; same categorize pipeline as upload; returns TransactionResponse
-2. `frontend/src/components/AddTransactionModal.tsx` — modal form: amount, type (debit/credit), description, date, optional category select; calls POST /transactions
-3. `frontend/src/app/transactions/page.tsx` — "+ Ekle" button → opens modal; on success, prepend new transaction to state (no full refetch)
+1. `backend/app/api/transactions.py` — POST /transactions body: {amount, transaction_type, description, transaction_date, category?}; run through categorize pipeline if no category given; bust both caches after insert; returns TransactionResponse
+2. `frontend/src/components/AddTransactionModal.tsx` — modal form: amount (number input), type radio (debit/credit), description text, date picker, optional category select (13 options); calls POST /transactions; closes on success
+3. `frontend/src/app/transactions/page.tsx` — "+ Ekle" button opens modal; on success, prepend new transaction to `transactions` state (no full refetch); also refresh batches
 
 Start prompt:
 ```
-Read CLAUDE.md. Phases 1–8 done (progress tracking complete, all verified).
+Read CLAUDE.md. Phases 1–9 done (batch transparency, progress dedup, progress cache, all verified).
 Start manual transaction entry: POST /transactions endpoint + AddTransactionModal frontend component.
 ```
 
@@ -315,11 +350,11 @@ Start manual transaction entry: POST /transactions endpoint + AddTransactionModa
 
 ## Backlog (post-MVP, priority order)
 
-1. **Manual transaction entry** [NEXT] — POST /transactions with amount/description/date/type; same categorize → coach pipeline
-2. **Multi-statement management** — date-range index; overlapping upload detection; user sees "period already uploaded" warning; dedup by (date, amount, description)
-3. **Goal setting** — user sets monthly budget per category; coach compares actuals to goals
-4. **Subscription detection** — find recurring same-amount same-merchant transactions; surface as "you're paying X/month for Y"
-5. **Installment analysis** — detect taksit patterns (e.g. 3×500 TRY → "you have 2 payments left on this purchase")
+1. **Manual transaction entry** [NEXT] — POST /transactions with amount/description/date/type; same categorize → bust caches
+2. **Goal setting** — user sets monthly budget per category; coach compares actuals to goals; show over/under on progress page
+3. **Subscription detection** — find recurring same-amount same-merchant transactions; surface as "you're paying X/month for Y"
+4. **Installment analysis** — detect taksit patterns (e.g. 3×500 TRY → "you have 2 payments left on this purchase")
+5. **Multi-statement overlap warning** — before insert, check if any (date, amount, desc) already exists for user; warn "X işlem zaten var, yine de eklensin mi?"
 
 ---
 
