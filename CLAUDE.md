@@ -212,68 +212,103 @@ When context reaches ~70% capacity:
 
 ## Current Status
 
-**Phase 4 — JWT auth COMPLETE.** Full auth flow live: register → login → JWT Bearer → all endpoints protected.
-Full stack: register/login → JWT → upload → 3-layer OCR → LLM extract → dedup → persist → LLM categorize → LLM coach → spending chart → frontend display.
+**MVP WORKING. Phases 1–6 complete.** 3 banks tested (Ziraat, VakıfBank, Yapı Kredi). JWT auth, OCR pipeline, LLM categorization + coaching, insight cache, rate limiting, spending chart — all live.
+
+Full stack: register/login → JWT → upload (rate-limited) → 3-layer OCR → LLM extract → OCR description cleanup → dedup → zero-amount filter → persist → LLM categorize (13 categories) → insight cache check → LLM coach (if miss) → spending chart → frontend display.
 
 ### Known Issues (open)
-- **OCR quality on dense image PDFs**: some banks (Ziraat mobile) produce very small fonts
-  at 400 DPI that Tesseract still misreads. Layer 3 (vision LLM) stub is ready but not wired.
-- **0 TL ghost transactions**: OCR occasionally reads "0,00" rows (running balance lines that
-  survive the summary filter). Fix: add `amount == 0` filter in `_extract_with_regex` before
-  appending. Not yet implemented — needs real bank PDF to verify safe threshold.
-- **upload_batch_id column**: migration 0002 exists. `create_all` in dev startup will NOT
-  add the new column — must run `alembic upgrade head` inside the backend container after
-  rebuild, or drop + recreate the DB in dev.
+- **Layer 3 vision LLM**: stub ready, not wired. Needed for banks with fonts <8pt (some Ziraat mobile PDFs still misread at 400 DPI even after OCR post-processing).
+- **Rate limiter is in-memory**: resets on backend restart. Redis needed for production multi-process deployment.
+- **Migration drift in dev**: `create_all` adds base schema but not Alembic migrations. Must run `alembic upgrade head` in backend container after any fresh DB creation.
+- **Insight cache `generated_at` timezone**: SQLite would return naive datetime; PostgreSQL returns tz-aware. Code uses `.replace(tzinfo=timezone.utc)` as safety — harmless on Postgres but check if switching DBs.
 
-### Phase 4 — JWT Auth (2026-06-18)
-- [x] `backend/requirements.txt` — added `python-jose[cryptography]==3.3.0`, `passlib[bcrypt]==1.7.4`
-- [x] `backend/app/core/config.py` — added `SECRET_KEY`, `JWT_ALGORITHM`, `JWT_EXPIRE_MINUTES`
+### Phase 6 — Insight Cache + Rate Limiting (2026-06-18)
+- [x] `backend/app/core/rate_limiter.py` — `RateLimiter` sliding-window, thread-safe (Lock); singletons: `insight_limiter` (10/hr/user), `upload_user_limiter` (5/day/user), `upload_ip_limiter` (3/10min/IP)
+- [x] `backend/app/models/upload_insight.py` — `UploadInsight` table: id UUID, user_id FK CASCADE, upload_batch_id String(36) unique, insight_text Text, generated_at tz-aware
+- [x] `backend/alembic/versions/0004_create_upload_insights.py` — CREATE TABLE + 2 indexes, chains 0003→0004, has downgrade
+- [x] `backend/app/services/transaction_service.py` — `get_latest_batch_id()` extracts cache key without fetching rows
+- [x] `backend/app/api/insights.py` — rate-check first (429); cache lookup by batch_id; 24h TTL; LLM only on miss/expiry; upsert (delete stale + insert); `cached: bool` in response
+- [x] `backend/app/api/upload.py` — rate-check: 5/day per user_id + 3/10min per client IP; both 429 before file work
+- [x] `backend/app/main.py` — `UploadInsight` imported for create_all
+- [x] `frontend/src/lib/api.ts` — `InsightResponse.cached: boolean`
+
+### Phase 5 — OCR Post-Processing + Parser Fixes (2026-06-18)
+- [x] `pdf_parser.py` `_filter_zero_amount()` — removes abs(amount)<0.01 after dedup; logs "Filtered N zero-amount artifact(s)"
+- [x] `pdf_parser.py` `_needs_cleaning()` — True on 3+ consecutive consonants (`_CONSONANT_RUN_RE`) OR non-Turkish chars (`_NON_TR_CHAR_RE`)
+- [x] `pdf_parser.py` `_ocr_postprocess_descriptions()` — Layer 2 only; skip if no LLM key or nothing needs cleaning; one batch call; silent on failure; logs "OCR post-processing: cleaned X of Y descriptions"
+- [x] `categorizer.py` — 13 categories: added `iade`, `vergi`, `teknoloji`; prompt priority-ordered: teknoloji (cloud/SaaS + Yurt Dışı Sanal POS) → vergi (Kambiyo/BSMV) → iade (İade/Refund/İPTAL) → transfer (Havale/FAST) → nakit_atm (ATM)
+- [x] `CategoryBadge.tsx` — teal/red/blue for iade/vergi/teknoloji
+- [x] `SpendingChart.tsx` — matching chart colors; removed unused egitim entry
+- [x] `security.py` — passlib removed; direct `bcrypt.hashpw/checkpw`; `[:72]` enforces max input length
+- [x] `requirements.txt` — passlib dropped; `bcrypt==4.0.1` + `email-validator==2.1.0` added
+
+### Phase 4 — JWT Auth + Frontend Auth Flow (2026-06-18)
+- [x] `backend/app/core/config.py` — `SECRET_KEY`, `JWT_ALGORITHM`, `JWT_EXPIRE_MINUTES`
 - [x] `backend/app/core/security.py` — `hash_password`, `verify_password`, `create_access_token`, `decode_access_token`
-- [x] `backend/app/models/user.py` — added `password_hash: String(255) nullable=True`
-- [x] `backend/alembic/versions/0003_add_password_hash_to_users.py` — ADD COLUMN, chains 0002→0003, downgrade
-- [x] `backend/app/api/auth.py` — POST /auth/register (409 on dup email, 422 on short pw), POST /auth/login (401 for both bad cases — anti-enum)
-- [x] `backend/app/core/dependencies.py` — `get_current_user(Bearer token → User ORM row)`
-- [x] `backend/app/main.py` — auth router registered; `_seed_dev_user()` removed
-- [x] `backend/app/api/upload.py` — `DEV_SEED_USER_ID` replaced with `Depends(get_current_user)`
-- [x] `backend/app/api/transactions.py` — `user_id` query param replaced with `Depends(get_current_user)`; `id`/`user_id` now strings (UUID serialization fix)
-- [x] `backend/app/api/insights.py` — `user_id` query param replaced with `Depends(get_current_user)`
-- [x] `frontend/src/lib/api.ts` — `getToken/setToken/clearToken`, `getStoredUser/setStoredUser`, `authHeaders()`, `register()`, `login()`, `getTransactions()`/`getInsights()` no longer take `userId` param
-- [x] `frontend/src/app/login/page.tsx` — login+register toggle form, JWT stored to localStorage on success, redirects to /transactions
-- [x] `frontend/src/app/transactions/page.tsx` — redirects to /login if no token; logout button; SpendingChart wired
-- [x] `frontend/src/app/upload/page.tsx` — redirects to /login if no token; uses Bearer token in upload
-- [x] `frontend/src/app/page.tsx` — "Ekstre Yükle" nav replaced with "Başla" → /login
-- [x] `frontend/package.json` — added `recharts==^2.12.0`
-- [x] `frontend/src/components/SpendingChart.tsx` — debit-only category bar chart with per-category color coding, Turkish locale ₺ formatting
-- [x] `.env.example` — added `SECRET_KEY` placeholder
+- [x] `backend/app/models/user.py` — `password_hash: String(255) nullable=True`
+- [x] `backend/alembic/versions/0003_add_password_hash_to_users.py` — ADD COLUMN, chains 0002→0003
+- [x] `backend/app/api/auth.py` — POST /auth/register (409 dup email, 422 short pw), POST /auth/login (401 anti-enum — same error for bad email and bad pw)
+- [x] `backend/app/core/dependencies.py` — `get_current_user(Bearer → User ORM row)`
+- [x] `backend/app/main.py` — auth router; `_seed_dev_user()` removed
+- [x] All endpoints — `DEV_SEED_USER_ID` / `user_id` query param → `Depends(get_current_user)`
+- [x] `frontend/src/lib/api.ts` — token store, `register()`, `login()`, `authHeaders()`; api funcs no longer take userId
+- [x] `frontend/src/app/login/page.tsx` — register/login toggle; JWT → localStorage on success; redirect /transactions
+- [x] `frontend/src/app/page.tsx` — auth-aware nav: logged-in shows "Devam Et"→/transactions + email chip + "İşlemlerim"; logged-out shows "Başla"→/login; localStorage read in useEffect (hydration safe)
+- [x] `frontend/src/app/transactions/page.tsx` — redirect /login if no token; useEffect-gated localStorage (hydration fix); logout button; SpendingChart
+- [x] `frontend/src/app/upload/page.tsx` — redirect /login if no token; Bearer token in upload
+- [x] `frontend/package.json` — `recharts ^2.12.0`
+- [x] `frontend/src/components/SpendingChart.tsx` — debit-only bar chart, per-category colors, Turkish ₺ locale
+- [x] `.env.example` — `SECRET_KEY` placeholder
 
 ---
 
 ## Next Session — Start Here
 
-**Phase 5 goal:** Email verification + password reset + spending trends over time.
+**Next goal: chat interface + behavioral vector (highest ROI backlog item)**
 
-Exact next tasks:
-1. Run `alembic upgrade head` inside backend container — applies migration 0003 (password_hash)
-2. `npm install` inside frontend container — installs recharts
-3. Test the full auth flow: register → login → upload → transactions → logout
-4. Phase 5: add `is_verified: bool` to User model, send verification email via SMTP, forgot-password flow
-
-Start prompt for new session:
+Pre-flight: run inside backend container:
 ```
-Read CLAUDE.md. Phase 4 JWT auth complete. Run alembic upgrade head + npm install first.
-Then start Phase 5: email verification (is_verified column, SMTP send on register)
-and forgot-password flow (one-time token table, email reset link).
+alembic upgrade head   # applies 0003 + 0004
+pip install -r requirements.txt   # bcrypt 4.0.1, email-validator
+```
+Run inside frontend container:
+```
+npm install   # recharts
+```
+
+Chat interface tasks:
+1. `backend/app/models/transaction_note.py` — `TransactionNote` table: id, transaction_id FK, user_id FK, note_text, created_at
+2. `backend/alembic/versions/0005_create_transaction_notes.py`
+3. `backend/app/api/notes.py` — POST /transactions/{id}/notes, GET /transactions/{id}/notes
+4. `backend/app/services/coach.py` — include per-transaction notes in coaching prompt context
+5. `frontend/src/app/transactions/page.tsx` — inline note input per row (click to expand)
+6. `frontend/src/components/NoteInput.tsx` — textarea + save button, optimistic update
+
+Behavioral vector tasks (after chat):
+7. `backend/app/models/user_correction.py` — UserCorrection: transaction_id, old_category, new_category, created_at
+8. `backend/alembic/versions/0006_create_user_corrections.py`
+9. `backend/app/api/corrections.py` — PATCH /transactions/{id}/category (saves correction + updates transaction)
+10. `backend/app/services/coach.py` — fetch top-5 corrections for user, prepend to coach prompt as behavioral context
+
+Start prompt:
+```
+Read CLAUDE.md. MVP complete — Phases 1–6 done, 3 banks working (Ziraat, VakıfBank, Yapı Kredi).
+Start next goal: chat interface (transaction notes) + behavioral vector (category corrections).
+Build TransactionNote model + migration 0005, then POST/GET /transactions/{id}/notes endpoints,
+then wire notes into coach.py prompt context. Then UserCorrection model + PATCH /transactions/{id}/category.
 ```
 
 ---
 
-## Backlog (post-MVP)
+## Backlog (post-MVP, priority order)
 
-- **Chat interface** — user annotates transactions inline ("this ATM withdrawal was rent"); context stored per-transaction, feeds coach prompt
-- **Manual entry** — add transaction without PDF; same pipeline as parsed rows (categorize → coach)
-- **Behavioral vector** — user corrections (wrong category, wrong type) update a per-user weight table; coach prompt includes correction history for personalized patterns
-- **Multi-statement dedup** — date-range index on transactions; on upload, detect overlapping period, warn user, skip or merge duplicate rows by (date, amount, description) key
-- **Upload date-range selector** — user specifies statement period on upload UI; backend rejects re-upload of already-covered range; prevents ghost duplicates from overlapping monthly PDFs
+1. **Chat interface + behavioral vector** — inline transaction notes + category correction history; both feed coach prompt for personalized analysis [NEXT]
+2. **Month-over-month comparison** — `transaction_date` already in DB; aggregate by month, compute delta, show trend line on SpendingChart
+3. **Manual transaction entry** — POST /transactions with amount/description/date/type; same categorize → coach pipeline
+4. **Multi-statement management** — date-range index; overlapping upload detection; user sees "period already uploaded" warning; dedup by (date, amount, description)
+5. **Goal setting** — user sets monthly budget per category; coach compares actuals to goals
+6. **Subscription detection** — find recurring same-amount same-merchant transactions; surface as "you're paying X/month for Y"
+7. **Installment analysis** — detect taksit patterns (e.g. 3×500 TRY → "you have 2 payments left on this purchase")
 
 ---
 
