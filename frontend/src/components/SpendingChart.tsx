@@ -27,8 +27,9 @@ const CATEGORY_COLORS: Record<string, string> = {
   giyim: "#8b5cf6",
   faturalar: "#f97316",
   teknoloji: "#3b82f6",
-  egitim: "#84cc16",
-  diger: "#6b7280",
+  iade:      "#14b8a6",
+  vergi:     "#ef4444",
+  diger:     "#6b7280",
 };
 
 const DEFAULT_COLOR = "#6b7280";

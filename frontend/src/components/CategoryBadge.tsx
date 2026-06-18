@@ -21,6 +21,9 @@ const CATEGORY_STYLES: Record<string, { bg: string; text: string; label: string 
   eglence:   { bg: "bg-yellow-900",  text: "text-yellow-300",  label: "Eğlence" },
   nakit_atm: { bg: "bg-zinc-800",    text: "text-zinc-300",    label: "Nakit/ATM" },
   transfer:  { bg: "bg-indigo-900",  text: "text-indigo-300",  label: "Transfer" },
+  iade:      { bg: "bg-teal-900",    text: "text-teal-300",    label: "İade" },
+  vergi:     { bg: "bg-red-900",     text: "text-red-400",     label: "Vergi" },
+  teknoloji: { bg: "bg-blue-900",    text: "text-blue-300",    label: "Teknoloji" },
   diger:     { bg: "bg-gray-800",    text: "text-gray-400",    label: "Diğer" },
 };
 

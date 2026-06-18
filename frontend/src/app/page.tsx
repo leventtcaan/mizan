@@ -8,44 +8,48 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { checkHealth } from "@/lib/api";
+import { checkHealth, getToken, getStoredUser } from "@/lib/api";
 
 type ConnectionStatus = "loading" | "ok" | "error";
 
 export default function HomePage() {
   const [status, setStatus] = useState<ConnectionStatus>("loading");
+  const [userEmail, setUserEmail] = useState<string | null>(null);
 
-  // WHY: useEffect runs after hydration — safe for client-side fetch.
-  // ALTERNATIVE: Next.js Server Component fetch. TRADEOFF: Server fetch won't show
-  // real-time browser-to-backend connectivity; it tests server-to-backend instead.
   useEffect(() => {
     checkHealth()
       .then(() => setStatus("ok"))
       .catch(() => setStatus("error"));
+
+    // WHY: localStorage only available after hydration — read token here, not at render.
+    if (getToken()) {
+      setUserEmail(getStoredUser()?.email ?? null);
+    }
   }, []);
 
-  const statusConfig: Record<
-    ConnectionStatus,
-    { label: string; dotClass: string }
-  > = {
-    loading: {
-      label: "Bağlanıyor...",
-      dotClass: "bg-yellow-400 animate-pulse",
-    },
-    ok: {
-      label: "Sistem aktif",
-      dotClass: "bg-green-500",
-    },
-    error: {
-      label: "Bağlantı hatası",
-      dotClass: "bg-red-500",
-    },
+  const statusConfig: Record<ConnectionStatus, { label: string; dotClass: string }> = {
+    loading: { label: "Bağlanıyor...", dotClass: "bg-yellow-400 animate-pulse" },
+    ok:      { label: "Sistem aktif",  dotClass: "bg-green-500" },
+    error:   { label: "Bağlantı hatası", dotClass: "bg-red-500" },
   };
 
   const { label, dotClass } = statusConfig[status];
+  const isLoggedIn = userEmail !== null;
 
   return (
     <main className="min-h-screen flex flex-col items-center justify-center bg-gray-950 text-white">
+      {isLoggedIn && (
+        <div className="absolute top-4 right-4 flex items-center gap-3">
+          <span className="text-gray-500 text-xs">{userEmail}</span>
+          <Link
+            href="/transactions"
+            className="px-3 py-1.5 rounded-lg bg-gray-800 hover:bg-gray-700 text-sm text-gray-300 transition-colors"
+          >
+            İşlemlerim
+          </Link>
+        </div>
+      )}
+
       <h1 className="text-7xl font-bold mb-4 tracking-tight">Mizan</h1>
       <p className="text-xl text-gray-400 mb-16">Harcama davranışını anla.</p>
 
@@ -56,17 +60,19 @@ export default function HomePage() {
 
       <div className="mt-12 flex gap-4">
         <Link
-          href="/login"
+          href={isLoggedIn ? "/transactions" : "/login"}
           className="px-6 py-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 font-semibold text-sm transition-colors"
         >
-          Başla
+          {isLoggedIn ? "Devam Et" : "Başla"}
         </Link>
-        <Link
-          href="/transactions"
-          className="px-6 py-3 rounded-xl bg-gray-800 hover:bg-gray-700 font-semibold text-sm transition-colors text-gray-300"
-        >
-          İşlemleri Gör
-        </Link>
+        {isLoggedIn && (
+          <Link
+            href="/upload"
+            className="px-6 py-3 rounded-xl bg-gray-800 hover:bg-gray-700 font-semibold text-sm transition-colors text-gray-300"
+          >
+            Ekstre Yükle
+          </Link>
+        )}
       </div>
     </main>
   );

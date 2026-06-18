@@ -27,19 +27,33 @@ VALID_CATEGORIES = {
     "eglence",
     "nakit_atm",
     "transfer",
+    "iade",
+    "vergi",
+    "teknoloji",
     "diger",
 }
 
 _SYSTEM_PROMPT = """\
 Sen bir Türk bankacılık işlemlerini kategorize eden yapay zekasın.
 Her işlem açıklaması için aşağıdaki kategorilerden birini seç:
-market, restoran, ulasim, fatura, saglik, giyim, eglence, nakit_atm, transfer, diger
+market, restoran, ulasim, fatura, saglik, giyim, eglence, nakit_atm, transfer, iade, vergi, teknoloji, diger
 
-Kurallar:
-- Sadece verilen kategorilerden birini kullan
-- Türkçe banka açıklamalarını anla (BIM, MIGROS, A101, ŞOK = market; UBER, TAKSI = ulasim vb.)
+Kategori kuralları (öncelik sırasına göre):
+- teknoloji: "Yurt Dışı Sanal POS" + açıklamada AWS/Google/Azure/Apple/Spotify/Netflix/GitHub/Dropbox/Adobe/Microsoft/OpenAI/Anthropic/ChatGPT/cloud/dijital/yazılım/hosting geçiyorsa
+- vergi: "Kambiyo Muameleleri Vergisi", "BSMV", "Vergi Kesintisi", "Stopaj"
+- iade: "İade", "Debit Kart İade", "Geri Ödeme", "Refund", "İPTAL"
+- transfer: "Havale", "EFT", "Tös Hesaba Havale", "FAST İşlemi", "Virman", kişi adı ile yapılan para transferleri
+- nakit_atm: "ATM", "Para Çekme", "Nakit Avans"
+- market: BİM, Migros, A101, Şok, CarrefourSA, Metro, Macrocenter, Kipa, Hakmar
+- restoran: restoran, kafe, McDonald's, Burger King, Starbucks, yemeksepeti, getir (yemek), trendyol yemek
+- ulasim: UBER, İBB, metro, otobüs, taksi, BiTaksi, Trafi, akaryakıt, benzin, Shell, BP, Opet
+- fatura: elektrik, doğalgaz, su, internet, telefon, TTNET, Turkcell, Vodafone, Türk Telekom
+- saglik: eczane, hastane, klinik, doktor, diş, optik, laborat
+- giyim: Zara, H&M, LC Waikiki, Koton, Mango, Pull&Bear, DeFacto, Boyner, giyim, ayakkabı
+- eglence: sinema, tiyatro, konser, oyun, Netflix (içerik), Spotify (içerik)
 - Emin olamadığında "diger" seç
-- Yanıtı SADECE JSON listesi olarak ver, başka hiçbir şey yazma
+
+Genel kural: Sadece yukarıdaki kategorilerden birini kullan. Yanıtı SADECE JSON listesi olarak ver, başka hiçbir şey yazma.
 """
 
 _USER_PROMPT_TEMPLATE = """\
