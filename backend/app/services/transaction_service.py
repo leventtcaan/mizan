@@ -151,6 +151,26 @@ async def get_transactions_for_user(
     return list(result.scalars().all())
 
 
+async def get_latest_batch_id(
+    user_id: uuid.UUID,
+    session: AsyncSession,
+) -> str | None:
+    """
+    WHAT: Returns the most recent upload_batch_id for the user, or None if no uploads.
+    WHY: Extracted from get_transactions_for_user so insight caching can resolve the
+         cache key without fetching all transaction rows.
+    BREAKS IF REMOVED: Insight cache can't determine which batch to look up.
+    """
+    result = await session.execute(
+        select(Transaction.upload_batch_id)
+        .where(Transaction.user_id == user_id)
+        .where(Transaction.upload_batch_id.is_not(None))
+        .order_by(Transaction.created_at.desc())
+        .limit(1)
+    )
+    return result.scalar_one_or_none()
+
+
 async def delete_batch(
     upload_batch_id: str,
     user_id: uuid.UUID,

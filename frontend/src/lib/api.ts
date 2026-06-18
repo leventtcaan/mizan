@@ -88,6 +88,7 @@ export interface InsightResponse {
   user_id: string;
   transaction_count: number;
   insight: string;
+  cached: boolean;
 }
 
 // --- API functions ---

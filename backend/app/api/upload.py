@@ -11,13 +11,14 @@ import uuid
 import logging
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile, status
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
 from app.core.database import get_session
 from app.core.dependencies import get_current_user
+from app.core.rate_limiter import upload_ip_limiter, upload_user_limiter
 from app.models.user import User
 from app.services.categorizer import categorize_batch
 from app.services.llm_provider import get_provider
@@ -46,6 +47,7 @@ class UploadResponse(BaseModel):
 
 @router.post("", response_model=UploadResponse)
 async def upload_statement(
+    request: Request,
     file: Annotated[UploadFile, File(description="PDF or CSV bank statement")],
     current_user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
@@ -56,6 +58,21 @@ async def upload_statement(
          the insert (atomic: either all transactions land with categories or none do).
     BREAKS IF REMOVED: No way to submit bank statements; core app feature unavailable.
     """
+    user_id_str = str(current_user.id)
+    client_ip = request.client.host if request.client else "unknown"
+
+    if not upload_user_limiter.is_allowed(user_id_str, max_calls=5, window_seconds=86400):
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="Günlük maksimum 5 yükleme hakkınızı kullandınız. Yarın tekrar deneyin.",
+        )
+
+    if not upload_ip_limiter.is_allowed(client_ip, max_calls=3, window_seconds=600):
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="10 dakikada en fazla 3 yükleme yapılabilir. Lütfen bekleyin.",
+        )
+
     if file.content_type not in ALLOWED_CONTENT_TYPES:
         raise HTTPException(
             status_code=415,
