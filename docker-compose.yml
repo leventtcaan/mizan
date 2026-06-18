@@ -1,0 +1,75 @@
+services:
+  # ─────────────────────────────────────────────────────────────────────────────
+  # POSTGRES — persistent relational store
+  # WHY isolated: DB upgrades, backups, and scaling happen independently of app code.
+  # ─────────────────────────────────────────────────────────────────────────────
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: mizan
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: mizan
+    ports:
+      - "5432:5432"
+    # WHY named volume: data survives `docker compose down`. Anonymous volumes are
+    # deleted on `down --volumes`. Named volumes persist until explicitly removed.
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      # WHY pg_isready: checks TCP + auth without opening a full connection.
+      # Faster and lighter than running a SELECT 1 query.
+      test: ["CMD-SHELL", "pg_isready -U mizan -d mizan"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # BACKEND — FastAPI on port 8000
+  # WHY isolated: Python deps, hot reload, and DB migrations are backend concerns only.
+  # ─────────────────────────────────────────────────────────────────────────────
+  backend:
+    build: ./backend
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    depends_on:
+      postgres:
+        # WHY condition service_healthy: without this, backend starts before Postgres
+        # accepts connections and crashes with "connection refused".
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+    # WHY volume mount: changes to ./backend reflect instantly in the container.
+    # Combined with uvicorn --reload, edits take effect without rebuilding the image.
+    volumes:
+      - ./backend:/app
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # FRONTEND — Next.js on port 3000
+  # WHY isolated: Node.js ecosystem, npm, and React builds are entirely separate concerns.
+  # ─────────────────────────────────────────────────────────────────────────────
+  frontend:
+    build: ./frontend
+    ports:
+      - "3000:3000"
+    depends_on:
+      backend:
+        condition: service_healthy
+    environment:
+      # WHY NEXT_PUBLIC_: This is what the browser uses to reach the backend.
+      # The browser runs on the host, not inside Docker, so it uses localhost:8000.
+      NEXT_PUBLIC_API_URL: http://localhost:8000
+    volumes:
+      - ./frontend/src:/app/src
+      - ./frontend/public:/app/public
+
+# WHY top-level volumes: declares the named volume so Docker manages its lifecycle.
+# Without this declaration, postgres_data would silently become an anonymous volume.
+volumes:
+  postgres_data:
