@@ -147,6 +147,36 @@ When context reaches ~70% capacity:
 - [x] `.gitignore` — Python, Node, OS, IDE patterns
 - [x] `CLAUDE.md` — this file
 
+### Post-Phase-3 Hardening — PDF Pipeline + Upload Batch Isolation (2026-06-18)
+
+#### pdf_parser.py — full rewrite + multiple fix passes
+- [x] Bank-agnostic 3-layer pipeline: Layer 1 pdfplumber text → Layer 2 Tesseract OCR → Layer 3 stub
+- [x] Layer 1: pdfplumber extracts raw text (not table cells); `_MIN_TEXT_CHARS=100` threshold guards against stray watermark chars being mistaken for text
+- [x] Layer 2: pymupdf renders at 400 DPI → Pillow grayscale → Contrast(2.0) → SHARPEN → Tesseract `lang=tur+eng --oem 3 --psm 6`
+- [x] Layer 3: stub comment only — vision LLM for low-confidence OCR, not wired
+- [x] `_parse_text()`: strict LLM XOR regex — never both; LLM runs first, regex only if LLM returns empty
+- [x] `_deduplicate()`: key=(date, amount, description[:30]); logs count removed
+- [x] `_apply_sign_correction()`: POS ALIŞVERİŞ/SANAL POS/ATM P.Ç → debit; Gönd:/FAST/Havale/Virman → credit; applied after both LLM and regex paths
+- [x] Summary row filter: `_SUMMARY_DESCRIPTION_FRAGMENTS` = ("borç:", "alacak:", "toplam", "bakiye"); description stripped before check
+- [x] Short/digit-only description filter: `re.sub(r'[\d\s\W]', '', description)` empty or len<5 → skip
+- [x] Amount sanity: >500,000 TRY → log WARNING + append "[OCR: verify amount]" to description; row kept
+- [x] LLM extraction uses separate system prompt (Turkish extraction persona, temperature=0); calls provider.client directly to avoid categorization system prompt
+- [x] `_normalise_turkish_amount()`: 1.234,56 → "1234.56" (remove dots, comma→dot)
+- [x] CSV path: sniff delimiter (comma/semicolon), UTF-8→latin-1 fallback, runs regex per row
+- [x] Logging: page count, page-1 text preview (500 chars), regex scan breakdown (total/header/no-date/no-amount/matched)
+
+#### requirements.txt + Dockerfile
+- [x] `openai==1.0.0` → `openai>=1.51.0` (fixed proxies kwarg TypeError in DeepSeekProvider.__init__)
+- [x] Added `pymupdf==1.24.0`, `pytesseract==0.3.13`, `Pillow==10.4.0`
+- [x] Dockerfile: added `tesseract-ocr tesseract-ocr-tur libgl1 libglib2.0-0` to apt-get
+
+#### Upload batch isolation
+- [x] `backend/app/models/transaction.py` — added `upload_batch_id: String(36) nullable=True index=True`
+- [x] `backend/alembic/versions/0002_add_upload_batch_id_to_transactions.py` — ADD COLUMN + index, chains 0001→0002, has downgrade
+- [x] `backend/app/services/transaction_service.py` — `insert_transactions()` gains `upload_batch_id` param; `get_transactions_for_user()` gains `all_batches=False` (default=latest batch via subquery); new `delete_batch(upload_batch_id, user_id, session)` with ownership check in WHERE
+- [x] `backend/app/api/upload.py` — passes `upload_batch_id=job_id` to insert_transactions; skips categorization silently when no LLM key (logs + appends note to message)
+- [x] `backend/app/api/transactions.py` — GET /transactions?all=true param; TransactionResponse includes upload_batch_id; new DELETE /transactions/batch/{upload_batch_id}?user_id=UUID → 404 if not found
+
 ### Phase 3 — Frontend UI + Coaching (2026-06-18)
 - [x] `frontend/src/lib/api.ts` — added uploadStatement, getTransactions, getInsights, all TypeScript interfaces, DEV_USER_ID constant
 - [x] `frontend/src/components/CategoryBadge.tsx` — colored pill per Turkish category slug (10 categories, dark-theme colors)
@@ -182,33 +212,46 @@ When context reaches ~70% capacity:
 
 ## Current Status
 
-**Phase 3 — COMPLETE.** Full end-to-end flow live: upload PDF/CSV → parse → persist →
-LLM categorize → view in transaction table → read behavioral coaching insight.
-Frontend has upload page, transaction list, category badges, and coaching panel.
-Backend has GET /insights returning Turkish coaching text from LLM.
+**Post-Phase-3 hardening — COMPLETE.** All parser bugs fixed, upload batch isolation live.
+Full stack: upload → 3-layer OCR → LLM extract → regex fallback → dedup → sign-correct →
+persist (tagged with upload_batch_id) → LLM categorize → LLM coaching insight → frontend display.
+
+### Known Issues (open)
+- **OCR quality on dense image PDFs**: some banks (Ziraat mobile) produce very small fonts
+  at 400 DPI that Tesseract still misreads. Layer 3 (vision LLM) stub is ready but not wired.
+- **0 TL ghost transactions**: OCR occasionally reads "0,00" rows (running balance lines that
+  survive the summary filter). Fix: add `amount == 0` filter in `_extract_with_regex` before
+  appending. Not yet implemented — needs real bank PDF to verify safe threshold.
+- **upload_batch_id column**: migration 0002 exists. `create_all` in dev startup will NOT
+  add the new column — must run `alembic upgrade head` inside the backend container after
+  rebuild, or drop + recreate the DB in dev.
 
 ---
 
 ## Next Session — Start Here
 
-**Phase 4 goal:** Auth (JWT) + multi-user support + spending summary charts.
+**Phase 4 goal:** JWT auth + real multi-user support + spending summary chart.
 
 Exact next tasks:
-1. `backend/app/api/auth.py` — POST /auth/register + POST /auth/login, returns JWT
-2. `backend/app/core/security.py` — JWT creation + verification (python-jose), password hashing (passlib)
-3. `backend/app/models/user.py` — add `password_hash: str` column + Alembic migration
-4. Replace `DEV_SEED_USER_ID` in upload.py and insights.py with JWT-extracted user from `Depends(get_current_user)`
-5. `frontend/src/app/login/page.tsx` — login + register form, stores JWT in localStorage
-6. `frontend/src/lib/api.ts` — add Authorization header to all requests when JWT is present
-7. `frontend/src/components/SpendingChart.tsx` — category breakdown bar or donut chart (recharts or Chart.js)
-8. Add `recharts` or `chart.js` to frontend dependencies
+1. `backend/requirements.txt` — add `python-jose[cryptography]==3.3.0`, `passlib[bcrypt]==1.7.4`
+2. `backend/app/core/security.py` — JWT create/verify (HS256, SECRET_KEY from settings), bcrypt password hash/verify
+3. `backend/app/models/user.py` — add `password_hash: String(255) nullable=True` column
+4. `backend/alembic/versions/0003_add_password_hash_to_users.py` — migration
+5. `backend/app/api/auth.py` — POST /auth/register (create user, return JWT), POST /auth/login (verify password, return JWT)
+6. `backend/app/core/config.py` — add `SECRET_KEY: str` setting
+7. `backend/app/main.py` — register auth router; remove `_seed_dev_user()` when auth is wired
+8. Replace `DEV_SEED_USER_ID` in `upload.py` + `insights.py` with `Depends(get_current_user)`
+9. `frontend/src/app/login/page.tsx` — login + register form, stores JWT in localStorage
+10. `frontend/src/lib/api.ts` — add `Authorization: Bearer <token>` header when JWT present
+11. `frontend/src/components/SpendingChart.tsx` — category bar chart (recharts); add `recharts` to package.json
 
 Start prompt for new session:
 ```
-Read CLAUDE.md. Phase 3 complete — full UI works end-to-end with dev seed user.
-Start Phase 4: JWT auth (register/login), replace DEV_SEED_USER_ID with real identity,
-then spending summary charts.
-Follow docstring convention: WHAT/WHY/BREAKS IF REMOVED on every module and class.
+Read CLAUDE.md. Post-Phase-3 hardening complete. Start Phase 4: JWT auth.
+Add python-jose + passlib, create security.py, add password_hash to User model,
+migration 0003, POST /auth/register + POST /auth/login endpoints, then replace
+DEV_SEED_USER_ID with Depends(get_current_user) throughout.
+Follow WHAT/WHY/BREAKS IF REMOVED docstring convention.
 ```
 
 ---
