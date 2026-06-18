@@ -147,6 +147,14 @@ When context reaches ~70% capacity:
 - [x] `.gitignore` — Python, Node, OS, IDE patterns
 - [x] `CLAUDE.md` — this file
 
+### Phase 2 — Persistence + LLM Categorization (2026-06-18)
+- [x] `backend/app/services/transaction_service.py` — RawTransaction → Transaction ORM, bulk insert via flush, get_transactions_for_user ordered newest-first
+- [x] `backend/app/services/categorizer.py` — batch LLM prompt (all descriptions in one call), JSON parse with markdown fence stripping, fallback to "diger", distribution logging
+- [x] `backend/app/services/llm_provider.py` — implemented complete() on DeepSeekProvider + OpenAIProvider (was NotImplementedError); temperature=0.1 for deterministic categories
+- [x] `backend/app/api/transactions.py` — GET /transactions?user_id=UUID, returns list[TransactionResponse] (Decimal as string to avoid JSON float loss)
+- [x] `backend/app/api/upload.py` — full pipeline: validate → parse → insert (flush) → categorize → commit atomically; LLM failure caught, transactions saved with category=None
+- [x] `backend/app/main.py` — _seed_dev_user() creates UUID 00000000-0000-0000-0000-000000000001 / dev@mizan.local on dev startup; transactions router registered
+
 ### Phase 1 — Data Layer + Upload Pipeline (2026-06-18)
 - [x] `backend/app/models/user.py` — User ORM model (UUID PK, email unique+indexed, created_at UTC)
 - [x] `backend/app/models/transaction.py` — Transaction ORM model (UUID PK, user_id FK CASCADE, Numeric(12,2), transaction_type, description, Date, category nullable, behavioral_tag nullable)
@@ -163,29 +171,30 @@ When context reaches ~70% capacity:
 
 ## Current Status
 
-**Phase 1 — COMPLETE.** Data layer done. POST /upload accepts PDF/CSV, validates, parses
-with pdfplumber, returns job_id + transaction count. Tables auto-created on dev startup.
-Alembic wired for async engine with first migration covering both tables.
+**Phase 2 — COMPLETE.** Full upload pipeline live: validate → parse → persist → LLM
+categorize → commit (atomic). GET /transactions returns categorized rows. Dev seed user
+auto-created at startup (UUID `00000000-0000-0000-0000-000000000001`, `dev@mizan.local`).
 
 ---
 
 ## Next Session — Start Here
 
-**Phase 2 goal:** Persist parsed transactions to DB + LLM categorization pipeline.
+**Phase 3 goal:** Frontend upload UI + transaction list display + behavioral coaching skeleton.
 
 Exact next tasks:
-1. `backend/app/services/transaction_service.py` — maps RawTransaction → Transaction ORM model, bulk-inserts via async session
-2. `backend/app/api/upload.py` — update to call transaction_service after parse, persist rows, return count from DB
-3. `backend/app/services/categorizer.py` — calls LLM provider with transaction description, returns category string
-4. `backend/app/api/transactions.py` — GET /transactions?user_id=... — returns all transactions for a user
-5. Wire categorizer into upload pipeline (call after insert, update category column)
-6. Add a test user seed (hardcoded UUID in dev) so upload has a user_id to attach rows to
+1. `frontend/src/app/upload/page.tsx` — file upload form (drag-and-drop or input), calls POST /upload, shows job_id + count
+2. `frontend/src/app/transactions/page.tsx` — fetches GET /transactions?user_id=DEV_UUID, renders table with category badges
+3. `frontend/src/lib/api.ts` — add `uploadStatement(file)` and `getTransactions(userId)` functions
+4. `frontend/src/components/TransactionTable.tsx` — reusable table component (date, description, amount, type, category)
+5. `frontend/src/components/CategoryBadge.tsx` — colored badge per category (market=green, restoran=orange, etc.)
+6. `backend/app/services/coach.py` — behavioral coaching skeleton: takes list of categorized transactions, returns insight string via LLM
+7. `backend/app/api/insights.py` — GET /insights?user_id=... — returns coaching text for the user's transaction history
 
 Start prompt for new session:
 ```
-Read CLAUDE.md. Phase 1 complete — upload endpoint parses PDFs/CSVs and returns job_id.
-Start Phase 2: persist RawTransaction rows to DB via transaction_service, then wire LLM
-categorizer to fill the category column after insert.
+Read CLAUDE.md. Phase 2 complete — upload pipeline persists and categorizes transactions.
+Start Phase 3: frontend upload UI + transaction list page, then behavioral coaching skeleton.
+Dev seed user UUID is 00000000-0000-0000-0000-000000000001.
 Follow docstring convention: WHAT/WHY/BREAKS IF REMOVED on every module and class.
 ```
 

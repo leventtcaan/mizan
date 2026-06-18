@@ -52,12 +52,25 @@ class DeepSeekProvider(LLMProvider):
         self.model = "deepseek-chat"
 
     def complete(self, prompt: str) -> str:
-        """Phase 1 deliverable — skeleton only."""
-        raise NotImplementedError("DeepSeekProvider.complete() implemented in Phase 1")
+        """
+        WHAT: Sends a user prompt with the categorization system prompt, returns response text.
+        WHY: system prompt is set at the provider level so categorizer.py stays model-agnostic.
+        BREAKS IF REMOVED: categorize_batch() has no LLM entry point.
+        """
+        from app.services.categorizer import _SYSTEM_PROMPT  # local import avoids circular
+        response = self.client.chat.completions.create(
+            model=self.model,
+            messages=[
+                {"role": "system", "content": _SYSTEM_PROMPT},
+                {"role": "user", "content": prompt},
+            ],
+            temperature=0.1,  # WHY: Low temperature = deterministic categories, less hallucination
+        )
+        return response.choices[0].message.content or ""
 
     def categorize(self, transaction: dict) -> str:
-        """Phase 1 deliverable — skeleton only."""
-        raise NotImplementedError("DeepSeekProvider.categorize() implemented in Phase 1")
+        """Single-transaction wrapper — delegates to complete() for consistency."""
+        return self.complete(str(transaction))
 
 
 class OpenAIProvider(LLMProvider):
@@ -72,12 +85,25 @@ class OpenAIProvider(LLMProvider):
         self.model = "gpt-4o-mini"
 
     def complete(self, prompt: str) -> str:
-        """Phase 1 deliverable — skeleton only."""
-        raise NotImplementedError("OpenAIProvider.complete() implemented in Phase 1")
+        """
+        WHAT: Sends prompt to GPT-4o-mini with the categorization system prompt.
+        WHY: Same interface as DeepSeekProvider — callers are unaware which model runs.
+        BREAKS IF REMOVED: categorize_batch() has no fallback LLM entry point.
+        """
+        from app.services.categorizer import _SYSTEM_PROMPT  # local import avoids circular
+        response = self.client.chat.completions.create(
+            model=self.model,
+            messages=[
+                {"role": "system", "content": _SYSTEM_PROMPT},
+                {"role": "user", "content": prompt},
+            ],
+            temperature=0.1,
+        )
+        return response.choices[0].message.content or ""
 
     def categorize(self, transaction: dict) -> str:
-        """Phase 1 deliverable — skeleton only."""
-        raise NotImplementedError("OpenAIProvider.categorize() implemented in Phase 1")
+        """Single-transaction wrapper — delegates to complete() for consistency."""
+        return self.complete(str(transaction))
 
 
 def get_provider(task_type: str) -> LLMProvider:

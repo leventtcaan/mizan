@@ -1,7 +1,9 @@
 """
-WHAT: POST /upload endpoint — accepts a PDF or CSV bank statement, returns a job_id.
-WHY: Decouples file receipt from processing. The endpoint returns immediately;
-     heavy LLM work happens asynchronously in Phase 2.
+WHAT: POST /upload endpoint — accepts a PDF or CSV bank statement, persists transactions,
+      triggers LLM categorization, and returns a job_id with counts.
+WHY: Decouples file receipt from display. The endpoint completes synchronously in Phase 2
+     (parse + insert + categorize happen in-request); Phase 3 will move categorization
+     to a background worker when volumes grow.
 BREAKS IF REMOVED: No way for the frontend to submit bank statements.
 """
 
@@ -14,7 +16,10 @@ from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_session
+from app.services.categorizer import categorize_batch
+from app.services.llm_provider import get_provider
 from app.services.pdf_parser import parse_statement
+from app.services.transaction_service import insert_transactions
 
 logger = logging.getLogger(__name__)
 
@@ -30,16 +35,22 @@ ALLOWED_CONTENT_TYPES = {
     "application/vnd.ms-excel",
 }
 
+# WHY: Hardcoded dev seed user — gives the upload endpoint a real user_id to attach
+# rows to before auth exists. This UUID must match the seed created at startup in main.py.
+# Replaced by JWT-extracted user identity in Phase 3.
+DEV_SEED_USER_ID = uuid.UUID("00000000-0000-0000-0000-000000000001")
+
 
 class UploadResponse(BaseModel):
     """
     WHAT: Response body for POST /upload.
-    WHY: job_id lets the frontend poll for processing status in Phase 2.
-         filename is echoed back so the UI can confirm which file was received.
+    WHY: job_id is the correlation handle for logs and future async status polling.
+         transaction_count lets the frontend confirm how many rows were extracted.
     """
 
     job_id: str
     filename: str
+    transaction_count: int
     message: str
 
 
@@ -49,21 +60,17 @@ async def upload_statement(
     session: AsyncSession = Depends(get_session),
 ) -> UploadResponse:
     """
-    WHAT: Receives a bank statement file, validates it, and returns a job_id.
-    WHY: Validation happens here at the boundary — content type and size are checked
-         before any processing, so malformed uploads fail fast with a clear error.
-    BREAKS IF REMOVED: Clients can upload arbitrary files; LLM parser receives garbage input.
+    WHAT: Full upload pipeline — validate → parse → persist → categorize → commit.
+    WHY: All steps run in one DB session so a categorization failure rolls back
+         the insert (atomic: either all transactions land with categories or none do).
+    BREAKS IF REMOVED: No way to submit bank statements; core app feature unavailable.
     """
-    # WHY: content_type from UploadFile reflects the MIME type the client declared.
-    # Not cryptographically verified — Phase 2 will add magic-byte validation.
     if file.content_type not in ALLOWED_CONTENT_TYPES:
         raise HTTPException(
             status_code=415,
             detail=f"Unsupported file type: {file.content_type}. Upload a PDF or CSV.",
         )
 
-    # WHY: Read the full file once here to enforce size limit.
-    # Streaming reads would require tracking byte count manually — not worth it at this scale.
     contents = await file.read()
 
     if len(contents) > MAX_FILE_SIZE_BYTES:
@@ -78,29 +85,44 @@ async def upload_statement(
             detail="Uploaded file is empty.",
         )
 
-    # WHY: job_id is a UUID generated here, not by the DB. This lets us return it
-    # immediately without a DB round-trip. Phase 2 will persist a Job row keyed on this UUID.
     job_id = str(uuid.uuid4())
+    filename = file.filename or "unknown"
 
     logger.info(
-        "File received — job_id=%s filename=%s size=%d bytes content_type=%s",
-        job_id,
-        file.filename,
-        len(contents),
-        file.content_type,
+        "Upload started — job_id=%s filename=%s size=%d bytes content_type=%s",
+        job_id, filename, len(contents), file.content_type,
     )
 
-    result = parse_statement(contents, file.content_type, file.filename or "unknown")
+    # Step 1: extract raw rows from the file
+    parse_result = parse_statement(contents, file.content_type, filename)
+    logger.info("Parse complete — job_id=%s raw_transactions=%d", job_id, len(parse_result.transactions))
+
+    if not parse_result.transactions:
+        return UploadResponse(
+            job_id=job_id,
+            filename=filename,
+            transaction_count=0,
+            message="File parsed but no transactions were found. Check the file format.",
+        )
+
+    # Step 2: persist raw transactions to DB (flush only — no commit yet)
+    persisted = await insert_transactions(parse_result.transactions, DEV_SEED_USER_ID, session)
+
+    # Step 3: LLM categorization — writes category back onto each ORM object in-memory
+    provider = get_provider(task_type="categorize")
+    await categorize_batch(persisted, provider)
+
+    # Step 4: commit everything atomically — both inserts and category updates land together
+    await session.commit()
 
     logger.info(
-        "Parse complete — job_id=%s transactions=%d pages=%d",
-        job_id,
-        len(result.transactions),
-        result.page_count,
+        "Upload complete — job_id=%s transactions_persisted=%d",
+        job_id, len(persisted),
     )
 
     return UploadResponse(
         job_id=job_id,
-        filename=file.filename or "unknown",
-        message=f"File received. Extracted {len(result.transactions)} transactions.",
+        filename=filename,
+        transaction_count=len(persisted),
+        message=f"Processed {len(persisted)} transactions successfully.",
     )
