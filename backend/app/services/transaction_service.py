@@ -17,6 +17,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.transaction import Transaction
 from app.models.upload_insight import UploadInsight
+from app.models.progress_insight import ProgressInsight
 from app.services.pdf_parser import RawTransaction
 
 logger = logging.getLogger(__name__)
@@ -248,6 +249,21 @@ async def get_batch_summaries(
             batches[bid]["max_date"] = t.transaction_date
 
     return sorted(batches.values(), key=lambda x: x["uploaded_at"], reverse=True)
+
+
+async def bust_progress_cache(user_id: uuid.UUID, session: AsyncSession) -> None:
+    """
+    WHAT: Deletes all cached progress/comparison rows for the user.
+    WHY: Called after a category correction (changes category aggregation → comparison_data
+         is now wrong) or after a new upload (batch_ids change → cache_key auto-misses,
+         but we bust eagerly to avoid serving stale data on the first post-upload load).
+    BREAKS IF REMOVED: Category corrections don't invalidate comparison charts — user sees
+         stale LLM one-liners and wrong totals after correcting a category.
+    """
+    await session.execute(
+        delete(ProgressInsight).where(ProgressInsight.user_id == user_id)
+    )
+    logger.info("Progress cache busted — user_id=%s", user_id)
 
 
 async def delete_batch(

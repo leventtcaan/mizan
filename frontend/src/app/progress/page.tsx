@@ -129,6 +129,9 @@ export default function ProgressPage() {
                 · çakışan işlemler tekilleştirildi
               </span>
             )}
+            {progress.cached && (
+              <span className="text-gray-600 text-xs self-center ml-auto">önbellekten</span>
+            )}
           </div>
         )}
 

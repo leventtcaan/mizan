@@ -23,7 +23,7 @@ from app.models.user import User
 from app.services.categorizer import categorize_batch
 from app.services.llm_provider import get_provider
 from app.services.pdf_parser import parse_statement
-from app.services.transaction_service import insert_transactions
+from app.services.transaction_service import bust_progress_cache, insert_transactions
 
 logger = logging.getLogger(__name__)
 
@@ -123,6 +123,7 @@ async def upload_statement(
     else:
         logger.info("No LLM key configured — skipping categorization for job_id=%s", job_id)
 
+    await bust_progress_cache(current_user.id, session)
     await session.commit()
 
     logger.info("Upload complete — job_id=%s transactions_persisted=%d", job_id, len(persisted))

@@ -24,6 +24,7 @@ from app.models.transaction import Transaction  # noqa: F401 — registers table
 from app.models.transaction_note import TransactionNote  # noqa: F401 — registers table in metadata
 from app.models.upload_insight import UploadInsight  # noqa: F401 — registers table in metadata
 from app.models.user_correction import UserCorrection  # noqa: F401 — registers table in metadata
+from app.models.progress_insight import ProgressInsight  # noqa: F401 — registers table in metadata
 
 logging.basicConfig(
     level=logging.INFO,

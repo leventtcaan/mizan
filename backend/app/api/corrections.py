@@ -12,7 +12,7 @@ from app.core.rate_limiter import correction_limiter
 from app.models.transaction import Transaction
 from app.models.user import User
 from app.models.user_correction import UserCorrection
-from app.services.transaction_service import bust_insight_cache
+from app.services.transaction_service import bust_insight_cache, bust_progress_cache
 
 logger = logging.getLogger(__name__)
 
@@ -105,6 +105,7 @@ async def correct_category(
     )
     session.add(correction)
     await bust_insight_cache(current_user.id, session)
+    await bust_progress_cache(current_user.id, session)
     await session.commit()
 
     logger.info(

@@ -126,6 +126,7 @@ export interface ProgressResponse {
   total_transactions: number;
   min_date: string | null;
   max_date: string | null;
+  cached: boolean;
 }
 
 export interface CategoryTrend {
@@ -141,6 +142,7 @@ export interface ComparisonResponse {
   this_month: string;
   last_month: string;
   categories: CategoryTrend[];
+  cached: boolean;
 }
 
 export interface NoteResponse {

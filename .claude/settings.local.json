@@ -21,7 +21,8 @@
       "Bash(docker compose ps *)",
       "Bash(docker compose *)",
       "Bash(curl -s -X POST http://localhost:8000/auth/login -H \"Content-Type: application/json\" -d '{\"email\":\"verify@example.com\",\"password\":\"testpass123\"}')",
-      "Bash(curl -s http://localhost:8000/transactions/batches -H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIyMGQyYTFkNC0zZjE3LTQ0ZGMtOTdlMi0zYTk1ODY0MDljMGEiLCJleHAiOjE3ODIzOTIzOTV9.tSMzIjSfVZr1UC93qMQg95FVwcTWk1Dz9zXoyt3p8-U')"
+      "Bash(curl -s http://localhost:8000/transactions/batches -H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIyMGQyYTFkNC0zZjE3LTQ0ZGMtOTdlMi0zYTk1ODY0MDljMGEiLCJleHAiOjE3ODIzOTIzOTV9.tSMzIjSfVZr1UC93qMQg95FVwcTWk1Dz9zXoyt3p8-U')",
+      "Bash(curl -s -X POST http://localhost:8000/auth/login -H \"Content-Type: application/json\" -d '{\"email\":\"admin@mizan.com\",\"password\":\"admin123\"}')"
     ]
   }
 }
