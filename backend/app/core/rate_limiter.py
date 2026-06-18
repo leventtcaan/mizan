@@ -53,6 +53,9 @@ class RateLimiter:
 
 
 # WHY: Module-level singletons — one limiter per concern so windows are independent.
-insight_limiter = RateLimiter()   # max 10 /insights per user per hour
+insight_limiter = RateLimiter()       # max 10 /insights per user per hour
 upload_user_limiter = RateLimiter()   # max 5 uploads per user per day
 upload_ip_limiter = RateLimiter()     # max 3 uploads per IP per 10 minutes
+# WHY: Each correction busts the insight cache and can trigger an LLM regeneration.
+# Without this limit a malicious user could spam corrections to exhaust LLM quota.
+correction_limiter = RateLimiter()    # max 20 corrections per user per hour

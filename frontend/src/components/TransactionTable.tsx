@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import type { Transaction, NoteResponse } from "@/lib/api";
-import { correctCategory } from "@/lib/api";
+import { correctCategory, getNotes } from "@/lib/api";
+import { CATEGORY_LABELS } from "@/lib/categories";
 import CategoryBadge from "@/components/CategoryBadge";
 import NoteInput from "@/components/NoteInput";
 
@@ -34,6 +35,7 @@ function formatDate(raw: string): string {
 interface RowState {
   category: string | null;
   notes: NoteResponse[];
+  notesLoaded: boolean;
   expanded: boolean;
   saving: boolean;
   error: string | null;
@@ -43,7 +45,14 @@ export default function TransactionTable({ transactions, onCategoryCorrection }:
   const [rows, setRows] = useState<Record<string, RowState>>(() => {
     const init: Record<string, RowState> = {};
     for (const t of transactions) {
-      init[t.id] = { category: t.category, notes: [], expanded: false, saving: false, error: null };
+      init[t.id] = {
+        category: t.category,
+        notes: [],
+        notesLoaded: false,
+        expanded: false,
+        saving: false,
+        error: null,
+      };
     }
     return init;
   });
@@ -56,11 +65,31 @@ export default function TransactionTable({ transactions, onCategoryCorrection }:
     );
   }
 
-  const toggleExpand = (id: string) => {
+  const toggleExpand = async (id: string) => {
+    const row = rows[id];
+    const nowExpanding = !row.expanded;
+
     setRows((prev) => ({
       ...prev,
-      [id]: { ...prev[id], expanded: !prev[id].expanded },
+      [id]: { ...prev[id], expanded: nowExpanding },
     }));
+
+    // Fetch notes from DB on first expand only
+    if (nowExpanding && !row.notesLoaded) {
+      try {
+        const notes = await getNotes(id);
+        setRows((prev) => ({
+          ...prev,
+          [id]: { ...prev[id], notes, notesLoaded: true },
+        }));
+      } catch {
+        // Silent — notes panel still renders, just empty
+        setRows((prev) => ({
+          ...prev,
+          [id]: { ...prev[id], notesLoaded: true },
+        }));
+      }
+    }
   };
 
   const handleCategoryChange = async (id: string, newCat: string) => {
@@ -102,13 +131,20 @@ export default function TransactionTable({ transactions, onCategoryCorrection }:
         </thead>
         <tbody className="divide-y divide-gray-800">
           {transactions.map((t) => {
-            const row = rows[t.id] ?? { category: t.category, notes: [], expanded: false, saving: false, error: null };
+            const row = rows[t.id] ?? {
+              category: t.category,
+              notes: [],
+              notesLoaded: false,
+              expanded: false,
+              saving: false,
+              error: null,
+            };
             return (
               <>
                 <tr
                   key={t.id}
                   className="bg-gray-950 hover:bg-gray-900 transition-colors cursor-pointer"
-                  onClick={() => toggleExpand(t.id)}
+                  onClick={() => void toggleExpand(t.id)}
                 >
                   <td className="px-4 py-3 text-gray-400 whitespace-nowrap">
                     {formatDate(t.transaction_date)}
@@ -150,7 +186,7 @@ export default function TransactionTable({ transactions, onCategoryCorrection }:
                                     : "bg-gray-800 text-gray-400 hover:bg-gray-700"
                                 } disabled:opacity-40`}
                               >
-                                {cat}
+                                {CATEGORY_LABELS[cat] ?? cat}
                               </button>
                             ))}
                           </div>

@@ -1,0 +1,61 @@
+- generic [active] [ref=e1]:
+  - main [ref=e2]:
+    - generic [ref=e3]:
+      - generic [ref=e4]:
+        - generic [ref=e5]:
+          - link "← Mizan" [ref=e6] [cursor=pointer]:
+            - /url: /
+          - heading "İşlemler" [level=1] [ref=e7]
+          - paragraph [ref=e8]: 3 işlem bulundu
+        - generic [ref=e9]:
+          - generic [ref=e10]: verify@example.com
+          - button "Çıkış" [ref=e11] [cursor=pointer]
+          - link "+ Ekstre Yükle" [ref=e12] [cursor=pointer]:
+            - /url: /upload
+      - generic [ref=e13]:
+        - paragraph [ref=e14]: Davranışsal Analiz
+        - paragraph [ref=e15]: Merhaba! Verilerine baktığımda market harcamalarının baskın olduğunu görüyorum — bu güzel bir düzenlilik işareti olabilir. Ama dikkatimi çeken şey, kategorileri düzeltirken "restoran" ve "eglence" gibi kalemleri sürekli "market" olarak işaretlemişsin. Acaba gerçekten hepsi market mi, yoksa market alışverişini biraz geniş mi tanımlıyorsun? Bazen "bir taşla iki kuş" mantığıyla hem market alışverişi yapıp hem de küçük kaçamakları aynı sepete atmak kolaydır. Neyi nereye yazdığını netleştirirsen, bütçeni daha iyi görebilirsin.
+      - generic [ref=e16]:
+        - paragraph [ref=e17]: Kategoriye Göre Harcama (₺)
+        - img [ref=e20]:
+          - generic [ref=e22]:
+            - generic [ref=e24]: Market
+            - generic [ref=e26]: Teknoloji
+          - generic [ref=e28]:
+            - generic [ref=e30]: "0"
+            - generic [ref=e32]: "65"
+            - generic [ref=e34]: "130"
+            - generic [ref=e36]: "195"
+            - generic [ref=e38]: "260"
+      - table [ref=e46]:
+        - rowgroup [ref=e47]:
+          - row "Tarih Açıklama Tutar (₺) Kategori" [ref=e48]:
+            - columnheader "Tarih" [ref=e49]
+            - columnheader "Açıklama" [ref=e50]
+            - columnheader "Tutar (₺)" [ref=e51]
+            - columnheader "Kategori" [ref=e52]
+            - columnheader [ref=e53]
+        - rowgroup [ref=e54]:
+          - row "15 Haz 2026 Migros Market Alışverişi -250,00 Market ▼" [ref=e55] [cursor=pointer]:
+            - cell "15 Haz 2026" [ref=e56]
+            - cell "Migros Market Alışverişi" [ref=e57]
+            - cell "-250,00" [ref=e58]
+            - cell "Market" [ref=e59]:
+              - generic [ref=e60]: Market
+            - cell "▼" [ref=e61]
+          - row "14 Haz 2026 Netflix Aboneliği -89,90 Teknoloji ▼" [ref=e62] [cursor=pointer]:
+            - cell "14 Haz 2026" [ref=e63]
+            - cell "Netflix Aboneliği" [ref=e64]
+            - cell "-89,90" [ref=e65]
+            - cell "Teknoloji" [ref=e66]:
+              - generic [ref=e67]: Teknoloji
+            - cell "▼" [ref=e68]
+          - row "10 Haz 2026 Maaş Yatırması +1.500,00 Transfer ▼" [ref=e69] [cursor=pointer]:
+            - cell "10 Haz 2026" [ref=e70]
+            - cell "Maaş Yatırması" [ref=e71]
+            - cell "+1.500,00" [ref=e72]
+            - cell "Transfer" [ref=e73]:
+              - generic [ref=e74]: Transfer
+            - cell "▼" [ref=e75]
+  - alert [ref=e76]
+  - generic [ref=e77]: "0"

@@ -1,13 +1,14 @@
 import logging
 import uuid
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, field_validator
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_session
 from app.core.dependencies import get_current_user
+from app.core.rate_limiter import correction_limiter
 from app.models.transaction import Transaction
 from app.models.user import User
 from app.models.user_correction import UserCorrection
@@ -53,6 +54,10 @@ class TransactionCategoryResponse(BaseModel):
     model_config = {"from_attributes": True}
 
 
+_CORRECTION_LIMIT = 20
+_CORRECTION_WINDOW = 3600  # 1 hour
+
+
 @router.patch("/{transaction_id}/category", response_model=TransactionCategoryResponse)
 async def correct_category(
     transaction_id: str,
@@ -60,6 +65,13 @@ async def correct_category(
     current_user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
 ) -> TransactionCategoryResponse:
+    user_id_str = str(current_user.id)
+    if not correction_limiter.is_allowed(user_id_str, _CORRECTION_LIMIT, _CORRECTION_WINDOW):
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="Saatlik düzeltme limitine ulaştınız.",
+        )
+
     try:
         tx_uuid = uuid.UUID(transaction_id)
     except ValueError:

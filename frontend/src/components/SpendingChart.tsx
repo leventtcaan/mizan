@@ -1,12 +1,5 @@
 "use client";
 
-/**
- * WHAT: Bar chart of debit spending grouped by category.
- * WHY: Gives users a visual summary alongside the coaching text — pattern recognition
- *      is faster from a chart than from reading a table of numbers.
- * BREAKS IF REMOVED: Transactions page loses the spending summary visualization.
- */
-
 import {
   BarChart,
   Bar,
@@ -17,25 +10,11 @@ import {
   Cell,
 } from "recharts";
 import type { Transaction } from "@/lib/api";
-
-const CATEGORY_COLORS: Record<string, string> = {
-  market: "#6366f1",
-  restoran: "#f59e0b",
-  ulasim: "#10b981",
-  eglence: "#ec4899",
-  saglik: "#14b8a6",
-  giyim: "#8b5cf6",
-  faturalar: "#f97316",
-  teknoloji: "#3b82f6",
-  iade:      "#14b8a6",
-  vergi:     "#ef4444",
-  diger:     "#6b7280",
-};
-
-const DEFAULT_COLOR = "#6b7280";
+import { CATEGORY_LABELS, CATEGORY_COLORS, DEFAULT_CATEGORY_COLOR } from "@/lib/categories";
 
 interface ChartDatum {
-  category: string;
+  slug: string;
+  label: string;
   amount: number;
   color: string;
 }
@@ -55,10 +34,11 @@ export default function SpendingChart({ transactions }: Props) {
 
   const data: ChartDatum[] = Object.entries(totals)
     .sort((a, b) => b[1] - a[1])
-    .map(([cat, amount]) => ({
-      category: cat,
+    .map(([slug, amount]) => ({
+      slug,
+      label: CATEGORY_LABELS[slug] ?? slug,
       amount: Math.round(amount),
-      color: CATEGORY_COLORS[cat] ?? DEFAULT_COLOR,
+      color: CATEGORY_COLORS[slug] ?? DEFAULT_CATEGORY_COLOR,
     }));
 
   if (data.length === 0) return null;
@@ -71,7 +51,7 @@ export default function SpendingChart({ transactions }: Props) {
       <ResponsiveContainer width="100%" height={220}>
         <BarChart data={data} margin={{ top: 0, right: 8, left: 8, bottom: 0 }}>
           <XAxis
-            dataKey="category"
+            dataKey="label"
             tick={{ fill: "#9ca3af", fontSize: 11 }}
             axisLine={false}
             tickLine={false}
@@ -92,7 +72,7 @@ export default function SpendingChart({ transactions }: Props) {
           />
           <Bar dataKey="amount" radius={[4, 4, 0, 0]}>
             {data.map((entry) => (
-              <Cell key={entry.category} fill={entry.color} />
+              <Cell key={entry.slug} fill={entry.color} />
             ))}
           </Bar>
         </BarChart>
