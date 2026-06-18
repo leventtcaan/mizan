@@ -267,6 +267,16 @@ and forgot-password flow (one-time token table, email reset link).
 
 ---
 
+## Backlog (post-MVP)
+
+- **Chat interface** — user annotates transactions inline ("this ATM withdrawal was rent"); context stored per-transaction, feeds coach prompt
+- **Manual entry** — add transaction without PDF; same pipeline as parsed rows (categorize → coach)
+- **Behavioral vector** — user corrections (wrong category, wrong type) update a per-user weight table; coach prompt includes correction history for personalized patterns
+- **Multi-statement dedup** — date-range index on transactions; on upload, detect overlapping period, warn user, skip or merge duplicate rows by (date, amount, description) key
+- **Upload date-range selector** — user specifies statement period on upload UI; backend rejects re-upload of already-covered range; prevents ghost duplicates from overlapping monthly PDFs
+
+---
+
 ## Junior Engineer Notes
 
 ### Why three separate Docker services instead of one monolith?

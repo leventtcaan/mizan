@@ -77,6 +77,15 @@ _SUSPICIOUS_AMOUNT_TRY = 500_000
 # that fool pdfplumber into thinking it extracted real text.
 _MIN_TEXT_CHARS = 100
 
+# WHY: 3+ consecutive consonants is a reliable signal for OCR garbling in Turkish —
+# Turkish phonotactics rarely allow more than 2 consonants in a row.
+# Covers: b,c,ç,d,f,g,ğ,h,j,k,l,m,n,p,r,s,ş,t,v,y,z (all Turkish consonants).
+_CONSONANT_RUN_RE = re.compile(r"[bcçdfgğhjklmnprsştvy]{3,}", re.IGNORECASE)
+
+# WHY: Characters outside printable Turkish text (letters, digits, common punct, ₺)
+# indicate Tesseract substituted ink blobs with random symbols.
+_NON_TR_CHAR_RE = re.compile(r"[^\w\s.,/\-:()\[\]₺+&]", re.UNICODE)
+
 
 # ─── Layer 1: pdfplumber text extraction ──────────────────────────────────────
 
@@ -283,6 +292,105 @@ def _parse_llm_json(raw: str) -> list[RawTransaction]:
     return results
 
 
+# ─── OCR description post-processing ─────────────────────────────────────────
+
+_OCR_CLEANUP_SYSTEM = (
+    "You are a Turkish bank statement OCR corrector. "
+    "Fix garbled OCR text in transaction descriptions. "
+    "Return only JSON, nothing else."
+)
+
+_OCR_CLEANUP_TEMPLATE = """\
+These are Turkish bank transaction descriptions extracted via OCR. Some are garbled due to OCR errors.
+Clean each one to readable Turkish. Keep merchant names and amounts untouched.
+If a description is already clean, return it as-is.
+Return a JSON array in the same order: [{{"index": 0, "cleaned_description": "..."}}, ...]
+
+Descriptions:
+{descriptions_json}
+"""
+
+
+def _needs_cleaning(description: str) -> bool:
+    """
+    WHAT: Heuristic check for OCR-garbled description text.
+    WHY: Avoids sending every clean Layer-1 batch to the LLM — only triggers when
+         the description contains patterns that are impossible in valid Turkish text.
+    BREAKS IF REMOVED: Every description goes to LLM regardless; 10x wasted tokens.
+    """
+    if _CONSONANT_RUN_RE.search(description):
+        return True
+    if _NON_TR_CHAR_RE.search(description):
+        return True
+    return False
+
+
+def _parse_cleanup_response(raw: str) -> list[dict]:
+    cleaned = raw.strip()
+    if cleaned.startswith("```"):
+        lines = cleaned.splitlines()
+        cleaned = "\n".join(l for l in lines if not l.strip().startswith("```"))
+    try:
+        parsed = json.loads(cleaned)
+        return parsed if isinstance(parsed, list) else []
+    except json.JSONDecodeError:
+        logger.warning("OCR cleanup LLM returned non-JSON: %r", raw[:200])
+        return []
+
+
+def _ocr_postprocess_descriptions(transactions: list[RawTransaction]) -> list[RawTransaction]:
+    """
+    WHAT: Sends all OCR-extracted descriptions to the LLM in one batch to fix garbling.
+    WHY: Tesseract misreads Turkish chars (ş→s, ğ→g) and produces impossible consonant
+         clusters. One LLM call per upload (not per transaction) keeps cost near zero.
+         Only fires when at least one description triggers _needs_cleaning — skips
+         clean batches entirely.
+    BREAKS IF REMOVED: Garbled merchant names like "BANAL POS ALIŞTERİŞ" reach the DB
+                       and confuse the coaching LLM's category classification.
+    """
+    if not transactions or not _has_llm_key():
+        return transactions
+
+    if not any(_needs_cleaning(t.description) for t in transactions):
+        return transactions
+
+    descriptions_json = json.dumps(
+        [t.description for t in transactions], ensure_ascii=False
+    )
+    prompt = _OCR_CLEANUP_TEMPLATE.format(descriptions_json=descriptions_json)
+
+    from app.services.llm_provider import get_provider
+    provider = get_provider(task_type="extract")
+
+    try:
+        response = provider.client.chat.completions.create(
+            model=provider.model,
+            messages=[
+                {"role": "system", "content": _OCR_CLEANUP_SYSTEM},
+                {"role": "user", "content": prompt},
+            ],
+            temperature=0,
+        )
+        raw = response.choices[0].message.content or "[]"
+    except Exception as exc:
+        logger.warning("OCR post-processing LLM call failed: %s — keeping originals", exc)
+        return transactions
+
+    cleaned_count = 0
+    for item in _parse_cleanup_response(raw):
+        idx = item.get("index")
+        new_desc = str(item.get("cleaned_description", "")).strip()
+        if isinstance(idx, int) and 0 <= idx < len(transactions) and new_desc:
+            if new_desc != transactions[idx].description:
+                transactions[idx].description = new_desc
+                cleaned_count += 1
+
+    logger.info(
+        "OCR post-processing: cleaned %d of %d descriptions", cleaned_count, len(transactions)
+    )
+    return transactions
+
+
 # ─── Regex extraction (offline fallback for both layers) ─────────────────────
 
 def _normalise_turkish_amount(raw: str) -> str:
@@ -483,6 +591,7 @@ def parse_statement(contents: bytes, content_type: str, filename: str) -> ParseR
 
     logger.info("Layer 2: OCR via Tesseract — %d chars extracted", len(ocr_text.strip()))
     transactions, source_suffix = _parse_text(ocr_text, layer="2")
+    transactions = _ocr_postprocess_descriptions(transactions)
 
     # ── Layer 3: Vision LLM (stub) ────────────────────────────────────────────
     # FUTURE: if OCR confidence low, send image to vision LLM
