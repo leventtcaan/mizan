@@ -171,30 +171,32 @@ When context reaches ~70% capacity:
 
 ## Current Status
 
-**Phase 2 — COMPLETE.** Full upload pipeline live: validate → parse → persist → LLM
-categorize → commit (atomic). GET /transactions returns categorized rows. Dev seed user
-auto-created at startup (UUID `00000000-0000-0000-0000-000000000001`, `dev@mizan.local`).
+**Phase 3 — COMPLETE.** Full end-to-end flow live: upload PDF/CSV → parse → persist →
+LLM categorize → view in transaction table → read behavioral coaching insight.
+Frontend has upload page, transaction list, category badges, and coaching panel.
+Backend has GET /insights returning Turkish coaching text from LLM.
 
 ---
 
 ## Next Session — Start Here
 
-**Phase 3 goal:** Frontend upload UI + transaction list display + behavioral coaching skeleton.
+**Phase 4 goal:** Auth (JWT) + multi-user support + spending summary charts.
 
 Exact next tasks:
-1. `frontend/src/app/upload/page.tsx` — file upload form (drag-and-drop or input), calls POST /upload, shows job_id + count
-2. `frontend/src/app/transactions/page.tsx` — fetches GET /transactions?user_id=DEV_UUID, renders table with category badges
-3. `frontend/src/lib/api.ts` — add `uploadStatement(file)` and `getTransactions(userId)` functions
-4. `frontend/src/components/TransactionTable.tsx` — reusable table component (date, description, amount, type, category)
-5. `frontend/src/components/CategoryBadge.tsx` — colored badge per category (market=green, restoran=orange, etc.)
-6. `backend/app/services/coach.py` — behavioral coaching skeleton: takes list of categorized transactions, returns insight string via LLM
-7. `backend/app/api/insights.py` — GET /insights?user_id=... — returns coaching text for the user's transaction history
+1. `backend/app/api/auth.py` — POST /auth/register + POST /auth/login, returns JWT
+2. `backend/app/core/security.py` — JWT creation + verification (python-jose), password hashing (passlib)
+3. `backend/app/models/user.py` — add `password_hash: str` column + Alembic migration
+4. Replace `DEV_SEED_USER_ID` in upload.py and insights.py with JWT-extracted user from `Depends(get_current_user)`
+5. `frontend/src/app/login/page.tsx` — login + register form, stores JWT in localStorage
+6. `frontend/src/lib/api.ts` — add Authorization header to all requests when JWT is present
+7. `frontend/src/components/SpendingChart.tsx` — category breakdown bar or donut chart (recharts or Chart.js)
+8. Add `recharts` or `chart.js` to frontend dependencies
 
 Start prompt for new session:
 ```
-Read CLAUDE.md. Phase 2 complete — upload pipeline persists and categorizes transactions.
-Start Phase 3: frontend upload UI + transaction list page, then behavioral coaching skeleton.
-Dev seed user UUID is 00000000-0000-0000-0000-000000000001.
+Read CLAUDE.md. Phase 3 complete — full UI works end-to-end with dev seed user.
+Start Phase 4: JWT auth (register/login), replace DEV_SEED_USER_ID with real identity,
+then spending summary charts.
 Follow docstring convention: WHAT/WHY/BREAKS IF REMOVED on every module and class.
 ```
 
