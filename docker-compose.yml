@@ -10,7 +10,7 @@ services:
       POSTGRES_PASSWORD: password
       POSTGRES_DB: mizan
     ports:
-      - "5432:5432"
+      - "5433:5432"
     # WHY named volume: data survives `docker compose down`. Anonymous volumes are
     # deleted on `down --volumes`. Named volumes persist until explicitly removed.
     volumes:

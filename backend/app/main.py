@@ -10,7 +10,11 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from app.api.upload import router as upload_router
 from app.core.config import settings
+from app.core.database import engine
+from app.models.user import Base
+from app.models.transaction import Transaction  # noqa: F401 — registers table in metadata
 
 logging.basicConfig(
     level=logging.INFO,
@@ -34,6 +38,14 @@ async def lifespan(app: FastAPI):
     if not len(settings.DATABASE_URL) > 0:
         raise RuntimeError("DATABASE_URL env var is required but not set")
 
+    # WHY: create_all in dev only — Alembic owns schema in staging/prod.
+    # This lets `docker compose up` work without running `alembic upgrade head` manually.
+    # ALTERNATIVE: Always use Alembic. TRADEOFF: Requires extra step in dev setup.
+    if settings.ENVIRONMENT == "development":
+        async with engine.begin() as conn:
+            await conn.run_sync(Base.metadata.create_all)
+        logger.info("Dev: tables created (or already exist).")
+
     logger.info("Startup validation passed.")
     yield
     logger.info("Mizan backend shutting down.")
@@ -55,6 +67,9 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+app.include_router(upload_router)
 
 
 @app.get("/health")

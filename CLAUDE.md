@@ -147,33 +147,46 @@ When context reaches ~70% capacity:
 - [x] `.gitignore` — Python, Node, OS, IDE patterns
 - [x] `CLAUDE.md` — this file
 
+### Phase 1 — Data Layer + Upload Pipeline (2026-06-18)
+- [x] `backend/app/models/user.py` — User ORM model (UUID PK, email unique+indexed, created_at UTC)
+- [x] `backend/app/models/transaction.py` — Transaction ORM model (UUID PK, user_id FK CASCADE, Numeric(12,2), transaction_type, description, Date, category nullable, behavioral_tag nullable)
+- [x] `backend/app/core/database.py` — async engine (pool_pre_ping, pool_size=5), async_sessionmaker (expire_on_commit=False), get_session() generator dependency
+- [x] `backend/app/api/upload.py` — POST /upload: content-type validation (415), size limit 10MB (413), empty file (422), runs pdf_parser, returns job_id + transaction count
+- [x] `backend/app/services/pdf_parser.py` — pdfplumber PDF table extraction + CSV with UTF-8/latin-1 fallback + semicolon/comma sniffing; RawTransaction + ParseResult dataclasses; Turkish header keyword filtering
+- [x] `backend/alembic/` — Alembic initialized, env.py rewritten for async engine + Base.metadata autogenerate
+- [x] `backend/alembic/versions/0001_create_users_and_transactions.py` — first migration: both tables + all indexes + downgrade
+- [x] `backend/alembic.ini` — sqlalchemy.url points to localhost:5433 (Docker host port)
+- [x] `backend/requirements.txt` — added alembic==1.13.0
+- [x] `backend/app/main.py` — updated: upload router registered, create_all on startup in ENVIRONMENT=development
+
 ---
 
 ## Current Status
 
-**Phase 0 — COMPLETE.** Monorepo scaffold done. No business logic. System runs end-to-end
-with health check only. Docker Compose wires postgres → backend → frontend with health checks.
+**Phase 1 — COMPLETE.** Data layer done. POST /upload accepts PDF/CSV, validates, parses
+with pdfplumber, returns job_id + transaction count. Tables auto-created on dev startup.
+Alembic wired for async engine with first migration covering both tables.
 
 ---
 
 ## Next Session — Start Here
 
-**Phase 1 goal:** Database models + PDF upload endpoint + LLM transaction extraction skeleton.
+**Phase 2 goal:** Persist parsed transactions to DB + LLM categorization pipeline.
 
 Exact next tasks:
-1. `backend/app/models/transaction.py` — SQLAlchemy Transaction model (id, amount, description, category, date, user_id)
-2. `backend/app/models/user.py` — User model (id, email, created_at)
-3. `backend/app/core/database.py` — async SQLAlchemy engine + session factory
-4. `backend/app/api/upload.py` — POST /upload endpoint accepting PDF/CSV, returns job_id
-5. `backend/app/services/pdf_parser.py` — pdfplumber extracts raw text from uploaded file
-6. Alembic setup for migrations (`alembic init`, first migration)
-7. Update main.py to create tables on startup (dev only)
+1. `backend/app/services/transaction_service.py` — maps RawTransaction → Transaction ORM model, bulk-inserts via async session
+2. `backend/app/api/upload.py` — update to call transaction_service after parse, persist rows, return count from DB
+3. `backend/app/services/categorizer.py` — calls LLM provider with transaction description, returns category string
+4. `backend/app/api/transactions.py` — GET /transactions?user_id=... — returns all transactions for a user
+5. Wire categorizer into upload pipeline (call after insert, update category column)
+6. Add a test user seed (hardcoded UUID in dev) so upload has a user_id to attach rows to
 
 Start prompt for new session:
 ```
-Read CLAUDE.md. Phase 0 complete — skeleton is running. Start Phase 1:
-database models (Transaction, User) + async SQLAlchemy setup + POST /upload endpoint skeleton.
-Follow all learning mode rules: docstrings with WHAT/WHY/BREAKS IF REMOVED, inline WHY comments.
+Read CLAUDE.md. Phase 1 complete — upload endpoint parses PDFs/CSVs and returns job_id.
+Start Phase 2: persist RawTransaction rows to DB via transaction_service, then wire LLM
+categorizer to fill the category column after insert.
+Follow docstring convention: WHAT/WHY/BREAKS IF REMOVED on every module and class.
 ```
 
 ---
