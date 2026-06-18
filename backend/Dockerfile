@@ -5,7 +5,16 @@ WORKDIR /app
 
 # WHY: Install curl so Docker health check `curl -f http://localhost:8000/health` works.
 # ALTERNATIVE: Use Python urllib in health check. TRADEOFF: Heavier CMD, harder to read.
-RUN apt-get update && apt-get install -y --no-install-recommends curl \
+# WHY: tesseract-ocr is the OCR engine for Layer 2 (image-based PDFs).
+# tesseract-ocr-tur is the Turkish language pack — without it Tesseract uses
+# English-only character recognition and misreads Turkish characters (ş, ğ, ı, ö, ü, ç).
+# libgl1 and libglib2.0-0 are runtime deps required by pymupdf (fitz) for PDF rendering.
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    curl \
+    tesseract-ocr \
+    tesseract-ocr-tur \
+    libgl1 \
+    libglib2.0-0 \
     && rm -rf /var/lib/apt/lists/*
 
 # WHY: Copy requirements before source code so Docker caches the pip install layer.

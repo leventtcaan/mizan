@@ -15,6 +15,7 @@ from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.config import settings
 from app.core.database import get_session
 from app.services.categorizer import categorize_batch
 from app.services.llm_provider import get_provider
@@ -108,11 +109,17 @@ async def upload_statement(
     # Step 2: persist raw transactions to DB (flush only — no commit yet)
     persisted = await insert_transactions(parse_result.transactions, DEV_SEED_USER_ID, session)
 
-    # Step 3: LLM categorization — writes category back onto each ORM object in-memory
-    provider = get_provider(task_type="categorize")
-    await categorize_batch(persisted, provider)
+    # Step 3: LLM categorization — skipped silently when no API key is configured.
+    # WHY: Allow the app to work in offline/dev mode without an LLM key;
+    # transactions are saved with category=None and can be categorized later.
+    llm_available = len(settings.DEEPSEEK_API_KEY) > 0 or len(settings.OPENAI_API_KEY) > 0
+    if llm_available:
+        provider = get_provider(task_type="categorize")
+        await categorize_batch(persisted, provider)
+    else:
+        logger.info("No LLM key configured — skipping categorization for job_id=%s", job_id)
 
-    # Step 4: commit everything atomically — both inserts and category updates land together
+    # Step 4: commit atomically — inserts and any category updates land together
     await session.commit()
 
     logger.info(
@@ -120,9 +127,13 @@ async def upload_statement(
         job_id, len(persisted),
     )
 
+    msg = f"Processed {len(persisted)} transactions successfully."
+    if not llm_available:
+        msg += " (No LLM key — categories not assigned.)"
+
     return UploadResponse(
         job_id=job_id,
         filename=filename,
         transaction_count=len(persisted),
-        message=f"Processed {len(persisted)} transactions successfully.",
+        message=msg,
     )

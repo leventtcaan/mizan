@@ -147,6 +147,17 @@ When context reaches ~70% capacity:
 - [x] `.gitignore` — Python, Node, OS, IDE patterns
 - [x] `CLAUDE.md` — this file
 
+### Phase 3 — Frontend UI + Coaching (2026-06-18)
+- [x] `frontend/src/lib/api.ts` — added uploadStatement, getTransactions, getInsights, all TypeScript interfaces, DEV_USER_ID constant
+- [x] `frontend/src/components/CategoryBadge.tsx` — colored pill per Turkish category slug (10 categories, dark-theme colors)
+- [x] `frontend/src/components/TransactionTable.tsx` — table with Turkish date format, ₺ amount (color-coded debit/credit), CategoryBadge
+- [x] `frontend/src/app/upload/page.tsx` — drag-and-drop upload form, success/error states, link to transactions
+- [x] `frontend/src/app/transactions/page.tsx` — transaction table + coaching insight panel, independent loading states
+- [x] `frontend/src/app/page.tsx` — added "Ekstre Yükle" and "İşlemleri Gör" nav buttons
+- [x] `backend/app/services/coach.py` — aggregates spend by category, Turkish coaching prompt, temperature=0.7, LLM failure returns graceful fallback
+- [x] `backend/app/api/insights.py` — GET /insights?user_id=UUID, returns InsightResponse (insight text + transaction count)
+- [x] `backend/app/main.py` — insights router registered
+
 ### Phase 2 — Persistence + LLM Categorization (2026-06-18)
 - [x] `backend/app/services/transaction_service.py` — RawTransaction → Transaction ORM, bulk insert via flush, get_transactions_for_user ordered newest-first
 - [x] `backend/app/services/categorizer.py` — batch LLM prompt (all descriptions in one call), JSON parse with markdown fence stripping, fallback to "diger", distribution logging
