@@ -1,7 +1,8 @@
 """
-WHAT: GET /transactions — returns all persisted transactions for a given user.
-WHY: Gives the frontend a way to display categorized transactions after upload completes.
-BREAKS IF REMOVED: Frontend has no way to retrieve or display transaction data.
+WHAT: GET /transactions and DELETE /transactions/batch/{upload_id} endpoints.
+WHY: Gives the frontend a way to display categorized transactions after upload completes,
+     and allows clearing a specific upload batch without touching others.
+BREAKS IF REMOVED: Frontend has no way to retrieve or manage transaction data.
 """
 
 import uuid
@@ -13,7 +14,10 @@ from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_session
-from app.services.transaction_service import get_transactions_for_user
+from app.services.transaction_service import (
+    delete_batch,
+    get_transactions_for_user,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -29,6 +33,7 @@ class TransactionResponse(BaseModel):
 
     id: uuid.UUID
     user_id: uuid.UUID
+    upload_batch_id: str | None
     amount: str  # WHY: Decimal serializes as string to avoid JSON float precision loss
     transaction_type: str
     description: str
@@ -40,28 +45,34 @@ class TransactionResponse(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class DeleteBatchResponse(BaseModel):
+    upload_batch_id: str
+    deleted_count: int
+    message: str
+
+
 @router.get("", response_model=list[TransactionResponse])
 async def list_transactions(
     user_id: uuid.UUID,
+    all: bool = False,
     session: AsyncSession = Depends(get_session),
 ) -> list[TransactionResponse]:
     """
-    WHAT: Returns all transactions for the given user_id, newest-first.
-    WHY: user_id as a query param is intentional for Phase 2 — auth middleware
-         (Phase 3) will replace it with the JWT-extracted identity.
+    WHAT: Returns transactions for the given user.
+           Default: latest upload batch only.
+           ?all=true: every batch ever uploaded.
+    WHY: Showing all batches by default mixes stale test uploads with the current
+         statement — confusing for the user and noisy for the LLM coach.
+         ?all=true is available for debugging and future batch-management UI.
     BREAKS IF REMOVED: Frontend cannot display transaction history.
     """
-    transactions = await get_transactions_for_user(user_id, session)
-
-    if not transactions:
-        # WHY: 200 with empty list, not 404 — the user exists but has no transactions yet.
-        # 404 would force the frontend to special-case "no data" vs "wrong user".
-        return []
+    transactions = await get_transactions_for_user(user_id, session, all_batches=all)
 
     return [
         TransactionResponse(
             id=t.id,
             user_id=t.user_id,
+            upload_batch_id=t.upload_batch_id,
             amount=str(t.amount),
             transaction_type=t.transaction_type,
             description=t.description,
@@ -72,3 +83,31 @@ async def list_transactions(
         )
         for t in transactions
     ]
+
+
+@router.delete("/batch/{upload_batch_id}", response_model=DeleteBatchResponse)
+async def delete_upload_batch(
+    upload_batch_id: str,
+    user_id: uuid.UUID,
+    session: AsyncSession = Depends(get_session),
+) -> DeleteBatchResponse:
+    """
+    WHAT: Deletes all transactions from a specific upload batch for the given user.
+    WHY: user_id is required so the service layer enforces ownership — one user
+         cannot delete another user's batch even if they know the UUID.
+         Returns 404 if the batch does not exist or belongs to a different user.
+    BREAKS IF REMOVED: No way to undo a bad upload; stale data accumulates indefinitely.
+    """
+    deleted = await delete_batch(upload_batch_id, user_id, session)
+
+    if deleted == 0:
+        raise HTTPException(
+            status_code=404,
+            detail=f"No transactions found for batch {upload_batch_id} and user {user_id}.",
+        )
+
+    return DeleteBatchResponse(
+        upload_batch_id=upload_batch_id,
+        deleted_count=deleted,
+        message=f"Deleted {deleted} transactions from batch {upload_batch_id}.",
+    )

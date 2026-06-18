@@ -71,6 +71,15 @@ class Transaction(Base):
         index=True,
     )
 
+    # WHY: Ties every row to the upload job that produced it.
+    # Nullable for backwards-compatibility with rows inserted before this column existed.
+    # Used to isolate and delete a specific upload batch without touching other data.
+    upload_batch_id: Mapped[str | None] = mapped_column(
+        String(36),  # UUID string, e.g. "550e8400-e29b-41d4-a716-446655440000"
+        nullable=True,
+        index=True,
+    )
+
     # WHY: Nullable — LLM enrichment happens asynchronously after insert.
     # Row exists with raw data immediately; category is filled by the enrichment job.
     category: Mapped[str | None] = mapped_column(

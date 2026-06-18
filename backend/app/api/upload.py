@@ -106,8 +106,10 @@ async def upload_statement(
             message="File parsed but no transactions were found. Check the file format.",
         )
 
-    # Step 2: persist raw transactions to DB (flush only — no commit yet)
-    persisted = await insert_transactions(parse_result.transactions, DEV_SEED_USER_ID, session)
+    # Step 2: persist raw transactions to DB, tagged with job_id as the batch identifier
+    persisted = await insert_transactions(
+        parse_result.transactions, DEV_SEED_USER_ID, session, upload_batch_id=job_id
+    )
 
     # Step 3: LLM categorization — skipped silently when no API key is configured.
     # WHY: Allow the app to work in offline/dev mode without an LLM key;

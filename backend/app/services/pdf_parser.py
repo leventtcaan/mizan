@@ -63,6 +63,15 @@ _SKIP_KEYWORDS = {
     "sayfa", "page", "hesap", "account", "özet", "summary",
 }
 
+# WHY: PDF footers repeat running totals as labelled lines (e.g. "Borç: 1.234,56 TL").
+# These have a date-like format on the same row sometimes, so _SKIP_KEYWORDS alone
+# doesn't catch them — the label appears in the description, not the line start.
+_SUMMARY_DESCRIPTION_FRAGMENTS = ("borç:", "alacak:", "toplam", "bakiye")
+
+# WHY: 500,000 TRY is an implausibly high single transaction for a retail banking user.
+# OCR misreads (e.g. "1" → "7", or merged columns) routinely produce these.
+_SUSPICIOUS_AMOUNT_TRY = 500_000
+
 # Minimum non-whitespace chars on a page to consider text extraction successful.
 # WHY: Image-based PDFs often have stray characters (page numbers, watermarks)
 # that fool pdfplumber into thinking it extracted real text.
@@ -99,7 +108,7 @@ def _layer1_extract_text(contents: bytes) -> tuple[str, int]:
 
 def _layer2_ocr(contents: bytes, page_count: int) -> str:
     """
-    WHAT: Renders each PDF page as a 300 DPI image and runs Tesseract OCR on it.
+    WHAT: Renders each PDF page as a 400 DPI image, preprocesses it, and runs Tesseract OCR.
     WHY: Image-based PDFs (scanned statements, most mobile bank app exports) contain
          no selectable text. pymupdf renders them pixel-perfect; Tesseract reads pixels.
          Turkish language pack (tur) is mandatory — English-only Tesseract misreads
@@ -113,18 +122,40 @@ def _layer2_ocr(contents: bytes, page_count: int) -> str:
 
     pages_text: list[str] = []
 
+    from PIL import ImageEnhance, ImageFilter
+
+    # WHY: --oem 3 = LSTM engine (most accurate modern Tesseract mode).
+    # --psm 6 = assume a single uniform block of text — bank statements are
+    # laid out in dense rectangular blocks, not columns or mixed layouts.
+    _TESS_CONFIG = "--oem 3 --psm 6"
+
     doc = fitz.open(stream=contents, filetype="pdf")
     for page_num in range(len(doc)):
         page = doc[page_num]
-        # WHY: 300 DPI (zoom=300/72 ≈ 4.17) — Tesseract accuracy degrades below 200 DPI.
-        # 300 DPI is the standard for OCR; higher DPI costs more memory with diminishing returns.
-        mat = fitz.Matrix(300 / 72, 300 / 72)
+        # WHY: 400 DPI (zoom=400/72 ≈ 5.56) — upgraded from 300 DPI.
+        # Turkish bank PDFs use small fonts (8-9pt); at 300 DPI these are ~33px tall,
+        # which is below Tesseract's sweet spot. 400 DPI raises them to ~44px,
+        # significantly improving recognition of ş, ğ, ı, ü, ö, ç.
+        mat = fitz.Matrix(400 / 72, 400 / 72)
         pix = page.get_pixmap(matrix=mat)
         img = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
 
+        # Preprocessing pipeline — each step targets a specific OCR failure mode:
+        # 1. Grayscale: removes color noise that Tesseract interprets as ink variation.
+        img = img.convert("L")
+
+        # 2. Contrast enhancement (factor 2.0): bank statement PDFs are often low-contrast
+        #    (grey text on white, or faded printer output). Factor 2.0 doubles the distance
+        #    between foreground and background without over-saturating.
+        img = ImageEnhance.Contrast(img).enhance(2.0)
+
+        # 3. Sharpening: OCR errors on digits (1→7, 0→6) are reduced by sharpening
+        #    edges before Tesseract samples the image.
+        img = img.filter(ImageFilter.SHARPEN)
+
         # WHY: lang="tur+eng" — Turkish first (dominant), English second (bank codes,
         # SWIFT codes, and international merchant names are often in English).
-        text = pytesseract.image_to_string(img, lang="tur+eng")
+        text = pytesseract.image_to_string(img, lang="tur+eng", config=_TESS_CONFIG)
         pages_text.append(text)
 
         if page_num == 0:
@@ -315,9 +346,40 @@ def _extract_with_regex(text: str) -> list[RawTransaction]:
         else:
             description = _TK_AMOUNT_RE.sub("", stripped[date_end:]).strip(" -|:\t")
 
+        description = description.strip() or "İşlem"
+
+        # Skip PDF footer summary lines — description contains total/balance labels.
+        # WHY: OCR output often has leading whitespace so the label is mid-description
+        # rather than at line-start; stripping first ensures the match works reliably.
+        if any(frag in description.lower() for frag in _SUMMARY_DESCRIPTION_FRAGMENTS):
+            skipped_header += 1
+            continue
+
+        # Skip rows where the description is trivially short or contains only digits and
+        # punctuation — these are page numbers, reference codes, or OCR artifacts, not
+        # merchant names.
+        stripped_desc = re.sub(r'[\d\s\W]', '', description)
+        if len(description.strip()) < 5 or not stripped_desc:
+            skipped_header += 1
+            continue
+
+        # Fix 2: amount sanity check — flag OCR-inflated amounts without discarding the row.
+        # WHY: Discarding would silently lose real large transactions; flagging lets the
+        # user verify while keeping the data pipeline intact.
+        try:
+            amount_float = float(amount_norm)
+            if amount_float > _SUSPICIOUS_AMOUNT_TRY:
+                logger.warning(
+                    "Suspicious amount detected: %.2f TRY on line %r — flagging for verification",
+                    amount_float, stripped[:80],
+                )
+                description = f"{description} [OCR: verify amount]"
+        except ValueError:
+            pass
+
         results.append(RawTransaction(
             date=date_str,
-            description=description or "İşlem",
+            description=description,
             amount=amount_norm,
             transaction_type=_infer_type_from_line(stripped),
             raw_row=[stripped],
@@ -434,17 +496,73 @@ def parse_statement(contents: bytes, content_type: str, filename: str) -> ParseR
     )
 
 
+def _deduplicate(transactions: list[RawTransaction]) -> list[RawTransaction]:
+    """
+    WHAT: Removes duplicate transactions using (date, amount, description[:30]) as key.
+    WHY: OCR occasionally renders the same line twice from adjacent pixels; LLM may
+         also repeat entries when the same text appears in header and body. A 30-char
+         description prefix is enough to distinguish real same-day same-amount entries
+         at different merchants while collapsing true duplicates.
+    BREAKS IF REMOVED: Duplicate rows inflate transaction counts and skew coaching analysis.
+    """
+    seen: set[tuple[str, str, str]] = set()
+    result: list[RawTransaction] = []
+    for t in transactions:
+        key = (t.date, t.amount, t.description[:30])
+        if key not in seen:
+            seen.add(key)
+            result.append(t)
+    removed = len(transactions) - len(result)
+    if removed:
+        logger.warning("Deduplication removed %d duplicate transaction(s)", removed)
+    return result
+
+
+# WHY: These keywords appear in the raw description (from OCR or LLM) and override
+# the generic _infer_type_from_line heuristic. Checked case-insensitively.
+_EXPENSE_KEYWORDS = {"pos alışveriş", "sanal pos", "atm p.ç"}
+_INCOME_KEYWORDS  = {"gönd:", "fast işlemi", "havale", "virman"}
+
+
+def _apply_sign_correction(transactions: list[RawTransaction]) -> list[RawTransaction]:
+    """
+    WHAT: Corrects transaction_type based on well-known Turkish banking keywords.
+    WHY: The regex heuristic (alacak/yatırma keywords) misses POS/ATM lines that
+         pdfplumber or OCR output without the Turkish debit/credit column label.
+         LLM output also gets this correction because the LLM may infer type from
+         description context alone and get it wrong on ambiguous lines.
+    BREAKS IF REMOVED: POS ALIŞVERİŞ transactions appear as "credit" in the table,
+                       inverting the user's expense/income breakdown.
+    """
+    for t in transactions:
+        lower = (t.description + " ".join(t.raw_row)).lower()
+        if any(kw in lower for kw in _EXPENSE_KEYWORDS):
+            t.transaction_type = "debit"
+        elif any(kw in lower for kw in _INCOME_KEYWORDS):
+            t.transaction_type = "credit"
+    return transactions
+
+
 def _parse_text(text: str, layer: str) -> tuple[list[RawTransaction], str]:
     """
-    WHAT: Given extracted text (from pdfplumber or OCR), runs LLM or regex extraction.
-    WHY: Both Layer 1 and Layer 2 produce text strings — the downstream parse logic
-         is identical regardless of which layer produced the text.
+    WHAT: Given extracted text (from pdfplumber or OCR), runs LLM XOR regex extraction,
+          then deduplicates and applies sign correction.
+    WHY: LLM and regex must never both run on the same text — combined output would
+         duplicate every transaction the LLM found that the regex also matched.
+         Deduplication is an additional safety net for OCR rendering artifacts.
+    BREAKS IF REMOVED: No structured extraction from either source; parse pipeline stalls.
     """
     if _has_llm_key():
         transactions = _call_llm_for_extraction(text)
-        if transactions:
-            return transactions, "llm"
-        logger.warning("Layer %s: LLM returned 0 transactions — falling back to regex", layer)
+        source = "llm"
+        if not transactions:
+            logger.warning("Layer %s: LLM returned 0 transactions — falling back to regex", layer)
+            transactions = _extract_with_regex(text)
+            source = "regex"
+    else:
+        transactions = _extract_with_regex(text)
+        source = "regex"
 
-    transactions = _extract_with_regex(text)
-    return transactions, "regex"
+    transactions = _deduplicate(transactions)
+    transactions = _apply_sign_correction(transactions)
+    return transactions, source
