@@ -16,6 +16,8 @@ from app.api.corrections import router as corrections_router
 from app.api.goals import router as goals_router
 from app.api.insights import router as insights_router
 from app.api.notes import router as notes_router
+from app.api.patterns import router as patterns_router
+from app.api.personality import router as personality_router
 from app.api.progress import router as progress_router
 from app.api.transactions import router as transactions_router
 from app.api.upload import router as upload_router
@@ -30,6 +32,7 @@ from app.models.behavioral_profile import BehavioralProfile  # noqa: F401 — re
 from app.models.budget_goal import BudgetGoal  # noqa: F401 — registers table in metadata
 from app.models.conversation import ConversationMessage  # noqa: F401 — registers table in metadata
 from app.models.progress_insight import ProgressInsight  # noqa: F401 — registers table in metadata
+from app.models.dismissed_alert import DismissedAlert  # noqa: F401 — registers table in metadata
 
 logging.basicConfig(
     level=logging.INFO,
@@ -86,6 +89,8 @@ app.include_router(insights_router)
 app.include_router(progress_router)
 app.include_router(goals_router)
 app.include_router(chat_router)
+app.include_router(personality_router)
+app.include_router(patterns_router)
 
 
 @app.get("/health")

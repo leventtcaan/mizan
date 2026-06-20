@@ -12,6 +12,8 @@ import {
 } from "@/lib/api";
 import { CATEGORY_LABELS } from "@/lib/categories";
 import GoalsPanel from "@/components/GoalsPanel";
+import PersonalityCard from "@/components/PersonalityCard";
+import AlertsPanel from "@/components/AlertsPanel";
 
 type LoadState = "loading" | "ready" | "error";
 
@@ -189,6 +191,16 @@ export default function ProgressPage() {
               </span>
             </div>
           )}
+        </div>
+
+        {/* Financial personality */}
+        <div className="mb-6">
+          <PersonalityCard />
+        </div>
+
+        {/* Proactive pattern alerts */}
+        <div className="mb-6">
+          <AlertsPanel />
         </div>
 
         {/* Budget goals */}

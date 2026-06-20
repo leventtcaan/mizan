@@ -397,6 +397,48 @@ export async function createTransaction(body: CreateTransactionRequest): Promise
   return response.json() as Promise<Transaction>;
 }
 
+export interface PersonalityData {
+  type: string;
+  description: string;
+  strengths: string[];
+  watch_out: string[];
+  tip: string;
+  cached: boolean;
+}
+
+export async function getPersonality(): Promise<PersonalityData> {
+  const response = await fetch(`${API_BASE_URL}/personality`, {
+    headers: authHeaders(),
+  });
+  if (!response.ok) throw new Error(`Failed to fetch personality: ${response.status}`);
+  return response.json() as Promise<PersonalityData>;
+}
+
+export interface Alert {
+  type: string;
+  message: string;
+  amount: string;
+  actionable: boolean;
+  dismiss_key: string;
+}
+
+export async function getAlerts(): Promise<Alert[]> {
+  const response = await fetch(`${API_BASE_URL}/patterns/alerts`, {
+    headers: authHeaders(),
+  });
+  if (!response.ok) throw new Error(`Failed to fetch alerts: ${response.status}`);
+  return response.json() as Promise<Alert[]>;
+}
+
+export async function dismissAlert(dismissKey: string): Promise<void> {
+  const response = await fetch(`${API_BASE_URL}/patterns/alerts/dismiss`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...authHeaders() },
+    body: JSON.stringify({ dismiss_key: dismissKey }),
+  });
+  if (!response.ok) throw new Error(`Failed to dismiss alert: ${response.status}`);
+}
+
 export async function correctCategory(
   transactionId: string,
   category: string,

@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime, timezone
 
-from sqlalchemy import DateTime, ForeignKey, Text, UniqueConstraint
+from sqlalchemy import DateTime, ForeignKey, String, Text, UniqueConstraint
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -33,21 +33,16 @@ class BehavioralProfile(Base):
         index=True,
     )
 
-    # WHY: JSON stored as Text — dialect-neutral, no JSONB migration if tests use SQLite.
-    # Format: {"kira": 5000, "yurt_ödemesi": 12500}
     fixed_expenses: Mapped[str | None] = mapped_column(Text, nullable=True)
-
-    # Format: {"maaş": 45000, "freelance": 3000}
     income_sources: Mapped[str | None] = mapped_column(Text, nullable=True)
-
-    # Format: {"hafta_sonu_dışarı_çıkıyor": true, "market_haftalık": true}
     spending_patterns: Mapped[str | None] = mapped_column(Text, nullable=True)
-
-    # WHY: Free-form text — anything the user mentions that doesn't fit a structured field.
-    # Examples: "Yalnız yaşıyorum", "İstanbul Anadolu", "2 çocuğum var"
     user_notes: Mapped[str | None] = mapped_column(Text, nullable=True)
 
-    # Nullable — None until the first fact is extracted from a chat message.
     updated_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
     )
+
+    # WHY: Personality analysis is one expensive LLM call. Cache it here keyed by
+    # the latest upload batch so it only regenerates when new data arrives.
+    personality_cache: Mapped[str | None] = mapped_column(Text, nullable=True)
+    personality_batch_id: Mapped[str | None] = mapped_column(String(36), nullable=True)

@@ -82,7 +82,18 @@ export default function ChatPanel({ initialInsight }: Props) {
           setMessages([{ id: "__initial__", role: "assistant", content: initialInsight }]);
         }
       })
-      .finally(() => setHistoryLoaded(true));
+      .finally(() => {
+        setHistoryLoaded(true);
+        // Pre-fill from AlertsPanel "Sohbete sor" button (sets sessionStorage then navigates here)
+        if (typeof window !== "undefined") {
+          const prefill = sessionStorage.getItem("chat_prefill");
+          if (prefill) {
+            sessionStorage.removeItem("chat_prefill");
+            setInput(prefill);
+            setTimeout(() => textareaRef.current?.focus(), 50);
+          }
+        }
+      });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
