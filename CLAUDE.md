@@ -212,18 +212,17 @@ When context reaches ~70% capacity:
 
 ## Current Status
 
-**Phases 1–13 complete.** 3 banks tested (Ziraat, VakıfBank, Yapı Kredi). All caches active.
+**Phases 1–14 complete.** Docker was unresponsive at end of session (disk full — now cleared). All code written; not yet tested after Phase 14.
 
-Full stack: register/login → JWT → upload (rate-limited, busts both caches) → 3-layer OCR → LLM extract → OCR description cleanup → dedup → zero-amount filter → persist → LLM categorize (13 categories) → insight cache check → LLM coach with behavioral context (corrections + notes injected) → spending chart + progress page (LineChart 3-month trend + cross-batch-deduped category comparison with LLM one-liners, 24h cached) → frontend display. Category correction invalidates insight cache + progress cache → regenerates fresh.
-
-Batch transparency: transactions page shows which statement is loaded (date range + count), toggle Son/Tüm ekstreler, batch upload history list. Progress page shows batch count + total transactions + date range header; single-month guard prevents misleading empty chart.
+Full stack: register/login → JWT → upload (rate-limited, busts caches) → 3-layer OCR → LLM extract → OCR cleanup → dedup → zero-amount filter → persist → LLM categorize (13 categories) → insight cache → LLM coach with corrections+notes injected → spending chart + progress page (LineChart 3-month trend + cross-batch-deduped category comparison + LLM one-liners, 24h cached) → PersonalityCard (5 types, cached per batch) → AlertsPanel (3 algorithmic detectors, dismiss persisted) → GoalsPanel (monthly budget vs actual) → ChatPanel (conversational coaching, behavioral profile memory, voice input, chat-based tx entry with confirmation card, sessionStorage prefill from alerts).
 
 ### Known Issues (open)
 - **Layer 3 vision LLM**: stub ready, not wired. Needed for banks with fonts <8pt (some Ziraat mobile PDFs misread at 400 DPI).
 - **Rate limiter is in-memory**: resets on backend restart. Redis needed for production multi-process deployment.
 - **Migration drift in dev**: `create_all` adds base schema but not Alembic migrations. Must run `alembic upgrade head` then `alembic stamp HEAD` in backend container after fresh DB.
 - **Insight cache `generated_at` timezone**: uses `.replace(tzinfo=timezone.utc)` as safety for SQLite compat — harmless on Postgres.
-- **Progress cache key**: SHA-256(user_id + sorted batch_ids). Key changes on new upload (automatic miss). Category corrections bust explicitly. If user deletes a batch without re-uploading, cache key also changes automatically.
+- **Progress cache key**: SHA-256(user_id + sorted batch_ids). Key changes on new upload (automatic miss). Category corrections bust explicitly.
+- **Phase 14 untested**: docker was unresponsive at session end. First thing next session: restart docker, run alembic upgrade head through 0012, smoke-test personality + alerts endpoints.
 
 ### Phase 7 — Chat Interface + Behavioral Vector (2026-06-18)
 - [x] `backend/app/models/transaction_note.py` — TransactionNote table: id UUID, transaction_id FK CASCADE, user_id FK CASCADE, note_text Text, created_at tz-aware
@@ -323,6 +322,28 @@ Batch transparency: transactions page shows which statement is loaded (date rang
 
 ---
 
+### Phase 14 — Financial Personality Profile + Proactive Pattern Alerts (2026-06-20)
+
+#### Financial personality profile
+- [x] `backend/app/models/behavioral_profile.py` — added `personality_cache: Text nullable`, `personality_batch_id: String(36) nullable`; also added missing `String` import
+- [x] `backend/alembic/versions/0011_add_personality_cache_to_behavioral_profiles.py` — ADD COLUMN x2 on behavioral_profiles, chains 0010→0011, has downgrade
+- [x] `backend/app/services/personality.py` — `PERSONALITY_TYPES` set (5 types: Anlık Karar Verici, Planlı Harcayan, Tasarruf Odaklı, Konfor Odaklı, Dengesiz Harcayan); `_build_analysis_prompt()` = category totals + monthly variance + profile context from behavioral_profile; `_call_llm()` = direct provider.client call (temp=0.4, JSON response, type validated against set); `analyze_personality()` = cache check (personality_batch_id == latest_batch_id) → cache hit return OR LLM generate → write cache → commit
+- [x] `backend/app/api/personality.py` — GET /personality; JWT-protected; checks cache before calling analyze_personality to set `cached: bool`; returns PersonalityResponse (type, description, strengths list, watch_out list, tip, cached)
+- [x] `backend/app/main.py` — personality_router registered
+- [x] `frontend/src/lib/api.ts` — `PersonalityData` interface; `getPersonality()` function
+- [x] `frontend/src/components/PersonalityCard.tsx` — 5 type-specific color schemes (orange/emerald/blue/purple/yellow); large type badge; description paragraph; strengths (green ✓) + watch_out (yellow !) two-column grid; tip in blue card; "önbellekten" label when cached; no-op when type = "Henüz Analiz Yok" or error
+- [x] `frontend/src/app/progress/page.tsx` — PersonalityCard inserted above AlertsPanel above GoalsPanel
+
+#### Proactive pattern alerts
+- [x] `backend/app/models/dismissed_alert.py` — DismissedAlert: id UUID, user_id FK CASCADE indexed, dismiss_key String(100), dismissed_at tz-aware; UNIQUE(user_id, dismiss_key) named "uq_dismissed_alerts_user_key"
+- [x] `backend/alembic/versions/0012_create_dismissed_alerts.py` — CREATE TABLE + unique constraint + user_id index, chains 0011→0012, has downgrade
+- [x] `backend/app/services/patterns.py` — `Alert` dataclass (type, message, amount Decimal, actionable bool, dismiss_key str); `detect_patterns(transactions)` pure function — no DB, 90-day cutoff, debit-only; `_find_recurring_and_subscriptions()` groups by desc[:30].lower(), ≥2 months, amounts within ±5% of median, ≤500 TL → forgotten_subscription / >500 TL → recurring, capped at 3 alerts; `_find_post_salary_spike()` first-3-days daily avg vs rest-of-month daily avg, ≥50% spike in ≥2 months; constants: SIMILARITY_THRESHOLD=5%, MIN_AMOUNT=10 TL, SUBSCRIPTION_MAX=500 TL, SPIKE_MIN_PCT=50, MAX_RECURRING_ALERTS=3, MIN_MONTHS=2
+- [x] `backend/app/api/patterns.py` — GET /patterns/alerts (fetch all_batches tx → detect_patterns → fetch dismissed keys → filter → return list[AlertResponse]); POST /patterns/alerts/dismiss (pg_insert ON CONFLICT DO NOTHING on uq_dismissed_alerts_user_key — idempotent, safe for double-click/retry); 204 on dismiss
+- [x] `backend/app/main.py` — patterns_router registered; DismissedAlert imported for create_all
+- [x] `frontend/src/lib/api.ts` — `Alert` interface; `getAlerts()`, `dismissAlert(dismissKey)` functions
+- [x] `frontend/src/components/AlertsPanel.tsx` — alert cards with type icon (💳/🔄/📈) + type label; "Sohbete sor →" button on actionable alerts → sets `sessionStorage("chat_prefill", message)` + router.push("/transactions"); "Kapat" dismiss button with optimistic removal from state + API call; loading skeleton; silent error (panel stays empty)
+- [x] `frontend/src/components/ChatPanel.tsx` — reads `sessionStorage("chat_prefill")` in getChatHistory `.finally()` block; clears from storage; pre-fills textarea; focuses textarea after 50ms delay
+
 ### Phase 13 — Chat-Based Transaction Entry + Voice Input (2026-06-20)
 - [x] `backend/app/services/behavioral_coach.py` — `detect_transaction_intent(message, provider)`: third lightweight LLM call (temp=0); prompt includes today's date for default; validates amount>0, type debit|credit, category in VALID_CATEGORIES, date ISO format before returning; returns None on any failure; `_INTENT_SYSTEM_PROMPT` format-string with today injected at call time
 - [x] `backend/app/api/chat.py` — `PendingTransaction` Pydantic model; `ChatResponse.pending_transaction: PendingTransaction | None = None`; step 9 calls `detect_transaction_intent` after profile extraction, before commit; `PendingTransaction(**pending_tx)` if not None
@@ -363,39 +384,51 @@ Batch transparency: transactions page shows which statement is loaded (date rang
 
 ## Next Session — Start Here
 
-**Next goal: subscription detection (backlog #4)**
+**Phase 14 code written but NOT tested — docker was unresponsive (disk full). First task: restart docker + run migrations + smoke-test.**
 
-Pre-flight (fresh DB or new machine):
-```
-# backend container
-alembic upgrade head   # applies through 0007
-alembic stamp head     # sync version table if create_all ran first
-pip install -r requirements.txt
+Pre-flight:
+```bash
+# 1. Restart docker desktop, then:
+docker compose up -d
+
+# 2. In backend container (alembic must reach 0012):
+docker compose exec backend alembic upgrade head
+# If error "can't locate revision 0011/0012" — run stamp first:
+docker compose exec backend alembic stamp 0010
+docker compose exec backend alembic upgrade head
+
+# 3. Verify:
+docker compose exec backend alembic current   # should say 0012 (head)
 ```
 
-Goal setting tasks:
-1. `backend/app/models/budget_goal.py` — BudgetGoal table: id UUID, user_id FK CASCADE, category String(100), monthly_limit Numeric(12,2), created_at tz-aware; UNIQUE(user_id, category)
-2. `backend/alembic/versions/0008_create_budget_goals.py` — CREATE TABLE + constraints, chains 0007→0008
-3. `backend/app/api/goals.py` — GET /goals, POST /goals (upsert by category), DELETE /goals/{category}; JWT-protected
-4. `frontend/src/app/goals/page.tsx` — list goals per category; inline edit monthly limit
-5. `frontend/src/app/progress/page.tsx` — show budget vs actual per category; over/under badge
+Smoke-test checklist:
+1. GET /personality — returns PersonalityData JSON (or no-data state if no uploads)
+2. GET /patterns/alerts — returns [] or list of Alert objects
+3. POST /patterns/alerts/dismiss with `{"dismiss_key": "test"}` — 204, idempotent
+4. Progress page /progress — PersonalityCard renders above AlertsPanel above GoalsPanel
+5. AlertsPanel "Sohbete sor →" → navigates to /transactions, ChatPanel textarea pre-filled
+
+After smoke-test passes → next goal: **subscription detection UI** (backlog) or **UI/UX polish**.
 
 Start prompt:
 ```
-Read CLAUDE.md. Phases 1–10 done (manual transaction entry complete).
-Start goal setting: BudgetGoal model + alembic migration + /goals API + goals page + progress integration.
+Read CLAUDE.md. Phases 1–14 complete. Docker was unresponsive last session (disk full, now cleared).
+First task: docker compose up + alembic upgrade head through 0012 + smoke-test personality and alerts.
+If all green, start subscription detection UI or discuss next priority.
 ```
 
 ---
 
 ## Backlog (post-MVP, priority order)
 
-1. **Goal setting** [NEXT] — user sets monthly budget per category; coach compares actuals to goals; show over/under on progress page
-2. **Subscription detection** — find recurring same-amount same-merchant transactions; surface as "you're paying X/month for Y"
-3. **Manual transaction entry** [DONE Phase 10]
-4. **Subscription detection** — find recurring same-amount same-merchant transactions; surface as "you're paying X/month for Y"
-4. **Installment analysis** — detect taksit patterns (e.g. 3×500 TRY → "you have 2 payments left on this purchase")
-5. **Multi-statement overlap warning** — before insert, check if any (date, amount, desc) already exists for user; warn "X işlem zaten var, yine de eklensin mi?"
+1. **Smoke-test Phase 14** [IMMEDIATE] — restart docker, alembic upgrade head → 0012, test personality + alerts + chat prefill
+2. **Subscription detection UI** — patterns.py already detects recurring + forgotten_subscription algorithmically; need dedicated /subscriptions page or section showing merchant name, monthly cost, months active, cancel CTA
+3. **Installment analysis** — detect taksit patterns (3×500 TL same merchant ≈30 days apart → "2 taksit kaldı"); pure Python, no LLM; new service `installments.py`
+4. **UI/UX polish** — mobile responsiveness; empty states; loading skeletons consistent across all panels; PersonalityCard fade-in animation
+5. **Multi-statement overlap warning** — before insert, check (date, amount, desc[:30]) already exists for user; warn before committing duplicate
+6. **Layer 3 vision LLM** — wire stub in pdf_parser.py; trigger when OCR confidence low; use GPT-4o vision with base64-encoded page image
+7. **Redis rate limiter** — replace in-memory RateLimiter (resets on restart) with Redis; needed for multi-process production deploy
+8. **Deployment** — Vercel for frontend (NEXT_PUBLIC_API_URL → prod backend URL); fly.io or Railway for backend + Postgres; env vars via platform secrets
 
 ---
 
