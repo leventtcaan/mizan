@@ -9,6 +9,7 @@ import {
 } from "@/lib/api";
 import TransactionTable from "@/components/TransactionTable";
 import SpendingChart from "@/components/SpendingChart";
+import AddTransactionModal from "@/components/AddTransactionModal";
 
 type LoadState = "loading" | "ready" | "error";
 
@@ -26,6 +27,7 @@ export default function TransactionsPage() {
   const [userEmail, setUserEmail] = useState<string | null>(null);
   const [showAll, setShowAll] = useState(false);
   const [showBatchHistory, setShowBatchHistory] = useState(false);
+  const [showAddModal, setShowAddModal] = useState(false);
 
   useEffect(() => {
     const user = getStoredUser();
@@ -53,6 +55,12 @@ export default function TransactionsPage() {
   };
 
   const handleLogout = () => { clearToken(); router.push("/login"); };
+
+  const handleTransactionAdded = (tx: Transaction) => {
+    setTransactions((prev) => [tx, ...prev]);
+    setShowAddModal(false);
+    getBatches().then(setBatches).catch(() => {});
+  };
 
   const latestBatch = batches[0] ?? null;
 
@@ -85,6 +93,12 @@ export default function TransactionsPage() {
             >
               İlerleme
             </Link>
+            <button
+              onClick={() => setShowAddModal(true)}
+              className="px-3 py-1.5 rounded-lg bg-gray-800 hover:bg-gray-700 text-sm text-gray-300 transition-colors"
+            >
+              + Ekle
+            </button>
             <Link
               href="/upload"
               className="px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-sm font-medium transition-colors"
@@ -202,6 +216,13 @@ export default function TransactionsPage() {
           />
         )}
       </div>
+
+      {showAddModal && (
+        <AddTransactionModal
+          onClose={() => setShowAddModal(false)}
+          onSuccess={handleTransactionAdded}
+        />
+      )}
     </main>
   );
 }

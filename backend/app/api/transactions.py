@@ -6,16 +6,23 @@ BREAKS IF REMOVED: Frontend has no way to retrieve or manage transaction data.
 """
 
 import logging
+import uuid
 from datetime import date, datetime
+from decimal import Decimal
 
-from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel
+from fastapi import APIRouter, Depends, HTTPException, status
+from pydantic import BaseModel, field_validator
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_session
 from app.core.dependencies import get_current_user
+from app.models.transaction import Transaction
 from app.models.user import User
+from app.services.categorizer import categorize_batch
+from app.services.llm_provider import get_provider
 from app.services.transaction_service import (
+    bust_insight_cache,
+    bust_progress_cache,
     delete_batch,
     get_batch_summaries,
     get_transactions_for_user,
@@ -53,6 +60,45 @@ class DeleteBatchResponse(BaseModel):
     upload_batch_id: str
     deleted_count: int
     message: str
+
+
+VALID_CATEGORIES = {
+    "market", "restoran", "ulasim", "eglence", "saglik", "fatura",
+    "giyim", "nakit_atm", "transfer", "iade", "vergi", "teknoloji", "diger",
+}
+
+
+class ManualTransactionRequest(BaseModel):
+    amount: str
+    transaction_type: str
+    description: str
+    transaction_date: date
+    category: str | None = None
+
+    @field_validator("transaction_type")
+    @classmethod
+    def valid_type(cls, v: str) -> str:
+        if v not in ("debit", "credit"):
+            raise ValueError("transaction_type must be 'debit' or 'credit'")
+        return v
+
+    @field_validator("category")
+    @classmethod
+    def valid_category(cls, v: str | None) -> str | None:
+        if v is not None and v not in VALID_CATEGORIES:
+            raise ValueError(f"Invalid category. Must be one of: {sorted(VALID_CATEGORIES)}")
+        return v
+
+    @field_validator("amount")
+    @classmethod
+    def valid_amount(cls, v: str) -> str:
+        try:
+            val = Decimal(v.replace(",", "."))
+        except Exception:
+            raise ValueError("Amount must be a valid number")
+        if val <= 0:
+            raise ValueError("Amount must be positive")
+        return v
 
 
 @router.get("/batches", response_model=list[BatchSummaryResponse])
@@ -99,6 +145,63 @@ async def list_transactions(
         )
         for t in transactions
     ]
+
+
+@router.post("", response_model=TransactionResponse, status_code=status.HTTP_201_CREATED)
+async def create_transaction(
+    body: ManualTransactionRequest,
+    current_user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
+) -> TransactionResponse:
+    """
+    WHAT: Manually inserts a single transaction for the authenticated user.
+    WHY: Users need to record cash payments and transactions not in their bank statement.
+         If no category is supplied, runs the LLM categorizer on the single description.
+         upload_batch_id is None — manual entries are not tied to any upload batch.
+    """
+    amount = Decimal(body.amount.replace(",", "."))
+    tx = Transaction(
+        user_id=current_user.id,
+        amount=amount,
+        transaction_type=body.transaction_type,
+        description=body.description,
+        transaction_date=body.transaction_date,
+        upload_batch_id=None,
+    )
+
+    if body.category:
+        tx.category = body.category
+    else:
+        session.add(tx)
+        await session.flush()
+        provider = get_provider()
+        try:
+            await categorize_batch([tx], provider)
+        except Exception:
+            logger.warning("LLM categorization failed for manual transaction — leaving category=None")
+
+    session.add(tx)
+    await bust_insight_cache(current_user.id, session)
+    await bust_progress_cache(current_user.id, session)
+    await session.commit()
+
+    logger.info(
+        "Manual transaction inserted — user_id=%s amount=%s description=%.30s",
+        current_user.id, tx.amount, tx.description,
+    )
+
+    return TransactionResponse(
+        id=str(tx.id),
+        user_id=str(tx.user_id),
+        upload_batch_id=tx.upload_batch_id,
+        amount=str(tx.amount),
+        transaction_type=tx.transaction_type,
+        description=tx.description,
+        transaction_date=tx.transaction_date,
+        category=tx.category,
+        behavioral_tag=tx.behavioral_tag,
+        created_at=tx.created_at,
+    )
 
 
 @router.delete("/batch/{upload_batch_id}", response_model=DeleteBatchResponse)

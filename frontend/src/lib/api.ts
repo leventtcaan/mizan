@@ -269,6 +269,76 @@ export async function getComparison(): Promise<ComparisonResponse> {
   return response.json() as Promise<ComparisonResponse>;
 }
 
+export interface GoalResponse {
+  id: string;
+  category: string;
+  monthly_limit: string;
+  created_at: string;
+}
+
+export interface GoalStatusItem {
+  category: string;
+  monthly_limit: string;
+  spent_this_month: string;
+  remaining: string;
+  pct_used: number;
+  status: "ok" | "warning" | "exceeded";
+}
+
+export async function getGoals(): Promise<GoalResponse[]> {
+  const response = await fetch(`${API_BASE_URL}/goals`, { headers: authHeaders() });
+  if (!response.ok) throw new Error(`Failed to fetch goals: ${response.status}`);
+  return response.json() as Promise<GoalResponse[]>;
+}
+
+export async function upsertGoal(category: string, monthly_limit: string): Promise<GoalResponse> {
+  const response = await fetch(`${API_BASE_URL}/goals`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...authHeaders() },
+    body: JSON.stringify({ category, monthly_limit }),
+  });
+  if (!response.ok) {
+    const err = await response.json().catch(() => null);
+    throw new Error(extractErrorMessage(err, "Hedef kaydedilemedi"));
+  }
+  return response.json() as Promise<GoalResponse>;
+}
+
+export async function deleteGoal(category: string): Promise<void> {
+  const response = await fetch(`${API_BASE_URL}/goals/${category}`, {
+    method: "DELETE",
+    headers: authHeaders(),
+  });
+  if (!response.ok) throw new Error(`Failed to delete goal: ${response.status}`);
+}
+
+export async function getGoalStatus(): Promise<GoalStatusItem[]> {
+  const response = await fetch(`${API_BASE_URL}/goals/status`, { headers: authHeaders() });
+  if (!response.ok) throw new Error(`Failed to fetch goal status: ${response.status}`);
+  return response.json() as Promise<GoalStatusItem[]>;
+}
+
+export interface CreateTransactionRequest {
+  amount: string;
+  transaction_type: "debit" | "credit";
+  description: string;
+  transaction_date: string;
+  category?: string;
+}
+
+export async function createTransaction(body: CreateTransactionRequest): Promise<Transaction> {
+  const response = await fetch(`${API_BASE_URL}/transactions`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...authHeaders() },
+    body: JSON.stringify(body),
+  });
+  if (!response.ok) {
+    const err = await response.json().catch(() => null);
+    throw new Error(extractErrorMessage(err, "İşlem eklenemedi"));
+  }
+  return response.json() as Promise<Transaction>;
+}
+
 export async function correctCategory(
   transactionId: string,
   category: string,

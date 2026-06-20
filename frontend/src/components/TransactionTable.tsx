@@ -66,7 +66,7 @@ export default function TransactionTable({ transactions, onCategoryCorrection }:
   }
 
   const toggleExpand = async (id: string) => {
-    const row = rows[id];
+    const row = rows[id] ?? { expanded: false, notes: [], notesLoaded: false, category: null, saving: false, error: null };
     const nowExpanding = !row.expanded;
 
     setRows((prev) => ({

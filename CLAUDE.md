@@ -212,7 +212,7 @@ When context reaches ~70% capacity:
 
 ## Current Status
 
-**Phases 1–9 complete.** 3 banks tested (Ziraat, VakıfBank, Yapı Kredi). All caches active.
+**Phases 1–11 complete.** 3 banks tested (Ziraat, VakıfBank, Yapı Kredi). All caches active.
 
 Full stack: register/login → JWT → upload (rate-limited, busts both caches) → 3-layer OCR → LLM extract → OCR description cleanup → dedup → zero-amount filter → persist → LLM categorize (13 categories) → insight cache check → LLM coach with behavioral context (corrections + notes injected) → spending chart + progress page (LineChart 3-month trend + cross-batch-deduped category comparison with LLM one-liners, 24h cached) → frontend display. Category correction invalidates insight cache + progress cache → regenerates fresh.
 
@@ -323,9 +323,27 @@ Batch transparency: transactions page shows which statement is loaded (date rang
 
 ---
 
+### Phase 11 — Goal Setting + TransactionTable Bug Fix (2026-06-20)
+- [x] `TransactionTable.tsx` line 70 — `toggleExpand` guards `rows[id]` with `?? { expanded: false, ... }` so manually-added transactions (not in initial `rows` state) don't crash on click
+- [x] `backend/app/models/budget_goal.py` — BudgetGoal table: id UUID, user_id FK CASCADE, category String(100), monthly_limit Numeric(12,2), created_at tz-aware; UNIQUE(user_id, category)
+- [x] `backend/alembic/versions/0008_create_budget_goals.py` — CREATE TABLE + unique constraint + user_id index, chains 0007→0008, has downgrade
+- [x] `backend/app/api/goals.py` — GET /goals (list); POST /goals (upsert via pg_insert ON CONFLICT DO UPDATE, returns the upserted row via RETURNING); DELETE /goals/{category} (404 if not found); GET /goals/status (real-time: debit tx this calendar month per category → pct_used, status ok/warning/>80%/exceeded/>100%)
+- [x] `backend/app/main.py` — goals_router registered; BudgetGoal imported for create_all
+- [x] `frontend/src/lib/api.ts` — `GoalResponse`, `GoalStatusItem` types; `getGoals()`, `upsertGoal()`, `deleteGoal()`, `getGoalStatus()` functions
+- [x] `frontend/src/components/GoalsPanel.tsx` — loads status + goal list in parallel; progress bars per goal (green/yellow/red); % used + remaining/exceeded label; × delete button; "Hedef Ekle" shows inline form with category select (only unconfigured categories shown) + limit input; categories already with goals hidden from the add form
+- [x] `frontend/src/app/progress/page.tsx` — GoalsPanel inserted above category comparison section
+
+### Phase 10 — Manual Transaction Entry (2026-06-20)
+- [x] `backend/app/api/transactions.py` — POST /transactions (201): `ManualTransactionRequest` body (amount str, transaction_type debit|credit, description, transaction_date, optional category); Pydantic validators for all fields; no category → flush → LLM categorize_batch on single tx → commit; category given → add+commit; busts both insight+progress caches; returns `TransactionResponse`
+- [x] `frontend/src/lib/api.ts` — `createTransaction()` + `CreateTransactionRequest` interface
+- [x] `frontend/src/components/AddTransactionModal.tsx` — modal form: debit/credit toggle, amount number input, description text, date picker, optional category select (13 options, "Otomatik belirle" default); closes on backdrop click or İptal; loading/error states
+- [x] `frontend/src/app/transactions/page.tsx` — "+ Ekle" button opens modal; `handleTransactionAdded` prepends new tx to state + refreshes batches list
+
+---
+
 ## Next Session — Start Here
 
-**Next goal: manual transaction entry (backlog #1)**
+**Next goal: subscription detection (backlog #3)**
 
 Pre-flight (fresh DB or new machine):
 ```
@@ -335,24 +353,27 @@ alembic stamp head     # sync version table if create_all ran first
 pip install -r requirements.txt
 ```
 
-Manual transaction entry tasks:
-1. `backend/app/api/transactions.py` — POST /transactions body: {amount, transaction_type, description, transaction_date, category?}; run through categorize pipeline if no category given; bust both caches after insert; returns TransactionResponse
-2. `frontend/src/components/AddTransactionModal.tsx` — modal form: amount (number input), type radio (debit/credit), description text, date picker, optional category select (13 options); calls POST /transactions; closes on success
-3. `frontend/src/app/transactions/page.tsx` — "+ Ekle" button opens modal; on success, prepend new transaction to `transactions` state (no full refetch); also refresh batches
+Goal setting tasks:
+1. `backend/app/models/budget_goal.py` — BudgetGoal table: id UUID, user_id FK CASCADE, category String(100), monthly_limit Numeric(12,2), created_at tz-aware; UNIQUE(user_id, category)
+2. `backend/alembic/versions/0008_create_budget_goals.py` — CREATE TABLE + constraints, chains 0007→0008
+3. `backend/app/api/goals.py` — GET /goals, POST /goals (upsert by category), DELETE /goals/{category}; JWT-protected
+4. `frontend/src/app/goals/page.tsx` — list goals per category; inline edit monthly limit
+5. `frontend/src/app/progress/page.tsx` — show budget vs actual per category; over/under badge
 
 Start prompt:
 ```
-Read CLAUDE.md. Phases 1–9 done (batch transparency, progress dedup, progress cache, all verified).
-Start manual transaction entry: POST /transactions endpoint + AddTransactionModal frontend component.
+Read CLAUDE.md. Phases 1–10 done (manual transaction entry complete).
+Start goal setting: BudgetGoal model + alembic migration + /goals API + goals page + progress integration.
 ```
 
 ---
 
 ## Backlog (post-MVP, priority order)
 
-1. **Manual transaction entry** [NEXT] — POST /transactions with amount/description/date/type; same categorize → bust caches
-2. **Goal setting** — user sets monthly budget per category; coach compares actuals to goals; show over/under on progress page
-3. **Subscription detection** — find recurring same-amount same-merchant transactions; surface as "you're paying X/month for Y"
+1. **Goal setting** [NEXT] — user sets monthly budget per category; coach compares actuals to goals; show over/under on progress page
+2. **Subscription detection** — find recurring same-amount same-merchant transactions; surface as "you're paying X/month for Y"
+3. **Manual transaction entry** [DONE Phase 10]
+4. **Subscription detection** — find recurring same-amount same-merchant transactions; surface as "you're paying X/month for Y"
 4. **Installment analysis** — detect taksit patterns (e.g. 3×500 TRY → "you have 2 payments left on this purchase")
 5. **Multi-statement overlap warning** — before insert, check if any (date, amount, desc) already exists for user; warn "X işlem zaten var, yine de eklensin mi?"
 

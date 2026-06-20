@@ -12,6 +12,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.auth import router as auth_router
 from app.api.corrections import router as corrections_router
+from app.api.goals import router as goals_router
 from app.api.insights import router as insights_router
 from app.api.notes import router as notes_router
 from app.api.progress import router as progress_router
@@ -24,6 +25,7 @@ from app.models.transaction import Transaction  # noqa: F401 — registers table
 from app.models.transaction_note import TransactionNote  # noqa: F401 — registers table in metadata
 from app.models.upload_insight import UploadInsight  # noqa: F401 — registers table in metadata
 from app.models.user_correction import UserCorrection  # noqa: F401 — registers table in metadata
+from app.models.budget_goal import BudgetGoal  # noqa: F401 — registers table in metadata
 from app.models.progress_insight import ProgressInsight  # noqa: F401 — registers table in metadata
 
 logging.basicConfig(
@@ -79,6 +81,7 @@ app.include_router(notes_router)
 app.include_router(corrections_router)
 app.include_router(insights_router)
 app.include_router(progress_router)
+app.include_router(goals_router)
 
 
 @app.get("/health")

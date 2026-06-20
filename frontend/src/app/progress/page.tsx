@@ -11,6 +11,7 @@ import {
   type ProgressResponse, type ComparisonResponse,
 } from "@/lib/api";
 import { CATEGORY_LABELS } from "@/lib/categories";
+import GoalsPanel from "@/components/GoalsPanel";
 
 type LoadState = "loading" | "ready" | "error";
 
@@ -189,6 +190,9 @@ export default function ProgressPage() {
             </div>
           )}
         </div>
+
+        {/* Budget goals */}
+        <GoalsPanel />
 
         {/* Category comparison table + LLM insights */}
         <div className="mb-8 p-5 rounded-xl bg-gray-900 border border-gray-800">
