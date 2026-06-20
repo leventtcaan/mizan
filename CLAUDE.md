@@ -212,7 +212,7 @@ When context reaches ~70% capacity:
 
 ## Current Status
 
-**Phases 1–11 complete.** 3 banks tested (Ziraat, VakıfBank, Yapı Kredi). All caches active.
+**Phases 1–12 complete.** 3 banks tested (Ziraat, VakıfBank, Yapı Kredi). All caches active.
 
 Full stack: register/login → JWT → upload (rate-limited, busts both caches) → 3-layer OCR → LLM extract → OCR description cleanup → dedup → zero-amount filter → persist → LLM categorize (13 categories) → insight cache check → LLM coach with behavioral context (corrections + notes injected) → spending chart + progress page (LineChart 3-month trend + cross-batch-deduped category comparison with LLM one-liners, 24h cached) → frontend display. Category correction invalidates insight cache + progress cache → regenerates fresh.
 
@@ -323,6 +323,19 @@ Batch transparency: transactions page shows which statement is loaded (date rang
 
 ---
 
+### Phase 12 — Conversational Behavioral Coaching with Memory (2026-06-20)
+- [x] `backend/app/models/conversation.py` — ConversationMessage: id UUID, user_id FK CASCADE, role String(10), content Text, created_at tz-aware+indexed, context_batch_id String(36) nullable
+- [x] `backend/app/models/behavioral_profile.py` — BehavioralProfile: id UUID, user_id UNIQUE FK CASCADE, fixed_expenses/income_sources/spending_patterns Text (JSON), user_notes Text, updated_at nullable
+- [x] `backend/alembic/versions/0009_create_conversation_messages.py` — CREATE TABLE + 2 indexes, chains 0008→0009
+- [x] `backend/alembic/versions/0010_create_behavioral_profiles.py` — CREATE TABLE + unique constraint + index, chains 0009→0010
+- [x] `backend/app/services/behavioral_coach.py` — `get_or_create_profile()`, `build_profile_context()`, `build_spending_summary()`, `build_system_prompt()`, `extract_profile_facts()` (second LLM call, returns {} on failure), `merge_profile()` (merge not overwrite, returns bool)
+- [x] `backend/app/api/chat.py` — POST /chat: rate-limited (60/hr); loads last 20 history + profile + spending ctx → builds system prompt → LLM call → saves both messages → runs profile extraction → merges profile → commit; GET /chat/history (last 20, oldest-first); GET /chat/profile (returns parsed JSON fields); field_validator on message (non-empty, ≤2000 chars)
+- [x] `backend/app/main.py` — chat_router registered; ConversationMessage + BehavioralProfile imported for create_all
+- [x] `backend/app/services/llm_provider.py` — `get_provider(task_type="default")` — added default so bare `get_provider()` calls don't crash
+- [x] `frontend/src/lib/api.ts` — `ChatMessage`, `ChatApiResponse`, `BehavioralProfile` types; `getChatHistory()`, `sendChatMessage()`, `getChatProfile()` functions
+- [x] `frontend/src/components/ChatPanel.tsx` — loads history on mount; if empty + initialInsight given, seeds first assistant bubble; optimistic user message append; three-dot bounce typing indicator; auto-resize textarea; Enter sends (Shift+Enter newline); "Profilin güncellendi" toast (3.5s); auto-scroll to bottom
+- [x] `frontend/src/app/transactions/page.tsx` — static coaching div replaced with ChatPanel; mounts only after insightState !== "loading" to avoid prop-flip flicker; passes insight?.insight as initialInsight
+
 ### Phase 11 — Goal Setting + TransactionTable Bug Fix (2026-06-20)
 - [x] `TransactionTable.tsx` line 70 — `toggleExpand` guards `rows[id]` with `?? { expanded: false, ... }` so manually-added transactions (not in initial `rows` state) don't crash on click
 - [x] `backend/app/models/budget_goal.py` — BudgetGoal table: id UUID, user_id FK CASCADE, category String(100), monthly_limit Numeric(12,2), created_at tz-aware; UNIQUE(user_id, category)
@@ -343,7 +356,7 @@ Batch transparency: transactions page shows which statement is loaded (date rang
 
 ## Next Session — Start Here
 
-**Next goal: subscription detection (backlog #3)**
+**Next goal: subscription detection (backlog #4)**
 
 Pre-flight (fresh DB or new machine):
 ```

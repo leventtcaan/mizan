@@ -269,6 +269,55 @@ export async function getComparison(): Promise<ComparisonResponse> {
   return response.json() as Promise<ComparisonResponse>;
 }
 
+export interface ChatMessage {
+  id: string;
+  role: "user" | "assistant";
+  content: string;
+  created_at: string;
+}
+
+export interface ChatApiResponse {
+  response: string;
+  profile_updated: boolean;
+}
+
+export interface BehavioralProfile {
+  fixed_expenses: Record<string, number>;
+  income_sources: Record<string, number>;
+  spending_patterns: Record<string, boolean>;
+  user_notes: string;
+  updated_at: string | null;
+}
+
+export async function getChatHistory(): Promise<ChatMessage[]> {
+  const response = await fetch(`${API_BASE_URL}/chat/history`, {
+    headers: authHeaders(),
+  });
+  if (!response.ok) throw new Error(`Failed to fetch chat history: ${response.status}`);
+  return response.json() as Promise<ChatMessage[]>;
+}
+
+export async function sendChatMessage(message: string): Promise<ChatApiResponse> {
+  const response = await fetch(`${API_BASE_URL}/chat`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...authHeaders() },
+    body: JSON.stringify({ message }),
+  });
+  if (!response.ok) {
+    const err = await response.json().catch(() => null);
+    throw new Error(extractErrorMessage(err, "Mesaj gönderilemedi"));
+  }
+  return response.json() as Promise<ChatApiResponse>;
+}
+
+export async function getChatProfile(): Promise<BehavioralProfile> {
+  const response = await fetch(`${API_BASE_URL}/chat/profile`, {
+    headers: authHeaders(),
+  });
+  if (!response.ok) throw new Error(`Failed to fetch profile: ${response.status}`);
+  return response.json() as Promise<BehavioralProfile>;
+}
+
 export interface GoalResponse {
   id: string;
   category: string;

@@ -10,6 +10,7 @@ import {
 import TransactionTable from "@/components/TransactionTable";
 import SpendingChart from "@/components/SpendingChart";
 import AddTransactionModal from "@/components/AddTransactionModal";
+import ChatPanel from "@/components/ChatPanel";
 
 type LoadState = "loading" | "ready" | "error";
 
@@ -181,21 +182,15 @@ export default function TransactionsPage() {
           </div>
         )}
 
-        {/* Coaching insight */}
-        <div className="mb-8 p-5 rounded-xl bg-gray-900 border border-gray-800">
-          <p className="text-xs text-gray-500 uppercase tracking-wide mb-2 font-semibold">
-            Davranışsal Analiz
-          </p>
-          {insightState === "loading" && (
-            <p className="text-gray-400 text-sm animate-pulse">Analiz yapılıyor...</p>
-          )}
-          {insightState === "ready" && insight && (
-            <p className="text-gray-200 text-sm leading-relaxed">{insight.insight}</p>
-          )}
-          {insightState === "error" && (
-            <p className="text-gray-500 text-sm">Analiz yüklenemedi.</p>
-          )}
-        </div>
+        {/* Conversational coach — mounts once insight state is settled to avoid flicker */}
+        {insightState === "loading" && (
+          <div className="mb-8 rounded-xl bg-gray-900 border border-gray-800 flex items-center justify-center" style={{ height: 420 }}>
+            <p className="text-gray-600 text-sm animate-pulse">Koç hazırlanıyor...</p>
+          </div>
+        )}
+        {insightState !== "loading" && (
+          <ChatPanel initialInsight={insight?.insight ?? null} />
+        )}
 
         {txState === "ready" && transactions.length > 0 && (
           <SpendingChart transactions={transactions} />

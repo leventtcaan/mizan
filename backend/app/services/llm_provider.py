@@ -106,7 +106,7 @@ class OpenAIProvider(LLMProvider):
         return self.complete(str(transaction))
 
 
-def get_provider(task_type: str) -> LLMProvider:
+def get_provider(task_type: str = "default") -> LLMProvider:
     """
     WHAT: Factory — returns the correct LLMProvider based on which API key is present.
     WHY: All provider selection logic lives here; callers never inspect env vars themselves.
