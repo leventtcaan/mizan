@@ -276,9 +276,18 @@ export interface ChatMessage {
   created_at: string;
 }
 
+export interface PendingTransaction {
+  amount: string;
+  type: "debit" | "credit";
+  description: string;
+  date: string;
+  category: string;
+}
+
 export interface ChatApiResponse {
   response: string;
   profile_updated: boolean;
+  pending_transaction: PendingTransaction | null;
 }
 
 export interface BehavioralProfile {

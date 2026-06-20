@@ -1,7 +1,33 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { getChatHistory, sendChatMessage } from "@/lib/api";
+import {
+  getChatHistory, sendChatMessage, createTransaction,
+  type PendingTransaction,
+} from "@/lib/api";
+import { CATEGORY_LABELS } from "@/lib/categories";
+import AddTransactionModal from "@/components/AddTransactionModal";
+
+// Minimal Web Speech API types — not in TS stdlib by default
+interface SpeechRecognitionEvent extends Event {
+  results: { [index: number]: { [index: number]: { transcript: string } }; length: number };
+}
+interface SpeechRecognitionInstance extends EventTarget {
+  lang: string;
+  interimResults: boolean;
+  maxAlternatives: number;
+  start(): void;
+  stop(): void;
+  onresult: ((e: SpeechRecognitionEvent) => void) | null;
+  onerror: ((e: Event) => void) | null;
+  onend: (() => void) | null;
+}
+declare global {
+  interface Window {
+    SpeechRecognition?: new () => SpeechRecognitionInstance;
+    webkitSpeechRecognition?: new () => SpeechRecognitionInstance;
+  }
+}
 
 interface Message {
   id: string;
@@ -13,12 +39,32 @@ interface Props {
   initialInsight: string | null;
 }
 
+function formatAmount(amount: string): string {
+  const n = parseFloat(amount);
+  return new Intl.NumberFormat("tr-TR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n);
+}
+
 export default function ChatPanel({ initialInsight }: Props) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [historyLoaded, setHistoryLoaded] = useState(false);
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
+
+  // Transaction confirmation card
+  const [pendingTx, setPendingTx] = useState<PendingTransaction | null>(null);
+  const [txConfirming, setTxConfirming] = useState(false);
+  const [txError, setTxError] = useState<string | null>(null);
+  const [showEditModal, setShowEditModal] = useState(false);
+
+  // Voice input
+  const [voiceSupported] = useState(() =>
+    typeof window !== "undefined" && !!(window.SpeechRecognition ?? window.webkitSpeechRecognition)
+  );
+  const [recording, setRecording] = useState(false);
+  const recognitionRef = useRef<SpeechRecognitionInstance | null>(null);
+  const voiceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   const bottomRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -26,17 +72,9 @@ export default function ChatPanel({ initialInsight }: Props) {
     getChatHistory()
       .then((history) => {
         if (history.length === 0 && initialInsight) {
-          // No prior conversation — seed the panel with the coaching insight
-          // so users have something to react to immediately.
-          setMessages([{
-            id: "__initial__",
-            role: "assistant",
-            content: initialInsight,
-          }]);
+          setMessages([{ id: "__initial__", role: "assistant", content: initialInsight }]);
         } else {
-          setMessages(
-            history.map((m) => ({ id: m.id, role: m.role, content: m.content }))
-          );
+          setMessages(history.map((m) => ({ id: m.id, role: m.role, content: m.content })));
         }
       })
       .catch(() => {
@@ -46,21 +84,26 @@ export default function ChatPanel({ initialInsight }: Props) {
       })
       .finally(() => setHistoryLoaded(true));
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // run once on mount — initialInsight is stable by the time parent renders ChatPanel
+  }, []);
 
-  // Scroll to bottom whenever messages or the typing indicator changes
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages, sending]);
+  }, [messages, sending, pendingTx]);
 
-  const handleSend = async () => {
-    const text = input.trim();
+  const showToast = (msg: string) => {
+    setToast(msg);
+    setTimeout(() => setToast(null), 3500);
+  };
+
+  // Core send function — accepts either the state input or a forced text (for voice)
+  const doSend = async (text: string) => {
     if (!text || sending) return;
-
     setInput("");
-    // Optimistic: append user message immediately
-    const userMsg: Message = { id: `u-${Date.now()}`, role: "user", content: text };
-    setMessages((prev) => [...prev, userMsg]);
+    if (textareaRef.current) textareaRef.current.style.height = "auto";
+    setPendingTx(null);
+    setTxError(null);
+
+    setMessages((prev) => [...prev, { id: `u-${Date.now()}`, role: "user", content: text }]);
     setSending(true);
 
     try {
@@ -69,10 +112,8 @@ export default function ChatPanel({ initialInsight }: Props) {
         ...prev,
         { id: `a-${Date.now()}`, role: "assistant", content: result.response },
       ]);
-      if (result.profile_updated) {
-        setToast("Profilin güncellendi");
-        setTimeout(() => setToast(null), 3500);
-      }
+      if (result.profile_updated) showToast("Profilin güncellendi");
+      if (result.pending_transaction) setPendingTx(result.pending_transaction);
     } catch {
       setMessages((prev) => [
         ...prev,
@@ -84,91 +125,271 @@ export default function ChatPanel({ initialInsight }: Props) {
     }
   };
 
+  const handleSend = () => void doSend(input.trim());
+
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
-      void handleSend();
+      handleSend();
     }
   };
 
-  // Auto-resize textarea as user types
   const handleInput = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     setInput(e.target.value);
     e.target.style.height = "auto";
     e.target.style.height = Math.min(e.target.scrollHeight, 96) + "px";
   };
 
+  // ── Voice input ─────────────────────────────────────────────────────────────
+
+  const startRecording = () => {
+    if (!voiceSupported || recording) return;
+    if (voiceTimerRef.current) clearTimeout(voiceTimerRef.current);
+
+    const SR = window.SpeechRecognition ?? window.webkitSpeechRecognition!;
+    const recognition = new SR();
+    recognition.lang = "tr-TR";
+    recognition.interimResults = false;
+    recognition.maxAlternatives = 1;
+
+    recognition.onresult = (e: SpeechRecognitionEvent) => {
+      const transcript = e.results[0][0].transcript;
+      setInput(transcript);
+      if (textareaRef.current) {
+        textareaRef.current.style.height = "auto";
+        textareaRef.current.style.height = Math.min(textareaRef.current.scrollHeight, 96) + "px";
+      }
+      // Auto-send after 1.5s so the user can see what was transcribed
+      voiceTimerRef.current = setTimeout(() => void doSend(transcript), 1500);
+    };
+
+    recognition.onerror = () => setRecording(false);
+    recognition.onend = () => setRecording(false);
+
+    recognitionRef.current = recognition;
+    recognition.start();
+    setRecording(true);
+  };
+
+  const stopRecording = () => {
+    if (voiceTimerRef.current) clearTimeout(voiceTimerRef.current);
+    recognitionRef.current?.stop();
+    setRecording(false);
+  };
+
+  // ── Transaction confirmation ─────────────────────────────────────────────────
+
+  const confirmTransaction = async () => {
+    if (!pendingTx) return;
+    setTxConfirming(true);
+    setTxError(null);
+    try {
+      await createTransaction({
+        amount: pendingTx.amount,
+        transaction_type: pendingTx.type,
+        description: pendingTx.description,
+        transaction_date: pendingTx.date,
+        category: pendingTx.category,
+      });
+      const label = CATEGORY_LABELS[pendingTx.category] ?? pendingTx.category;
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: `tx-${Date.now()}`,
+          role: "assistant",
+          content: `✓ İşlem eklendi: ₺${formatAmount(pendingTx.amount)} — ${label}`,
+        },
+      ]);
+      setPendingTx(null);
+    } catch (err) {
+      setTxError(err instanceof Error ? err.message : "İşlem eklenemedi");
+    } finally {
+      setTxConfirming(false);
+    }
+  };
+
+  const dismissTransaction = () => {
+    setPendingTx(null);
+    setTxError(null);
+  };
+
+  const editTransaction = () => {
+    setShowEditModal(true);
+  };
+
+  const typeLabel = pendingTx?.type === "credit" ? "Gelir" : "Gider";
+  const catLabel = pendingTx ? (CATEGORY_LABELS[pendingTx.category] ?? pendingTx.category) : "";
+
   return (
-    <div className="rounded-xl bg-gray-900 border border-gray-800 flex flex-col mb-8" style={{ height: 420 }}>
-      {/* Header */}
-      <div className="px-4 py-3 border-b border-gray-800 flex items-center justify-between shrink-0">
-        <p className="text-xs text-gray-500 uppercase tracking-wide font-semibold">Koç</p>
-        {toast && (
-          <span className="text-xs text-emerald-400 font-medium animate-pulse">{toast}</span>
-        )}
-      </div>
+    <>
+      <div className="rounded-xl bg-gray-900 border border-gray-800 flex flex-col mb-8" style={{ height: 420 }}>
+        {/* Header */}
+        <div className="px-4 py-3 border-b border-gray-800 flex items-center justify-between shrink-0">
+          <p className="text-xs text-gray-500 uppercase tracking-wide font-semibold">Koç</p>
+          {toast && (
+            <span className="text-xs text-emerald-400 font-medium animate-pulse">{toast}</span>
+          )}
+        </div>
 
-      {/* Message thread */}
-      <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3 min-h-0">
-        {!historyLoaded && (
-          <p className="text-gray-600 text-sm text-center py-6 animate-pulse">Yükleniyor...</p>
-        )}
-        {historyLoaded && messages.length === 0 && (
-          <p className="text-gray-600 text-sm text-center py-6">Koçunuza bir şey sorun.</p>
-        )}
+        {/* Message thread */}
+        <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3 min-h-0">
+          {!historyLoaded && (
+            <p className="text-gray-600 text-sm text-center py-6 animate-pulse">Yükleniyor...</p>
+          )}
+          {historyLoaded && messages.length === 0 && (
+            <p className="text-gray-600 text-sm text-center py-6">Koçunuza bir şey sorun.</p>
+          )}
 
-        {messages.map((msg) => (
-          <div
-            key={msg.id}
-            className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}
-          >
-            <div
-              className={`max-w-[82%] px-3.5 py-2.5 rounded-2xl text-sm leading-relaxed whitespace-pre-wrap ${
-                msg.role === "user"
-                  ? "bg-indigo-600 text-white rounded-br-sm"
-                  : "bg-gray-800 text-gray-200 rounded-bl-sm"
+          {messages.map((msg) => (
+            <div key={msg.id} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
+              <div
+                className={`max-w-[82%] px-3.5 py-2.5 rounded-2xl text-sm leading-relaxed whitespace-pre-wrap ${
+                  msg.role === "user"
+                    ? "bg-indigo-600 text-white rounded-br-sm"
+                    : "bg-gray-800 text-gray-200 rounded-bl-sm"
+                }`}
+              >
+                {msg.content}
+              </div>
+            </div>
+          ))}
+
+          {/* Typing indicator */}
+          {sending && (
+            <div className="flex justify-start">
+              <div className="bg-gray-800 px-4 py-3 rounded-2xl rounded-bl-sm">
+                <span className="flex gap-1 items-center h-4">
+                  <span className="w-1.5 h-1.5 rounded-full bg-gray-500 animate-bounce" style={{ animationDelay: "0ms" }} />
+                  <span className="w-1.5 h-1.5 rounded-full bg-gray-500 animate-bounce" style={{ animationDelay: "150ms" }} />
+                  <span className="w-1.5 h-1.5 rounded-full bg-gray-500 animate-bounce" style={{ animationDelay: "300ms" }} />
+                </span>
+              </div>
+            </div>
+          )}
+
+          {/* Transaction confirmation card */}
+          {pendingTx && !sending && (
+            <div className="flex justify-start">
+              <div className="max-w-[90%] bg-gray-800 border border-indigo-800 rounded-2xl rounded-bl-sm px-4 py-3 space-y-2">
+                <p className="text-xs text-gray-500 uppercase tracking-wide font-semibold">İşlem Tespit Edildi</p>
+                <p className="text-sm text-white font-medium">
+                  ₺{formatAmount(pendingTx.amount)}{" "}
+                  <span className="text-gray-400 font-normal">
+                    {typeLabel} · {catLabel}
+                  </span>
+                </p>
+                <p className="text-xs text-gray-400">{pendingTx.description}</p>
+                <p className="text-xs text-gray-600">{pendingTx.date}</p>
+                {txError && <p className="text-xs text-red-400">{txError}</p>}
+                <div className="flex gap-2 pt-1">
+                  <button
+                    onClick={() => void confirmTransaction()}
+                    disabled={txConfirming}
+                    className="px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-xs font-medium text-white transition-colors"
+                  >
+                    {txConfirming ? "Ekleniyor..." : "Evet, ekle"}
+                  </button>
+                  <button
+                    onClick={editTransaction}
+                    disabled={txConfirming}
+                    className="px-3 py-1.5 rounded-lg bg-gray-700 hover:bg-gray-600 disabled:opacity-50 text-xs text-gray-300 transition-colors"
+                  >
+                    Düzenle
+                  </button>
+                  <button
+                    onClick={dismissTransaction}
+                    disabled={txConfirming}
+                    className="px-3 py-1.5 rounded-lg bg-gray-800 hover:bg-gray-700 disabled:opacity-50 text-xs text-gray-500 transition-colors"
+                  >
+                    Hayır
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          <div ref={bottomRef} />
+        </div>
+
+        {/* Input row */}
+        <div className="px-4 py-3 border-t border-gray-800 flex gap-2 items-end shrink-0">
+          {/* Voice button */}
+          {voiceSupported && (
+            <button
+              onClick={recording ? stopRecording : startRecording}
+              disabled={sending}
+              title={recording ? "Durdurmak için tıkla" : "Sesli giriş (Türkçe)"}
+              className={`shrink-0 w-9 h-9 rounded-xl flex items-center justify-center transition-colors disabled:opacity-40 ${
+                recording
+                  ? "bg-red-600 hover:bg-red-500"
+                  : "bg-gray-800 hover:bg-gray-700 text-gray-400"
               }`}
             >
-              {msg.content}
-            </div>
-          </div>
-        ))}
+              {recording ? (
+                // Red pulsing dot while recording
+                <span className="relative flex items-center justify-center">
+                  <span className="absolute w-3 h-3 rounded-full bg-red-300 animate-ping opacity-75" />
+                  <span className="w-2 h-2 rounded-full bg-white" />
+                </span>
+              ) : (
+                // Microphone icon
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" />
+                  <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
+                  <line x1="12" y1="19" x2="12" y2="23" />
+                  <line x1="8" y1="23" x2="16" y2="23" />
+                </svg>
+              )}
+            </button>
+          )}
 
-        {/* Typing indicator */}
-        {sending && (
-          <div className="flex justify-start">
-            <div className="bg-gray-800 px-4 py-3 rounded-2xl rounded-bl-sm">
-              <span className="flex gap-1 items-center h-4">
-                <span className="w-1.5 h-1.5 rounded-full bg-gray-500 animate-bounce" style={{ animationDelay: "0ms" }} />
-                <span className="w-1.5 h-1.5 rounded-full bg-gray-500 animate-bounce" style={{ animationDelay: "150ms" }} />
-                <span className="w-1.5 h-1.5 rounded-full bg-gray-500 animate-bounce" style={{ animationDelay: "300ms" }} />
-              </span>
-            </div>
-          </div>
-        )}
-        <div ref={bottomRef} />
+          <textarea
+            ref={textareaRef}
+            value={input}
+            onChange={handleInput}
+            onKeyDown={handleKeyDown}
+            placeholder="Bir şey sorun veya paylaşın... (Enter gönderir)"
+            rows={1}
+            className="flex-1 bg-gray-800 border border-gray-700 rounded-xl px-3 py-2.5 text-white text-sm placeholder-gray-600 focus:outline-none focus:border-indigo-500 resize-none leading-relaxed"
+            style={{ minHeight: 40, maxHeight: 96 }}
+          />
+
+          <button
+            onClick={handleSend}
+            disabled={sending || !input.trim()}
+            className="px-3 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 text-sm font-medium text-white transition-colors shrink-0"
+          >
+            ↑
+          </button>
+        </div>
       </div>
 
-      {/* Input */}
-      <div className="px-4 py-3 border-t border-gray-800 flex gap-2 items-end shrink-0">
-        <textarea
-          ref={textareaRef}
-          value={input}
-          onChange={handleInput}
-          onKeyDown={handleKeyDown}
-          placeholder="Bir şey sorun veya paylaşın... (Enter gönderir)"
-          rows={1}
-          className="flex-1 bg-gray-800 border border-gray-700 rounded-xl px-3 py-2.5 text-white text-sm placeholder-gray-600 focus:outline-none focus:border-indigo-500 resize-none leading-relaxed"
-          style={{ minHeight: 40, maxHeight: 96 }}
+      {/* Edit modal — opens pre-populated when user clicks Düzenle */}
+      {showEditModal && pendingTx && (
+        <AddTransactionModal
+          onClose={() => { setShowEditModal(false); setPendingTx(null); }}
+          onSuccess={() => {
+            setShowEditModal(false);
+            setPendingTx(null);
+            const label = CATEGORY_LABELS[pendingTx.category] ?? pendingTx.category;
+            setMessages((prev) => [
+              ...prev,
+              {
+                id: `tx-${Date.now()}`,
+                role: "assistant",
+                content: `✓ İşlem eklendi: ₺${formatAmount(pendingTx.amount)} — ${label}`,
+              },
+            ]);
+          }}
+          initialValues={{
+            amount: pendingTx.amount,
+            transaction_type: pendingTx.type,
+            description: pendingTx.description,
+            transaction_date: pendingTx.date,
+            category: pendingTx.category,
+          }}
         />
-        <button
-          onClick={() => void handleSend()}
-          disabled={sending || !input.trim()}
-          className="px-3 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 text-sm font-medium text-white transition-colors shrink-0"
-        >
-          ↑
-        </button>
-      </div>
-    </div>
+      )}
+    </>
   );
 }

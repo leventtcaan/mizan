@@ -10,17 +10,26 @@ const CATEGORIES = [
   "vergi", "teknoloji", "diger",
 ] as const;
 
+interface InitialValues {
+  amount?: string;
+  transaction_type?: "debit" | "credit";
+  description?: string;
+  transaction_date?: string;
+  category?: string;
+}
+
 interface Props {
   onClose: () => void;
   onSuccess: (tx: Transaction) => void;
+  initialValues?: InitialValues;
 }
 
-export default function AddTransactionModal({ onClose, onSuccess }: Props) {
-  const [amount, setAmount] = useState("");
-  const [type, setType] = useState<"debit" | "credit">("debit");
-  const [description, setDescription] = useState("");
-  const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
-  const [category, setCategory] = useState("");
+export default function AddTransactionModal({ onClose, onSuccess, initialValues }: Props) {
+  const [amount, setAmount] = useState(initialValues?.amount ?? "");
+  const [type, setType] = useState<"debit" | "credit">(initialValues?.transaction_type ?? "debit");
+  const [description, setDescription] = useState(initialValues?.description ?? "");
+  const [date, setDate] = useState(initialValues?.transaction_date ?? new Date().toISOString().slice(0, 10));
+  const [category, setCategory] = useState(initialValues?.category ?? "");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 

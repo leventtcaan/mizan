@@ -212,7 +212,7 @@ When context reaches ~70% capacity:
 
 ## Current Status
 
-**Phases 1–12 complete.** 3 banks tested (Ziraat, VakıfBank, Yapı Kredi). All caches active.
+**Phases 1–13 complete.** 3 banks tested (Ziraat, VakıfBank, Yapı Kredi). All caches active.
 
 Full stack: register/login → JWT → upload (rate-limited, busts both caches) → 3-layer OCR → LLM extract → OCR description cleanup → dedup → zero-amount filter → persist → LLM categorize (13 categories) → insight cache check → LLM coach with behavioral context (corrections + notes injected) → spending chart + progress page (LineChart 3-month trend + cross-batch-deduped category comparison with LLM one-liners, 24h cached) → frontend display. Category correction invalidates insight cache + progress cache → regenerates fresh.
 
@@ -322,6 +322,13 @@ Batch transparency: transactions page shows which statement is loaded (date rang
 - [x] Rate-limited category correction (20/hr, correction_limiter singleton); GET /transactions/{id}/notes fetched on first row expand (notes persist across refresh)
 
 ---
+
+### Phase 13 — Chat-Based Transaction Entry + Voice Input (2026-06-20)
+- [x] `backend/app/services/behavioral_coach.py` — `detect_transaction_intent(message, provider)`: third lightweight LLM call (temp=0); prompt includes today's date for default; validates amount>0, type debit|credit, category in VALID_CATEGORIES, date ISO format before returning; returns None on any failure; `_INTENT_SYSTEM_PROMPT` format-string with today injected at call time
+- [x] `backend/app/api/chat.py` — `PendingTransaction` Pydantic model; `ChatResponse.pending_transaction: PendingTransaction | None = None`; step 9 calls `detect_transaction_intent` after profile extraction, before commit; `PendingTransaction(**pending_tx)` if not None
+- [x] `frontend/src/lib/api.ts` — `PendingTransaction` interface; `ChatApiResponse.pending_transaction: PendingTransaction | null`
+- [x] `frontend/src/components/AddTransactionModal.tsx` — `InitialValues` interface; `initialValues?: InitialValues` prop; all 5 state fields initialised from `initialValues` with `?? ""` fallback
+- [x] `frontend/src/components/ChatPanel.tsx` — `pendingTx` state + `txConfirming/txError` state; confirmation card renders below last assistant message (not sending): shows ₺amount + type + category + description + date; [Evet ekle] calls `createTransaction()` → success appends "✓ İşlem eklendi" assistant bubble; [Düzenle] opens AddTransactionModal pre-populated with pendingTx values; [Hayır] dismisses; voice: `voiceSupported` checked at mount (no SSR); mic button with pulsing red dot while recording; `recognition.lang = 'tr-TR'`; `onresult` fills textarea + schedules `doSend(transcript)` after 1500ms via `voiceTimerRef`; timer cleared on stop; `onend` clears recording state; `doSend(text)` refactored to take text directly (handles both keyboard and voice paths)
 
 ### Phase 12 — Conversational Behavioral Coaching with Memory (2026-06-20)
 - [x] `backend/app/models/conversation.py` — ConversationMessage: id UUID, user_id FK CASCADE, role String(10), content Text, created_at tz-aware+indexed, context_batch_id String(36) nullable

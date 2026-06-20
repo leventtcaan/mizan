@@ -23,6 +23,7 @@ from app.services.behavioral_coach import (
     build_profile_context,
     build_spending_summary,
     build_system_prompt,
+    detect_transaction_intent,
     extract_profile_facts,
     get_or_create_profile,
     merge_profile,
@@ -54,9 +55,18 @@ class ChatRequest(BaseModel):
         return v
 
 
+class PendingTransaction(BaseModel):
+    amount: str
+    type: str
+    description: str
+    date: str
+    category: str
+
+
 class ChatResponse(BaseModel):
     response: str
     profile_updated: bool
+    pending_transaction: PendingTransaction | None = None
 
 
 class MessageResponse(BaseModel):
@@ -149,13 +159,21 @@ async def chat(
     facts = extract_profile_facts(body.message, provider)
     profile_updated = merge_profile(profile, facts)
 
+    # ── 9. Detect transaction intent ─────────────────────────────────────────
+    pending_tx = detect_transaction_intent(body.message, provider)
+
     await session.commit()
 
+    pending = PendingTransaction(**pending_tx) if pending_tx else None
     logger.info(
-        "Chat message processed — user=%s profile_updated=%s history_len=%d",
-        current_user.id, profile_updated, len(history),
+        "Chat message processed — user=%s profile_updated=%s pending_tx=%s history_len=%d",
+        current_user.id, profile_updated, bool(pending), len(history),
     )
-    return ChatResponse(response=assistant_reply, profile_updated=profile_updated)
+    return ChatResponse(
+        response=assistant_reply,
+        profile_updated=profile_updated,
+        pending_transaction=pending,
+    )
 
 
 @router.get("/history", response_model=list[MessageResponse])

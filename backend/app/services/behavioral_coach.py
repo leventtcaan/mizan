@@ -9,7 +9,7 @@ import json
 import logging
 import uuid
 from datetime import date, datetime, timezone
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -147,6 +147,86 @@ def extract_profile_facts(message: str, provider: LLMProvider) -> dict:
     except Exception as exc:
         logger.debug("Profile extraction failed (non-fatal): %s", exc)
         return {}
+
+
+_INTENT_SYSTEM_PROMPT = """\
+Bu mesaj bir finansal işlem içeriyor mu?
+
+EVET ise şu JSON formatını döndür:
+{{"amount": "150.00", "type": "debit", "description": "Market alışverişi", "date": "{today}", "category": "market"}}
+
+Kurallar:
+- type: "debit" (gider/ödeme) veya "credit" (gelir/para gelen)
+- amount: pozitif sayı, string olarak
+- date: belirtilmediyse bugün ({today})
+- category: market|restoran|ulasim|eglence|saglik|fatura|giyim|nakit_atm|transfer|iade|vergi|teknoloji|diger
+
+HAYIR ise sadece null döndür.
+SADECE JSON veya null yaz, başka hiçbir şey yazma."""
+
+VALID_CATEGORIES = {
+    "market", "restoran", "ulasim", "eglence", "saglik", "fatura",
+    "giyim", "nakit_atm", "transfer", "iade", "vergi", "teknoloji", "diger",
+}
+
+
+def detect_transaction_intent(message: str, provider: LLMProvider) -> dict | None:
+    """
+    WHAT: Lightweight LLM call to detect if a user message describes a financial transaction.
+    WHY: Lets users add transactions conversationally ("bugün 150 TL market harcadım")
+         instead of opening a separate form. Returns None on failure — safe to ignore.
+    """
+    today = date.today().isoformat()
+    prompt = _INTENT_SYSTEM_PROMPT.format(today=today)
+    try:
+        response = provider.client.chat.completions.create(
+            model=provider.model,
+            messages=[
+                {"role": "system", "content": prompt},
+                {"role": "user", "content": message},
+            ],
+            temperature=0,
+        )
+        raw = (response.choices[0].message.content or "").strip()
+        if raw.lower() in ("null", "none", ""):
+            return None
+        if "```" in raw:
+            raw = raw.split("```")[1]
+            if raw.startswith("json"):
+                raw = raw[4:]
+        data = json.loads(raw.strip())
+        # Validate the extracted data before returning
+        if not isinstance(data, dict):
+            return None
+        amount_str = str(data.get("amount", "0")).replace(",", ".")
+        try:
+            amount = Decimal(amount_str)
+        except InvalidOperation:
+            return None
+        if amount <= 0:
+            return None
+        tx_type = data.get("type", "debit")
+        if tx_type not in ("debit", "credit"):
+            tx_type = "debit"
+        category = data.get("category", "diger")
+        if category not in VALID_CATEGORIES:
+            category = "diger"
+        tx_date = data.get("date", today)
+        # Validate date format
+        try:
+            date.fromisoformat(tx_date)
+        except ValueError:
+            tx_date = today
+        return {
+            "amount": f"{amount:.2f}",
+            "type": tx_type,
+            "description": str(data.get("description", message[:80])),
+            "date": tx_date,
+            "category": category,
+        }
+    except Exception as exc:
+        logger.debug("Transaction intent detection failed (non-fatal): %s", exc)
+        return None
 
 
 def merge_profile(profile: BehavioralProfile, facts: dict) -> bool:
