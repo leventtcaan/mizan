@@ -14,6 +14,7 @@ import { CATEGORY_LABELS } from "@/lib/categories";
 import GoalsPanel from "@/components/GoalsPanel";
 import PersonalityCard from "@/components/PersonalityCard";
 import AlertsPanel from "@/components/AlertsPanel";
+import InflationPanel from "@/components/InflationPanel";
 
 type LoadState = "loading" | "ready" | "error";
 
@@ -202,6 +203,9 @@ export default function ProgressPage() {
         <div className="mb-6">
           <AlertsPanel />
         </div>
+
+        {/* Inflation-adjusted analysis */}
+        <InflationPanel />
 
         {/* Budget goals */}
         <GoalsPanel />

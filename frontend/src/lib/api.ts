@@ -439,6 +439,32 @@ export async function dismissAlert(dismissKey: string): Promise<void> {
   if (!response.ok) throw new Error(`Failed to dismiss alert: ${response.status}`);
 }
 
+export interface CategoryInflation {
+  category: string;
+  old_avg: number;
+  new_avg: number;
+  old_month: string;
+  new_month: string;
+  nominal_pct: number;
+  inflation_pct: number;
+  real_pct: number;
+  verdict: string;
+  months_compared: number;
+}
+
+export interface InflationResponse {
+  analyses: CategoryInflation[];
+  cached: boolean;
+}
+
+export async function getInflationAnalysis(): Promise<InflationResponse> {
+  const response = await fetch(`${API_BASE_URL}/inflation/analysis`, {
+    headers: authHeaders(),
+  });
+  if (!response.ok) throw new Error(`Failed to fetch inflation analysis: ${response.status}`);
+  return response.json() as Promise<InflationResponse>;
+}
+
 export interface EmailPreferences {
   email_weekly_enabled: boolean;
 }
