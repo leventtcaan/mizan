@@ -212,17 +212,36 @@ When context reaches ~70% capacity:
 
 ## Current Status
 
-**Phases 1–14 complete.** Docker was unresponsive at end of session (disk full — now cleared). All code written; not yet tested after Phase 14.
+**Phases 1–16 complete. Docker unresponsive entire session — ALL Phase 13–16 code written but UNTESTED. First task next session: docker up + alembic upgrade head → 0013 + smoke-test.**
 
-Full stack: register/login → JWT → upload (rate-limited, busts caches) → 3-layer OCR → LLM extract → OCR cleanup → dedup → zero-amount filter → persist → LLM categorize (13 categories) → insight cache → LLM coach with corrections+notes injected → spending chart + progress page (LineChart 3-month trend + cross-batch-deduped category comparison + LLM one-liners, 24h cached) → PersonalityCard (5 types, cached per batch) → AlertsPanel (3 algorithmic detectors, dismiss persisted) → GoalsPanel (monthly budget vs actual) → ChatPanel (conversational coaching, behavioral profile memory, voice input, chat-based tx entry with confirmation card, sessionStorage prefill from alerts).
+Full stack: register/login → JWT → upload (rate-limited, busts caches) → 3-layer OCR → LLM extract → OCR cleanup → dedup → zero-amount filter → persist → LLM categorize (13 categories) → insight cache → LLM coach with corrections+notes injected → spending chart + progress page (LineChart 3-month trend + cross-batch-deduped category comparison + LLM one-liners, 24h cached) → PersonalityCard (5 types, cached per batch) → AlertsPanel (3 algorithmic detectors, dismiss persisted) → GoalsPanel (monthly budget vs actual) → ChatPanel (conversational coaching, behavioral profile memory, voice input, chat-based tx entry with confirmation card, sessionStorage prefill from alerts) → weekly email summary (Resend HTML, preferences toggle) → inflation-adjusted analysis (TUFE 2023-2026, real vs nominal per category, ProgressInsight cache).
+
+### Migrations (head = 0013)
+| Migration | What |
+|---|---|
+| 0001 | CREATE users + transactions |
+| 0002 | ADD upload_batch_id to transactions |
+| 0003 | ADD password_hash to users |
+| 0004 | CREATE upload_insights |
+| 0005 | CREATE transaction_notes |
+| 0006 | CREATE user_corrections |
+| 0007 | CREATE progress_insights |
+| 0008 | CREATE budget_goals |
+| 0009 | CREATE conversation_messages |
+| 0010 | CREATE behavioral_profiles |
+| 0011 | ADD personality_cache + personality_batch_id to behavioral_profiles |
+| 0012 | CREATE dismissed_alerts |
+| 0013 | ADD email_weekly_enabled (bool, default true) to users |
 
 ### Known Issues (open)
-- **Layer 3 vision LLM**: stub ready, not wired. Needed for banks with fonts <8pt (some Ziraat mobile PDFs misread at 400 DPI).
-- **Rate limiter is in-memory**: resets on backend restart. Redis needed for production multi-process deployment.
-- **Migration drift in dev**: `create_all` adds base schema but not Alembic migrations. Must run `alembic upgrade head` then `alembic stamp HEAD` in backend container after fresh DB.
+- **Docker**: unresponsive all of 2026-06-20 session. All Phase 13-16 code untested.
+- **Alembic head**: must run `alembic upgrade head` after docker restart to reach 0013.
+- **Layer 3 vision LLM**: stub ready in pdf_parser.py, not wired. Needed for banks with fonts <8pt.
+- **Rate limiter in-memory**: resets on backend restart. Redis needed for prod multi-process deploy.
+- **Resend domain**: `noreply@mizan.app` hardcoded in api/email.py — must be a verified Resend domain in prod.
+- **Migration drift in dev**: `create_all` adds base schema but not Alembic migrations. Must run `alembic upgrade head` then `alembic stamp HEAD` after fresh DB.
 - **Insight cache `generated_at` timezone**: uses `.replace(tzinfo=timezone.utc)` as safety for SQLite compat — harmless on Postgres.
-- **Progress cache key**: SHA-256(user_id + sorted batch_ids). Key changes on new upload (automatic miss). Category corrections bust explicitly.
-- **Phase 14 untested**: docker was unresponsive at session end. First thing next session: restart docker, run alembic upgrade head through 0012, smoke-test personality + alerts endpoints.
+- **TUFE rates 2025-2026**: approximate (TCMB trajectory estimates). Users see disclaimer. Real rates available from TÜİK monthly.
 
 ### Phase 7 — Chat Interface + Behavioral Vector (2026-06-18)
 - [x] `backend/app/models/transaction_note.py` — TransactionNote table: id UUID, transaction_id FK CASCADE, user_id FK CASCADE, note_text Text, created_at tz-aware
@@ -322,6 +341,26 @@ Full stack: register/login → JWT → upload (rate-limited, busts caches) → 3
 
 ---
 
+### Phase 16 — Inflation-Adjusted Spending Analysis (2026-06-20)
+- [x] `backend/app/services/inflation.py` — `TUFE_RATES` dict: 48 months (2023-01 → 2026-12), monthly % rates; 2025-2026 approximate (TCMB disinflation trajectory); `_DEFAULT_MONTHLY_RATE=2.0` for unknown months. `_cumulative_inflation(month_old, month_new)`: multiplies (1+rate/100) for each month AFTER old through new (inclusive) → returns cumulative %. `calculate_real_change(amount_old, amount_new, month_old, month_new)`: uses exact real-return formula `(1+nominal)/(1+inflation)-1` (not approximate subtraction); returns nominal_change_pct, inflation_between, real_change_pct, verdict. `analyze_user_inflation(user_id, session)`: groups debit tx by (category, month), skips categories with <2 distinct months, compares oldest vs latest month avg, runs calculate_real_change, sorts by real_pct desc (worst first).
+- [x] `backend/app/api/inflation.py` — `GET /inflation/analysis`: reuses `ProgressInsight` table with `data_type="inflation"` (no new migration needed; UniqueConstraint `uq_progress_insights_user_type` covers it); same 24h TTL + SHA-256 cache key as progress/comparison; auto-busted by existing `bust_progress_cache()` on upload + category correction; returns `InflationResponse(analyses: list[CategoryInflation], cached: bool)`.
+- [x] `backend/app/main.py` — `inflation_router` registered at `/inflation`.
+- [x] `frontend/src/lib/api.ts` — `CategoryInflation` + `InflationResponse` interfaces; `getInflationAnalysis()`.
+- [x] `frontend/src/components/InflationPanel.tsx` — table: Kategori / Eski Ort. / Yeni Ort. / Nominal / Gerçek / Yorum; 4 verdict tiers: real>20% → red "Enflasyonun çok üzerinde ↑↑", real>0% → orange "Enflasyonun üzerinde ↑", real<-5% → green "Enflasyonun altında ↓", else → gray "Enflasyonla paralel →"; date range per row (oldest→newest month); cumulative TUFE context line; TUFE disclaimer; silent on error/empty (returns null).
+- [x] `frontend/src/app/progress/page.tsx` — `<InflationPanel />` inserted between AlertsPanel and GoalsPanel.
+
+### Phase 15 — Weekly Email Summary (2026-06-20)
+- [x] `backend/requirements.txt` — `resend==2.0.0` added.
+- [x] `backend/app/core/config.py` — `RESEND_API_KEY: str = ""` + status log in `log_api_key_status()`.
+- [x] `.env.example` — `RESEND_API_KEY=` placeholder added.
+- [x] `backend/app/models/user.py` — `email_weekly_enabled: Mapped[bool]` column; `Boolean, nullable=False, default=True, server_default=text("true")` so existing rows default on.
+- [x] `backend/alembic/versions/0013_add_email_weekly_enabled_to_users.py` — ADD COLUMN boolean server_default=true, chains 0012→0013, has downgrade.
+- [x] `backend/app/services/weekly_summary.py` — `_CAT_DISPLAY` dict (13 categories → Turkish display names). `generate_summary(user_id, session)`: fetches this-week (Mon→today), last-week (prev Mon→Sun), this-calendar-month txs; computes debit totals + by_category dicts; change_pct; top merchant (desc[:30] by total spend); goal status (compares monthly spend vs BudgetGoal limits, reuses goal_status logic); one synchronous LLM call → 3-sentence Turkish coaching text at temp=0.7. Returns plain dict. `render_email(summary, user_email)`: full inline-CSS HTML email; hero section (total + green/red change badge); category table (this week vs diff from last week); goals as text progress bars `████░░ 67%` + Aşıldı/Uyarı/Yolunda labels; LLM insight card; CTA button; footer with unsubscribe instruction.
+- [x] `backend/app/api/email.py` — `GET /email/preferences` (returns `{email_weekly_enabled}`); `POST /email/preferences` (updates User row, commits, returns new state); `POST /email/weekly-preview` (calls generate_summary + render_email, returns `{html}`; no send); `POST /email/weekly-send` (calls both + `asyncio.to_thread(_send)` to avoid blocking event loop; 503 if RESEND_API_KEY missing; 502 on Resend API error; returns `{message, email_id}`). Resend imported inside `_send()` local scope — only loaded when actually sending.
+- [x] `backend/app/main.py` — `email_router` registered at `/email`.
+- [x] `frontend/src/lib/api.ts` — `EmailPreferences`, `SendEmailResponse` interfaces; `getEmailPreferences()`, `setEmailPreferences(enabled)`, `getWeeklyPreview()`, `sendWeeklySummary()`.
+- [x] `frontend/src/app/transactions/page.tsx` — `emailEnabled: boolean | null` state (null=loading/error, hidden); loads via `getEmailPreferences()` on mount; `handleEmailToggle()` optimistic toggle with `setEmailPreferences()`; "📧 E-posta Açık/Kapalı" button in header (indigo bg when enabled, gray when disabled); button hidden until preference loads.
+
 ### Phase 14 — Financial Personality Profile + Proactive Pattern Alerts (2026-06-20)
 
 #### Financial personality profile
@@ -384,51 +423,60 @@ Full stack: register/login → JWT → upload (rate-limited, busts caches) → 3
 
 ## Next Session — Start Here
 
-**Phase 14 code written but NOT tested — docker was unresponsive (disk full). First task: restart docker + run migrations + smoke-test.**
+**Phases 1–16 written, NONE of 13–16 tested (docker down entire 2026-06-20 session). First task: docker + alembic → 0013 + full smoke-test.**
 
 Pre-flight:
 ```bash
 # 1. Restart docker desktop, then:
 docker compose up -d
 
-# 2. In backend container (alembic must reach 0012):
+# 2. Alembic must reach 0013:
 docker compose exec backend alembic upgrade head
-# If error "can't locate revision 0011/0012" — run stamp first:
-docker compose exec backend alembic stamp 0010
+# If "can't locate revision" error:
+docker compose exec backend alembic stamp 0012
 docker compose exec backend alembic upgrade head
 
-# 3. Verify:
-docker compose exec backend alembic current   # should say 0012 (head)
+# 3. Verify head:
+docker compose exec backend alembic current   # must say 0013 (head)
 ```
 
-Smoke-test checklist:
-1. GET /personality — returns PersonalityData JSON (or no-data state if no uploads)
-2. GET /patterns/alerts — returns [] or list of Alert objects
-3. POST /patterns/alerts/dismiss with `{"dismiss_key": "test"}` — 204, idempotent
-4. Progress page /progress — PersonalityCard renders above AlertsPanel above GoalsPanel
-5. AlertsPanel "Sohbete sor →" → navigates to /transactions, ChatPanel textarea pre-filled
+Smoke-test checklist (do in order — later tests depend on earlier):
+1. `GET /health` → `{"status":"ok"}`
+2. `POST /auth/register` + `POST /auth/login` → JWT token
+3. `POST /upload` with a PDF → transactions inserted, categorized
+4. `GET /personality` → PersonalityData JSON (type from 5 options or "Henüz Analiz Yok")
+5. `GET /patterns/alerts` → `[]` or list; `POST /patterns/alerts/dismiss {"dismiss_key":"test"}` → 204
+6. `POST /chat {"message":"merhaba"}` → assistant response
+7. `GET /inflation/analysis` → `{"analyses":[...],"cached":false}` (or empty if <2 months data)
+8. `GET /email/preferences` → `{"email_weekly_enabled":true}`
+9. `POST /email/preferences {"email_weekly_enabled":false}` → persists; toggle back
+10. `POST /email/weekly-preview` → returns `{"html":"<!DOCTYPE html>..."}` (long string)
+11. Progress page `/progress` → PersonalityCard + AlertsPanel + InflationPanel + GoalsPanel + comparison table all render
+12. Transactions page → "📧 E-posta Açık" button visible in header; click toggles
+13. AlertsPanel "Sohbete sor →" → /transactions, ChatPanel pre-filled
 
-After smoke-test passes → next goal: **subscription detection UI** (backlog) or **UI/UX polish**.
+After smoke-test passes → **UI/UX polish** or **deployment** or **subscription detection UI**.
 
 Start prompt:
 ```
-Read CLAUDE.md. Phases 1–14 complete. Docker was unresponsive last session (disk full, now cleared).
-First task: docker compose up + alembic upgrade head through 0012 + smoke-test personality and alerts.
-If all green, start subscription detection UI or discuss next priority.
+Read CLAUDE.md. Phases 1–16 complete (all written 2026-06-20, none tested — docker was down).
+First task: docker compose up + alembic upgrade head → 0013 + run full smoke-test checklist from CLAUDE.md.
+Fix any failures. Then discuss next priority.
 ```
 
 ---
 
 ## Backlog (post-MVP, priority order)
 
-1. **Smoke-test Phase 14** [IMMEDIATE] — restart docker, alembic upgrade head → 0012, test personality + alerts + chat prefill
-2. **Subscription detection UI** — patterns.py already detects recurring + forgotten_subscription algorithmically; need dedicated /subscriptions page or section showing merchant name, monthly cost, months active, cancel CTA
-3. **Installment analysis** — detect taksit patterns (3×500 TL same merchant ≈30 days apart → "2 taksit kaldı"); pure Python, no LLM; new service `installments.py`
-4. **UI/UX polish** — mobile responsiveness; empty states; loading skeletons consistent across all panels; PersonalityCard fade-in animation
-5. **Multi-statement overlap warning** — before insert, check (date, amount, desc[:30]) already exists for user; warn before committing duplicate
-6. **Layer 3 vision LLM** — wire stub in pdf_parser.py; trigger when OCR confidence low; use GPT-4o vision with base64-encoded page image
-7. **Redis rate limiter** — replace in-memory RateLimiter (resets on restart) with Redis; needed for multi-process production deploy
-8. **Deployment** — Vercel for frontend (NEXT_PUBLIC_API_URL → prod backend URL); fly.io or Railway for backend + Postgres; env vars via platform secrets
+1. **Smoke-test Phases 13–16** [IMMEDIATE] — docker up + alembic → 0013, full checklist above
+2. **UI/UX polish** — mobile responsiveness; loading skeletons consistent across all panels; empty states for InflationPanel/PersonalityCard; PersonalityCard fade-in animation
+3. **Resend domain verification** — `noreply@mizan.app` must be verified in Resend dashboard before /email/weekly-send works in prod; for dev use `onboarding@resend.dev`
+4. **Subscription detection UI** — patterns.py already detects recurring + forgotten_subscription; need dedicated section: merchant name, monthly cost, months active, cancel CTA
+5. **Installment analysis** — detect taksit patterns (3×500 TL same merchant ≈30 days apart → "2 taksit kaldı"); pure Python, no LLM; new service `installments.py`
+6. **Multi-statement overlap warning** — before insert, check (date, amount, desc[:30]) already exists for user; surface warning before committing
+7. **Layer 3 vision LLM** — wire stub in pdf_parser.py; trigger when OCR confidence low; GPT-4o vision with base64 page image
+8. **Redis rate limiter** — replace in-memory RateLimiter (resets on restart) with Redis; needed for multi-process prod
+9. **Deployment** — Vercel (frontend, NEXT_PUBLIC_API_URL → prod); fly.io or Railway (backend + Postgres); RESEND_API_KEY + SECRET_KEY via platform secrets; alembic upgrade head on first deploy
 
 ---
 
