@@ -439,6 +439,55 @@ export async function dismissAlert(dismissKey: string): Promise<void> {
   if (!response.ok) throw new Error(`Failed to dismiss alert: ${response.status}`);
 }
 
+export interface EmailPreferences {
+  email_weekly_enabled: boolean;
+}
+
+export async function getEmailPreferences(): Promise<EmailPreferences> {
+  const response = await fetch(`${API_BASE_URL}/email/preferences`, {
+    headers: authHeaders(),
+  });
+  if (!response.ok) throw new Error(`Failed to fetch email preferences: ${response.status}`);
+  return response.json() as Promise<EmailPreferences>;
+}
+
+export async function setEmailPreferences(enabled: boolean): Promise<EmailPreferences> {
+  const response = await fetch(`${API_BASE_URL}/email/preferences`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...authHeaders() },
+    body: JSON.stringify({ email_weekly_enabled: enabled }),
+  });
+  if (!response.ok) throw new Error(`Failed to update email preferences: ${response.status}`);
+  return response.json() as Promise<EmailPreferences>;
+}
+
+export async function getWeeklyPreview(): Promise<string> {
+  const response = await fetch(`${API_BASE_URL}/email/weekly-preview`, {
+    method: "POST",
+    headers: authHeaders(),
+  });
+  if (!response.ok) throw new Error(`Failed to generate preview: ${response.status}`);
+  const data = (await response.json()) as { html: string };
+  return data.html;
+}
+
+export interface SendEmailResponse {
+  message: string;
+  email_id: string | null;
+}
+
+export async function sendWeeklySummary(): Promise<SendEmailResponse> {
+  const response = await fetch(`${API_BASE_URL}/email/weekly-send`, {
+    method: "POST",
+    headers: authHeaders(),
+  });
+  if (!response.ok) {
+    const err = await response.json().catch(() => null);
+    throw new Error(extractErrorMessage(err, "E-posta gönderilemedi"));
+  }
+  return response.json() as Promise<SendEmailResponse>;
+}
+
 export async function correctCategory(
   transactionId: string,
   category: string,

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
   getTransactions, getInsights, getBatches, getStoredUser, clearToken,
+  getEmailPreferences, setEmailPreferences,
   type Transaction, type InsightResponse, type BatchSummary,
 } from "@/lib/api";
 import TransactionTable from "@/components/TransactionTable";
@@ -29,6 +30,8 @@ export default function TransactionsPage() {
   const [showAll, setShowAll] = useState(false);
   const [showBatchHistory, setShowBatchHistory] = useState(false);
   const [showAddModal, setShowAddModal] = useState(false);
+  const [emailEnabled, setEmailEnabled] = useState<boolean | null>(null);
+  const [emailToggling, setEmailToggling] = useState(false);
 
   useEffect(() => {
     const user = getStoredUser();
@@ -36,6 +39,10 @@ export default function TransactionsPage() {
     setUserEmail(user.email);
 
     getBatches().then(setBatches).catch(() => {});
+
+    getEmailPreferences()
+      .then((prefs) => setEmailEnabled(prefs.email_weekly_enabled))
+      .catch(() => {});
 
     getInsights()
       .then((data) => { setInsight(data); setInsightState("ready"); })
@@ -56,6 +63,20 @@ export default function TransactionsPage() {
   };
 
   const handleLogout = () => { clearToken(); router.push("/login"); };
+
+  const handleEmailToggle = async () => {
+    if (emailEnabled === null || emailToggling) return;
+    const next = !emailEnabled;
+    setEmailToggling(true);
+    try {
+      await setEmailPreferences(next);
+      setEmailEnabled(next);
+    } catch {
+      // silent — button reverts to previous state
+    } finally {
+      setEmailToggling(false);
+    }
+  };
 
   const handleTransactionAdded = (tx: Transaction) => {
     setTransactions((prev) => [tx, ...prev]);
@@ -88,6 +109,20 @@ export default function TransactionsPage() {
             >
               Çıkış
             </button>
+            {emailEnabled !== null && (
+              <button
+                onClick={handleEmailToggle}
+                disabled={emailToggling}
+                title="Haftalık özet e-postası"
+                className={`px-3 py-1.5 rounded-lg text-sm transition-colors disabled:opacity-50 ${
+                  emailEnabled
+                    ? "bg-indigo-900 hover:bg-indigo-800 text-indigo-300"
+                    : "bg-gray-800 hover:bg-gray-700 text-gray-500"
+                }`}
+              >
+                {emailEnabled ? "📧 E-posta Açık" : "📧 E-posta Kapalı"}
+              </button>
+            )}
             <Link
               href="/progress"
               className="px-3 py-1.5 rounded-lg bg-gray-800 hover:bg-gray-700 text-sm text-gray-300 transition-colors"

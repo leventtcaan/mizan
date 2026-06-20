@@ -10,7 +10,7 @@ BREAKS IF REMOVED: Transaction model has no foreign key target; upload endpoint
 import uuid
 from datetime import datetime, timezone
 
-from sqlalchemy import DateTime, String
+from sqlalchemy import Boolean, DateTime, String, text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
@@ -65,6 +65,13 @@ class User(Base):
     # WHY: timezone=True stores UTC offset alongside the timestamp in PostgreSQL.
     # ALTERNATIVE: Store naive datetime. TRADEOFF: Naive datetimes silently break
     # when the server's timezone changes or data crosses regions.
+    email_weekly_enabled: Mapped[bool] = mapped_column(
+        Boolean,
+        nullable=False,
+        default=True,
+        server_default=text("true"),
+    )
+
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         nullable=False,

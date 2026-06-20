@@ -11,6 +11,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.auth import router as auth_router
+from app.api.email import router as email_router
 from app.api.chat import router as chat_router
 from app.api.corrections import router as corrections_router
 from app.api.goals import router as goals_router
@@ -91,6 +92,7 @@ app.include_router(goals_router)
 app.include_router(chat_router)
 app.include_router(personality_router)
 app.include_router(patterns_router)
+app.include_router(email_router)
 
 
 @app.get("/health")

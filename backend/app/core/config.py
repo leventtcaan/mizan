@@ -27,6 +27,8 @@ class Settings(BaseSettings):
 
     # WHY: SECRET_KEY signs JWTs — must be random and long (32+ bytes of entropy).
     # Default is safe for dev only; prod must override this via environment variable.
+    RESEND_API_KEY: str = ""
+
     SECRET_KEY: str = "change-me-in-production-use-openssl-rand-hex-32"
     JWT_ALGORITHM: str = "HS256"
     JWT_EXPIRE_MINUTES: int = 60 * 24 * 7  # 7 days
@@ -45,6 +47,7 @@ class Settings(BaseSettings):
         # ALTERNATIVE: Log first N chars. TRADEOFF: Leaks partial secret into log files.
         logger.info("DEEPSEEK_API_KEY: %s", "set" if len(self.DEEPSEEK_API_KEY) > 0 else "not set")
         logger.info("OPENAI_API_KEY: %s", "set" if len(self.OPENAI_API_KEY) > 0 else "not set")
+        logger.info("RESEND_API_KEY: %s", "set" if len(self.RESEND_API_KEY) > 0 else "not set")
 
 
 # WHY: Module-level singleton — imported once, reused everywhere.
