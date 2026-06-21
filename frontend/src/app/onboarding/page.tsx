@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { getStoredUser, setStoredUser, uploadStatement, completeOnboarding, type UploadResponse } from "@/lib/api";
+import { FileText, ArrowRight } from "@/components/ui/Icons";
 
 type Bank = "ziraat" | "vakifbank" | "yapikredi" | "garanti" | "diger";
 type Step = 1 | 2 | 3;
@@ -58,8 +59,6 @@ export default function OnboardingPage() {
   const [step, setStep] = useState<Step>(1);
   const [bank, setBank] = useState<Bank>("ziraat");
   const [userEmail, setUserEmail] = useState<string | null>(null);
-
-  // Upload state
   const [dragging, setDragging] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [uploadResult, setUploadResult] = useState<UploadResponse | null>(null);
@@ -70,10 +69,7 @@ export default function OnboardingPage() {
     const user = getStoredUser();
     if (!user) { router.replace("/login"); return; }
     setUserEmail(user.email);
-    // If already completed onboarding, skip to transactions
-    if (user.onboarding_completed) {
-      router.replace("/transactions");
-    }
+    if (user.onboarding_completed) router.replace("/transactions");
   }, [router]);
 
   const handleFile = async (file: File) => {
@@ -97,19 +93,12 @@ export default function OnboardingPage() {
     if (file) handleFile(file);
   };
 
-  const handleFileInput = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) handleFile(file);
-  };
-
   const handleFinish = async () => {
     try {
       await completeOnboarding();
       const user = getStoredUser();
       if (user) setStoredUser({ ...user, onboarding_completed: true });
-    } catch {
-      // Non-fatal — user can still proceed
-    }
+    } catch {}
     router.push("/transactions");
   };
 
@@ -118,50 +107,50 @@ export default function OnboardingPage() {
       await completeOnboarding();
       const user = getStoredUser();
       if (user) setStoredUser({ ...user, onboarding_completed: true });
-    } catch {
-      // Non-fatal
-    }
+    } catch {}
     router.push("/transactions");
   };
 
-  const progressWidth = step === 1 ? "33%" : step === 2 ? "66%" : "100%";
+  const progressPct = step === 1 ? 33 : step === 2 ? 66 : 100;
 
   return (
-    <main className="min-h-screen bg-gray-950 text-white flex flex-col items-center justify-center px-4 py-12">
-      <div className="w-full max-w-lg">
+    <div className="min-h-screen bg-[#0F0F0F] text-white flex flex-col items-center justify-center px-4 py-12">
+      <div className="w-full max-w-md">
 
         {/* Logo + progress */}
-        <div className="mb-8">
-          <p className="text-center text-gray-500 text-sm mb-4 tracking-wide">Mizan</p>
-          <div className="w-full h-1 bg-gray-800 rounded-full overflow-hidden">
+        <div className="mb-10">
+          <p className="text-center text-gray-600 text-sm mb-5 font-medium tracking-widest uppercase">Mizan</p>
+          <div className="w-full h-0.5 bg-[#2A2A2A] rounded-full overflow-hidden">
             <div
               className="h-full bg-indigo-500 rounded-full transition-all duration-500"
-              style={{ width: progressWidth }}
+              style={{ width: `${progressPct}%` }}
             />
           </div>
-          <p className="text-right text-xs text-gray-600 mt-1">{step} / 3</p>
+          <div className="flex justify-between mt-2">
+            {[1,2,3].map(n => (
+              <span key={n} className={`text-xs ${step >= n ? "text-indigo-400" : "text-gray-700"}`}>
+                {n === 1 ? "Banka" : n === 2 ? "Talimatlar" : "Yükleme"}
+              </span>
+            ))}
+          </div>
         </div>
 
-        {/* ── Step 1: Welcome + bank select ── */}
+        {/* Step 1: Bank select */}
         {step === 1 && (
           <div>
-            <h1 className="text-3xl font-bold mb-2">Hoş geldiniz! 👋</h1>
-            {userEmail && (
-              <p className="text-gray-400 text-sm mb-6">{userEmail}</p>
-            )}
-            <p className="text-gray-300 mb-8">
-              Mizan&apos;ı birlikte kuralım. Hangi bankanızla başlamak istersiniz?
-            </p>
+            <h1 className="text-3xl font-bold mb-2">Hoş geldiniz</h1>
+            {userEmail && <p className="text-gray-500 text-sm mb-6">{userEmail}</p>}
+            <p className="text-gray-300 mb-8">Hangi bankanızla başlamak istersiniz?</p>
 
             <div className="grid grid-cols-2 gap-3 mb-8 sm:grid-cols-3">
               {(Object.entries(BANK_LABELS) as [Bank, string][]).map(([key, label]) => (
                 <button
                   key={key}
                   onClick={() => setBank(key)}
-                  className={`py-3 px-4 rounded-xl border text-sm font-medium transition-all ${
+                  className={`py-3 px-4 rounded-xl border text-sm font-medium transition-all text-left ${
                     bank === key
-                      ? "bg-indigo-900 border-indigo-500 text-indigo-200"
-                      : "bg-gray-900 border-gray-700 text-gray-300 hover:border-gray-500"
+                      ? "bg-indigo-950 border-indigo-600 text-indigo-200"
+                      : "bg-[#1A1A1A] border-[#2A2A2A] text-gray-300 hover:border-[#3A3A3A]"
                   }`}
                 >
                   {label}
@@ -171,25 +160,23 @@ export default function OnboardingPage() {
 
             <button
               onClick={() => setStep(2)}
-              className="w-full py-3.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 font-semibold transition-colors"
+              className="w-full py-3.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 font-semibold transition-colors flex items-center justify-center gap-2"
             >
-              İleri →
+              İleri <ArrowRight size={18} />
             </button>
           </div>
         )}
 
-        {/* ── Step 2: Bank-specific instructions ── */}
+        {/* Step 2: Instructions */}
         {step === 2 && (
           <div>
             <h2 className="text-2xl font-bold mb-2">Ekstreyi nasıl indirirsiniz?</h2>
-            <p className="text-gray-400 text-sm mb-8">
-              {BANK_LABELS[bank]} için adımlar:
-            </p>
+            <p className="text-gray-500 text-sm mb-8">{BANK_LABELS[bank]} için adım adım</p>
 
             <div className="space-y-3 mb-8">
               {BANK_INSTRUCTIONS[bank].map((instruction, i) => (
-                <div key={i} className="flex items-start gap-3">
-                  <span className="w-6 h-6 rounded-full bg-indigo-900 text-indigo-400 text-xs font-bold flex items-center justify-center shrink-0 mt-0.5">
+                <div key={i} className="flex items-start gap-4 p-4 bg-[#1A1A1A] border border-[#2A2A2A] rounded-xl">
+                  <span className="w-6 h-6 rounded-full bg-indigo-950 border border-indigo-800 text-indigo-400 text-xs font-bold flex items-center justify-center shrink-0">
                     {i + 1}
                   </span>
                   <p className="text-gray-300 text-sm leading-relaxed">{instruction}</p>
@@ -197,48 +184,47 @@ export default function OnboardingPage() {
               ))}
             </div>
 
-            <div className="bg-gray-900 border border-gray-700 rounded-xl p-4 mb-8">
+            <div className="bg-[#1A1A1A] border border-[#2A2A2A] rounded-xl p-4 mb-8">
               <p className="text-gray-400 text-xs leading-relaxed">
-                💡 <span className="text-gray-300">İpucu:</span> Son 3 aylık ekstre yüklediğinizde
-                daha iyi bir analiz alırsınız. PDF veya CSV formatları desteklenir.
+                <span className="text-gray-300 font-medium">İpucu: </span>
+                Son 3 aylık ekstre yüklediğinizde daha iyi bir analiz alırsınız. PDF veya CSV desteklenir.
               </p>
             </div>
 
             <div className="flex gap-3">
               <button
                 onClick={() => setStep(1)}
-                className="flex-1 py-3.5 rounded-xl bg-gray-800 hover:bg-gray-700 font-semibold transition-colors text-gray-300"
+                className="flex-1 py-3.5 rounded-xl bg-[#1A1A1A] border border-[#2A2A2A] hover:bg-[#2A2A2A] font-semibold transition-colors text-gray-300"
               >
                 ← Geri
               </button>
               <button
                 onClick={() => setStep(3)}
-                className="flex-[2] py-3.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 font-semibold transition-colors"
+                className="flex-[2] py-3.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 font-semibold transition-colors flex items-center justify-center gap-2"
               >
-                İleri →
+                İleri <ArrowRight size={18} />
               </button>
             </div>
           </div>
         )}
 
-        {/* ── Step 3: Upload ── */}
+        {/* Step 3: Upload */}
         {step === 3 && (
           <div>
             <h2 className="text-2xl font-bold mb-2">Ekstrenizi yükleyin</h2>
-            <p className="text-gray-400 text-sm mb-8">ve başlayalım</p>
+            <p className="text-gray-500 text-sm mb-8">ve analize başlayalım</p>
 
             {!uploadResult ? (
               <>
-                {/* Drop zone */}
                 <div
                   onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
                   onDragLeave={() => setDragging(false)}
                   onDrop={handleDrop}
                   onClick={() => fileInputRef.current?.click()}
-                  className={`border-2 border-dashed rounded-2xl p-10 text-center cursor-pointer transition-all mb-4 ${
+                  className={`border-2 border-dashed rounded-xl p-12 text-center cursor-pointer transition-all mb-5 ${
                     dragging
-                      ? "border-indigo-400 bg-indigo-950/30"
-                      : "border-gray-700 hover:border-gray-500 bg-gray-900/50"
+                      ? "border-indigo-500 bg-indigo-950/20"
+                      : "border-[#2A2A2A] hover:border-[#3A3A3A] bg-[#1A1A1A]"
                   }`}
                 >
                   <input
@@ -246,72 +232,68 @@ export default function OnboardingPage() {
                     type="file"
                     accept=".pdf,.csv"
                     className="hidden"
-                    onChange={handleFileInput}
+                    onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFile(f); }}
                   />
                   {uploading ? (
                     <div>
-                      <div className="w-8 h-8 border-2 border-indigo-400 border-t-transparent rounded-full animate-spin mx-auto mb-3" />
+                      <div className="w-8 h-8 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin mx-auto mb-3" />
                       <p className="text-gray-400 text-sm">Yükleniyor ve analiz ediliyor...</p>
                     </div>
                   ) : (
                     <div>
-                      <div className="text-4xl mb-3">📄</div>
-                      <p className="text-gray-300 font-medium mb-1">
-                        Dosyayı buraya sürükleyin
-                      </p>
-                      <p className="text-gray-500 text-sm">veya tıklayarak seçin</p>
-                      <p className="text-gray-600 text-xs mt-3">PDF veya CSV · Maks 10 MB</p>
+                      <div className="w-12 h-12 rounded-xl bg-[#2A2A2A] flex items-center justify-center mx-auto mb-3">
+                        <FileText size={22} className="text-gray-400" />
+                      </div>
+                      <p className="text-gray-300 font-medium mb-1">Dosyayı buraya sürükleyin</p>
+                      <p className="text-gray-600 text-sm">veya tıklayarak seçin</p>
+                      <p className="text-gray-700 text-xs mt-3">PDF veya CSV · Maks 10 MB</p>
                     </div>
                   )}
                 </div>
 
                 {uploadError && (
-                  <div className="p-3 rounded-lg bg-red-950 border border-red-800 mb-4">
-                    <p className="text-red-300 text-sm">{uploadError}</p>
+                  <div className="p-4 rounded-xl bg-red-950/40 border border-red-800/40 mb-4">
+                    <p className="text-red-400 text-sm">{uploadError}</p>
                   </div>
                 )}
 
                 <div className="flex gap-3">
                   <button
                     onClick={() => setStep(2)}
-                    className="flex-1 py-3.5 rounded-xl bg-gray-800 hover:bg-gray-700 font-semibold transition-colors text-gray-300"
+                    className="flex-1 py-3.5 rounded-xl bg-[#1A1A1A] border border-[#2A2A2A] hover:bg-[#2A2A2A] font-semibold transition-colors text-gray-300"
                   >
                     ← Geri
                   </button>
                   <button
                     onClick={handleSkip}
-                    className="flex-1 py-3.5 rounded-xl bg-transparent border border-gray-700 hover:border-gray-500 font-semibold transition-colors text-gray-400 hover:text-gray-300 text-sm"
+                    className="flex-1 py-3.5 rounded-xl border border-[#2A2A2A] hover:border-[#3A3A3A] font-semibold transition-colors text-gray-500 hover:text-gray-300 text-sm"
                   >
                     Şimdi değil, atla
                   </button>
                 </div>
               </>
             ) : (
-              /* Success state */
               <div>
                 <div className="text-center py-8">
-                  <div className="w-16 h-16 rounded-full bg-emerald-900 flex items-center justify-center text-3xl mx-auto mb-4">
-                    ✓
+                  <div className="w-16 h-16 rounded-full bg-emerald-950 border border-emerald-800 flex items-center justify-center mx-auto mb-4">
+                    <span className="text-emerald-400 text-2xl">✓</span>
                   </div>
                   <h3 className="text-xl font-semibold text-emerald-300 mb-2">
-                    {uploadResult.transaction_count} işlem bulundu!
+                    {uploadResult.transaction_count} işlem bulundu
                   </h3>
-                  <p className="text-gray-400 text-sm">
-                    Ekstreniniz başarıyla analiz edildi. Şimdi harcamalarınızı keşfedin.
-                  </p>
+                  <p className="text-gray-500 text-sm">Ekstreniniz başarıyla analiz edildi.</p>
                 </div>
-
                 <button
                   onClick={handleFinish}
-                  className="w-full py-4 rounded-xl bg-indigo-600 hover:bg-indigo-500 font-semibold text-base transition-colors"
+                  className="w-full py-4 rounded-xl bg-indigo-600 hover:bg-indigo-500 font-semibold transition-colors flex items-center justify-center gap-2"
                 >
-                  Hadi Başlayalım →
+                  Hadi Başlayalım <ArrowRight size={18} />
                 </button>
               </div>
             )}
           </div>
         )}
       </div>
-    </main>
+    </div>
   );
 }

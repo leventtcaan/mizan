@@ -236,9 +236,9 @@ export default function ChatPanel({ initialInsight }: Props) {
 
   return (
     <>
-      <div className="rounded-xl bg-gray-900 border border-gray-800 flex flex-col mb-8" style={{ height: 420 }}>
+      <div className="rounded-xl bg-[#1A1A1A] border border-[#2A2A2A] flex flex-col mb-8" style={{ height: 420 }}>
         {/* Header */}
-        <div className="px-4 py-3 border-b border-gray-800 flex items-center justify-between shrink-0">
+        <div className="px-4 py-3 border-b border-[#2A2A2A] flex items-center justify-between shrink-0">
           <p className="text-xs text-gray-500 uppercase tracking-wide font-semibold">Koç</p>
           {toast && (
             <span className="text-xs text-emerald-400 font-medium animate-pulse">{toast}</span>
@@ -260,7 +260,7 @@ export default function ChatPanel({ initialInsight }: Props) {
                 className={`max-w-[82%] px-3.5 py-2.5 rounded-2xl text-sm leading-relaxed whitespace-pre-wrap ${
                   msg.role === "user"
                     ? "bg-indigo-600 text-white rounded-br-sm"
-                    : "bg-gray-800 text-gray-200 rounded-bl-sm"
+                    : "bg-[#2A2A2A] text-gray-200 rounded-bl-sm"
                 }`}
               >
                 {msg.content}
@@ -271,7 +271,7 @@ export default function ChatPanel({ initialInsight }: Props) {
           {/* Typing indicator */}
           {sending && (
             <div className="flex justify-start">
-              <div className="bg-gray-800 px-4 py-3 rounded-2xl rounded-bl-sm">
+              <div className="bg-[#2A2A2A] px-4 py-3 rounded-2xl rounded-bl-sm">
                 <span className="flex gap-1 items-center h-4">
                   <span className="w-1.5 h-1.5 rounded-full bg-gray-500 animate-bounce" style={{ animationDelay: "0ms" }} />
                   <span className="w-1.5 h-1.5 rounded-full bg-gray-500 animate-bounce" style={{ animationDelay: "150ms" }} />
@@ -284,7 +284,7 @@ export default function ChatPanel({ initialInsight }: Props) {
           {/* Transaction confirmation card */}
           {pendingTx && !sending && (
             <div className="flex justify-start">
-              <div className="max-w-[90%] bg-gray-800 border border-indigo-800 rounded-2xl rounded-bl-sm px-4 py-3 space-y-2">
+              <div className="max-w-[90%] bg-[#1A1A1A] border border-indigo-800/60 rounded-2xl rounded-bl-sm px-4 py-3 space-y-2">
                 <p className="text-xs text-gray-500 uppercase tracking-wide font-semibold">İşlem Tespit Edildi</p>
                 <p className="text-sm text-white font-medium">
                   ₺{formatAmount(pendingTx.amount)}{" "}
@@ -326,7 +326,7 @@ export default function ChatPanel({ initialInsight }: Props) {
         </div>
 
         {/* Input row */}
-        <div className="px-4 py-3 border-t border-gray-800 flex gap-2 items-end shrink-0">
+        <div className="px-4 py-3 border-t border-[#2A2A2A] flex gap-2 items-end shrink-0">
           {/* Voice button */}
           {voiceSupported && (
             <button
@@ -336,7 +336,7 @@ export default function ChatPanel({ initialInsight }: Props) {
               className={`shrink-0 w-9 h-9 rounded-xl flex items-center justify-center transition-colors disabled:opacity-40 ${
                 recording
                   ? "bg-red-600 hover:bg-red-500"
-                  : "bg-gray-800 hover:bg-gray-700 text-gray-400"
+                  : "bg-[#2A2A2A] hover:bg-[#333] text-gray-400"
               }`}
             >
               {recording ? (
@@ -364,7 +364,7 @@ export default function ChatPanel({ initialInsight }: Props) {
             onKeyDown={handleKeyDown}
             placeholder="Bir şey sorun veya paylaşın... (Enter gönderir)"
             rows={1}
-            className="flex-1 bg-gray-800 border border-gray-700 rounded-xl px-3 py-2.5 text-white text-sm placeholder-gray-600 focus:outline-none focus:border-indigo-500 resize-none leading-relaxed"
+            className="flex-1 bg-[#0F0F0F] border border-[#2A2A2A] rounded-xl px-3 py-2.5 text-white text-sm placeholder-gray-700 focus:outline-none focus:border-indigo-600 resize-none leading-relaxed"
             style={{ minHeight: 40, maxHeight: 96 }}
           />
 

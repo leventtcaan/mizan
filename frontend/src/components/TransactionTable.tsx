@@ -118,9 +118,9 @@ export default function TransactionTable({ transactions, onCategoryCorrection }:
   };
 
   return (
-    <div className="rounded-lg border border-gray-800 overflow-hidden">
+    <div className="rounded-xl border border-[#2A2A2A] overflow-hidden">
       <table className="w-full text-sm text-left">
-        <thead className="bg-gray-900 text-gray-400 uppercase text-xs tracking-wide">
+        <thead className="bg-[#1A1A1A] text-gray-500 uppercase text-xs tracking-wide">
           <tr>
             <th className="px-4 py-3">Tarih</th>
             <th className="px-4 py-3">Açıklama</th>
@@ -129,7 +129,7 @@ export default function TransactionTable({ transactions, onCategoryCorrection }:
             <th className="px-4 py-3 w-8"></th>
           </tr>
         </thead>
-        <tbody className="divide-y divide-gray-800">
+        <tbody className="divide-y divide-[#2A2A2A]">
           {transactions.map((t) => {
             const row = rows[t.id] ?? {
               category: t.category,
@@ -142,7 +142,7 @@ export default function TransactionTable({ transactions, onCategoryCorrection }:
             return (
               <Fragment key={t.id}>
                 <tr
-                  className="bg-gray-950 hover:bg-gray-900 transition-colors cursor-pointer"
+                  className="bg-[#0F0F0F] hover:bg-[#1A1A1A] transition-colors cursor-pointer"
                   onClick={() => void toggleExpand(t.id)}
                 >
                   <td className="px-4 py-3 text-gray-400 whitespace-nowrap">
@@ -166,7 +166,7 @@ export default function TransactionTable({ transactions, onCategoryCorrection }:
                   </td>
                 </tr>
                 {row.expanded && (
-                  <tr key={`${t.id}-detail`} className="bg-gray-900">
+                  <tr key={`${t.id}-detail`} className="bg-[#1A1A1A]">
                     <td colSpan={5} className="px-4 py-3">
                       <div className="space-y-3">
                         <div>
@@ -182,7 +182,7 @@ export default function TransactionTable({ transactions, onCategoryCorrection }:
                                 className={`px-2 py-0.5 rounded text-xs transition-colors ${
                                   row.category === cat
                                     ? "bg-indigo-600 text-white"
-                                    : "bg-gray-800 text-gray-400 hover:bg-gray-700"
+                                    : "bg-[#2A2A2A] text-gray-400 hover:bg-[#333]"
                                 } disabled:opacity-40`}
                               >
                                 {CATEGORY_LABELS[cat] ?? cat}

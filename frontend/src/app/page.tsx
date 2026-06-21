@@ -3,6 +3,66 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { getToken, getStoredUser } from "@/lib/api";
+import {
+  Brain, BarChart2, Target, RefreshCw, TrendingUp, ShieldCheck,
+  FileText, MessageSquare, ArrowRight, Zap,
+} from "@/components/ui/Icons";
+
+const FEATURES = [
+  {
+    icon: Brain,
+    title: "Davranışsal Koçluk",
+    desc: "Sadece grafik değil, neden harcadığınızı anlayın. AI koçunuz her zaman hazır.",
+  },
+  {
+    icon: BarChart2,
+    title: "Aylık Karşılaştırma",
+    desc: "Geçen aya göre ilerlemenizi takip edin. Her kategori için gerçek değişimi görün.",
+  },
+  {
+    icon: Target,
+    title: "Hedef Yönetimi",
+    desc: "Kategori bazlı aylık bütçe hedefleri koyun, aşımlarda uyarı alın.",
+  },
+  {
+    icon: RefreshCw,
+    title: "Abonelik Takibi",
+    desc: "Unuttuğunuz abonelikleri otomatik tespit edin. Tasarruf potansiyelinizi görün.",
+  },
+  {
+    icon: TrendingUp,
+    title: "Enflasyon Analizi",
+    desc: "Gerçek harcama artışınızı TÜFE ile karşılaştırın. Nominal değil, gerçek değişim.",
+  },
+  {
+    icon: ShieldCheck,
+    title: "Gizlilik Önce",
+    desc: "Verileriniz sizin. Hiçbir banka API'si, hiçbir üçüncü taraf paylaşımı.",
+  },
+];
+
+const STEPS = [
+  {
+    icon: FileText,
+    title: "Ekstrenizi Yükleyin",
+    desc: "Ziraat, Garanti, Yapı Kredi, VakıfBank ve diğerlerinden PDF veya CSV.",
+    step: "01",
+  },
+  {
+    icon: Zap,
+    title: "AI Analiz Eder",
+    desc: "İşlemleriniz saniyeler içinde kategorize edilir, davranış desenleri çıkarılır.",
+    step: "02",
+  },
+  {
+    icon: MessageSquare,
+    title: "Koçunuzla Konuşun",
+    desc: "Paranın nereye gittiğini sorun, davranışsal öneriler ve kişisel içgörüler alın.",
+    step: "03",
+  },
+];
+
+const BANKS = ["Ziraat Bankası", "VakıfBank", "Yapı Kredi", "Garanti BBVA"];
 
 export default function HomePage() {
   const [userEmail, setUserEmail] = useState<string | null>(null);
@@ -16,31 +76,21 @@ export default function HomePage() {
 
   const isLoggedIn = userEmail !== null;
 
-  const scrollToHow = () => {
-    howRef.current?.scrollIntoView({ behavior: "smooth" });
-  };
-
   return (
-    <main className="min-h-screen bg-gray-950 text-white">
+    <main className="min-h-screen bg-[#0F0F0F] text-white overflow-x-hidden">
 
-      {/* Nav */}
-      <nav className="flex items-center justify-between px-6 py-5 max-w-5xl mx-auto">
-        <span className="text-xl font-bold tracking-tight">Mizan</span>
+      {/* Nav — landing only, full navbar only shows when logged in */}
+      <nav className="flex items-center justify-between px-6 py-4 max-w-5xl mx-auto">
+        <span className="text-lg font-bold tracking-tight">Mizan</span>
         <div className="flex items-center gap-3">
           {isLoggedIn ? (
             <>
-              <span className="text-gray-500 text-xs hidden sm:block">{userEmail}</span>
+              <span className="text-gray-500 text-xs hidden sm:block truncate max-w-[160px]">{userEmail}</span>
               <Link
                 href="/transactions"
-                className="px-4 py-2 rounded-lg bg-gray-800 hover:bg-gray-700 text-sm text-gray-300 transition-colors"
+                className="px-4 py-2 rounded-lg bg-[#1A1A1A] hover:bg-[#2A2A2A] border border-[#2A2A2A] text-sm text-gray-300 transition-colors"
               >
-                Devam Et →
-              </Link>
-              <Link
-                href="/upload"
-                className="px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-sm font-medium transition-colors"
-              >
-                Ekstre Yükle
+                Devam Et
               </Link>
             </>
           ) : (
@@ -55,173 +105,152 @@ export default function HomePage() {
       </nav>
 
       {/* Hero */}
-      <section className="text-center px-6 pt-20 pb-24 max-w-3xl mx-auto">
-        <h1 className="text-5xl sm:text-6xl font-bold tracking-tight leading-tight mb-6">
-          Paranız nereye
-          <span className="text-indigo-400"> gidiyor?</span>
-        </h1>
-        <p className="text-gray-400 text-lg sm:text-xl leading-relaxed mb-10 max-w-2xl mx-auto">
-          Banka ekstrenizi yükleyin, yapay zeka harcama koçunuz devreye girsin.
-          <br className="hidden sm:block" />
-          <span className="text-gray-500">Türkçe, ücretsiz, verileriniz sizde.</span>
-        </p>
-        <div className="flex flex-col sm:flex-row gap-4 justify-center">
-          {isLoggedIn ? (
-            <>
-              <Link
-                href="/transactions"
-                className="px-8 py-4 rounded-xl bg-indigo-600 hover:bg-indigo-500 font-semibold text-base transition-colors"
-              >
-                Devam Et →
-              </Link>
-              <Link
-                href="/upload"
-                className="px-8 py-4 rounded-xl bg-gray-800 hover:bg-gray-700 font-semibold text-base transition-colors text-gray-300"
-              >
-                Ekstre Yükle
-              </Link>
-            </>
-          ) : (
-            <>
-              <Link
-                href="/login"
-                className="px-8 py-4 rounded-xl bg-indigo-600 hover:bg-indigo-500 font-semibold text-base transition-colors"
-              >
-                Ücretsiz Başla →
-              </Link>
-              <button
-                onClick={scrollToHow}
-                className="px-8 py-4 rounded-xl bg-gray-800 hover:bg-gray-700 font-semibold text-base transition-colors text-gray-300"
-              >
-                Nasıl Çalışır ↓
-              </button>
-            </>
-          )}
+      <section className="relative text-center px-6 pt-16 pb-28 max-w-3xl mx-auto">
+        {/* Subtle glow */}
+        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-96 h-96 bg-indigo-600/10 rounded-full blur-3xl pointer-events-none" />
+
+        <div className="relative">
+          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-indigo-950 border border-indigo-800 text-indigo-400 text-xs font-medium mb-8">
+            <span className="w-1.5 h-1.5 rounded-full bg-indigo-400 animate-pulse" />
+            Türkiye&apos;nin ilk davranışsal finans koçu
+          </div>
+
+          <h1 className="text-5xl sm:text-6xl lg:text-7xl font-bold tracking-tight leading-[1.05] mb-6">
+            Paranız nereye
+            <br />
+            <span className="bg-gradient-to-r from-indigo-400 via-purple-400 to-indigo-400 bg-clip-text text-transparent">
+              gidiyor?
+            </span>
+          </h1>
+
+          <p className="text-gray-400 text-lg sm:text-xl leading-relaxed mb-10 max-w-xl mx-auto">
+            Banka ekstrenizi yükleyin, yapay zeka harcama koçunuz devreye girsin.
+            Türkçe, ücretsiz, verileriniz sizde.
+          </p>
+
+          <div className="flex flex-col sm:flex-row gap-3 justify-center">
+            {isLoggedIn ? (
+              <>
+                <Link
+                  href="/transactions"
+                  className="inline-flex items-center justify-center gap-2 px-8 py-3.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 font-semibold transition-colors"
+                >
+                  Devam Et <ArrowRight size={18} />
+                </Link>
+                <Link
+                  href="/upload"
+                  className="inline-flex items-center justify-center gap-2 px-8 py-3.5 rounded-xl bg-[#1A1A1A] hover:bg-[#2A2A2A] border border-[#2A2A2A] font-semibold text-gray-300 transition-colors"
+                >
+                  Ekstre Yükle
+                </Link>
+              </>
+            ) : (
+              <>
+                <Link
+                  href="/login"
+                  className="inline-flex items-center justify-center gap-2 px-8 py-3.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 font-semibold transition-colors"
+                >
+                  Ücretsiz Başla <ArrowRight size={18} />
+                </Link>
+                <button
+                  onClick={() => howRef.current?.scrollIntoView({ behavior: "smooth" })}
+                  className="inline-flex items-center justify-center px-8 py-3.5 rounded-xl bg-[#1A1A1A] hover:bg-[#2A2A2A] border border-[#2A2A2A] font-semibold text-gray-300 transition-colors"
+                >
+                  Nasıl Çalışır
+                </button>
+              </>
+            )}
+          </div>
         </div>
       </section>
 
       {/* How it works */}
-      <section ref={howRef} className="bg-gray-900 py-20 px-6">
+      <section ref={howRef} className="border-t border-[#1A1A1A] py-24 px-6">
         <div className="max-w-4xl mx-auto">
-          <h2 className="text-2xl font-bold text-center mb-12">Nasıl Çalışır?</h2>
-          <div className="grid sm:grid-cols-3 gap-8">
-            {[
-              {
-                icon: "📄",
-                title: "Ekstrenizi Yükleyin",
-                desc: "Ziraat, Garanti, Yapı Kredi, VakıfBank ve daha fazlası",
-              },
-              {
-                icon: "🤖",
-                title: "AI Analiz Eder",
-                desc: "İşlemleriniz kategorize edilir, harcama desenleriniz çıkarılır",
-              },
-              {
-                icon: "💬",
-                title: "Koçunuzla Konuşun",
-                desc: "Paranın nereye gittiğini sorun, davranışsal öneriler alın",
-              },
-            ].map((step, i) => (
-              <div key={i} className="text-center">
-                <div className="w-14 h-14 rounded-2xl bg-gray-800 flex items-center justify-center text-2xl mx-auto mb-4">
-                  {step.icon}
+          <p className="text-center text-gray-500 text-xs uppercase tracking-widest mb-4">Nasıl Çalışır</p>
+          <h2 className="text-3xl font-bold text-center mb-16">Üç adımda başlayın</h2>
+          <div className="grid sm:grid-cols-3 gap-8 relative">
+            {/* Connector line desktop */}
+            <div className="hidden sm:block absolute top-8 left-[calc(16.66%+1rem)] right-[calc(16.66%+1rem)] h-px bg-gradient-to-r from-transparent via-[#2A2A2A] to-transparent" />
+            {STEPS.map((step) => (
+              <div key={step.step} className="relative">
+                <div className="flex flex-col items-center text-center">
+                  <div className="relative mb-5">
+                    <div className="w-16 h-16 rounded-2xl bg-[#1A1A1A] border border-[#2A2A2A] flex items-center justify-center">
+                      <step.icon size={24} className="text-indigo-400" />
+                    </div>
+                    <span className="absolute -top-2 -right-2 w-5 h-5 rounded-full bg-indigo-600 text-white text-[10px] font-bold flex items-center justify-center">
+                      {step.step.slice(1)}
+                    </span>
+                  </div>
+                  <h3 className="font-semibold text-white mb-2">{step.title}</h3>
+                  <p className="text-gray-400 text-sm leading-relaxed">{step.desc}</p>
                 </div>
-                <div className="flex items-center justify-center gap-2 mb-2">
-                  <span className="w-5 h-5 rounded-full bg-indigo-900 text-indigo-400 text-xs flex items-center justify-center font-bold">
-                    {i + 1}
-                  </span>
-                  <h3 className="font-semibold text-white">{step.title}</h3>
-                </div>
-                <p className="text-gray-400 text-sm leading-relaxed">{step.desc}</p>
               </div>
             ))}
           </div>
         </div>
       </section>
 
-      {/* Features grid */}
-      <section className="py-20 px-6">
+      {/* Features */}
+      <section className="py-24 px-6 bg-[#0A0A0A]">
         <div className="max-w-4xl mx-auto">
-          <h2 className="text-2xl font-bold text-center mb-12">Neler Yapabilirsiniz?</h2>
+          <p className="text-center text-gray-500 text-xs uppercase tracking-widest mb-4">Özellikler</p>
+          <h2 className="text-3xl font-bold text-center mb-16">Her şey bir arada</h2>
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {[
-              {
-                icon: "🧠",
-                title: "Davranışsal Koçluk",
-                desc: "Sadece grafik değil, neden harcadığınızı anlayın",
-              },
-              {
-                icon: "📊",
-                title: "Aylık Karşılaştırma",
-                desc: "Geçen aya göre ilerlemenizi takip edin",
-              },
-              {
-                icon: "🎯",
-                title: "Hedef Yönetimi",
-                desc: "Kategori bazlı bütçe hedefleri koyun",
-              },
-              {
-                icon: "🔄",
-                title: "Abonelik Takibi",
-                desc: "Unuttuğunuz abonelikleri bulun",
-              },
-              {
-                icon: "📈",
-                title: "Enflasyon Analizi",
-                desc: "Gerçek harcama artışınızı görün",
-              },
-              {
-                icon: "🔒",
-                title: "Gizlilik Önce",
-                desc: "Verileriniz sadece sizin",
-              },
-            ].map((f, i) => (
+            {FEATURES.map((f) => (
               <div
-                key={i}
-                className="bg-gray-900 border border-gray-800 rounded-xl p-5 hover:border-gray-700 transition-colors"
+                key={f.title}
+                className="group bg-[#1A1A1A] border border-[#2A2A2A] hover:border-indigo-800/60 rounded-xl p-5 transition-colors"
               >
-                <div className="text-2xl mb-3">{f.icon}</div>
-                <h3 className="font-semibold text-white mb-1">{f.title}</h3>
-                <p className="text-gray-400 text-sm">{f.desc}</p>
+                <div className="w-10 h-10 rounded-lg bg-indigo-950 border border-indigo-900/50 flex items-center justify-center mb-4 group-hover:bg-indigo-900/50 transition-colors">
+                  <f.icon size={20} className="text-indigo-400" />
+                </div>
+                <h3 className="font-semibold text-white mb-1.5">{f.title}</h3>
+                <p className="text-gray-400 text-sm leading-relaxed">{f.desc}</p>
               </div>
             ))}
           </div>
         </div>
       </section>
 
-      {/* Bank logos */}
-      <section className="bg-gray-900 py-14 px-6">
+      {/* Banks */}
+      <section className="py-16 px-6 border-t border-[#1A1A1A]">
         <div className="max-w-3xl mx-auto text-center">
-          <p className="text-gray-500 text-sm mb-6 uppercase tracking-wider">Desteklenen Bankalar</p>
-          <div className="flex flex-wrap justify-center gap-6">
-            {["Ziraat Bankası", "VakıfBank", "Yapı Kredi", "Garanti BBVA"].map((bank) => (
+          <p className="text-gray-500 text-xs uppercase tracking-widest mb-6">Desteklenen Bankalar</p>
+          <div className="flex flex-wrap justify-center gap-3">
+            {BANKS.map((bank) => (
               <span
                 key={bank}
-                className="px-5 py-2.5 rounded-lg bg-gray-800 border border-gray-700 text-gray-300 text-sm font-medium"
+                className="px-4 py-2 rounded-lg bg-[#1A1A1A] border border-[#2A2A2A] text-gray-300 text-sm font-medium"
               >
                 {bank}
               </span>
             ))}
           </div>
+          <p className="text-gray-600 text-xs mt-4">PDF veya CSV formatındaki tüm bankalar desteklenir</p>
         </div>
       </section>
 
-      {/* Bottom CTA */}
+      {/* CTA */}
       {!isLoggedIn && (
-        <section className="py-24 px-6 text-center">
-          <h2 className="text-3xl font-bold mb-4">Bugün başlayın</h2>
-          <p className="text-gray-400 mb-8">Kayıt olmak 30 saniye sürer. Kredi kartı gerekmez.</p>
-          <Link
-            href="/login"
-            className="inline-block px-10 py-4 rounded-xl bg-indigo-600 hover:bg-indigo-500 font-semibold text-base transition-colors"
-          >
-            Ücretsiz Başla →
-          </Link>
+        <section className="py-28 px-6 text-center relative">
+          <div className="absolute inset-0 bg-gradient-to-b from-transparent via-indigo-950/10 to-transparent pointer-events-none" />
+          <div className="relative">
+            <h2 className="text-4xl font-bold mb-4">Bugün başlayın</h2>
+            <p className="text-gray-400 mb-8 text-lg">Kayıt olmak 30 saniye sürer. Kredi kartı gerekmez.</p>
+            <Link
+              href="/login"
+              className="inline-flex items-center gap-2 px-10 py-4 rounded-xl bg-indigo-600 hover:bg-indigo-500 font-semibold text-base transition-colors"
+            >
+              Ücretsiz Başla <ArrowRight size={20} />
+            </Link>
+          </div>
         </section>
       )}
 
       {/* Footer */}
-      <footer className="border-t border-gray-800 py-8 px-6 text-center text-gray-600 text-sm">
+      <footer className="border-t border-[#1A1A1A] py-8 px-6 text-center text-gray-600 text-sm">
         © 2026 Mizan · Gizlilik Politikası · İletişim
       </footer>
     </main>

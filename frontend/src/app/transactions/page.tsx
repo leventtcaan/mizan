@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
 import {
   getTransactions, getInsights, getBatches, getStoredUser, clearToken,
   getEmailPreferences, setEmailPreferences,
@@ -12,6 +11,8 @@ import TransactionTable from "@/components/TransactionTable";
 import SpendingChart from "@/components/SpendingChart";
 import AddTransactionModal from "@/components/AddTransactionModal";
 import ChatPanel from "@/components/ChatPanel";
+import PageLayout from "@/components/ui/PageLayout";
+import { Plus, Mail } from "@/components/ui/Icons";
 
 type LoadState = "loading" | "ready" | "error";
 
@@ -26,7 +27,6 @@ export default function TransactionsPage() {
   const [insight, setInsight] = useState<InsightResponse | null>(null);
   const [txState, setTxState] = useState<LoadState>("loading");
   const [insightState, setInsightState] = useState<LoadState>("loading");
-  const [userEmail, setUserEmail] = useState<string | null>(null);
   const [showAll, setShowAll] = useState(false);
   const [showBatchHistory, setShowBatchHistory] = useState(false);
   const [showAddModal, setShowAddModal] = useState(false);
@@ -36,7 +36,6 @@ export default function TransactionsPage() {
   useEffect(() => {
     const user = getStoredUser();
     if (!user) { router.replace("/login"); return; }
-    setUserEmail(user.email);
 
     getBatches().then(setBatches).catch(() => {});
 
@@ -62,8 +61,6 @@ export default function TransactionsPage() {
     );
   };
 
-  const handleLogout = () => { clearToken(); router.push("/login"); };
-
   const handleEmailToggle = async () => {
     if (emailEnabled === null || emailToggling) return;
     const next = !emailEnabled;
@@ -72,7 +69,7 @@ export default function TransactionsPage() {
       await setEmailPreferences(next);
       setEmailEnabled(next);
     } catch {
-      // silent — button reverts to previous state
+      // silent
     } finally {
       setEmailToggling(false);
     }
@@ -86,178 +83,138 @@ export default function TransactionsPage() {
 
   const latestBatch = batches[0] ?? null;
 
+  const pageActions = (
+    <div className="flex items-center gap-2">
+      {emailEnabled !== null && (
+        <button
+          onClick={handleEmailToggle}
+          disabled={emailToggling}
+          title="Haftalık özet e-postası"
+          className={`p-2 rounded-lg border transition-colors disabled:opacity-50 ${
+            emailEnabled
+              ? "bg-indigo-950 border-indigo-800 text-indigo-400 hover:bg-indigo-900"
+              : "bg-[#1A1A1A] border-[#2A2A2A] text-gray-500 hover:text-gray-300"
+          }`}
+        >
+          <Mail size={16} />
+        </button>
+      )}
+      <button
+        onClick={() => setShowAddModal(true)}
+        className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-[#1A1A1A] border border-[#2A2A2A] hover:bg-[#2A2A2A] text-sm text-gray-300 transition-colors"
+      >
+        <Plus size={14} />
+        Ekle
+      </button>
+    </div>
+  );
+
   return (
-    <main className="min-h-screen bg-gray-950 text-white px-4 py-10">
-      <div className="max-w-4xl mx-auto">
-        <div className="flex items-center justify-between mb-8">
-          <div>
-            <Link href="/" className="text-gray-500 text-sm hover:text-gray-300 transition-colors">
-              ← Mizan
-            </Link>
-            <h1 className="text-3xl font-bold mt-4">İşlemler</h1>
-            {txState === "ready" && (
-              <p className="text-gray-400 text-sm mt-1">{transactions.length} işlem</p>
-            )}
-          </div>
-          <div className="flex items-center gap-3">
-            {userEmail && (
-              <span className="text-gray-500 text-xs hidden sm:block">{userEmail}</span>
-            )}
-            <button
-              onClick={handleLogout}
-              className="px-3 py-1.5 rounded-lg bg-gray-800 hover:bg-gray-700 text-sm text-gray-300 transition-colors"
-            >
-              Çıkış
-            </button>
-            {emailEnabled !== null && (
-              <button
-                onClick={handleEmailToggle}
-                disabled={emailToggling}
-                title="Haftalık özet e-postası"
-                className={`px-3 py-1.5 rounded-lg text-sm transition-colors disabled:opacity-50 ${
-                  emailEnabled
-                    ? "bg-indigo-900 hover:bg-indigo-800 text-indigo-300"
-                    : "bg-gray-800 hover:bg-gray-700 text-gray-500"
-                }`}
-              >
-                {emailEnabled ? "📧 E-posta Açık" : "📧 E-posta Kapalı"}
-              </button>
-            )}
-            <Link
-              href="/installments"
-              className="px-3 py-1.5 rounded-lg bg-gray-800 hover:bg-gray-700 text-sm text-gray-300 transition-colors"
-            >
-              Taksitler
-            </Link>
-            <Link
-              href="/subscriptions"
-              className="px-3 py-1.5 rounded-lg bg-gray-800 hover:bg-gray-700 text-sm text-gray-300 transition-colors"
-            >
-              Abonelikler
-            </Link>
-            <Link
-              href="/progress"
-              className="px-3 py-1.5 rounded-lg bg-gray-800 hover:bg-gray-700 text-sm text-gray-300 transition-colors"
-            >
-              İlerleme
-            </Link>
-            <button
-              onClick={() => setShowAddModal(true)}
-              className="px-3 py-1.5 rounded-lg bg-gray-800 hover:bg-gray-700 text-sm text-gray-300 transition-colors"
-            >
-              + Ekle
-            </button>
-            <Link
-              href="/upload"
-              className="px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-sm font-medium transition-colors"
-            >
-              + Ekstre Yükle
-            </Link>
-          </div>
-        </div>
+    <PageLayout title="İşlemler" subtitle={txState === "ready" ? `${transactions.length} işlem` : undefined} action={pageActions}>
 
-        {/* Batch indicator + toggle */}
-        {batches.length > 0 && (
-          <div className="mb-6 p-4 rounded-xl bg-gray-900 border border-gray-800">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-              <div className="text-sm">
-                {!showAll && latestBatch ? (
-                  <span className="text-gray-300">
-                    <span className="text-gray-500">Son ekstre: </span>
-                    {formatDate(latestBatch.min_date)} – {formatDate(latestBatch.max_date)}
-                    <span className="text-gray-500 ml-2">· {latestBatch.transaction_count} işlem</span>
-                  </span>
-                ) : (
-                  <span className="text-gray-300">
-                    <span className="text-gray-500">Tüm ekstreler: </span>
-                    {batches.length} yükleme
-                    <span className="text-gray-500 ml-2">· toplam {batches.reduce((s, b) => s + b.transaction_count, 0)} ham işlem</span>
-                  </span>
-                )}
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="flex rounded-lg overflow-hidden border border-gray-700 text-xs">
-                  <button
-                    onClick={() => setShowAll(false)}
-                    className={`px-3 py-1.5 transition-colors ${!showAll ? "bg-indigo-600 text-white" : "bg-gray-800 text-gray-400 hover:text-gray-300"}`}
-                  >
-                    Son Ekstre
-                  </button>
-                  <button
-                    onClick={() => setShowAll(true)}
-                    className={`px-3 py-1.5 transition-colors ${showAll ? "bg-indigo-600 text-white" : "bg-gray-800 text-gray-400 hover:text-gray-300"}`}
-                  >
-                    Tüm Ekstreler
-                  </button>
-                </div>
-                {batches.length > 1 && (
-                  <button
-                    onClick={() => setShowBatchHistory((v) => !v)}
-                    className="px-3 py-1.5 rounded-lg bg-gray-800 hover:bg-gray-700 text-xs text-gray-400 transition-colors"
-                  >
-                    {showBatchHistory ? "Kapat" : "Geçmiş"}
-                  </button>
-                )}
-              </div>
+      {/* Batch selector */}
+      {batches.length > 0 && (
+        <div className="mb-6 bg-[#1A1A1A] border border-[#2A2A2A] rounded-xl p-4">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <div className="text-sm text-gray-400">
+              {!showAll && latestBatch ? (
+                <>
+                  <span className="text-gray-500">Son ekstre: </span>
+                  <span className="text-gray-200">{formatDate(latestBatch.min_date)} – {formatDate(latestBatch.max_date)}</span>
+                  <span className="text-gray-600 ml-2">· {latestBatch.transaction_count} işlem</span>
+                </>
+              ) : (
+                <>
+                  <span className="text-gray-500">Tüm ekstreler: </span>
+                  <span className="text-gray-200">{batches.length} yükleme</span>
+                  <span className="text-gray-600 ml-2">· {batches.reduce((s, b) => s + b.transaction_count, 0)} ham işlem</span>
+                </>
+              )}
             </div>
-
-            {showBatchHistory && (
-              <div className="mt-4 border-t border-gray-800 pt-4 space-y-2">
-                {batches.map((b, i) => (
-                  <div
-                    key={b.batch_id}
-                    className="flex items-center justify-between text-xs text-gray-400 py-1.5 px-2 rounded-lg bg-gray-950"
-                  >
-                    <div className="flex items-center gap-2">
-                      {i === 0 && (
-                        <span className="px-1.5 py-0.5 rounded bg-indigo-900 text-indigo-300 text-[10px]">Son</span>
-                      )}
-                      <span className="text-gray-300">
-                        {formatDate(b.min_date)} – {formatDate(b.max_date)}
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <span>{b.transaction_count} işlem</span>
-                      <span className="text-gray-600">
-                        Yüklendi: {formatDate(b.uploaded_at)}
-                      </span>
-                    </div>
-                  </div>
-                ))}
+            <div className="flex items-center gap-2">
+              <div className="flex rounded-lg overflow-hidden border border-[#2A2A2A] text-xs">
+                <button
+                  onClick={() => setShowAll(false)}
+                  className={`px-3 py-1.5 transition-colors ${!showAll ? "bg-indigo-600 text-white" : "bg-[#1A1A1A] text-gray-400 hover:text-gray-300"}`}
+                >
+                  Son Ekstre
+                </button>
+                <button
+                  onClick={() => setShowAll(true)}
+                  className={`px-3 py-1.5 transition-colors ${showAll ? "bg-indigo-600 text-white" : "bg-[#1A1A1A] text-gray-400 hover:text-gray-300"}`}
+                >
+                  Tüm Ekstreler
+                </button>
               </div>
-            )}
+              {batches.length > 1 && (
+                <button
+                  onClick={() => setShowBatchHistory((v) => !v)}
+                  className="px-3 py-1.5 rounded-lg bg-[#1A1A1A] border border-[#2A2A2A] hover:bg-[#2A2A2A] text-xs text-gray-400 transition-colors"
+                >
+                  {showBatchHistory ? "Kapat" : "Geçmiş"}
+                </button>
+              )}
+            </div>
           </div>
-        )}
 
-        {/* Conversational coach — mounts once insight state is settled to avoid flicker */}
-        {insightState === "loading" && (
-          <div className="mb-8 rounded-xl bg-gray-900 border border-gray-800 flex items-center justify-center" style={{ height: 420 }}>
-            <p className="text-gray-600 text-sm animate-pulse">Koç hazırlanıyor...</p>
-          </div>
-        )}
-        {insightState !== "loading" && (
-          <ChatPanel initialInsight={insight?.insight ?? null} />
-        )}
+          {showBatchHistory && (
+            <div className="mt-4 border-t border-[#2A2A2A] pt-4 space-y-1.5">
+              {batches.map((b, i) => (
+                <div
+                  key={b.batch_id}
+                  className="flex items-center justify-between text-xs text-gray-400 py-2 px-3 rounded-lg bg-[#0F0F0F]"
+                >
+                  <div className="flex items-center gap-2">
+                    {i === 0 && (
+                      <span className="px-1.5 py-0.5 rounded bg-indigo-900 text-indigo-300 text-[10px] font-medium">Son</span>
+                    )}
+                    <span className="text-gray-300">{formatDate(b.min_date)} – {formatDate(b.max_date)}</span>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <span>{b.transaction_count} işlem</span>
+                    <span className="text-gray-600">Yüklendi: {formatDate(b.uploaded_at)}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
-        {txState === "ready" && transactions.length > 0 && (
-          <SpendingChart transactions={transactions} />
-        )}
+      {/* Chat coach */}
+      {insightState === "loading" && (
+        <div className="mb-8 bg-[#1A1A1A] border border-[#2A2A2A] rounded-xl flex items-center justify-center" style={{ height: 380 }}>
+          <p className="text-gray-600 text-sm animate-pulse">Koç hazırlanıyor...</p>
+        </div>
+      )}
+      {insightState !== "loading" && (
+        <ChatPanel initialInsight={insight?.insight ?? null} />
+      )}
 
-        {txState === "loading" && (
-          <p className="text-center text-gray-500 py-16 animate-pulse">Yükleniyor...</p>
-        )}
-        {txState === "error" && (
-          <p className="text-center text-red-400 py-16">
-            İşlemler yüklenemedi. Backend bağlantısını kontrol edin.
-          </p>
-        )}
-        {txState === "ready" && (
-          <TransactionTable
-            transactions={transactions}
-            onCategoryCorrection={handleCategoryCorrection}
-          />
-        )}
-      </div>
+      {/* Spending chart */}
+      {txState === "ready" && transactions.length > 0 && (
+        <SpendingChart transactions={transactions} />
+      )}
+
+      {/* Transactions table */}
+      {txState === "loading" && (
+        <div className="space-y-2 mt-8">
+          {[1,2,3,4,5].map(i => (
+            <div key={i} className="h-14 bg-[#1A1A1A] rounded-xl animate-pulse" />
+          ))}
+        </div>
+      )}
+      {txState === "error" && (
+        <div className="mt-8 bg-red-950/40 border border-red-900/40 rounded-xl p-6 text-center">
+          <p className="text-red-400">İşlemler yüklenemedi. Backend bağlantısını kontrol edin.</p>
+        </div>
+      )}
+      {txState === "ready" && (
+        <TransactionTable
+          transactions={transactions}
+          onCategoryCorrection={handleCategoryCorrection}
+        />
+      )}
 
       {showAddModal && (
         <AddTransactionModal
@@ -265,6 +222,6 @@ export default function TransactionsPage() {
           onSuccess={handleTransactionAdded}
         />
       )}
-    </main>
+    </PageLayout>
   );
 }

@@ -3,12 +3,15 @@
 import { useState } from "react";
 import { createTransaction, type Transaction } from "@/lib/api";
 import { CATEGORY_LABELS } from "@/lib/categories";
+import { X } from "@/components/ui/Icons";
 
 const CATEGORIES = [
   "market", "restoran", "ulasim", "eglence", "saglik",
   "fatura", "giyim", "nakit_atm", "transfer", "iade",
   "vergi", "teknoloji", "diger",
 ] as const;
+
+const inputClass = "w-full bg-[#0F0F0F] border border-[#2A2A2A] rounded-lg px-3 py-2.5 text-white text-sm placeholder-gray-700 focus:outline-none focus:border-indigo-600 transition-colors";
 
 interface InitialValues {
   amount?: string;
@@ -55,92 +58,73 @@ export default function AddTransactionModal({ onClose, onSuccess, initialValues 
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm"
       onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
     >
-      <div className="w-full max-w-md mx-4 bg-gray-900 rounded-2xl border border-gray-800 p-6 shadow-2xl">
+      <div className="w-full max-w-md mx-4 bg-[#1A1A1A] rounded-2xl border border-[#2A2A2A] p-6 shadow-2xl">
         <div className="flex items-center justify-between mb-6">
           <h2 className="text-lg font-semibold text-white">İşlem Ekle</h2>
           <button
             onClick={onClose}
-            className="text-gray-500 hover:text-gray-300 text-xl leading-none"
+            className="p-1.5 rounded-lg text-gray-500 hover:text-gray-300 hover:bg-[#2A2A2A] transition-colors"
           >
-            ×
+            <X size={16} />
           </button>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
-          {/* Type toggle */}
           <div>
-            <label className="block text-xs text-gray-500 mb-1.5">İşlem Türü</label>
-            <div className="flex rounded-lg overflow-hidden border border-gray-700 text-sm">
+            <label className="block text-xs text-gray-500 mb-2 uppercase tracking-wide">İşlem Türü</label>
+            <div className="flex rounded-lg overflow-hidden border border-[#2A2A2A] text-sm">
               <button
                 type="button"
                 onClick={() => setType("debit")}
-                className={`flex-1 py-2 transition-colors ${type === "debit" ? "bg-red-900/60 text-red-300" : "bg-gray-800 text-gray-400 hover:text-gray-300"}`}
+                className={`flex-1 py-2.5 font-medium transition-colors ${type === "debit" ? "bg-red-950 text-red-300 border-r border-[#2A2A2A]" : "bg-[#0F0F0F] text-gray-500 hover:text-gray-300 border-r border-[#2A2A2A]"}`}
               >
                 Gider
               </button>
               <button
                 type="button"
                 onClick={() => setType("credit")}
-                className={`flex-1 py-2 transition-colors ${type === "credit" ? "bg-green-900/60 text-green-300" : "bg-gray-800 text-gray-400 hover:text-gray-300"}`}
+                className={`flex-1 py-2.5 font-medium transition-colors ${type === "credit" ? "bg-emerald-950 text-emerald-300" : "bg-[#0F0F0F] text-gray-500 hover:text-gray-300"}`}
               >
                 Gelir
               </button>
             </div>
           </div>
 
-          {/* Amount */}
           <div>
-            <label className="block text-xs text-gray-500 mb-1.5">Tutar (₺)</label>
+            <label className="block text-xs text-gray-500 mb-1.5 uppercase tracking-wide">Tutar (₺)</label>
             <input
-              type="number"
-              min="0.01"
-              step="0.01"
-              value={amount}
-              onChange={(e) => setAmount(e.target.value)}
-              required
-              placeholder="0.00"
-              className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white text-sm placeholder-gray-600 focus:outline-none focus:border-indigo-500"
+              type="number" min="0.01" step="0.01"
+              value={amount} onChange={(e) => setAmount(e.target.value)}
+              required placeholder="0.00" className={inputClass}
             />
           </div>
 
-          {/* Description */}
           <div>
-            <label className="block text-xs text-gray-500 mb-1.5">Açıklama</label>
+            <label className="block text-xs text-gray-500 mb-1.5 uppercase tracking-wide">Açıklama</label>
             <input
-              type="text"
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              required
-              placeholder="İşlem açıklaması"
-              maxLength={200}
-              className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white text-sm placeholder-gray-600 focus:outline-none focus:border-indigo-500"
+              type="text" value={description} onChange={(e) => setDescription(e.target.value)}
+              required placeholder="İşlem açıklaması" maxLength={200} className={inputClass}
             />
           </div>
 
-          {/* Date */}
           <div>
-            <label className="block text-xs text-gray-500 mb-1.5">Tarih</label>
+            <label className="block text-xs text-gray-500 mb-1.5 uppercase tracking-wide">Tarih</label>
             <input
-              type="date"
-              value={date}
-              onChange={(e) => setDate(e.target.value)}
-              required
-              className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-indigo-500"
+              type="date" value={date} onChange={(e) => setDate(e.target.value)}
+              required className={inputClass}
             />
           </div>
 
-          {/* Category (optional) */}
           <div>
-            <label className="block text-xs text-gray-500 mb-1.5">
-              Kategori <span className="text-gray-600">(boş bırakılırsa otomatik)</span>
+            <label className="block text-xs text-gray-500 mb-1.5 uppercase tracking-wide">
+              Kategori <span className="text-gray-700 normal-case">(boş = otomatik)</span>
             </label>
             <select
-              value={category}
-              onChange={(e) => setCategory(e.target.value)}
-              className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-indigo-500"
+              value={category} onChange={(e) => setCategory(e.target.value)}
+              className={inputClass}
             >
               <option value="">Otomatik belirle</option>
               {CATEGORIES.map((c) => (
@@ -149,22 +133,18 @@ export default function AddTransactionModal({ onClose, onSuccess, initialValues 
             </select>
           </div>
 
-          {error && (
-            <p className="text-red-400 text-sm">{error}</p>
-          )}
+          {error && <p className="text-red-400 text-sm">{error}</p>}
 
           <div className="flex gap-3 pt-2">
             <button
-              type="button"
-              onClick={onClose}
-              className="flex-1 py-2 rounded-lg bg-gray-800 hover:bg-gray-700 text-sm text-gray-300 transition-colors"
+              type="button" onClick={onClose}
+              className="flex-1 py-2.5 rounded-lg bg-[#2A2A2A] hover:bg-[#333] text-sm text-gray-300 transition-colors"
             >
               İptal
             </button>
             <button
-              type="submit"
-              disabled={loading}
-              className="flex-1 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-sm font-medium text-white transition-colors"
+              type="submit" disabled={loading}
+              className="flex-1 py-2.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-sm font-medium text-white transition-colors"
             >
               {loading ? "Ekleniyor..." : "Ekle"}
             </button>

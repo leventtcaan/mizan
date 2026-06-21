@@ -44,7 +44,7 @@ export default function SpendingChart({ transactions }: Props) {
   if (data.length === 0) return null;
 
   return (
-    <div className="mb-8 p-5 rounded-xl bg-gray-900 border border-gray-800">
+    <div className="mb-8 p-5 rounded-xl bg-[#1A1A1A] border border-[#2A2A2A]">
       <p className="text-xs text-gray-500 uppercase tracking-wide mb-4 font-semibold">
         Kategoriye Göre Harcama (₺)
       </p>
@@ -68,7 +68,7 @@ export default function SpendingChart({ transactions }: Props) {
             }
           />
           <Tooltip
-            contentStyle={{ backgroundColor: "#111827", border: "1px solid #374151", borderRadius: 8 }}
+            contentStyle={{ backgroundColor: "#1A1A1A", border: "1px solid #2A2A2A", borderRadius: 8 }}
             labelStyle={{ color: "#e5e7eb", fontSize: 12 }}
             itemStyle={{ color: "#d1d5db", fontSize: 12 }}
             formatter={(value: number) => [`₺${value.toLocaleString("tr-TR")}`, "Harcama"]}
