@@ -312,3 +312,32 @@ export function Scale({ size, className, strokeWidth }: IconProps) {
     </Icon>
   );
 }
+
+export function Calendar({ size, className, strokeWidth }: IconProps) {
+  return (
+    <Icon size={size} className={className} strokeWidth={strokeWidth}>
+      <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+      <line x1="16" y1="2" x2="16" y2="6" />
+      <line x1="8" y1="2" x2="8" y2="6" />
+      <line x1="3" y1="10" x2="21" y2="10" />
+    </Icon>
+  );
+}
+
+export function ArrowDown({ size, className, strokeWidth }: IconProps) {
+  return (
+    <Icon size={size} className={className} strokeWidth={strokeWidth}>
+      <line x1="12" y1="5" x2="12" y2="19" />
+      <polyline points="19 12 12 19 5 12" />
+    </Icon>
+  );
+}
+
+export function ArrowUp({ size, className, strokeWidth }: IconProps) {
+  return (
+    <Icon size={size} className={className} strokeWidth={strokeWidth}>
+      <line x1="12" y1="19" x2="12" y2="5" />
+      <polyline points="5 12 12 5 19 12" />
+    </Icon>
+  );
+}

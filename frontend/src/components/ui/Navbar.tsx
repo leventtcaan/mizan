@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import Link from "next/link";
 import { getToken, getStoredUser, clearToken, getNetWorthSuggestions } from "@/lib/api";
-import { BarChart2, CreditCard, Layers, Upload, LogOut, Menu, X, Scale } from "@/components/ui/Icons";
+import { BarChart2, Calendar, CreditCard, Layers, Upload, LogOut, Menu, X, Scale } from "@/components/ui/Icons";
 
 const HIDDEN_PATHS = ["/login", "/onboarding"];
 
@@ -18,6 +18,7 @@ const NAV_LINKS: NavLink[] = [
   { href: "/transactions", label: "İşlemler", icon: <PieChartMini /> },
   { href: "/networth", label: "Net Değer", icon: <Scale size={16} /> },
   { href: "/progress", label: "İlerleme", icon: <BarChart2 size={16} /> },
+  { href: "/cashflow", label: "Takvim", icon: <Calendar size={16} /> },
   { href: "/subscriptions", label: "Abonelikler", icon: <CreditCard size={16} /> },
   { href: "/installments", label: "Taksitler", icon: <Layers size={16} /> },
 ];

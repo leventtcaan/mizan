@@ -11,6 +11,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.auth import router as auth_router
+from app.api.cashflow import router as cashflow_router
 from app.api.currency import router as currency_router
 from app.api.networth import router as networth_router
 from app.api.installments import router as installments_router
@@ -112,6 +113,7 @@ app.include_router(installments_router)
 app.include_router(currency_router)
 app.include_router(networth_router)
 app.include_router(reconciliation_router)
+app.include_router(cashflow_router)
 
 
 @app.get("/health")

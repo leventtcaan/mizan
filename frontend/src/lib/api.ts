@@ -992,3 +992,43 @@ export async function deleteBatch(batchId: string): Promise<void> {
   });
   if (!response.ok) throw new Error(`Failed to delete batch: ${response.status}`);
 }
+
+// --- Cash Flow ---
+
+export interface CashFlowItem {
+  date: string;
+  type: "liability_payment" | "income" | "subscription" | "recurring_income";
+  amount: string;
+  currency: string;
+  description: string;
+  source: "liability" | "receivable" | "subscription" | "recurring_income";
+  urgent: boolean;
+}
+
+export interface CashFlowSummary {
+  total_expected_income: string;
+  total_expected_payments: string;
+  projected_net: string;
+  liquid_assets: string;
+  display_currency: string;
+  liquid_to_payments_ratio: number | null;
+  warning: string | null;
+  days: number;
+}
+
+export async function getCashFlowUpcoming(days = 30): Promise<CashFlowItem[]> {
+  const response = await fetch(`${API_BASE_URL}/cashflow/upcoming?days=${days}`, {
+    headers: authHeaders(),
+  });
+  if (!response.ok) throw new Error(`Failed to fetch cashflow: ${response.status}`);
+  return response.json() as Promise<CashFlowItem[]>;
+}
+
+export async function getCashFlowSummary(days = 30, displayCurrency = "TRY"): Promise<CashFlowSummary> {
+  const response = await fetch(
+    `${API_BASE_URL}/cashflow/summary?days=${days}&display_currency=${displayCurrency}`,
+    { headers: authHeaders() },
+  );
+  if (!response.ok) throw new Error(`Failed to fetch cashflow summary: ${response.status}`);
+  return response.json() as Promise<CashFlowSummary>;
+}

@@ -1,0 +1,266 @@
+import calendar
+import logging
+from collections import defaultdict
+from datetime import date, timedelta
+from decimal import Decimal
+
+from fastapi import APIRouter, Depends, Query
+from pydantic import BaseModel
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.core.database import get_session
+from app.core.dependencies import get_current_user
+from app.models.asset import Asset
+from app.models.liability import Liability
+from app.models.receivable import Receivable
+from app.models.user import User
+from app.services.currency import convert
+from app.services.transaction_service import get_transactions_for_user
+
+logger = logging.getLogger(__name__)
+
+router = APIRouter(prefix="/cashflow", tags=["cashflow"])
+
+_LIQUID_ASSET_TYPES = {"cash", "bank_account"}
+_URGENT_DAYS = 3
+_MIN_AMOUNT = Decimal("10")
+_VARIANCE = Decimal("0.10")
+_MIN_MONTHS = 2
+
+
+class CashFlowItem(BaseModel):
+    date: str
+    type: str  # "liability_payment" | "income" | "subscription" | "recurring_income"
+    amount: str
+    currency: str
+    description: str
+    source: str  # "liability" | "receivable" | "subscription" | "recurring_income"
+    urgent: bool
+
+
+class CashFlowSummary(BaseModel):
+    total_expected_income: str
+    total_expected_payments: str
+    projected_net: str
+    liquid_assets: str
+    display_currency: str
+    liquid_to_payments_ratio: float | None
+    warning: str | None
+    days: int
+
+
+def _next_monthly(base_day: int, today: date) -> date:
+    last_day_this = calendar.monthrange(today.year, today.month)[1]
+    actual_day = min(base_day, last_day_this)
+    candidate = date(today.year, today.month, actual_day)
+    if candidate < today:
+        ny, nm = (today.year + 1, 1) if today.month == 12 else (today.year, today.month + 1)
+        last_day_next = calendar.monthrange(ny, nm)[1]
+        candidate = date(ny, nm, min(base_day, last_day_next))
+    return candidate
+
+
+async def _liability_items(
+    user_id, session: AsyncSession, today: date, end: date
+) -> list[CashFlowItem]:
+    result = await session.execute(select(Liability).where(Liability.user_id == user_id))
+    items = []
+    for li in result.scalars().all():
+        if not li.monthly_payment or li.monthly_payment <= 0:
+            continue
+        if li.remaining_amount <= 0:
+            continue
+        base_day = li.due_date.day if li.due_date else today.day
+        pay_date = _next_monthly(base_day, today)
+        if pay_date <= end:
+            items.append(CashFlowItem(
+                date=pay_date.isoformat(),
+                type="liability_payment",
+                amount=str(li.monthly_payment),
+                currency=li.currency,
+                description=li.name,
+                source="liability",
+                urgent=(pay_date - today).days <= _URGENT_DAYS,
+            ))
+    return items
+
+
+async def _receivable_items(
+    user_id, session: AsyncSession, today: date, end: date
+) -> list[CashFlowItem]:
+    result = await session.execute(
+        select(Receivable).where(
+            Receivable.user_id == user_id,
+            Receivable.status.in_(["pending", "overdue"]),
+        )
+    )
+    items = []
+    for r in result.scalars().all():
+        if not r.expected_date:
+            continue
+        display_date = today if r.expected_date < today else r.expected_date
+        if display_date > end:
+            continue
+        items.append(CashFlowItem(
+            date=display_date.isoformat(),
+            type="income",
+            amount=str(r.amount),
+            currency=r.currency,
+            description=f"Receivable: {r.from_person}",
+            source="receivable",
+            urgent=(display_date - today).days <= _URGENT_DAYS,
+        ))
+    return items
+
+
+def _recurring_items(transactions, today: date, end: date) -> list[CashFlowItem]:
+    """Detect consistent recurring debit/credit patterns and project next occurrence."""
+    items: list[CashFlowItem] = []
+
+    def _process(tx_list, item_type: str, source: str) -> None:
+        by_key: dict[str, list] = defaultdict(list)
+        for t in tx_list:
+            by_key[t.description.strip().lower()[:30]].append(t)
+
+        for _key, group in by_key.items():
+            by_month: dict[str, list] = defaultdict(list)
+            for t in group:
+                by_month[t.transaction_date.strftime("%Y-%m")].append(t.amount)
+
+            if len(by_month) < _MIN_MONTHS:
+                continue
+
+            monthly_totals = [sum(amounts) for amounts in by_month.values()]
+            median = sorted(monthly_totals)[len(monthly_totals) // 2]
+            if median < _MIN_AMOUNT:
+                continue
+            if not all(
+                abs(total - median) / median <= _VARIANCE
+                for total in monthly_totals
+                if median > 0
+            ):
+                continue
+
+            sorted_txns = sorted(group, key=lambda t: t.transaction_date)
+            last_date = sorted_txns[-1].transaction_date
+
+            if len(sorted_txns) >= 2:
+                gaps = [
+                    (sorted_txns[i].transaction_date - sorted_txns[i - 1].transaction_date).days
+                    for i in range(1, len(sorted_txns))
+                ]
+                avg_gap = sum(gaps) / len(gaps)
+            else:
+                avg_gap = 30
+
+            freq_days = 7 if avg_gap < 15 else 30
+            predicted = last_date + timedelta(days=int(freq_days))
+            while predicted < today:
+                predicted += timedelta(days=int(freq_days))
+
+            if predicted <= end:
+                items.append(CashFlowItem(
+                    date=predicted.isoformat(),
+                    type=item_type,
+                    amount=str(median.quantize(Decimal("0.01"))),
+                    currency="TRY",
+                    description=sorted_txns[-1].description[:45],
+                    source=source,
+                    urgent=(predicted - today).days <= _URGENT_DAYS,
+                ))
+
+    _process(
+        [t for t in transactions if t.transaction_type == "debit"],
+        "subscription", "subscription",
+    )
+    _process(
+        [t for t in transactions if t.transaction_type == "credit"],
+        "recurring_income", "recurring_income",
+    )
+    return items
+
+
+@router.get("/upcoming", response_model=list[CashFlowItem])
+async def upcoming_cashflow(
+    days: int = Query(default=30, ge=1, le=365),
+    current_user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
+) -> list[CashFlowItem]:
+    today = date.today()
+    end = today + timedelta(days=days)
+
+    transactions = await get_transactions_for_user(current_user.id, session, all_batches=True)
+    l_items = await _liability_items(current_user.id, session, today, end)
+    r_items = await _receivable_items(current_user.id, session, today, end)
+    rec_items = _recurring_items(transactions, today, end)
+
+    all_items = l_items + r_items + rec_items
+    all_items.sort(key=lambda x: x.date)
+    return all_items
+
+
+@router.get("/summary", response_model=CashFlowSummary)
+async def cashflow_summary(
+    days: int = Query(default=30, ge=1, le=365),
+    display_currency: str = Query(default="TRY"),
+    current_user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
+) -> CashFlowSummary:
+    today = date.today()
+    end = today + timedelta(days=days)
+    cur = display_currency.upper()
+
+    transactions = await get_transactions_for_user(current_user.id, session, all_batches=True)
+    l_items = await _liability_items(current_user.id, session, today, end)
+    r_items = await _receivable_items(current_user.id, session, today, end)
+    rec_items = _recurring_items(transactions, today, end)
+
+    income_types = {"income", "recurring_income"}
+    payment_types = {"liability_payment", "subscription"}
+
+    total_income = Decimal("0")
+    total_payments = Decimal("0")
+
+    for item in l_items + r_items + rec_items:
+        try:
+            converted = await convert(Decimal(item.amount), item.currency, cur)
+        except Exception:
+            converted = Decimal(item.amount)
+        if item.type in income_types:
+            total_income += converted
+        elif item.type in payment_types:
+            total_payments += converted
+
+    asset_result = await session.execute(
+        select(Asset).where(
+            Asset.user_id == current_user.id,
+            Asset.asset_type.in_(_LIQUID_ASSET_TYPES),
+        )
+    )
+    liquid = Decimal("0")
+    for asset in asset_result.scalars().all():
+        try:
+            liquid += await convert(Decimal(str(asset.current_value)), asset.currency, cur)
+        except Exception:
+            liquid += Decimal(str(asset.current_value))
+
+    projected_net = total_income - total_payments
+    ratio = float(liquid / total_payments) if total_payments > 0 else None
+    warning: str | None = None
+    if total_payments > 0 and liquid < total_payments:
+        warning = (
+            f"Liquid assets ({cur} {liquid:,.0f}) may be insufficient for upcoming "
+            f"payments ({cur} {total_payments:,.0f}) over the next {days} days."
+        )
+
+    return CashFlowSummary(
+        total_expected_income=str(total_income.quantize(Decimal("0.01"))),
+        total_expected_payments=str(total_payments.quantize(Decimal("0.01"))),
+        projected_net=str(projected_net.quantize(Decimal("0.01"))),
+        liquid_assets=str(liquid.quantize(Decimal("0.01"))),
+        display_currency=cur,
+        liquid_to_payments_ratio=ratio,
+        warning=warning,
+        days=days,
+    )
