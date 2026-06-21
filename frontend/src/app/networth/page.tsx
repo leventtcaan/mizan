@@ -24,6 +24,7 @@ import {
   getReconciliationItems,
   scanReconciliation,
   updateReconciliationItemStatus,
+  deleteBatch,
   AssetItem,
   LiabilityItem,
   ReceivableItem,
@@ -270,6 +271,7 @@ export default function NetWorthPage() {
   const [loading, setLoading] = useState(true);
   const [summaryLoading, setSummaryLoading] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
+  const [actionPending, setActionPending] = useState<string | null>(null);
 
   const [showAddAsset, setShowAddAsset] = useState(false);
   const [showAddLiability, setShowAddLiability] = useState(false);
@@ -396,6 +398,94 @@ export default function NetWorthPage() {
     setToast(status === "resolved" ? "Review item resolved." : "Review item dismissed.");
   };
 
+  const handleReconciliationAction = async (item: ReconciliationItem, action: string) => {
+    const key = `${item.id}:${action}`;
+    if (actionPending === key) return;
+    setActionPending(key);
+    try {
+      const pa = (typeof item.proposed_action === "object" && item.proposed_action !== null)
+        ? item.proposed_action as Record<string, unknown>
+        : null;
+      const entityId = item.related_entity_id;
+
+      if (item.issue_type === "overdue_receivable" && entityId) {
+        if (action === "mark_received") {
+          const result = await updateReceivableStatus(entityId, "received");
+          setReceivables((prev) => prev.map((r) => r.id === entityId ? result.receivable : r));
+          if (result.created_asset) setAssets((prev) => [...prev, result.created_asset!]);
+          setToast(result.toast_message ?? "Receivable marked received.");
+        } else if (action === "write_off") {
+          await updateReceivableStatus(entityId, "written_off");
+          setReceivables((prev) => prev.filter((r) => r.id !== entityId));
+          setToast("Receivable written off.");
+        }
+        await updateReconciliationItemStatus(item.id, "resolved");
+        setReconciliationItems((prev) => prev.filter((i) => i.id !== item.id));
+        void reloadSummary();
+        return;
+      }
+
+      if (item.issue_type === "received_receivable_missing_asset" && entityId) {
+        if (action === "create_cash_asset") {
+          const result = await updateReceivableStatus(entityId, "received");
+          setReceivables((prev) => prev.map((r) => r.id === entityId ? result.receivable : r));
+          if (result.created_asset) setAssets((prev) => [...prev, result.created_asset!]);
+          setToast(result.toast_message ?? "Cash asset created.");
+        } else if (action === "mark_pending") {
+          const result = await updateReceivableStatus(entityId, "pending");
+          setReceivables((prev) => prev.map((r) => r.id === entityId ? result.receivable : r));
+          setToast("Receivable set back to pending.");
+        } else if (action === "write_off") {
+          await updateReceivableStatus(entityId, "written_off");
+          setReceivables((prev) => prev.filter((r) => r.id !== entityId));
+          setToast("Receivable written off.");
+        }
+        await updateReconciliationItemStatus(item.id, "resolved");
+        setReconciliationItems((prev) => prev.filter((i) => i.id !== item.id));
+        void reloadSummary();
+        return;
+      }
+
+      if (item.issue_type === "possible_duplicate_transaction") {
+        if (action === "delete_duplicate_batch" && pa?.upload_batch_ids) {
+          const batchIds = pa.upload_batch_ids as string[];
+          if (batchIds.length < 2) {
+            setToast("Only one batch — nothing to delete.");
+          } else {
+            const ok = window.confirm(
+              `Delete ${batchIds.length - 1} older duplicate batch(es)? This will remove those transactions permanently.`
+            );
+            if (!ok) { setActionPending(null); return; }
+            for (const batchId of batchIds.slice(0, -1)) {
+              await deleteBatch(batchId).catch(() => null);
+            }
+            setToast(`Removed ${batchIds.length - 1} duplicate batch(es).`);
+          }
+        }
+        await updateReconciliationItemStatus(item.id, "resolved");
+        setReconciliationItems((prev) => prev.filter((i) => i.id !== item.id));
+        return;
+      }
+
+      if (item.issue_type === "large_transaction_review") {
+        const finalStatus = action === "ignore" ? "dismissed" : "resolved";
+        await updateReconciliationItemStatus(item.id, finalStatus);
+        setReconciliationItems((prev) => prev.filter((i) => i.id !== item.id));
+        setToast(finalStatus === "resolved" ? "Transaction reviewed." : "Review dismissed.");
+        return;
+      }
+
+      // fallback: plain status update
+      const finalStatus = action === "dismiss" ? "dismissed" : "resolved";
+      await updateReconciliationItemStatus(item.id, finalStatus);
+      setReconciliationItems((prev) => prev.filter((i) => i.id !== item.id));
+    } catch {
+      setToast("Action failed — please try again.");
+    } finally {
+      setActionPending(null);
+    }
+  };
+
   const netPositive = (summary?.net_worth_try ?? 0) >= 0;
   const pendingSuggestions = suggestions.filter((s) => s.status === "pending");
 
@@ -516,39 +606,101 @@ export default function NetWorthPage() {
 
           {reconciliationItems.length > 0 && (
             <div className="space-y-3 mb-3">
-              {reconciliationItems.map((item) => (
-                <div
-                  key={item.id}
-                  className="bg-[#1A1A1A] border border-cyan-900/30 rounded-xl p-4 flex items-start justify-between gap-3"
-                >
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <p className="text-gray-100 text-sm font-medium">{item.title}</p>
-                      <span className="px-2 py-0.5 rounded-full bg-[#2A2A2A] text-gray-400 text-xs">
-                        {item.severity}
-                      </span>
+              {reconciliationItems.map((item) => {
+                const pa = (typeof item.proposed_action === "object" && item.proposed_action !== null)
+                  ? item.proposed_action as Record<string, unknown>
+                  : null;
+                const isPending = (action: string) => actionPending === `${item.id}:${action}`;
+                const btn = (action: string, label: string, cls: string) => (
+                  <button
+                    key={action}
+                    disabled={actionPending !== null}
+                    onClick={() => handleReconciliationAction(item, action)}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors disabled:opacity-40 ${cls}`}
+                  >
+                    {isPending(action) ? "…" : label}
+                  </button>
+                );
+
+                let actionButtons: ReactNode;
+                if (item.issue_type === "overdue_receivable") {
+                  actionButtons = (
+                    <>
+                      {btn("mark_received", "Mark Received", "bg-emerald-600/20 text-emerald-400 border border-emerald-800/40 hover:bg-emerald-600/30")}
+                      {btn("write_off", "Write Off", "bg-red-600/10 text-red-400 border border-red-800/30 hover:bg-red-600/20")}
+                      {btn("dismiss", "Dismiss", "bg-[#2A2A2A] text-gray-400 hover:text-gray-200")}
+                    </>
+                  );
+                } else if (item.issue_type === "received_receivable_missing_asset") {
+                  actionButtons = (
+                    <>
+                      {btn("create_cash_asset", "Re-create Asset", "bg-emerald-600/20 text-emerald-400 border border-emerald-800/40 hover:bg-emerald-600/30")}
+                      {btn("mark_pending", "Mark Pending", "bg-amber-600/10 text-amber-400 border border-amber-800/30 hover:bg-amber-600/20")}
+                      {btn("write_off", "Write Off", "bg-red-600/10 text-red-400 border border-red-800/30 hover:bg-red-600/20")}
+                    </>
+                  );
+                } else if (item.issue_type === "possible_duplicate_transaction") {
+                  const batchIds = (pa?.upload_batch_ids as string[] | undefined) ?? [];
+                  actionButtons = (
+                    <>
+                      {batchIds.length >= 2 && btn("delete_duplicate_batch", "Delete Older Duplicate", "bg-red-600/10 text-red-400 border border-red-800/30 hover:bg-red-600/20")}
+                      {btn("keep_all", "Keep All", "bg-emerald-600/20 text-emerald-400 border border-emerald-800/40 hover:bg-emerald-600/30")}
+                      {btn("dismiss", "Dismiss", "bg-[#2A2A2A] text-gray-400 hover:text-gray-200")}
+                    </>
+                  );
+                } else if (item.issue_type === "large_transaction_review") {
+                  actionButtons = (
+                    <>
+                      {btn("confirm_category", "Confirm & Close", "bg-emerald-600/20 text-emerald-400 border border-emerald-800/40 hover:bg-emerald-600/30")}
+                      {btn("ignore", "Ignore", "bg-[#2A2A2A] text-gray-400 hover:text-gray-200")}
+                    </>
+                  );
+                } else {
+                  actionButtons = (
+                    <>
+                      {btn("resolve", "Resolve", "bg-emerald-600/20 text-emerald-400 border border-emerald-800/40 hover:bg-emerald-600/30")}
+                      {btn("dismiss", "Dismiss", "bg-[#2A2A2A] text-gray-400 hover:text-gray-200")}
+                    </>
+                  );
+                }
+
+                return (
+                  <div
+                    key={item.id}
+                    className="bg-[#1A1A1A] border border-cyan-900/30 rounded-xl p-4"
+                  >
+                    <div className="flex items-start justify-between gap-3 flex-wrap">
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <p className="text-gray-100 text-sm font-medium">{item.title}</p>
+                          <span className={`px-2 py-0.5 rounded-full text-xs ${
+                            item.severity === "high"
+                              ? "bg-red-950/50 text-red-400 border border-red-800/30"
+                              : item.severity === "medium"
+                              ? "bg-amber-950/50 text-amber-400 border border-amber-800/30"
+                              : "bg-[#2A2A2A] text-gray-400"
+                          }`}>
+                            {item.severity}
+                          </span>
+                        </div>
+                        <p className="text-gray-400 text-xs leading-relaxed mt-1">{item.description}</p>
+                        {item.issue_type === "possible_duplicate_transaction" && !!pa?.description && (
+                          <p className="text-cyan-300/70 text-xs mt-1 truncate">"{String(pa.description)}"</p>
+                        )}
+                        {item.issue_type === "large_transaction_review" && !!pa?.amount && (
+                          <p className="text-cyan-300/70 text-xs mt-1">
+                            {String(pa.transaction_type) === "debit" ? "−" : "+"}{String(pa.amount)}
+                            {pa.description ? ` · "${String(pa.description).slice(0, 40)}"` : ""}
+                          </p>
+                        )}
+                      </div>
                     </div>
-                    <p className="text-gray-400 text-xs leading-relaxed mt-1">{item.description}</p>
-                    {typeof item.proposed_action === "string" && (
-                      <p className="text-cyan-300 text-xs mt-2">{item.proposed_action}</p>
-                    )}
+                    <div className="flex gap-2 flex-wrap mt-3">
+                      {actionButtons}
+                    </div>
                   </div>
-                  <div className="flex gap-2 shrink-0">
-                    <button
-                      onClick={() => handleReconciliationStatus(item.id, "resolved")}
-                      className="px-3 py-1.5 rounded-lg bg-emerald-600/20 text-emerald-400 border border-emerald-800/40 hover:bg-emerald-600/30 text-xs font-medium transition-colors"
-                    >
-                      Resolved
-                    </button>
-                    <button
-                      onClick={() => handleReconciliationStatus(item.id, "dismissed")}
-                      className="px-3 py-1.5 rounded-lg bg-[#2A2A2A] text-gray-400 hover:text-gray-200 text-xs font-medium transition-colors"
-                    >
-                      Dismiss
-                    </button>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
 

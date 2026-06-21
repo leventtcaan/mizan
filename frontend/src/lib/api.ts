@@ -984,3 +984,11 @@ export async function updateReconciliationItemStatus(
   if (!response.ok) throw new Error(`Failed to update reconciliation item: ${response.status}`);
   return response.json() as Promise<ReconciliationItem>;
 }
+
+export async function deleteBatch(batchId: string): Promise<void> {
+  const response = await fetch(`${API_BASE_URL}/transactions/batch/${batchId}`, {
+    method: "DELETE",
+    headers: authHeaders(),
+  });
+  if (!response.ok) throw new Error(`Failed to delete batch: ${response.status}`);
+}
