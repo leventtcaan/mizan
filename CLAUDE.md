@@ -925,11 +925,50 @@ Full stack: register/login → JWT → upload (rate-limited, busts caches) → 3
 - **Confirm dialog for batch delete**: destructive, irreversible — `window.confirm()` is appropriate gating here.
 - **Re-create asset is idempotent**: `updateReceivableStatus(id, "received")` backend already handles repeated calls without duplicate asset creation (Phase 25 fix).
 
+### Phase 32 — Cash Flow Calendar (2026-06-22)
+
+#### Backend
+- [x] `backend/app/api/cashflow.py` — new router `/cashflow`. No new migration — pure computation from existing tables.
+- [x] `GET /cashflow/upcoming?days=30` — aggregates 3 sources into one sorted list of `CashFlowItem(date, type, amount, currency, description, source, urgent)`:
+  - Liabilities with `monthly_payment>0`: projects next monthly occurrence using `due_date.day` as the recurring day-of-month; `_next_monthly()` handles month-boundary edge cases.
+  - Receivables with `status in {pending,overdue}` + `expected_date`: overdue items shown at today, future items at their date.
+  - Recurring transaction patterns: same detection logic as subscriptions.py (±10% variance, ≥2 months); debit groups → "subscription" type; credit groups → "recurring_income" type; projected forward by avg gap (7d or 30d) until ≥ today.
+- [x] `GET /cashflow/summary?days=30&display_currency=TRY` — totals converted to display_currency via `convert()`; `liquid_assets` = sum of cash+bank_account assets; `liquid_to_payments_ratio`; `warning` when liquid < payments.
+- [x] `backend/app/main.py` — cashflow_router registered at `/cashflow`.
+
+#### Frontend
+- [x] `frontend/src/components/ui/Icons.tsx` — added `Calendar`, `ArrowDown`, `ArrowUp` icons.
+- [x] `frontend/src/lib/api.ts` — added `CashFlowItem`, `CashFlowSummary` interfaces; `getCashFlowUpcoming(days)`, `getCashFlowSummary(days, currency)`.
+- [x] `frontend/src/components/ui/Navbar.tsx` — "Takvim" link (Calendar icon) added between Net Değer and İlerleme.
+- [x] `frontend/src/app/cashflow/page.tsx` — new page:
+  - Day selector: 7/14/30/60/90g pill buttons.
+  - Currency selector: `CurrencySelect` component.
+  - Urgent count badge: animated pulse when items within 3 days.
+  - Summary card: 4 metrics (beklenen gelir, beklenen ödeme, tahmini net, likit varlıklar) + coverage % + warning banner.
+  - Timeline: items grouped by date; date header with "Bugün"/"Yarın" badges; items show type icon + badge + description + signed amount.
+  - Urgent items: red background tint + pulsing dot on icon.
+  - Empty state: Calendar icon + explanatory text.
+  - Legend row at bottom.
+  - "Ödeme Ekle" button: opens `AddPaymentModal` → calls `createLiability` with monthly_payment + due_date → feeds back into cashflow on reload. No new DB table.
+
+#### Checks
+- [x] `python3 -m py_compile backend/app/api/cashflow.py backend/app/main.py` passed.
+- [x] `npm run build` passed. 13 static pages generated (/cashflow added).
+- [x] `git diff --check` clean.
+- [!] No new migration. Docker restart not needed — new router only.
+
+#### Architectural decisions
+- **No new DB table**: cashflow is pure projection. Source data lives in liabilities/receivables/transactions. Alternative (cashflow_events table) rejected — premature persistence for what is currently read-only projection.
+- **Transactions have no currency field**: recurring transaction items default to "TRY". Correct for statement-uploaded data; manual entries would need currency for full correctness.
+- **AddPaymentModal creates Liability not a one-off event**: creating a liability record is the cleanest path. It shows in networth, is tracked in cashflow, and has full lifecycle. Alternative (separate upcoming_payments table) rejected — more tables, less integration.
+- **Conversion at summary time only**: upcoming items return raw amounts in their native currency. Summary converts everything for totals. This avoids stale exchange rates on individual item cards.
+- **Gap estimation for recurring**: uses average gap between consecutive transactions, not months. More accurate for biweekly payroll than calendar-month counting.
+
 ---
 
 ## Next Session — Start Here
 
-**Phases 1–31 complete. Phase 31 = reconciliation queue action handlers. Alembic head = 0022. No new migrations.**
+**Phases 1–32 complete. Phase 32 = Cash Flow Calendar. Alembic head = 0022. No new migrations.**
 
 Pre-flight (if docker was restarted):
 ```bash
@@ -951,9 +990,9 @@ curl -s http://localhost:8000/currency/list | python3 -c "import sys,json; d=jso
 
 Next task options (priority order):
 1. **Real-time asset prices** — `services/asset_prices.py` + `GET /networth/assets/{id}/refresh-price`; read subtype JSON from `source_detail`, call CoinGecko/open.er-api per asset type.
-2. **Transactions SpendingChart redesign** — replace weak bar chart with cash-flow/reconciliation panel or area chart.
-3. **Schema cleanup** — split `Asset.current_value` into quantity/value fields before production; current overload is confusing for crypto/FX/gold.
-4. **Global market search** — stock ticker search + fund ISIN lookup via providers; current Phase 23 stores structured fields but no live search.
+2. **Transactions SpendingChart redesign** — replace weak bar chart with cash-flow panel or area chart.
+3. **Schema cleanup** — split `Asset.current_value` into quantity/value fields; current overload confusing for crypto/FX/gold.
+4. **Cashflow: recurring tx currency** — transactions have no currency column; recurring_income/subscription amounts currently hardcoded to TRY. Needs currency on transaction model or display disclaimer.
 5. **Deployment** — Railway backend + Vercel frontend; alembic head on cold start.
 
 ---
@@ -963,7 +1002,7 @@ Next task options (priority order):
 1. **Fix known issues** (1 item listed in Known Issues section) — do before new features
 2. **Real-time price refresh** — `GET /networth/assets/{id}/refresh-price` → calls asset_prices.py per type
 3. **Global market search** — stock ticker search + fund ISIN lookup via chosen providers; current Phase 23 stores structured fields but does not fetch full global search results yet.
-4. **Cash flow calendar** — monthly timeline: liability payments due + receivables expected + goal deadlines
+4. **Cash flow calendar** — ✅ Done (Phase 32)
 5. **Multi-language** — i18n setup, TR/EN toggle, locale stored in user profile, AI prompts use user locale
 6. **Deployment** — Railway backend + Vercel frontend; RESEND_API_KEY + SECRET_KEY via platform env; alembic head on cold start
 7. **Smart duplicate detection** — manual entry + statement overlap: check (date, amount, desc[:30]) before insert

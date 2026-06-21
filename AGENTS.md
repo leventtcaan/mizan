@@ -623,11 +623,52 @@ Full stack: register/login → JWT → upload (rate-limited, busts caches) → 3
 - **Suggestion atomicity**: suggestions created in same session/commit as upload transactions. If upload fails mid-way, no orphan suggestions.
 - **StatusPatchResponse instead of ReceivableResponse**: PATCH /receivables/{id}/status now returns richer object. Frontend was already handling the response — updated types in api.ts.
 
+### Phase 31 — Reconciliation Queue Action Handlers (2026-06-22)
+
+#### Frontend
+- [x] `frontend/src/lib/api.ts` — added `deleteBatch(batchId: string): Promise<void>`.
+- [x] `frontend/src/app/networth/page.tsx` — `actionPending: string | null` state guards double-click; `handleReconciliationAction(item, action)` routes by `issue_type`:
+  - `overdue_receivable`: "Mark Received" → PATCH receivable status; "Write Off" → DELETE receivable; "Dismiss" → mark item dismissed.
+  - `received_receivable_missing_asset`: "Re-create Asset" → PATCH receivable status received (idempotent); "Mark Pending" → PATCH status pending; "Write Off" → DELETE receivable.
+  - `possible_duplicate_transaction`: "Delete Older Duplicate" (red, only when ≥2 batch_ids in proposed_action) → `deleteBatch`; "Keep All" → mark resolved; "Dismiss".
+  - `large_transaction_review`: "Confirm & Close" → mark resolved; "Ignore" → mark dismissed.
+- [x] Severity badges color-coded: high=red, medium=amber, low=gray.
+- [x] Context lines show transaction description for duplicates, amount/type for large tx.
+- [x] `ReactNode` import fix: used `type ReactNode` from "react" not `React.ReactNode` — `React` not imported directly. `!!pa?.description` cast for `unknown` JSX conditional.
+
+#### Architectural decisions
+- **All backend endpoints already existed**: PATCH /receivables/{id}/status, DELETE /transactions/batch/{id}, PATCH /reconciliation/items/{id}/status. Phase 31 was frontend-only.
+- **Proposed_action is Record<string, unknown>**: typed loosely so any issue type can store arbitrary metadata. Frontend reads keys like `batch_ids`, `transaction_ids` directly.
+
+### Phase 32 — Cash Flow Calendar (2026-06-22)
+
+#### Backend
+- [x] `backend/app/api/cashflow.py` — new router `/cashflow`. `CashFlowItem` model: date, type, amount, currency, description, source, urgent. `CashFlowSummary` model: income/payment totals, projected_net, liquid_assets, ratio, warning, days.
+- [x] `_next_monthly(base_day, today)` — uses `calendar.monthrange` to safely handle months with fewer days (e.g., day=31 in February).
+- [x] `_liability_items()` — async, queries all user liabilities with monthly_payment; uses `due_date.day` as recurring payment day.
+- [x] `_receivable_items()` — async, pending/overdue receivables with expected_date; overdue shown at today.
+- [x] `_recurring_items()` — pure function, reuses ±10% variance + ≥2 months detection from subscriptions; debit→subscription, credit→recurring_income.
+- [x] `GET /cashflow/upcoming?days=30` — merged, date-sorted list of all items.
+- [x] `GET /cashflow/summary?days=30&display_currency=TRY` — cross-currency totals via `convert()`; liquid_assets = cash+bank_account asset values; warning when liquid < expected payments.
+- [x] `backend/app/main.py` — cashflow_router registered.
+
+#### Frontend
+- [x] `frontend/src/components/ui/Icons.tsx` — added Calendar, ArrowDown, ArrowUp icons.
+- [x] `frontend/src/lib/api.ts` — `CashFlowItem`, `CashFlowSummary` interfaces; `getCashFlowUpcoming()`, `getCashFlowSummary()` functions.
+- [x] `frontend/src/components/ui/Navbar.tsx` — "Takvim" link with Calendar icon inserted between Net Değer and İlerleme.
+- [x] `frontend/src/app/cashflow/page.tsx` — day selector (7/14/30/60/90); `TYPE_CONFIG` map for icon+color per item type; `AddPaymentModal` creates Liability record (feeds back into _liability_items); summary card (4 metrics, coverage %, red warning banner); timeline grouped by date with "Bugün"/"Yarın" badges; urgent days get red border highlight; `Intl.NumberFormat` with non-ISO fallback for crypto/commodity codes.
+
+#### Architectural decisions
+- **No new DB migration**: cashflow is pure computation from existing liabilities, receivables, transactions tables.
+- **Recurring tx default currency TRY**: transactions table has no currency column. Accepted limitation. Fix needs currency column on Transaction or disclaimer.
+- **AddPaymentModal creates Liability**: avoids one-off event table. Liability record feeds cashflow AND net worth naturally.
+- **_recurring_items is pure**: no DB call, takes transaction list. Testable, no async complexity.
+
 ---
 
 ## Next Session — Start Here
 
-**Phases 1–31 complete. Phase 31 = reconciliation queue action handlers. Alembic head = 0022.**
+**Phases 1–32 complete. Phase 32 = cash flow calendar. Alembic head = 0022 (unchanged).**
 
 Pre-flight (if docker was restarted):
 ```bash
@@ -642,16 +683,16 @@ Quick smoke-test:
 curl -s http://localhost:8000/currency/list | python3 -c "import sys,json; d=json.load(sys.stdin); print(len(d['fiat']), 'fiat,', len(d['crypto']), 'crypto')"
 # → should print "166 fiat, 100 crypto"
 
-# Reconciliation scan
-# POST /reconciliation/scan → {created: N}
-# GET /reconciliation/items?status=open → list with issue_type + proposed_action
+# Cash flow upcoming (auth required)
+# GET /cashflow/upcoming?days=30 → list[{date, type, amount, currency, description, source, urgent}]
+# GET /cashflow/summary → {total_expected_income, total_expected_payments, projected_net, liquid_assets}
 ```
 
 Next task options (priority order):
 1. **Real-time asset prices** — `services/asset_prices.py` + `GET /networth/assets/{id}/refresh-price`; read subtype JSON from `source_detail`, call CoinGecko/open.er-api per asset type.
-2. **Transactions SpendingChart redesign** — replace weak bar chart with cash-flow or area chart.
-3. **Schema cleanup** — split `Asset.current_value` into quantity/value fields.
-4. **Global market search** — stock ticker + fund ISIN live search.
+2. **Transactions SpendingChart redesign** — replace weak bar chart with cash-flow panel or area chart.
+3. **Schema cleanup** — split `Asset.current_value` into quantity/value fields; current naming confusing for crypto/FX/gold.
+4. **Cashflow tx currency** — transactions have no currency column; recurring amounts default TRY. Needs fix or disclaimer.
 5. **Deployment** — Railway backend + Vercel frontend; alembic head on cold start.
 
 ---
