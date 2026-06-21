@@ -118,7 +118,13 @@ Dependency direction (strict): `api → services → models`. Never reverse.
 
 ## Known Issues (fix next session, priority order)
 
-1. **Transactions SpendingChart** — basic bar chart, needs redesign (pie + trend combo, or area chart).
+1. **Asset type UX missing subtype selectors** — when user picks "crypto" → show CoinGecko top-100 coin picker as unit; "stock" → searchable ticker (Yahoo Finance symbol); "gold" → gram/quarter/half/full coin picker; "fund" → ISIN/fund code search. Each asset type needs own unit/subtype UX, not just free-text name.
+2. **Currency display switcher** — only TRY/USD/EUR pill buttons on net worth page. Should be searchable dropdown from all 270+ live rates, same CurrencySelect component used in modals.
+3. **Receivable delete cascade** — deleting a receivable that was already "received" (auto-created a cash Asset) leaves orphan Asset. Need: delete of received receivable → warn user + offer to delete linked asset, or store asset_id on receivable for lookup.
+4. **Auto-archive stale items** — dismissed alerts, received receivables, accepted suggestions clutter UI after 30 days. Need: filter by created_at < now-30d OR add `archived_at` column.
+5. **"Turkish personal finance" in system prompts** — coach.py, behavioral_coach.py, weekly_summary.py still say "Turkish". Replace with locale-aware: use user's language preference or `lang` param.
+6. **Onboarding bank list** — onboarding/page.tsx hardcodes Ziraat/Vakıfbank/Yapı Kredi/Garanti/Diğer. Make generic: "Your bank" + any bank name input, or detect from uploaded PDF.
+7. **Transactions SpendingChart** — basic bar chart, needs redesign (pie + trend combo, or area chart).
 
 ---
 
@@ -147,11 +153,11 @@ Implementation plan: `services/asset_prices.py` — `get_live_price(asset_type, 
 ## Session Protocol
 
 ### Session START (every session, no exceptions):
-1. Read CLAUDE.md fully
+1. Read AGENTS.md fully
 2. State current phase + last completed task in one sentence
 3. Confirm next action before touching any code
 
-### Session END or user says "update CLAUDE.md":
+### Session END or user says "update AGENTS.md":
 1. Add all completed tasks to Completed section
 2. Update Current Status
 3. Document every new architectural decision with WHY + alternatives
@@ -164,7 +170,7 @@ Implementation plan: `services/asset_prices.py` — `get_live_price(asset_type, 
 
 When context reaches ~70% capacity:
 1. Stop current task immediately
-2. Update CLAUDE.md with everything done this session
+2. Update AGENTS.md with everything done this session
 3. Tell user: "Context dolmak üzere — yeni session açalım"
 4. Write exact prompt user should paste to continue
 
@@ -190,7 +196,7 @@ When context reaches ~70% capacity:
 - [x] `docker-compose.yml` — 3 services, health checks, named volume, depends_on conditions
 - [x] `.env.example` — committed template with empty secret values
 - [x] `.gitignore` — Python, Node, OS, IDE patterns
-- [x] `CLAUDE.md` — this file
+- [x] `AGENTS.md` — this file
 
 ### Post-Phase-3 Hardening — PDF Pipeline + Upload Batch Isolation (2026-06-18)
 
@@ -257,11 +263,11 @@ When context reaches ~70% capacity:
 
 ## Current Status
 
-**Phases 1–31 complete. Docker not changed this session. Alembic head = 0022.**
+**Phases 1–22 complete and tested. Docker running. Alembic head = 0020. All features working.**
 
-Full stack: register/login → JWT → upload (rate-limited, busts caches) → 3-layer OCR → LLM extract → OCR cleanup → dedup → zero-amount filter → persist → LLM categorize (13 categories) → insight cache → globalized LLM coach with corrections+notes injected → spending chart + progress page (LineChart 3-month trend + cross-batch-deduped category comparison + LLM one-liners, 24h cached) → PersonalityCard (5 types, cached per batch) → AlertsPanel (3 algorithmic detectors, dismiss persisted, stale dismissals auto-cleaned) → GoalsPanel (monthly budget vs actual) → ChatPanel (globalized conversational coaching, behavioral profile memory, voice input, chat-based tx entry with confirmation card, sessionStorage prefill from alerts) → weekly email summary (Resend HTML, preferences toggle) → inflation-adjusted analysis (TUFE 2023-2026, real vs nominal per category, ProgressInsight cache) → net worth asset subtype capture (all asset types have specific fields; crypto/fiat/commodity live picker; gold unit picker; stock/fund code fields; manual categories store structured metadata in `Asset.source_detail` JSON) → net worth display currency searchable via live `CurrencySelect` → receivable collection creates linked cash asset, repeated collection is idempotent, delete/write-off removes linked asset → stale received receivables and processed suggestions are hidden/cleaned after 30 days → onboarding accepts any institution/export source instead of hardcoded Turkish banks → financial event log + reconciliation item backend skeleton exists → net worth page shows Action Queue with open reconciliation items and recent financial events → reconciliation producers create queue items from overdue receivables, missing receivable assets, possible duplicate transactions, and large transaction review → Action Queue now has real action handlers per issue_type (mark received / write off / recreate asset / delete duplicate batch / confirm large tx).
+Full stack: register/login → JWT → upload (rate-limited, busts caches) → 3-layer OCR → LLM extract → OCR cleanup → dedup → zero-amount filter → persist → LLM categorize (13 categories) → insight cache → LLM coach with corrections+notes injected → spending chart + progress page (LineChart 3-month trend + cross-batch-deduped category comparison + LLM one-liners, 24h cached) → PersonalityCard (5 types, cached per batch) → AlertsPanel (3 algorithmic detectors, dismiss persisted) → GoalsPanel (monthly budget vs actual) → ChatPanel (conversational coaching, behavioral profile memory, voice input, chat-based tx entry with confirmation card, sessionStorage prefill from alerts) → weekly email summary (Resend HTML, preferences toggle) → inflation-adjusted analysis (TUFE 2023-2026, real vs nominal per category, ProgressInsight cache).
 
-### Migrations (head = 0022)
+### Migrations (head = 0015)
 | Migration | What |
 |---|---|
 | 0001 | CREATE users + transactions |
@@ -284,18 +290,14 @@ Full stack: register/login → JWT → upload (rate-limited, busts caches) → 3
 | 0018 | CREATE receivables |
 | 0019 | ADD source, source_detail, as_of_date to assets |
 | 0020 | CREATE networth_suggestions |
-| 0021 | ADD linked_asset_id to receivables |
-| 0022 | CREATE financial_events + reconciliation_items |
 
 ### Known Issues (open)
 - **Layer 3 vision LLM**: stub ready in pdf_parser.py, not wired. Needed for banks with fonts <8pt.
 - **Rate limiter in-memory**: resets on backend restart. Redis needed for prod multi-process deploy.
 - **Resend domain**: `noreply@mizan.app` hardcoded in api/email.py — must be a verified Resend domain in prod.
-- **Migration drift in dev**: `create_all` adds base schema before Alembic can stamp revisions. 0022 is now idempotent because current dev DB had `financial_events` already created by app startup before migration ran. Still must run `alembic upgrade head`; if drift blocks again, inspect exact table/column then make migration safe or stamp only after schema matches.
+- **Migration drift in dev**: `create_all` adds base schema but not Alembic migrations. Must run `alembic upgrade head` then `alembic stamp HEAD` after fresh DB. behavioral_profiles.personality_cache + personality_batch_id had to be manually ALTER TABLE'd in current dev DB (same issue will recur on fresh DB — 0011 migration runs correctly on clean install).
 - **TUFE rates 2025-2026**: approximate (TCMB trajectory estimates). Users see disclaimer. Real rates available from TÜİK monthly.
 - **Subscription flag toggle**: UI supports toggle-off optimistically but backend has no "unflag" endpoint — only upsert. Visually works but flag is never deleted; workaround: flag to different value.
-- **Frontend lint missing config**: `npm run lint` opens Next ESLint setup wizard. Build still runs type check. Add ESLint config later.
-- **Dependency risk**: `npm ci` warns Next 14.2.0 has security issue; Recharts 2.x deprecated; npm audit shows 1 moderate + 1 critical vulnerability. Upgrade needed soon.
 
 ### Phase 7 — Chat Interface + Behavioral Vector (2026-06-18)
 - [x] `backend/app/models/transaction_note.py` — TransactionNote table: id UUID, transaction_id FK CASCADE, user_id FK CASCADE, note_text Text, created_at tz-aware
@@ -621,315 +623,11 @@ Full stack: register/login → JWT → upload (rate-limited, busts caches) → 3
 - **Suggestion atomicity**: suggestions created in same session/commit as upload transactions. If upload fails mid-way, no orphan suggestions.
 - **StatusPatchResponse instead of ReceivableResponse**: PATCH /receivables/{id}/status now returns richer object. Frontend was already handling the response — updated types in api.ts.
 
-### Phase 23 — Asset Subtype UX, First Globalization Fix (2026-06-21)
-
-#### Frontend
-- [x] `frontend/src/components/AddAssetModal.tsx` — asset type now changes subtype UI. No more one generic free-text-only path for all asset types.
-- [x] Crypto asset flow: loads `/currency/list`, uses live CoinGecko top-100 data already exposed by backend, searchable by code/name, selecting coin sets currency to coin symbol and stores `{subtype:"crypto", symbol, name}` in `Asset.source_detail`.
-- [x] Foreign currency asset flow: uses live fiat list from `/currency/list`, searchable by code/name, selecting fiat sets asset currency and stores `{subtype:"foreign_currency", code, name}`.
-- [x] Commodity asset flow: uses live commodity list from `/currency/list`, selecting commodity sets asset currency and stores `{subtype:"commodity", code, name}`.
-- [x] Gold asset flow: added physical/unit picker: troy ounce, gram 24K/22K/18K, kilogram bar, sovereign, American Eagle, Maple Leaf, Krugerrand, quarter/half/full coin. Stores `{subtype:"gold", unit, label}`.
-- [x] Stock asset flow: added ticker/symbol field + optional name + optional exchange/provider field. Stores `{subtype:"stock", symbol, name, venue}`. Real global stock search still needs backend market data provider.
-- [x] Fund asset flow: added ISIN/fund-code field + optional name + optional provider field. Stores `{subtype:"fund", code, name, venue}`. Real global fund search still needs provider strategy.
-- [x] Submit button now blocks missing subtype for crypto, foreign currency, commodity, stock, fund. Prevents empty meaningless asset rows.
-- [x] `frontend/src/app/networth/page.tsx` — parses `Asset.source_detail` JSON and shows readable subtype label on asset rows.
-- [x] `frontend/next-env.d.ts` — generated by Next build and should be tracked; repo was missing it.
-
-#### Checks
-- [x] `npm ci` completed.
-- [x] `npm run build` completed successfully. Next compiled, type check passed, 12 static pages generated.
-- [x] `git diff --check` clean.
-- [x] Localhost probe: `http://localhost:3000/networth` returned HTTP 200.
-- [!] `npm run lint` not usable: Next opened ESLint setup wizard because repo has no ESLint config.
-- [!] Browser modal smoke blocked by auth redirect. Page loaded, then auth guard sent browser to `/login`. Build is main verification for this phase.
-
-#### Architectural decisions
-- **Use `Asset.source_detail` JSON for subtype metadata**: no migration needed. Existing column can hold structured data. Future `asset_prices.py` can read exact symbol/unit/code. Alternative was new columns (`symbol`, `unit`, `venue`), but that would add migration before model is stable.
-- **Crypto/fiat/commodity reuse `/currency/list`**: one source of truth. No duplicate client lists. Alternative was hardcoded frontend list, rejected because global app must stay live and broad.
-- **Gold unit list is local constant for now**: physical gold units are product units, not live currencies. Needs later price multiplier logic. Alternative was external gold product API; no free global reliable source chosen yet.
-- **Stock/fund are structured input now, not full provider search yet**: enough to stop generic free-text asset creation and prepare backend price refresh. Full search belongs with real-time asset prices task.
-
-### Phase 24 — Net Worth Flow Repair: DOGE Crash + Full Currency Switcher + Specific Asset Forms (2026-06-21)
-
-#### Frontend fixes
-- [x] `frontend/src/app/networth/page.tsx` — fixed `RangeError: Invalid currency code: DOGE`. Root cause: `Intl.NumberFormat(... currency: "DOGE")` only accepts ISO fiat currency codes. Crypto/commodity/custom units now render with fallback format: number + code. No crash for DOGE/BTC/XAU/BRENT/etc.
-- [x] `frontend/src/app/networth/page.tsx` — removed hardcoded TRY/USD/EUR display buttons. Net worth display currency now uses `CurrencySelect`, same live searchable selector used in modals. User can select any live fiat/crypto/commodity supported by `/currency/list`.
-- [x] `frontend/src/components/AddAssetModal.tsx` — all asset types now have specific data fields. No category is just naked generic name/value anymore.
-- [x] Cash: storage/location fields.
-- [x] Bank account: institution/account type/account label fields.
-- [x] Real estate: property type, country/city, address/deed note fields.
-- [x] Vehicle: make, model/year, plate/VIN/note fields.
-- [x] Pension/BES/life insurance: provider, plan/policy fields.
-- [x] Bond: issuer, ISIN/code, maturity fields.
-- [x] Startup/business ownership: company/business, ownership %, country/sector/note fields.
-- [x] Art/collectible/jewelry: item/material/certificate fields.
-- [x] Other asset remains allowed as manual catch-all. If we cannot support a specific flow later, move it there or keep only manual structured detail.
-- [x] Crypto/foreign currency/commodity/gold quantity/value label fixed: field shows `Miktar / Adet` for unit-priced assets. Bank/cash/manual assets still show `Güncel Değer`.
-- [x] Removed Turkish-specific bank placeholder from asset name field. No more `Garanti` example.
-- [x] Manual subtype metadata stored as structured JSON in `Asset.source_detail`: `{subtype, primary, secondary, tertiary}`.
-- [x] Net worth asset row display now reads manual subtype metadata too, not only crypto/gold/stock/fund.
-
-#### Checks
-- [x] `npm run build` passed. Next compiled. Type check passed. 12 static pages generated.
-- [x] No backend migration needed.
-- [!] `npm run lint` still blocked by missing ESLint config from previous note.
-
-#### Architectural decisions
-- **Do not treat every asset code as fiat**: display must survive non-ISO units. Formatting now catches invalid `Intl` currency codes and falls back to `number CODE`.
-- **One live selector for display currency**: net worth display currency now uses `CurrencySelect`; no page-local hardcoded list.
-- **Specific category means specific fields**: if an asset type exists as first-class category, the form must ask category-relevant details. Otherwise category is fake and should be collapsed into `other_asset`.
-- **Still no real stock/fund search provider**: current flow captures structured symbol/ISIN manually. True live search needs provider decision and backend endpoint.
-- **Data model still overloaded**: `Asset.current_value` means quantity for unit-priced assets (crypto, FX, commodity, gold) and value for normal manual assets. This works with current conversion, but naming is bad. Long-term better schema: `quantity`, `unit_code`, `valuation_currency`, `manual_value`.
-
-### Phase 25 — Receivable Write-Off + Linked Asset Integrity (2026-06-21)
-
-#### Backend
-- [x] `backend/app/models/receivable.py` — added `linked_asset_id UUID nullable index FK assets.id ON DELETE SET NULL`; status set expanded with `written_off`.
-- [x] `backend/alembic/versions/0021_add_linked_asset_id_to_receivables.py` — adds column + index; chains 0020→0021; has downgrade.
-- [x] `backend/app/api/networth.py` — `ReceivableResponse` now includes `linked_asset_id`.
-- [x] `backend/app/api/networth.py` — added `_find_receivable_asset()` helper. First checks hard link. Then fallback finds legacy auto-created cash asset by old `source_detail` text, amount, currency, user.
-- [x] `PATCH /networth/receivables/{id}/status` — marking `received` is now idempotent. If linked/legacy asset exists, no duplicate asset created.
-- [x] `PATCH /networth/receivables/{id}/status` — new auto-created asset uses English name `Receivable: {from_person}` and JSON `source_detail` with `receivable_id`.
-- [x] `PATCH /networth/receivables/{id}/status` — if a received receivable is moved back to pending/overdue, linked auto-created cash asset is deleted.
-- [x] `GET /networth/receivables` — hides `written_off` receivables from active UI list.
-- [x] `DELETE /networth/receivables/{id}` — now acts as write-off: loads receivable first, finds linked/legacy auto-created asset, deletes linked asset, marks receivable `written_off`, clears `linked_asset_id`, busts net worth insight cache. Audit row stays in DB.
-
-#### Frontend
-- [x] `frontend/src/lib/api.ts` — `ReceivableItem.linked_asset_id` added; status union includes `written_off`.
-- [x] `frontend/src/app/networth/page.tsx` — deleting a received receivable with linked asset shows browser confirm. If confirmed, UI removes both receivable and linked asset from state.
-- [x] `frontend/src/app/networth/page.tsx` — received badge shows `Varlığa bağlı` when linked asset exists.
-- [x] `frontend/src/app/networth/page.tsx` — delete button title distinguishes write-off vs delete linked cash asset.
-
-#### Checks
-- [x] `npm run build` passed. Next compiled. Type check passed. 12 static pages generated.
-- [x] `python3 -m py_compile backend/app/api/networth.py backend/app/models/receivable.py backend/alembic/versions/0021_add_linked_asset_id_to_receivables.py` passed.
-- [x] `git diff --check` clean.
-- [!] Docker/alembic runtime not run per user rule. User should run `docker compose exec backend alembic upgrade head`.
-
-#### Architectural decisions
-- **Hard link beats text lookup**: receivable → asset needs FK, not source_detail string parse. Money integrity needs exact relation.
-- **Write-off preserves audit**: DELETE endpoint hides receivable by setting `written_off`, not hard-deleting row. If app created cash asset from receivable, write-off reverses that app-created side effect. Otherwise net worth lies.
-- **Legacy fallback kept**: old rows before 0021 may have auto-created assets but no linked_asset_id. Fallback prevents old orphan assets.
-- **Received is idempotent**: repeated click/API call must not mint duplicate cash.
-
-### Product Direction Reset — Net Worth First, Events Second, AI Reconciliation Third
-
-#### Current problem
-- App started as bank statement upload + charts. That is too small.
-- Most pages behave like bank dashboard clone: spend chart, inflation, category comparison. Useful but not enough.
-- AI is mostly text commentary. Not enough automation. Not enough action. Not enough daily financial truth.
-- Net worth page is the real core. It should become source-of-truth ledger for assets, liabilities, receivables, payables, and account balances at a date.
-
-#### New product spine
-- **Net Worth Ledger = truth table**: dated snapshot of everything user owns/owes.
-- **Statements/manual entries/integrations = events**: they change ledger, but do not blindly overwrite truth.
-- **AI Reconciliation = conflict engine**: compare statement events, manual entries, linked assets, receivables, liabilities. Ask user only when conflict matters.
-- **Daily automation = value**: app should track what changed today, what needs action, what looks wrong, what should be confirmed.
-- **Pages should become workflows, not reports**: upload page creates events; transactions page reconciles events; net worth page shows truth; chat acts on truth; alerts suggest actions.
-
-#### Needed redesign notes
-- Replace decorative analytics with action queues: `Needs Review`, `Confirm Match`, `Possible Duplicate`, `Balance Drift`, `Missing Asset`, `Upcoming Payable`, `Overdue Receivable`.
-- Asset addition must become guided onboarding: account, investment, property, receivable, liability, business asset. Each has required fields and source confidence.
-- Every auto-created record needs lineage: source event, created_by, confidence, linked object IDs, reversible action.
-- Do not show inflation panel by default. Move to secondary analysis tab later. It wastes prime space.
-- Spending chart is not core. Rebuild as cash-flow/reconciliation panel or move lower.
-- AI should not only write advice. It should produce structured proposals: create asset, update balance, mark receivable paid, detect duplicate, flag conflict, ask one question.
-- Need `FinancialEvent` table later: statement upload row, manual transaction, receivable collection, asset valuation update, liability payment. Ledger derives from accepted events.
-- Need dated snapshots: net worth at date X, not only current mutable values.
-- Need confidence states: manual, imported, inferred, confirmed, disputed.
-
-### Phase 26 — Auto-Archive Stale Items (2026-06-21)
-
-#### Backend
-- [x] `backend/app/api/networth.py` — `_ARCHIVE_AFTER_DAYS=30`.
-- [x] `backend/app/api/networth.py` — received receivables older than 30 days are hidden from active `GET /networth/receivables` list.
-- [x] `backend/app/api/networth.py` — `written_off` receivables stay hidden from active list. DB audit row stays.
-- [x] `backend/app/api/networth.py` — net worth summary ignores `written_off` and old received receivables for active warnings/context.
-- [x] `backend/app/api/networth.py` — processed suggestions (`accepted`, `dismissed`) older than 30 days are deleted opportunistically when suggestions endpoint loads.
-- [x] `backend/app/api/patterns.py` — dismissed alerts older than 30 days are deleted opportunistically when alerts endpoint loads. If alert is still relevant, detector can show it again.
-
-#### Checks
-- [x] `npm run build` passed.
-- [x] `python3 -m py_compile backend/app/api/networth.py backend/app/api/patterns.py` passed.
-- [x] `git diff --check` clean.
-- [x] No migration needed.
-
-#### Architectural decisions
-- **No `archived_at` column yet**: stale cleanup is simple filter/delete by existing timestamps. Low risk, no schema churn.
-- **Receivables keep audit**: received old rows are hidden, not deleted. Written-off rows are hidden, not deleted.
-- **Dismissed alerts expire**: if a user dismissed something 30+ days ago and it is still detected, it can return. That is correct for recurring risk.
-- **Processed suggestions can be deleted**: accepted/dismissed suggestions are UI workflow artifacts, not source-of-truth ledger rows.
-
-### Phase 27 — Globalization Cleanup: Prompts + Onboarding + Landing (2026-06-21)
-
-#### Backend prompts
-- [x] `backend/app/services/coach.py` — removed "Turkish personal finance coach" assumption. Prompt now says global coach, use user's language when clear, otherwise simple English. Removed hardcoded lira symbols from prompt amounts.
-- [x] `backend/app/services/behavioral_coach.py` — removed Turkish-user assumption. Chat coach, profile extraction, and transaction-intent prompts now global/multilingual. Examples now generic.
-- [x] `backend/app/services/weekly_summary.py` — removed Turkish-coach assumption. Insight prompt now uses user's language when clear, otherwise simple English.
-- [x] `backend/app/api/networth.py` — net worth AI insight prompt now global; no "Turkish user" system prompt.
-- [x] `backend/app/api/progress.py` — comparison insight prompt now global; no "Turkish personal finance coach".
-- [x] `backend/app/api/installments.py` — installment insight prompt now global; no "Turkish finance coach".
-- [x] `backend/app/services/categorizer.py` — removed "Turkey-targeted" comment and Turkish banking system prompt. Category slugs kept as legacy stable values.
-- [x] `backend/app/services/personality.py` — removed "Turkish personality types" wording. Legacy labels kept; prompt asks for user's language when clear.
-
-#### Frontend onboarding/landing
-- [x] `frontend/src/app/onboarding/page.tsx` — removed hardcoded Ziraat/Vakıfbank/Yapı Kredi/Garanti bank selector.
-- [x] `frontend/src/app/onboarding/page.tsx` — new generic institution input: bank, card, wallet, broker, payment app. Optional; app can detect from file later.
-- [x] `frontend/src/app/onboarding/page.tsx` — instructions now generic export flow: statements/activity/history/export, PDF/CSV.
-- [x] `frontend/src/app/page.tsx` — removed Turkey positioning and hardcoded bank logos. Replaced with global source types: banks, credit cards, wallets, brokerages, payment apps.
-- [x] `frontend/src/app/page.tsx` — hero copy now points to holistic financial operating system, not Turkish statement dashboard.
-
-#### Legacy text neutralized
-- [x] `backend/app/services/pdf_parser.py` — comments/prompt wording no longer says Turkish bank statement OCR corrector. Behavior unchanged. Full global parser still needs separate architecture.
-- [x] `backend/app/services/installment.py` — comments no longer call feature Turkey-specific.
-- [x] `backend/app/api/subscriptions.py` — comment changed from Turkish bank prefixes to generic statement prefixes.
-
-#### Checks
-- [x] Targeted search for Turkish/Turkey bank assumptions returned clean for prompt/onboarding/landing scope.
-- [x] `npm run build` passed.
-- [x] `python3 -m py_compile` passed for changed backend files.
-- [x] `git diff --check` clean.
-
-#### Architectural decisions
-- **Keep legacy slugs/labels**: category slugs and personality labels remain until migration/i18n plan. Renaming now would break data and UI mapping.
-- **Prompt default language**: use user's language when clear; otherwise simple English. This avoids assuming Turkish.
-- **Parser behavior unchanged**: OCR still includes `tur+eng` and legacy regex. Full global statement parser is a larger phase, not a safe prompt-cleanup patch.
-- **Onboarding source-first**: no bank list. Any institution/export source can start onboarding.
-
-### Phase 28 — Net Worth Event/Reconciliation Architecture Skeleton (2026-06-21)
-
-#### Backend models + migration
-- [x] `backend/app/models/financial_event.py` — new durable financial event log. Fields: user_id, event_type, entity_type, entity_id, amount, currency, event_date, source, source_detail JSON text, status, confidence, created_at.
-- [x] `backend/app/models/reconciliation_item.py` — new review queue for conflicts/proposed actions. Fields: issue_type, severity, status, title, description, related_event_id, related_entity, proposed_action JSON text, created_at, resolved_at.
-- [x] `backend/alembic/versions/0022_create_financial_events_and_reconciliation.py` — creates `financial_events` and `reconciliation_items`, indexes event/status/user fields, chains 0021→0022, has downgrade.
-
-#### Backend API
-- [x] `backend/app/api/reconciliation.py` — new router `/reconciliation`.
-- [x] `GET /reconciliation/events?limit=100` — lists recent financial events for current user.
-- [x] `GET /reconciliation/items?status=open` — lists review queue items by status.
-- [x] `PATCH /reconciliation/items/{id}/status` — marks item open/resolved/dismissed.
-- [x] `backend/app/main.py` — imports new models, registers reconciliation router, updates API description away from Turkish-only positioning.
-
-#### First real event writes
-- [x] `backend/app/api/networth.py` — `_add_financial_event()` helper added.
-- [x] Receivable collected → writes `receivable_collected` event.
-- [x] Receivable collection reversed → writes `receivable_collection_reversed` event.
-- [x] Receivable written off → writes `receivable_written_off` event.
-
-#### Frontend API client
-- [x] `frontend/src/lib/api.ts` — added `FinancialEventItem`, `ReconciliationItem`, `getFinancialEvents()`, `getReconciliationItems()`, `updateReconciliationItemStatus()`.
-
-#### Checks
-- [x] `npm run build` passed.
-- [x] `python3 -m py_compile` passed for new/changed backend files.
-- [x] `git diff --check` clean.
-- [!] Docker/alembic runtime not run. User must run `docker compose exec backend alembic upgrade head` to apply 0022.
-
-#### Architectural decisions
-- **Events before AI automation**: AI should create events/proposals, not silently mutate assets. Event log gives audit, replay, and conflict detection.
-- **Review queue before broad UI rewrite**: reconciliation items are the bridge between automated detection and user confirmation.
-- **Source detail remains JSON text**: fast schema now, flexible proposals. Later can move to JSONB.
-- **Receivable flow proves the pattern**: existing net worth mutation now writes events. Next: upload suggestions, manual asset edits, liability payments.
-
-### Phase 29 — Reconciliation UI + Idempotent 0022 Migration (2026-06-21)
-
-#### Problem found
-- [x] User ran `docker compose exec backend alembic upgrade head`.
-- [x] 0022 failed with `DuplicateTableError: relation "financial_events" already exists`.
-- [x] Cause: dev backend `create_all` created tables before Alembic migration stamped 0022. Same old dev drift class, new table.
-
-#### Migration fix
-- [x] `backend/alembic/versions/0022_create_financial_events_and_reconciliation.py` — upgrade now inspects DB first.
-- [x] If `financial_events` already exists, migration skips create.
-- [x] If `reconciliation_items` already exists, migration skips create.
-- [x] Clean DB still creates both tables and indexes.
-- [x] Current drifted DB can now rerun `docker compose exec backend alembic upgrade head` and stamp 0022 if schema already exists.
-
-#### Net worth UI
-- [x] `frontend/src/app/networth/page.tsx` — loads recent financial events from `/reconciliation/events`.
-- [x] `frontend/src/app/networth/page.tsx` — loads open reconciliation items from `/reconciliation/items?status=open`.
-- [x] `frontend/src/app/networth/page.tsx` — new Action Queue block on net worth page.
-- [x] Action Queue shows open review items first: title, severity, description, proposed action text if present.
-- [x] User can mark review item `resolved` or `dismissed`; UI removes it from open queue.
-- [x] Recent Events list shows latest ledger events with event date, entity type, detail, and amount/currency.
-- [x] Receivable collected/deleted flows refresh events after action.
-
-#### Checks
-- [x] `python3 -m py_compile backend/alembic/versions/0022_create_financial_events_and_reconciliation.py` passed.
-- [x] `npm run build` passed.
-- [x] `git diff --check` clean.
-- [!] Docker/alembic runtime not run by Codex because user runs Docker commands manually.
-
-#### Architectural decisions
-- **Idempotent migration only for dev drift**: this protects current local DB. Production should not rely on `create_all`; migrations remain source of truth.
-- **Action Queue before chart redesign**: user needs system actions, not more graphs. This is first visible step from passive dashboard to workflow app.
-- **Events are read-only in UI for now**: events are audit trail. User actions happen through reconciliation items.
-- **Open items only by default**: stale/resolved/dismissed work should not clutter main net worth page.
-
-### Phase 30 — Reconciliation Producers (2026-06-21)
-
-#### Backend producers
-- [x] `backend/app/services/reconciliation_producers.py` — new producer service. Turns detected data problems into `reconciliation_items`.
-- [x] Overdue receivable detector: pending/overdue receivable past expected date creates `overdue_receivable`. Pending row is also marked `overdue`.
-- [x] Missing asset detector: received receivable without linked asset creates `received_receivable_missing_asset`.
-- [x] Duplicate transaction detector: groups recent transactions by date, amount, type, normalized description prefix. Creates `possible_duplicate_transaction`.
-- [x] Large transaction detector: compares recent transactions against median. Creates `large_transaction_review` for outliers.
-- [x] Producer dedupe: same issue/entity does not create repeated open rows. Open item gets refreshed; resolved/dismissed item stays closed.
-
-#### Backend API
-- [x] `backend/app/api/reconciliation.py` — added `POST /reconciliation/scan`.
-- [x] `POST /reconciliation/scan` runs producers and returns `{created}`.
-- [x] `GET /reconciliation/items` stays read-only. No hidden write side effect on GET.
-
-#### Frontend
-- [x] `frontend/src/lib/api.ts` — added `scanReconciliation()`.
-- [x] `frontend/src/app/networth/page.tsx` — calls scan before loading open reconciliation items.
-- [x] Net worth Action Queue now gets real generated review items on page load/refresh.
-
-#### Checks
-- [x] `python3 -m py_compile backend/app/services/reconciliation_producers.py backend/app/api/reconciliation.py` passed.
-- [x] `npm run build` passed.
-- [x] `git diff --check` clean.
-- [!] Docker runtime not run by Codex because user runs Docker commands manually.
-
-#### Architectural decisions
-- **POST scan writes, GET reads**: no hidden mutation inside list endpoint. Cleaner API and easier debugging.
-- **No migration needed**: uses existing `reconciliation_items` table from 0022.
-- **Resolved/dismissed means user choice**: producer does not recreate same closed issue immediately. Later can add expiry/reopen policy.
-- **Median threshold for large transaction**: avoids hardcoded country/currency assumption. Still rough because transaction rows have no currency field.
-
-### Phase 31 — Reconciliation Queue Action Handlers (2026-06-22)
-
-#### Frontend
-- [x] `frontend/src/lib/api.ts` — added `deleteBatch(batchId)`: calls `DELETE /transactions/batch/{batchId}` with JWT auth.
-- [x] `frontend/src/app/networth/page.tsx` — added `actionPending: string | null` state; prevents double-click on in-flight actions.
-- [x] `frontend/src/app/networth/page.tsx` — added `handleReconciliationAction(item, action)` — routes by `issue_type`:
-  - `overdue_receivable`: "Mark Received" calls `updateReceivableStatus(id, "received")` + updates receivables/assets state; "Write Off" calls `updateReceivableStatus(id, "written_off")` + removes from list; both mark item resolved.
-  - `received_receivable_missing_asset`: "Re-create Asset" calls `updateReceivableStatus(id, "received")` idempotently (backend returns existing or new asset); "Mark Pending" calls status patch; "Write Off" removes receivable; all mark item resolved.
-  - `possible_duplicate_transaction`: "Delete Older Duplicate" shows confirmation dialog, deletes all but last `upload_batch_id` in proposed_action via `deleteBatch()`; "Keep All" marks resolved; "Dismiss" marks dismissed.
-  - `large_transaction_review`: "Confirm & Close" marks resolved; "Ignore" marks dismissed.
-  - fallback: generic resolved/dismissed.
-- [x] Action Queue UI rewritten — per-issue-type button sets replace generic Resolved/Dismiss; severity badge color-coded (red/amber/gray); extra context line for duplicate description and large transaction amount.
-- [x] Buttons disabled while any action is pending; show "…" spinner text on the active button.
-
-#### Checks
-- [x] `python3 -m py_compile backend/app/api/reconciliation.py backend/app/services/reconciliation_producers.py backend/app/api/networth.py` passed.
-- [x] `npm run build` passed. 12 static pages generated.
-- [x] `git diff --check` clean.
-- [x] No new backend changes. No migration needed.
-
-#### Architectural decisions
-- **Frontend-only change**: all backend endpoints existed (PATCH /receivables/{id}/status, DELETE /transactions/batch/{id}, PATCH /reconciliation/items/{id}/status). Zero backend changes needed.
-- **deleteBatch is idempotent enough**: if batch already deleted, backend returns 404; caught by `.catch(() => null)` in loop — user sees toast about removed batches without crash.
-- **actionPending blocks all buttons**: single concurrent action only. Prevents race between "Mark Received" + "Write Off" on same receivable.
-- **Confirm dialog for batch delete**: destructive, irreversible — `window.confirm()` is appropriate gating here.
-- **Re-create asset is idempotent**: `updateReceivableStatus(id, "received")` backend already handles repeated calls without duplicate asset creation (Phase 25 fix).
-
 ---
 
 ## Next Session — Start Here
 
-**Phases 1–31 complete. Phase 31 = reconciliation queue action handlers. Alembic head = 0022. No new migrations.**
+**Phases 1–31 complete. Phase 31 = reconciliation queue action handlers. Alembic head = 0022.**
 
 Pre-flight (if docker was restarted):
 ```bash
@@ -944,25 +642,25 @@ Quick smoke-test:
 curl -s http://localhost:8000/currency/list | python3 -c "import sys,json; d=json.load(sys.stdin); print(len(d['fiat']), 'fiat,', len(d['crypto']), 'crypto')"
 # → should print "166 fiat, 100 crypto"
 
-# Reconciliation scan + items
+# Reconciliation scan
 # POST /reconciliation/scan → {created: N}
-# GET /reconciliation/items?status=open → list of open items with issue_type + proposed_action
+# GET /reconciliation/items?status=open → list with issue_type + proposed_action
 ```
 
 Next task options (priority order):
 1. **Real-time asset prices** — `services/asset_prices.py` + `GET /networth/assets/{id}/refresh-price`; read subtype JSON from `source_detail`, call CoinGecko/open.er-api per asset type.
-2. **Transactions SpendingChart redesign** — replace weak bar chart with cash-flow/reconciliation panel or area chart.
-3. **Schema cleanup** — split `Asset.current_value` into quantity/value fields before production; current overload is confusing for crypto/FX/gold.
-4. **Global market search** — stock ticker search + fund ISIN lookup via providers; current Phase 23 stores structured fields but no live search.
+2. **Transactions SpendingChart redesign** — replace weak bar chart with cash-flow or area chart.
+3. **Schema cleanup** — split `Asset.current_value` into quantity/value fields.
+4. **Global market search** — stock ticker + fund ISIN live search.
 5. **Deployment** — Railway backend + Vercel frontend; alembic head on cold start.
 
 ---
 
 ## Backlog (priority order)
 
-1. **Fix known issues** (1 item listed in Known Issues section) — do before new features
-2. **Real-time price refresh** — `GET /networth/assets/{id}/refresh-price` → calls asset_prices.py per type
-3. **Global market search** — stock ticker search + fund ISIN lookup via chosen providers; current Phase 23 stores structured fields but does not fetch full global search results yet.
+1. **Fix known issues** (7 items listed in Known Issues section) — do before new features
+2. **Asset subtype UX** — per-type unit picker: crypto→CoinGecko, stock→ticker, gold→gram/coin
+3. **Real-time price refresh** — `GET /networth/assets/{id}/refresh-price` → calls asset_prices.py per type
 4. **Cash flow calendar** — monthly timeline: liability payments due + receivables expected + goal deadlines
 5. **Multi-language** — i18n setup, TR/EN toggle, locale stored in user profile, AI prompts use user locale
 6. **Deployment** — Railway backend + Vercel frontend; RESEND_API_KEY + SECRET_KEY via platform env; alembic head on cold start
