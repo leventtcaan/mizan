@@ -118,11 +118,10 @@ Dependency direction (strict): `api → services → models`. Never reverse.
 
 ## Known Issues (fix next session, priority order)
 
-1. **Receivable delete cascade** — deleting a receivable that was already "received" (auto-created a cash Asset) leaves orphan Asset. Need: delete of received receivable → warn user + offer to delete linked asset, or store asset_id on receivable for lookup.
-2. **Auto-archive stale items** — dismissed alerts, received receivables, accepted suggestions clutter UI after 30 days. Need: filter by created_at < now-30d OR add `archived_at` column.
-3. **"Turkish personal finance" in system prompts** — coach.py, behavioral_coach.py, weekly_summary.py still say "Turkish". Replace with locale-aware: use user's language preference or `lang` param.
-4. **Onboarding bank list** — onboarding/page.tsx hardcodes Ziraat/Vakıfbank/Yapı Kredi/Garanti/Diğer. Make generic: "Your bank" + any bank name input, or detect from uploaded PDF.
-5. **Transactions SpendingChart** — basic bar chart, needs redesign (pie + trend combo, or area chart).
+1. **Auto-archive stale items** — dismissed alerts, received receivables, accepted suggestions clutter UI after 30 days. Need: filter by created_at < now-30d OR add `archived_at` column.
+2. **"Turkish personal finance" in system prompts** — coach.py, behavioral_coach.py, weekly_summary.py still say "Turkish". Replace with locale-aware: use user's language preference or `lang` param.
+3. **Onboarding bank list** — onboarding/page.tsx hardcodes Ziraat/Vakıfbank/Yapı Kredi/Garanti/Diğer. Make generic: "Your bank" + any bank name input, or detect from uploaded PDF.
+4. **Transactions SpendingChart** — basic bar chart, needs redesign (pie + trend combo, or area chart).
 
 ---
 
@@ -261,11 +260,11 @@ When context reaches ~70% capacity:
 
 ## Current Status
 
-**Phases 1–24 complete. Docker not changed this session. Alembic head still = 0020.**
+**Phases 1–25 complete. Docker not changed this session. Alembic head now = 0021.**
 
-Full stack: register/login → JWT → upload (rate-limited, busts caches) → 3-layer OCR → LLM extract → OCR cleanup → dedup → zero-amount filter → persist → LLM categorize (13 categories) → insight cache → LLM coach with corrections+notes injected → spending chart + progress page (LineChart 3-month trend + cross-batch-deduped category comparison + LLM one-liners, 24h cached) → PersonalityCard (5 types, cached per batch) → AlertsPanel (3 algorithmic detectors, dismiss persisted) → GoalsPanel (monthly budget vs actual) → ChatPanel (conversational coaching, behavioral profile memory, voice input, chat-based tx entry with confirmation card, sessionStorage prefill from alerts) → weekly email summary (Resend HTML, preferences toggle) → inflation-adjusted analysis (TUFE 2023-2026, real vs nominal per category, ProgressInsight cache) → net worth asset subtype capture (all asset types have specific fields; crypto/fiat/commodity live picker; gold unit picker; stock/fund code fields; manual categories store structured metadata in `Asset.source_detail` JSON) → net worth display currency searchable via live `CurrencySelect`.
+Full stack: register/login → JWT → upload (rate-limited, busts caches) → 3-layer OCR → LLM extract → OCR cleanup → dedup → zero-amount filter → persist → LLM categorize (13 categories) → insight cache → LLM coach with corrections+notes injected → spending chart + progress page (LineChart 3-month trend + cross-batch-deduped category comparison + LLM one-liners, 24h cached) → PersonalityCard (5 types, cached per batch) → AlertsPanel (3 algorithmic detectors, dismiss persisted) → GoalsPanel (monthly budget vs actual) → ChatPanel (conversational coaching, behavioral profile memory, voice input, chat-based tx entry with confirmation card, sessionStorage prefill from alerts) → weekly email summary (Resend HTML, preferences toggle) → inflation-adjusted analysis (TUFE 2023-2026, real vs nominal per category, ProgressInsight cache) → net worth asset subtype capture (all asset types have specific fields; crypto/fiat/commodity live picker; gold unit picker; stock/fund code fields; manual categories store structured metadata in `Asset.source_detail` JSON) → net worth display currency searchable via live `CurrencySelect` → receivable collection creates linked cash asset, repeated collection is idempotent, delete/write-off removes linked asset.
 
-### Migrations (head = 0015)
+### Migrations (head = 0021)
 | Migration | What |
 |---|---|
 | 0001 | CREATE users + transactions |
@@ -288,6 +287,7 @@ Full stack: register/login → JWT → upload (rate-limited, busts caches) → 3
 | 0018 | CREATE receivables |
 | 0019 | ADD source, source_detail, as_of_date to assets |
 | 0020 | CREATE networth_suggestions |
+| 0021 | ADD linked_asset_id to receivables |
 
 ### Known Issues (open)
 - **Layer 3 vision LLM**: stub ready in pdf_parser.py, not wired. Needed for banks with fonts <8pt.
@@ -683,16 +683,73 @@ Full stack: register/login → JWT → upload (rate-limited, busts caches) → 3
 - **Still no real stock/fund search provider**: current flow captures structured symbol/ISIN manually. True live search needs provider decision and backend endpoint.
 - **Data model still overloaded**: `Asset.current_value` means quantity for unit-priced assets (crypto, FX, commodity, gold) and value for normal manual assets. This works with current conversion, but naming is bad. Long-term better schema: `quantity`, `unit_code`, `valuation_currency`, `manual_value`.
 
+### Phase 25 — Receivable Write-Off + Linked Asset Integrity (2026-06-21)
+
+#### Backend
+- [x] `backend/app/models/receivable.py` — added `linked_asset_id UUID nullable index FK assets.id ON DELETE SET NULL`; status set expanded with `written_off`.
+- [x] `backend/alembic/versions/0021_add_linked_asset_id_to_receivables.py` — adds column + index; chains 0020→0021; has downgrade.
+- [x] `backend/app/api/networth.py` — `ReceivableResponse` now includes `linked_asset_id`.
+- [x] `backend/app/api/networth.py` — added `_find_receivable_asset()` helper. First checks hard link. Then fallback finds legacy auto-created cash asset by old `source_detail` text, amount, currency, user.
+- [x] `PATCH /networth/receivables/{id}/status` — marking `received` is now idempotent. If linked/legacy asset exists, no duplicate asset created.
+- [x] `PATCH /networth/receivables/{id}/status` — new auto-created asset uses English name `Receivable: {from_person}` and JSON `source_detail` with `receivable_id`.
+- [x] `PATCH /networth/receivables/{id}/status` — if a received receivable is moved back to pending/overdue, linked auto-created cash asset is deleted.
+- [x] `GET /networth/receivables` — hides `written_off` receivables from active UI list.
+- [x] `DELETE /networth/receivables/{id}` — now acts as write-off: loads receivable first, finds linked/legacy auto-created asset, deletes linked asset, marks receivable `written_off`, clears `linked_asset_id`, busts net worth insight cache. Audit row stays in DB.
+
+#### Frontend
+- [x] `frontend/src/lib/api.ts` — `ReceivableItem.linked_asset_id` added; status union includes `written_off`.
+- [x] `frontend/src/app/networth/page.tsx` — deleting a received receivable with linked asset shows browser confirm. If confirmed, UI removes both receivable and linked asset from state.
+- [x] `frontend/src/app/networth/page.tsx` — received badge shows `Varlığa bağlı` when linked asset exists.
+- [x] `frontend/src/app/networth/page.tsx` — delete button title distinguishes write-off vs delete linked cash asset.
+
+#### Checks
+- [x] `npm run build` passed. Next compiled. Type check passed. 12 static pages generated.
+- [x] `python3 -m py_compile backend/app/api/networth.py backend/app/models/receivable.py backend/alembic/versions/0021_add_linked_asset_id_to_receivables.py` passed.
+- [x] `git diff --check` clean.
+- [!] Docker/alembic runtime not run per user rule. User should run `docker compose exec backend alembic upgrade head`.
+
+#### Architectural decisions
+- **Hard link beats text lookup**: receivable → asset needs FK, not source_detail string parse. Money integrity needs exact relation.
+- **Write-off preserves audit**: DELETE endpoint hides receivable by setting `written_off`, not hard-deleting row. If app created cash asset from receivable, write-off reverses that app-created side effect. Otherwise net worth lies.
+- **Legacy fallback kept**: old rows before 0021 may have auto-created assets but no linked_asset_id. Fallback prevents old orphan assets.
+- **Received is idempotent**: repeated click/API call must not mint duplicate cash.
+
+### Product Direction Reset — Net Worth First, Events Second, AI Reconciliation Third
+
+#### Current problem
+- App started as bank statement upload + charts. That is too small.
+- Most pages behave like bank dashboard clone: spend chart, inflation, category comparison. Useful but not enough.
+- AI is mostly text commentary. Not enough automation. Not enough action. Not enough daily financial truth.
+- Net worth page is the real core. It should become source-of-truth ledger for assets, liabilities, receivables, payables, and account balances at a date.
+
+#### New product spine
+- **Net Worth Ledger = truth table**: dated snapshot of everything user owns/owes.
+- **Statements/manual entries/integrations = events**: they change ledger, but do not blindly overwrite truth.
+- **AI Reconciliation = conflict engine**: compare statement events, manual entries, linked assets, receivables, liabilities. Ask user only when conflict matters.
+- **Daily automation = value**: app should track what changed today, what needs action, what looks wrong, what should be confirmed.
+- **Pages should become workflows, not reports**: upload page creates events; transactions page reconciles events; net worth page shows truth; chat acts on truth; alerts suggest actions.
+
+#### Needed redesign notes
+- Replace decorative analytics with action queues: `Needs Review`, `Confirm Match`, `Possible Duplicate`, `Balance Drift`, `Missing Asset`, `Upcoming Payable`, `Overdue Receivable`.
+- Asset addition must become guided onboarding: account, investment, property, receivable, liability, business asset. Each has required fields and source confidence.
+- Every auto-created record needs lineage: source event, created_by, confidence, linked object IDs, reversible action.
+- Do not show inflation panel by default. Move to secondary analysis tab later. It wastes prime space.
+- Spending chart is not core. Rebuild as cash-flow/reconciliation panel or move lower.
+- AI should not only write advice. It should produce structured proposals: create asset, update balance, mark receivable paid, detect duplicate, flag conflict, ask one question.
+- Need `FinancialEvent` table later: statement upload row, manual transaction, receivable collection, asset valuation update, liability payment. Ledger derives from accepted events.
+- Need dated snapshots: net worth at date X, not only current mutable values.
+- Need confidence states: manual, imported, inferred, confirmed, disputed.
+
 ---
 
 ## Next Session — Start Here
 
-**Phases 1–24 complete. Phase 24 = net worth flow repair: DOGE crash fixed, display currency dropdown fixed, all asset types got specific fields. Next fix Known Issue 1 from current list: receivable delete cascade.**
+**Phases 1–25 complete. Phase 25 = receivable write-off + linked asset integrity. Next fix Known Issue 1 from current list: auto-archive stale items.**
 
 Pre-flight (if docker was restarted):
 ```bash
 docker compose up -d
-docker compose exec backend alembic current   # must say 0020 (head)
+docker compose exec backend alembic current   # must say 0021 (head)
 # If behind: docker compose exec backend alembic upgrade head
 ```
 
@@ -710,19 +767,19 @@ curl -s http://localhost:8000/currency/list | python3 -c "import sys,json; d=jso
 ```
 
 Next task options (priority order — fix known issues first):
-1. **Receivable delete cascade** — deleting received receivable must delete/warn linked auto-created asset. Better fix: add `asset_id` to receivables or source_detail lookup fallback.
-2. **Auto-archive stale items** — clean old dismissed alerts, received receivables, accepted suggestions after 30 days or add `archived_at`.
-3. **System prompt globalization** — remove "Turkish personal finance" from coach.py, behavioral_coach.py, weekly_summary.py; use user locale/lang.
-4. **Onboarding bank list** — remove Turkish bank names; generic bank name input or PDF detection.
-5. **Transactions SpendingChart redesign** — better chart mix; current bar chart too weak.
-6. **Real-time asset prices** — `services/asset_prices.py` + `/networth/assets/{id}/refresh-price`; read subtype JSON from `source_detail`.
-7. **Schema cleanup** — split `Asset.current_value` into quantity/value fields before production if possible.
+1. **Auto-archive stale items** — clean old dismissed alerts, received receivables, accepted suggestions after 30 days or add `archived_at`.
+2. **System prompt globalization** — remove "Turkish personal finance" from coach.py, behavioral_coach.py, weekly_summary.py; use user locale/lang.
+3. **Onboarding bank list** — remove Turkish bank names; generic bank name input or PDF detection.
+4. **Transactions SpendingChart redesign** — better chart mix; current bar chart too weak.
+5. **Real-time asset prices** — `services/asset_prices.py` + `/networth/assets/{id}/refresh-price`; read subtype JSON from `source_detail`.
+6. **Schema cleanup** — split `Asset.current_value` into quantity/value fields before production if possible.
+7. **Net worth product reset** — start event/reconciliation design. See Product Direction Reset section.
 
 ---
 
 ## Backlog (priority order)
 
-1. **Fix known issues** (5 items listed in Known Issues section) — do before new features
+1. **Fix known issues** (4 items listed in Known Issues section) — do before new features
 2. **Real-time price refresh** — `GET /networth/assets/{id}/refresh-price` → calls asset_prices.py per type
 3. **Global market search** — stock ticker search + fund ISIN lookup via chosen providers; current Phase 23 stores structured fields but does not fetch full global search results yet.
 4. **Cash flow calendar** — monthly timeline: liability payments due + receivables expected + goal deadlines

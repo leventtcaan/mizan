@@ -295,8 +295,19 @@ export default function NetWorthPage() {
   };
 
   const handleDeleteReceivable = async (id: string) => {
+    const receivable = receivables.find((r) => r.id === id);
+    const removesLinkedAsset = receivable?.status === "received" && receivable.linked_asset_id;
+    if (removesLinkedAsset) {
+      const ok = window.confirm(
+        "This receivable was already collected. Deleting it will also remove the cash asset created from it.",
+      );
+      if (!ok) return;
+    }
     await deleteReceivable(id);
     setReceivables((prev) => prev.filter((r) => r.id !== id));
+    if (receivable?.linked_asset_id) {
+      setAssets((prev) => prev.filter((a) => a.id !== receivable.linked_asset_id));
+    }
     void reloadSummary();
   };
 
@@ -647,7 +658,9 @@ export default function NetWorthPage() {
                     <div className="flex items-center gap-2">
                       <p className="text-white text-sm font-medium">{r.from_person}</p>
                       {isReceived && (
-                        <span className="text-xs px-1.5 py-0.5 rounded bg-emerald-900/30 text-emerald-400">Alındı ✓</span>
+                        <span className="text-xs px-1.5 py-0.5 rounded bg-emerald-900/30 text-emerald-400">
+                          Alındı ✓{r.linked_asset_id ? " · Varlığa bağlı" : ""}
+                        </span>
                       )}
                       {isOverdue && !isReceived && (
                         <span className="text-xs px-1.5 py-0.5 rounded bg-orange-900/30 text-orange-400">Gecikmiş</span>
@@ -671,6 +684,7 @@ export default function NetWorthPage() {
                     <button
                       onClick={() => handleDeleteReceivable(r.id)}
                       className="text-gray-700 hover:text-red-400 transition-colors text-sm px-1"
+                      title={isReceived ? "Delete receivable and linked cash asset" : "Write off receivable"}
                     >
                       ×
                     </button>

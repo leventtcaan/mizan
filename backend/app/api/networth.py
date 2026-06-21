@@ -165,6 +165,7 @@ class ReceivableRequest(BaseModel):
 
 class ReceivableResponse(BaseModel):
     id: str
+    linked_asset_id: str | None
     from_person: str
     amount: str
     currency: str
@@ -252,6 +253,7 @@ def _liability_resp(l: Liability) -> LiabilityResponse:
 def _receivable_resp(r: Receivable) -> ReceivableResponse:
     return ReceivableResponse(
         id=str(r.id),
+        linked_asset_id=str(r.linked_asset_id) if r.linked_asset_id else None,
         from_person=r.from_person,
         amount=str(r.amount),
         currency=r.currency,
@@ -279,6 +281,37 @@ def _suggestion_resp(s: NetworthSuggestion) -> SuggestionResponse:
 def _parse_as_of_date(as_of_date_str: str | None) -> date:
     if not as_of_date_str:
         return date.today()
+
+
+async def _find_receivable_asset(
+    receivable: Receivable,
+    session: AsyncSession,
+) -> Asset | None:
+    """Find the auto-created asset linked to a received receivable."""
+    if receivable.linked_asset_id:
+        result = await session.execute(
+            select(Asset).where(
+                Asset.id == receivable.linked_asset_id,
+                Asset.user_id == receivable.user_id,
+                Asset.source == "receivable_collection",
+            )
+        )
+        asset = result.scalar_one_or_none()
+        if asset:
+            return asset
+
+    # Legacy fallback: rows created before linked_asset_id existed.
+    legacy_detail = f"Alacak tahsilatı: {receivable.from_person}"
+    result = await session.execute(
+        select(Asset).where(
+            Asset.user_id == receivable.user_id,
+            Asset.source == "receivable_collection",
+            Asset.currency == receivable.currency,
+            Asset.current_value == receivable.amount,
+            Asset.source_detail == legacy_detail,
+        )
+    )
+    return result.scalar_one_or_none()
     try:
         return date.fromisoformat(as_of_date_str)
     except ValueError:
@@ -566,7 +599,12 @@ async def list_receivables(
     session: AsyncSession = Depends(get_session),
 ) -> list[ReceivableResponse]:
     result = await session.execute(
-        select(Receivable).where(Receivable.user_id == current_user.id).order_by(Receivable.created_at)
+        select(Receivable)
+        .where(
+            Receivable.user_id == current_user.id,
+            Receivable.status != "written_off",
+        )
+        .order_by(Receivable.created_at)
     )
     return [_receivable_resp(r) for r in result.scalars().all()]
 
@@ -621,33 +659,53 @@ async def update_receivable_status(
     if not receivable:
         raise HTTPException(status_code=404, detail="Receivable not found")
 
-    receivable.status = body.status
     created_asset_resp: AssetResponse | None = None
     toast_msg: str | None = None
 
     if body.status == "received":
-        # Auto-create cash asset from the received receivable
-        now = datetime.now(timezone.utc)
-        asset = Asset(
-            id=uuid.uuid4(),
-            user_id=current_user.id,
-            name=f"Alacak: {receivable.from_person}",
-            asset_type="cash",
-            currency=receivable.currency,
-            current_value=receivable.amount,
-            source="receivable_collection",
-            source_detail=f"Alacak tahsilatı: {receivable.from_person}",
-            as_of_date=date.today(),
-            created_at=now,
-            updated_at=now,
-        )
-        session.add(asset)
-        await session.flush()  # get asset.id populated
-        await session.refresh(asset)
-        created_asset_resp = _asset_resp(asset)
-        toast_msg = f"{receivable.from_person}'den alınan {receivable.currency} {receivable.amount} nakit olarak eklendi."
+        existing_asset = await _find_receivable_asset(receivable, session)
+        if existing_asset:
+            receivable.linked_asset_id = existing_asset.id
+            created_asset_resp = _asset_resp(existing_asset)
+            toast_msg = "Bu alacak zaten nakit varlık olarak işlenmiş."
+        else:
+            # Auto-create cash asset from the received receivable.
+            now = datetime.now(timezone.utc)
+            asset = Asset(
+                id=uuid.uuid4(),
+                user_id=current_user.id,
+                name=f"Receivable: {receivable.from_person}",
+                asset_type="cash",
+                currency=receivable.currency,
+                current_value=receivable.amount,
+                source="receivable_collection",
+                source_detail=json.dumps(
+                    {
+                        "subtype": "receivable_collection",
+                        "receivable_id": str(receivable.id),
+                        "from_person": receivable.from_person,
+                    }
+                ),
+                as_of_date=date.today(),
+                created_at=now,
+                updated_at=now,
+            )
+            session.add(asset)
+            await session.flush()  # get asset.id populated
+            receivable.linked_asset_id = asset.id
+            await session.refresh(asset)
+            created_asset_resp = _asset_resp(asset)
+            toast_msg = f"{receivable.from_person} receivable added as cash asset."
         await bust_networth_insight_cache(current_user.id, session)
+    elif receivable.status == "received":
+        linked_asset = await _find_receivable_asset(receivable, session)
+        if linked_asset:
+            await session.delete(linked_asset)
+            receivable.linked_asset_id = None
+            toast_msg = "Linked cash asset removed because receivable is no longer received."
+            await bust_networth_insight_cache(current_user.id, session)
 
+    receivable.status = body.status
     await session.commit()
     await session.refresh(receivable)
 
@@ -670,10 +728,25 @@ async def delete_receivable(
         raise HTTPException(status_code=400, detail="Invalid receivable ID")
 
     result = await session.execute(
-        delete(Receivable).where(Receivable.id == rid, Receivable.user_id == current_user.id)
+        select(Receivable).where(Receivable.id == rid, Receivable.user_id == current_user.id)
     )
-    if result.rowcount == 0:
+    receivable = result.scalar_one_or_none()
+    if not receivable:
         raise HTTPException(status_code=404, detail="Receivable not found")
+
+    linked_asset = await _find_receivable_asset(receivable, session)
+    if linked_asset:
+        await session.delete(linked_asset)
+        logger.info(
+            "Receivable delete removed linked asset — receivable=%s asset=%s user=%s",
+            receivable.id,
+            linked_asset.id,
+            current_user.id,
+        )
+
+    receivable.status = "written_off"
+    receivable.linked_asset_id = None
+    await bust_networth_insight_cache(current_user.id, session)
     await session.commit()
 
 

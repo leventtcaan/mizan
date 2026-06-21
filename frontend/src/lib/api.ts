@@ -690,12 +690,13 @@ export interface LiabilityItem {
 
 export interface ReceivableItem {
   id: string;
+  linked_asset_id: string | null;
   from_person: string;
   amount: string;
   currency: string;
   expected_date: string | null;
   notes: string | null;
-  status: "pending" | "received" | "overdue";
+  status: "pending" | "received" | "overdue" | "written_off";
   created_at: string;
 }
 
@@ -842,7 +843,7 @@ export interface StatusPatchResponse {
 
 export async function updateReceivableStatus(
   id: string,
-  status: "pending" | "received" | "overdue",
+  status: "pending" | "received" | "overdue" | "written_off",
 ): Promise<StatusPatchResponse> {
   const response = await fetch(`${API_BASE_URL}/networth/receivables/${id}/status`, {
     method: "PATCH",

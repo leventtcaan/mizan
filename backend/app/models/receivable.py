@@ -8,7 +8,7 @@ from sqlalchemy.orm import Mapped, mapped_column
 
 from app.models.user import Base
 
-RECEIVABLE_STATUSES = {"pending", "received", "overdue"}
+RECEIVABLE_STATUSES = {"pending", "received", "overdue", "written_off"}
 
 
 class Receivable(Base):
@@ -22,6 +22,13 @@ class Receivable(Base):
         UUID(as_uuid=True),
         ForeignKey("users.id", ondelete="CASCADE"),
         nullable=False,
+        index=True,
+    )
+
+    linked_asset_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("assets.id", ondelete="SET NULL"),
+        nullable=True,
         index=True,
     )
 
