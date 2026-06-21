@@ -67,6 +67,7 @@ export default function ChatPanel({ initialInsight }: Props) {
 
   const bottomRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const isInitialLoad = useRef(true);
 
   useEffect(() => {
     getChatHistory()
@@ -84,6 +85,7 @@ export default function ChatPanel({ initialInsight }: Props) {
       })
       .finally(() => {
         setHistoryLoaded(true);
+        isInitialLoad.current = false;
         // Pre-fill from AlertsPanel "Sohbete sor" button (sets sessionStorage then navigates here)
         if (typeof window !== "undefined") {
           const prefill = sessionStorage.getItem("chat_prefill");
@@ -98,6 +100,7 @@ export default function ChatPanel({ initialInsight }: Props) {
   }, []);
 
   useEffect(() => {
+    if (isInitialLoad.current) return;
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, sending, pendingTx]);
 
