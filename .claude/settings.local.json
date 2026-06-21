@@ -26,7 +26,11 @@
       "Bash(python *)",
       "Bash(npx tsc *)",
       "Bash(curl *)",
-      "Bash(grep -v \"^$\")"
+      "Bash(grep -v \"^$\")",
+      "Bash(npm run *)",
+      "Bash(python3 -m py_compile /Users/leventcanceylan/Projects/mizan/backend/app/api/reconciliation.py /Users/leventcanceylan/Projects/mizan/backend/app/services/reconciliation_producers.py /Users/leventcanceylan/Projects/mizan/backend/app/api/networth.py)",
+      "Bash(git add *)",
+      "Bash(git commit *)"
     ]
   }
 }
