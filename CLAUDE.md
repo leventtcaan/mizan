@@ -257,11 +257,11 @@ When context reaches ~70% capacity:
 
 ## Current Status
 
-**Phases 1–27 complete. Docker not changed this session. Alembic head = 0021.**
+**Phases 1–28 complete. Docker not changed this session. Alembic head = 0022.**
 
-Full stack: register/login → JWT → upload (rate-limited, busts caches) → 3-layer OCR → LLM extract → OCR cleanup → dedup → zero-amount filter → persist → LLM categorize (13 categories) → insight cache → globalized LLM coach with corrections+notes injected → spending chart + progress page (LineChart 3-month trend + cross-batch-deduped category comparison + LLM one-liners, 24h cached) → PersonalityCard (5 types, cached per batch) → AlertsPanel (3 algorithmic detectors, dismiss persisted, stale dismissals auto-cleaned) → GoalsPanel (monthly budget vs actual) → ChatPanel (globalized conversational coaching, behavioral profile memory, voice input, chat-based tx entry with confirmation card, sessionStorage prefill from alerts) → weekly email summary (Resend HTML, preferences toggle) → inflation-adjusted analysis (TUFE 2023-2026, real vs nominal per category, ProgressInsight cache) → net worth asset subtype capture (all asset types have specific fields; crypto/fiat/commodity live picker; gold unit picker; stock/fund code fields; manual categories store structured metadata in `Asset.source_detail` JSON) → net worth display currency searchable via live `CurrencySelect` → receivable collection creates linked cash asset, repeated collection is idempotent, delete/write-off removes linked asset → stale received receivables and processed suggestions are hidden/cleaned after 30 days → onboarding accepts any institution/export source instead of hardcoded Turkish banks.
+Full stack: register/login → JWT → upload (rate-limited, busts caches) → 3-layer OCR → LLM extract → OCR cleanup → dedup → zero-amount filter → persist → LLM categorize (13 categories) → insight cache → globalized LLM coach with corrections+notes injected → spending chart + progress page (LineChart 3-month trend + cross-batch-deduped category comparison + LLM one-liners, 24h cached) → PersonalityCard (5 types, cached per batch) → AlertsPanel (3 algorithmic detectors, dismiss persisted, stale dismissals auto-cleaned) → GoalsPanel (monthly budget vs actual) → ChatPanel (globalized conversational coaching, behavioral profile memory, voice input, chat-based tx entry with confirmation card, sessionStorage prefill from alerts) → weekly email summary (Resend HTML, preferences toggle) → inflation-adjusted analysis (TUFE 2023-2026, real vs nominal per category, ProgressInsight cache) → net worth asset subtype capture (all asset types have specific fields; crypto/fiat/commodity live picker; gold unit picker; stock/fund code fields; manual categories store structured metadata in `Asset.source_detail` JSON) → net worth display currency searchable via live `CurrencySelect` → receivable collection creates linked cash asset, repeated collection is idempotent, delete/write-off removes linked asset → stale received receivables and processed suggestions are hidden/cleaned after 30 days → onboarding accepts any institution/export source instead of hardcoded Turkish banks → financial event log + reconciliation item backend skeleton exists.
 
-### Migrations (head = 0021)
+### Migrations (head = 0022)
 | Migration | What |
 |---|---|
 | 0001 | CREATE users + transactions |
@@ -285,6 +285,7 @@ Full stack: register/login → JWT → upload (rate-limited, busts caches) → 3
 | 0019 | ADD source, source_detail, as_of_date to assets |
 | 0020 | CREATE networth_suggestions |
 | 0021 | ADD linked_asset_id to receivables |
+| 0022 | CREATE financial_events + reconciliation_items |
 
 ### Known Issues (open)
 - **Layer 3 vision LLM**: stub ready in pdf_parser.py, not wired. Needed for banks with fonts <8pt.
@@ -795,16 +796,51 @@ Full stack: register/login → JWT → upload (rate-limited, busts caches) → 3
 - **Parser behavior unchanged**: OCR still includes `tur+eng` and legacy regex. Full global statement parser is a larger phase, not a safe prompt-cleanup patch.
 - **Onboarding source-first**: no bank list. Any institution/export source can start onboarding.
 
+### Phase 28 — Net Worth Event/Reconciliation Architecture Skeleton (2026-06-21)
+
+#### Backend models + migration
+- [x] `backend/app/models/financial_event.py` — new durable financial event log. Fields: user_id, event_type, entity_type, entity_id, amount, currency, event_date, source, source_detail JSON text, status, confidence, created_at.
+- [x] `backend/app/models/reconciliation_item.py` — new review queue for conflicts/proposed actions. Fields: issue_type, severity, status, title, description, related_event_id, related_entity, proposed_action JSON text, created_at, resolved_at.
+- [x] `backend/alembic/versions/0022_create_financial_events_and_reconciliation.py` — creates `financial_events` and `reconciliation_items`, indexes event/status/user fields, chains 0021→0022, has downgrade.
+
+#### Backend API
+- [x] `backend/app/api/reconciliation.py` — new router `/reconciliation`.
+- [x] `GET /reconciliation/events?limit=100` — lists recent financial events for current user.
+- [x] `GET /reconciliation/items?status=open` — lists review queue items by status.
+- [x] `PATCH /reconciliation/items/{id}/status` — marks item open/resolved/dismissed.
+- [x] `backend/app/main.py` — imports new models, registers reconciliation router, updates API description away from Turkish-only positioning.
+
+#### First real event writes
+- [x] `backend/app/api/networth.py` — `_add_financial_event()` helper added.
+- [x] Receivable collected → writes `receivable_collected` event.
+- [x] Receivable collection reversed → writes `receivable_collection_reversed` event.
+- [x] Receivable written off → writes `receivable_written_off` event.
+
+#### Frontend API client
+- [x] `frontend/src/lib/api.ts` — added `FinancialEventItem`, `ReconciliationItem`, `getFinancialEvents()`, `getReconciliationItems()`, `updateReconciliationItemStatus()`.
+
+#### Checks
+- [x] `npm run build` passed.
+- [x] `python3 -m py_compile` passed for new/changed backend files.
+- [x] `git diff --check` clean.
+- [!] Docker/alembic runtime not run. User must run `docker compose exec backend alembic upgrade head` to apply 0022.
+
+#### Architectural decisions
+- **Events before AI automation**: AI should create events/proposals, not silently mutate assets. Event log gives audit, replay, and conflict detection.
+- **Review queue before broad UI rewrite**: reconciliation items are the bridge between automated detection and user confirmation.
+- **Source detail remains JSON text**: fast schema now, flexible proposals. Later can move to JSONB.
+- **Receivable flow proves the pattern**: existing net worth mutation now writes events. Next: upload suggestions, manual asset edits, liability payments.
+
 ---
 
 ## Next Session — Start Here
 
-**Phases 1–27 complete. Phase 27 = globalization cleanup. Next: start net worth event/reconciliation architecture, then redesign/replace transactions SpendingChart.**
+**Phases 1–28 complete. Phase 28 = event/reconciliation backend skeleton. Next: run migration 0022, then build first reconciliation UI/action queue or replace transactions SpendingChart with action/reconciliation panel.**
 
 Pre-flight (if docker was restarted):
 ```bash
 docker compose up -d
-docker compose exec backend alembic current   # must say 0021 (head)
+docker compose exec backend alembic current   # must say 0022 (head)
 # If behind: docker compose exec backend alembic upgrade head
 ```
 
@@ -822,10 +858,11 @@ curl -s http://localhost:8000/currency/list | python3 -c "import sys,json; d=jso
 ```
 
 Next task options (priority order — fix known issues first):
-1. **Net worth event/reconciliation architecture** — add first `FinancialEvent`/reconciliation skeleton or design doc + models.
-2. **Transactions SpendingChart redesign** — better chart mix or replace with action/reconciliation panel.
-3. **Real-time asset prices** — `services/asset_prices.py` + `/networth/assets/{id}/refresh-price`; read subtype JSON from `source_detail`.
-4. **Schema cleanup** — split `Asset.current_value` into quantity/value fields before production if possible.
+1. **Run migration** — `docker compose exec backend alembic upgrade head`; head must be 0022.
+2. **Reconciliation UI/action queue** — show open reconciliation items + recent events on net worth page.
+3. **Transactions SpendingChart redesign** — replace weak chart with action/reconciliation panel or cash-flow chart.
+4. **Real-time asset prices** — `services/asset_prices.py` + `/networth/assets/{id}/refresh-price`; read subtype JSON from `source_detail`.
+5. **Schema cleanup** — split `Asset.current_value` into quantity/value fields before production if possible.
 
 ---
 

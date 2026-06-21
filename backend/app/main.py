@@ -25,6 +25,7 @@ from app.api.notes import router as notes_router
 from app.api.patterns import router as patterns_router
 from app.api.personality import router as personality_router
 from app.api.progress import router as progress_router
+from app.api.reconciliation import router as reconciliation_router
 from app.api.transactions import router as transactions_router
 from app.api.upload import router as upload_router
 from app.core.config import settings
@@ -44,6 +45,8 @@ from app.models.asset import Asset  # noqa: F401 — registers table in metadata
 from app.models.liability import Liability  # noqa: F401 — registers table in metadata
 from app.models.receivable import Receivable  # noqa: F401 — registers table in metadata
 from app.models.networth_suggestion import NetworthSuggestion  # noqa: F401 — registers table in metadata
+from app.models.financial_event import FinancialEvent  # noqa: F401 — registers table in metadata
+from app.models.reconciliation_item import ReconciliationItem  # noqa: F401 — registers table in metadata
 
 logging.basicConfig(
     level=logging.INFO,
@@ -79,7 +82,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="Mizan Backend",
     version="0.1.0",
-    description="Turkish personal finance behavioral coaching API",
+    description="Global personal finance and net worth operating system API",
     lifespan=lifespan,
 )
 
@@ -108,6 +111,7 @@ app.include_router(subscriptions_router)
 app.include_router(installments_router)
 app.include_router(currency_router)
 app.include_router(networth_router)
+app.include_router(reconciliation_router)
 
 
 @app.get("/health")

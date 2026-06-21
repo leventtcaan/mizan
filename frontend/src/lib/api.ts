@@ -914,3 +914,64 @@ export async function getCurrencyRates(base = "TRY"): Promise<Record<string, num
   const data = (await response.json()) as { rates: Record<string, number> };
   return data.rates;
 }
+
+// --- Reconciliation ---
+
+export interface FinancialEventItem {
+  id: string;
+  event_type: string;
+  entity_type: string;
+  entity_id: string | null;
+  amount: string | null;
+  currency: string | null;
+  event_date: string;
+  source: string;
+  source_detail: Record<string, unknown> | string | null;
+  status: string;
+  confidence: string | null;
+  created_at: string;
+}
+
+export interface ReconciliationItem {
+  id: string;
+  issue_type: string;
+  severity: "low" | "medium" | "high";
+  status: "open" | "resolved" | "dismissed";
+  title: string;
+  description: string;
+  related_event_id: string | null;
+  related_entity_type: string | null;
+  related_entity_id: string | null;
+  proposed_action: Record<string, unknown> | string | null;
+  created_at: string;
+  resolved_at: string | null;
+}
+
+export async function getFinancialEvents(limit = 100): Promise<FinancialEventItem[]> {
+  const response = await fetch(`${API_BASE_URL}/reconciliation/events?limit=${limit}`, {
+    headers: authHeaders(),
+  });
+  if (!response.ok) throw new Error(`Failed to fetch financial events: ${response.status}`);
+  return response.json() as Promise<FinancialEventItem[]>;
+}
+
+export async function getReconciliationItems(status = "open"): Promise<ReconciliationItem[]> {
+  const response = await fetch(`${API_BASE_URL}/reconciliation/items?status=${status}`, {
+    headers: authHeaders(),
+  });
+  if (!response.ok) throw new Error(`Failed to fetch reconciliation items: ${response.status}`);
+  return response.json() as Promise<ReconciliationItem[]>;
+}
+
+export async function updateReconciliationItemStatus(
+  id: string,
+  status: "open" | "resolved" | "dismissed",
+): Promise<ReconciliationItem> {
+  const response = await fetch(`${API_BASE_URL}/reconciliation/items/${id}/status`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", ...authHeaders() },
+    body: JSON.stringify({ status }),
+  });
+  if (!response.ok) throw new Error(`Failed to update reconciliation item: ${response.status}`);
+  return response.json() as Promise<ReconciliationItem>;
+}

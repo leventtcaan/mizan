@@ -15,6 +15,7 @@ from app.core.config import settings
 from app.core.database import get_session
 from app.core.dependencies import get_current_user
 from app.models.asset import Asset, ASSET_TYPES
+from app.models.financial_event import FinancialEvent
 from app.models.liability import Liability, LIABILITY_TYPES
 from app.models.networth_suggestion import NetworthSuggestion
 from app.models.progress_insight import ProgressInsight
@@ -301,6 +302,38 @@ async def _cleanup_processed_suggestions(
     )
     if result.rowcount:
         logger.info("Archived processed networth suggestions — user=%s count=%s", user_id, result.rowcount)
+
+
+def _add_financial_event(
+    session: AsyncSession,
+    *,
+    user_id: uuid.UUID,
+    event_type: str,
+    entity_type: str,
+    entity_id: uuid.UUID | None,
+    amount: Decimal | None = None,
+    currency: str | None = None,
+    event_date: date | None = None,
+    source: str = "system",
+    source_detail: dict | None = None,
+    status: str = "confirmed",
+) -> FinancialEvent:
+    event = FinancialEvent(
+        id=uuid.uuid4(),
+        user_id=user_id,
+        event_type=event_type,
+        entity_type=entity_type,
+        entity_id=entity_id,
+        amount=amount,
+        currency=currency,
+        event_date=event_date or date.today(),
+        source=source,
+        source_detail=json.dumps(source_detail) if source_detail else None,
+        status=status,
+        created_at=datetime.now(timezone.utc),
+    )
+    session.add(event)
+    return event
 
 
 async def _find_receivable_asset(
@@ -721,6 +754,20 @@ async def update_receivable_status(
             await session.refresh(asset)
             created_asset_resp = _asset_resp(asset)
             toast_msg = f"{receivable.from_person} receivable added as cash asset."
+            _add_financial_event(
+                session,
+                user_id=current_user.id,
+                event_type="receivable_collected",
+                entity_type="receivable",
+                entity_id=receivable.id,
+                amount=receivable.amount,
+                currency=receivable.currency,
+                source="manual",
+                source_detail={
+                    "asset_id": str(asset.id),
+                    "from_person": receivable.from_person,
+                },
+            )
         await bust_networth_insight_cache(current_user.id, session)
     elif receivable.status == "received":
         linked_asset = await _find_receivable_asset(receivable, session)
@@ -728,6 +775,21 @@ async def update_receivable_status(
             await session.delete(linked_asset)
             receivable.linked_asset_id = None
             toast_msg = "Linked cash asset removed because receivable is no longer received."
+            _add_financial_event(
+                session,
+                user_id=current_user.id,
+                event_type="receivable_collection_reversed",
+                entity_type="receivable",
+                entity_id=receivable.id,
+                amount=receivable.amount,
+                currency=receivable.currency,
+                source="manual",
+                source_detail={
+                    "asset_id": str(linked_asset.id),
+                    "from_person": receivable.from_person,
+                    "new_status": body.status,
+                },
+            )
             await bust_networth_insight_cache(current_user.id, session)
 
     receivable.status = body.status
@@ -771,6 +833,20 @@ async def delete_receivable(
 
     receivable.status = "written_off"
     receivable.linked_asset_id = None
+    _add_financial_event(
+        session,
+        user_id=current_user.id,
+        event_type="receivable_written_off",
+        entity_type="receivable",
+        entity_id=receivable.id,
+        amount=receivable.amount,
+        currency=receivable.currency,
+        source="manual",
+        source_detail={
+            "removed_asset_id": str(linked_asset.id) if linked_asset else None,
+            "from_person": receivable.from_person,
+        },
+    )
     await bust_networth_insight_cache(current_user.id, session)
     await session.commit()
 
