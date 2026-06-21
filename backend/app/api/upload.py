@@ -9,6 +9,8 @@ BREAKS IF REMOVED: No way for the frontend to submit bank statements.
 
 import uuid
 import logging
+from datetime import datetime, timezone
+from decimal import Decimal
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile, status
@@ -19,6 +21,7 @@ from app.core.config import settings
 from app.core.database import get_session
 from app.core.dependencies import get_current_user
 from app.core.rate_limiter import upload_ip_limiter, upload_user_limiter
+from app.models.networth_suggestion import NetworthSuggestion
 from app.models.user import User
 from app.services.categorizer import categorize_batch
 from app.services.llm_provider import get_provider
@@ -38,11 +41,89 @@ ALLOWED_CONTENT_TYPES = {
 }
 
 
+class SuggestionOut(BaseModel):
+    id: str
+    suggestion_type: str
+    asset_id: str | None
+    suggested_change: str
+    currency: str
+    reason: str
+    source_batch_id: str | None
+    status: str
+    created_at: datetime
+
+
 class UploadResponse(BaseModel):
     job_id: str
     filename: str
     transaction_count: int
     message: str
+    suggestions: list[SuggestionOut] = []
+
+
+# Keywords to detect bank names in transaction descriptions
+_BANK_KEYWORDS = [
+    "GARANTİ", "VAKIFBANK", "ZIRAAT", "YAPIKREDI", "HALKBANK",
+    "AKBANK", "ISBANKASI", "QNB", "DENIZBANK", "ING",
+]
+
+
+async def _generate_networth_suggestions(
+    user_id: uuid.UUID,
+    batch_id: str,
+    transactions: list,
+    session: AsyncSession,
+) -> list[NetworthSuggestion]:
+    """
+    Analyse transactions for bank account activity keywords.
+    For each detected bank, compute net (credits - debits) and create a suggestion.
+    """
+    # Group by detected bank keyword
+    bank_nets: dict[str, Decimal] = {}
+
+    for tx in transactions:
+        desc_upper = (tx.description or "").upper()
+        for keyword in _BANK_KEYWORDS:
+            if keyword in desc_upper:
+                if keyword not in bank_nets:
+                    bank_nets[keyword] = Decimal("0")
+                amount = tx.amount if tx.amount else Decimal("0")
+                if tx.transaction_type == "credit":
+                    bank_nets[keyword] += amount
+                else:
+                    bank_nets[keyword] -= amount
+                break  # only match first keyword per transaction
+
+    suggestions: list[NetworthSuggestion] = []
+    for bank_key, net in bank_nets.items():
+        if net == 0:
+            continue
+        direction = "giriş" if net > 0 else "çıkış"
+        reason = (
+            f"{bank_key.title()} hesabında net {direction} tespit edildi: "
+            f"{abs(net):.2f} TRY. "
+            "Bu tutarı banka hesabı varlığınıza eklemek ister misiniz?"
+        )
+        suggestion = NetworthSuggestion(
+            id=uuid.uuid4(),
+            user_id=user_id,
+            suggestion_type="balance_change",
+            asset_id=None,
+            suggested_change=net,
+            currency="TRY",
+            reason=reason,
+            source_batch_id=batch_id,
+            status="pending",
+            created_at=datetime.now(timezone.utc),
+        )
+        session.add(suggestion)
+        suggestions.append(suggestion)
+
+    logger.info(
+        "Networth suggestions generated — job_id=%s count=%d",
+        batch_id, len(suggestions),
+    )
+    return suggestions
 
 
 @router.post("", response_model=UploadResponse)
@@ -124,6 +205,12 @@ async def upload_statement(
         logger.info("No LLM key configured — skipping categorization for job_id=%s", job_id)
 
     await bust_progress_cache(current_user.id, session)
+
+    # Generate net worth suggestions from transaction data (before commit)
+    suggestions = await _generate_networth_suggestions(
+        current_user.id, job_id, persisted, session
+    )
+
     await session.commit()
 
     logger.info("Upload complete — job_id=%s transactions_persisted=%d", job_id, len(persisted))
@@ -132,9 +219,25 @@ async def upload_statement(
     if not llm_available:
         msg += " (No LLM key — categories not assigned.)"
 
+    suggestion_out = [
+        SuggestionOut(
+            id=str(s.id),
+            suggestion_type=s.suggestion_type,
+            asset_id=str(s.asset_id) if s.asset_id else None,
+            suggested_change=str(s.suggested_change),
+            currency=s.currency,
+            reason=s.reason,
+            source_batch_id=s.source_batch_id,
+            status=s.status,
+            created_at=s.created_at,
+        )
+        for s in suggestions
+    ]
+
     return UploadResponse(
         job_id=job_id,
         filename=filename,
         transaction_count=len(persisted),
         message=msg,
+        suggestions=suggestion_out,
     )

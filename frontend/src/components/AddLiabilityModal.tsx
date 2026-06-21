@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { createLiability, LiabilityItem } from "@/lib/api";
 import { X } from "@/components/ui/Icons";
+import CurrencySelect from "@/components/CurrencySelect";
 
 const LIABILITY_TYPES: { value: string; label: string }[] = [
   { value: "mortgage", label: "Konut Kredisi" },
@@ -13,8 +14,6 @@ const LIABILITY_TYPES: { value: string; label: string }[] = [
   { value: "family_debt", label: "Aile / Arkadaş Borcu" },
   { value: "other_liability", label: "Diğer" },
 ];
-
-const CURRENCIES = ["TRY", "USD", "EUR", "GBP", "CHF"];
 
 interface Props {
   onClose: () => void;
@@ -101,15 +100,7 @@ export default function AddLiabilityModal({ onClose, onAdded }: Props) {
             </div>
             <div>
               <label className="block text-xs text-gray-400 mb-1">Para Birimi</label>
-              <select
-                value={currency}
-                onChange={(e) => setCurrency(e.target.value)}
-                className="w-full bg-[#0F0F0F] border border-[#2A2A2A] rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-600"
-              >
-                {CURRENCIES.map((c) => (
-                  <option key={c} value={c}>{c}</option>
-                ))}
-              </select>
+              <CurrencySelect value={currency} onChange={setCurrency} />
             </div>
           </div>
 

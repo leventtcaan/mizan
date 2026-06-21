@@ -81,11 +81,24 @@ export interface TokenResponse {
   onboarding_completed: boolean;
 }
 
+export interface SuggestionItem {
+  id: string;
+  suggestion_type: string;
+  asset_id: string | null;
+  suggested_change: string;
+  currency: string;
+  reason: string;
+  source_batch_id: string | null;
+  status: string;
+  created_at: string;
+}
+
 export interface UploadResponse {
   job_id: string;
   filename: string;
   transaction_count: number;
   message: string;
+  suggestions?: SuggestionItem[];
 }
 
 export interface Transaction {
@@ -654,6 +667,9 @@ export interface AssetItem {
   currency: string;
   current_value: string;
   notes: string | null;
+  source: string;
+  source_detail: string | null;
+  as_of_date: string;
   created_at: string;
   updated_at: string;
 }
@@ -691,6 +707,8 @@ export interface NetWorthSummary {
   liabilities_by_type: Record<string, number>;
   pending_receivables_try: number;
   currency_breakdown: Record<string, number>;
+  warnings: string[];
+  ai_insight: string | null;
 }
 
 export async function getNetWorthSummary(displayCurrency = "TRY"): Promise<NetWorthSummary> {
@@ -709,7 +727,8 @@ export async function getAssets(): Promise<AssetItem[]> {
 }
 
 export async function createAsset(body: {
-  name: string; asset_type: string; currency: string; current_value: string; notes?: string;
+  name: string; asset_type: string; currency: string; current_value: string;
+  notes?: string; source?: string; source_detail?: string; as_of_date?: string;
 }): Promise<AssetItem> {
   const response = await fetch(`${API_BASE_URL}/networth/assets`, {
     method: "POST",
@@ -815,17 +834,23 @@ export async function createReceivable(body: {
   return response.json() as Promise<ReceivableItem>;
 }
 
+export interface StatusPatchResponse {
+  receivable: ReceivableItem;
+  created_asset: AssetItem | null;
+  toast_message: string | null;
+}
+
 export async function updateReceivableStatus(
   id: string,
   status: "pending" | "received" | "overdue",
-): Promise<ReceivableItem> {
+): Promise<StatusPatchResponse> {
   const response = await fetch(`${API_BASE_URL}/networth/receivables/${id}/status`, {
     method: "PATCH",
     headers: { "Content-Type": "application/json", ...authHeaders() },
     body: JSON.stringify({ status }),
   });
   if (!response.ok) throw new Error(`Failed to update receivable: ${response.status}`);
-  return response.json() as Promise<ReceivableItem>;
+  return response.json() as Promise<StatusPatchResponse>;
 }
 
 export async function deleteReceivable(id: string): Promise<void> {
@@ -834,4 +859,57 @@ export async function deleteReceivable(id: string): Promise<void> {
     headers: authHeaders(),
   });
   if (!response.ok) throw new Error(`Failed to delete receivable: ${response.status}`);
+}
+
+// --- Net Worth Suggestions ---
+
+export async function getNetWorthSuggestions(): Promise<SuggestionItem[]> {
+  const response = await fetch(`${API_BASE_URL}/networth/suggestions`, {
+    headers: authHeaders(),
+  });
+  if (!response.ok) throw new Error(`Failed to fetch suggestions: ${response.status}`);
+  return response.json() as Promise<SuggestionItem[]>;
+}
+
+export async function acceptSuggestion(id: string): Promise<void> {
+  const response = await fetch(`${API_BASE_URL}/networth/suggestions/${id}/accept`, {
+    method: "POST",
+    headers: authHeaders(),
+  });
+  if (!response.ok) throw new Error(`Failed to accept suggestion: ${response.status}`);
+}
+
+export async function dismissSuggestion(id: string): Promise<void> {
+  const response = await fetch(`${API_BASE_URL}/networth/suggestions/${id}/dismiss`, {
+    method: "POST",
+    headers: authHeaders(),
+  });
+  if (!response.ok) throw new Error(`Failed to dismiss suggestion: ${response.status}`);
+}
+
+// --- Currency ---
+
+export interface CurrencyEntry {
+  code: string;
+  name: string;
+  usd_price?: number;
+}
+
+export interface CurrencyList {
+  fiat: CurrencyEntry[];
+  crypto: CurrencyEntry[];
+  commodities: CurrencyEntry[];
+}
+
+export async function getCurrencyList(): Promise<CurrencyList> {
+  const response = await fetch(`${API_BASE_URL}/currency/list`);
+  if (!response.ok) throw new Error(`Failed to fetch currency list: ${response.status}`);
+  return response.json() as Promise<CurrencyList>;
+}
+
+export async function getCurrencyRates(base = "TRY"): Promise<Record<string, number>> {
+  const response = await fetch(`${API_BASE_URL}/currency/rates?base=${base}`);
+  if (!response.ok) throw new Error(`Failed to fetch currency rates: ${response.status}`);
+  const data = (await response.json()) as { rates: Record<string, number> };
+  return data.rates;
 }

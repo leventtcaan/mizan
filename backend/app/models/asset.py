@@ -1,8 +1,8 @@
 import uuid
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from decimal import Decimal
 
-from sqlalchemy import DateTime, ForeignKey, Numeric, String, Text
+from sqlalchemy import Date, DateTime, ForeignKey, Numeric, String, Text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -10,8 +10,13 @@ from app.models.user import Base
 
 ASSET_TYPES = {
     "cash", "bank_account", "stock", "fund", "crypto",
-    "real_estate", "vehicle", "bes", "gold", "other_asset",
+    "real_estate", "vehicle", "bes", "gold", "foreign_currency",
+    "bond", "commodity", "startup_equity", "art_collectible",
+    "jewelry", "life_insurance", "pension", "business_ownership",
+    "other_asset",
 }
+
+SOURCE_TYPES = {"manual", "statement_upload", "receivable_collection", "auto_detected"}
 
 
 class Asset(Base):
@@ -33,6 +38,10 @@ class Asset(Base):
     currency: Mapped[str] = mapped_column(String(10), nullable=False, default="TRY")
     current_value: Mapped[Decimal] = mapped_column(Numeric(18, 2), nullable=False)
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    source: Mapped[str] = mapped_column(String(50), nullable=False, default="manual")
+    source_detail: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    as_of_date: Mapped[date] = mapped_column(Date, nullable=False, default=date.today)
 
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),

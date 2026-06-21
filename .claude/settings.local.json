@@ -25,7 +25,8 @@
       "Bash(curl -s -X POST http://localhost:8000/auth/login -H \"Content-Type: application/json\" -d '{\"email\":\"admin@mizan.com\",\"password\":\"admin123\"}')",
       "Bash(python *)",
       "Bash(npx tsc *)",
-      "Bash(curl *)"
+      "Bash(curl *)",
+      "Bash(grep -v \"^$\")"
     ]
   }
 }

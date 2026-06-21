@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { createAsset, AssetItem } from "@/lib/api";
 import { X } from "@/components/ui/Icons";
+import CurrencySelect from "@/components/CurrencySelect";
 
 const ASSET_TYPES: { value: string; label: string }[] = [
   { value: "cash", label: "Nakit" },
@@ -14,10 +15,21 @@ const ASSET_TYPES: { value: string; label: string }[] = [
   { value: "vehicle", label: "Araç" },
   { value: "bes", label: "BES / Emeklilik" },
   { value: "gold", label: "Altın" },
+  { value: "foreign_currency", label: "Döviz" },
+  { value: "bond", label: "Tahvil / Bono" },
+  { value: "commodity", label: "Emtia" },
+  { value: "startup_equity", label: "Startup Hissesi" },
+  { value: "art_collectible", label: "Sanat / Koleksiyon" },
+  { value: "jewelry", label: "Mücevher" },
+  { value: "life_insurance", label: "Hayat Sigortası" },
+  { value: "pension", label: "Emeklilik Fonu" },
+  { value: "business_ownership", label: "İşletme Ortaklığı" },
   { value: "other_asset", label: "Diğer" },
 ];
 
-const CURRENCIES = ["TRY", "USD", "EUR", "GBP", "CHF"];
+function todayISO(): string {
+  return new Date().toISOString().slice(0, 10);
+}
 
 interface Props {
   onClose: () => void;
@@ -30,6 +42,7 @@ export default function AddAssetModal({ onClose, onAdded }: Props) {
   const [currency, setCurrency] = useState("TRY");
   const [value, setValue] = useState("");
   const [notes, setNotes] = useState("");
+  const [asOfDate, setAsOfDate] = useState(todayISO());
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -44,6 +57,8 @@ export default function AddAssetModal({ onClose, onAdded }: Props) {
         currency,
         current_value: value,
         notes: notes || undefined,
+        source: "manual",
+        as_of_date: asOfDate || undefined,
       });
       onAdded(asset);
     } catch (err) {
@@ -59,7 +74,7 @@ export default function AddAssetModal({ onClose, onAdded }: Props) {
       onClick={onClose}
     >
       <div
-        className="bg-[#1A1A1A] border border-[#2A2A2A] rounded-2xl w-full max-w-md mx-4 p-6"
+        className="bg-[#1A1A1A] border border-[#2A2A2A] rounded-2xl w-full max-w-md mx-4 p-6 max-h-[90vh] overflow-y-auto"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between mb-5">
@@ -81,31 +96,22 @@ export default function AddAssetModal({ onClose, onAdded }: Props) {
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="block text-xs text-gray-400 mb-1">Tür</label>
-              <select
-                value={assetType}
-                onChange={(e) => setAssetType(e.target.value)}
-                className="w-full bg-[#0F0F0F] border border-[#2A2A2A] rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-600"
-              >
-                {ASSET_TYPES.map((t) => (
-                  <option key={t.value} value={t.value}>{t.label}</option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className="block text-xs text-gray-400 mb-1">Para Birimi</label>
-              <select
-                value={currency}
-                onChange={(e) => setCurrency(e.target.value)}
-                className="w-full bg-[#0F0F0F] border border-[#2A2A2A] rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-600"
-              >
-                {CURRENCIES.map((c) => (
-                  <option key={c} value={c}>{c}</option>
-                ))}
-              </select>
-            </div>
+          <div>
+            <label className="block text-xs text-gray-400 mb-1">Tür</label>
+            <select
+              value={assetType}
+              onChange={(e) => setAssetType(e.target.value)}
+              className="w-full bg-[#0F0F0F] border border-[#2A2A2A] rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-600"
+            >
+              {ASSET_TYPES.map((t) => (
+                <option key={t.value} value={t.value}>{t.label}</option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-xs text-gray-400 mb-1">Para Birimi</label>
+            <CurrencySelect value={currency} onChange={setCurrency} />
           </div>
 
           <div>
@@ -119,6 +125,16 @@ export default function AddAssetModal({ onClose, onAdded }: Props) {
               placeholder="0.00"
               required
               className="w-full bg-[#0F0F0F] border border-[#2A2A2A] rounded-lg px-3 py-2 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-indigo-600"
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs text-gray-400 mb-1">Değerleme Tarihi</label>
+            <input
+              type="date"
+              value={asOfDate}
+              onChange={(e) => setAsOfDate(e.target.value)}
+              className="w-full bg-[#0F0F0F] border border-[#2A2A2A] rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-600"
             />
           </div>
 

@@ -212,7 +212,7 @@ When context reaches ~70% capacity:
 
 ## Current Status
 
-**Phases 1–21 complete and tested. Docker running. Alembic head = 0018. All features working.**
+**Phases 1–22 complete and tested. Docker running. Alembic head = 0020. All features working.**
 
 Full stack: register/login → JWT → upload (rate-limited, busts caches) → 3-layer OCR → LLM extract → OCR cleanup → dedup → zero-amount filter → persist → LLM categorize (13 categories) → insight cache → LLM coach with corrections+notes injected → spending chart + progress page (LineChart 3-month trend + cross-batch-deduped category comparison + LLM one-liners, 24h cached) → PersonalityCard (5 types, cached per batch) → AlertsPanel (3 algorithmic detectors, dismiss persisted) → GoalsPanel (monthly budget vs actual) → ChatPanel (conversational coaching, behavioral profile memory, voice input, chat-based tx entry with confirmation card, sessionStorage prefill from alerts) → weekly email summary (Resend HTML, preferences toggle) → inflation-adjusted analysis (TUFE 2023-2026, real vs nominal per category, ProgressInsight cache).
 
@@ -237,6 +237,8 @@ Full stack: register/login → JWT → upload (rate-limited, busts caches) → 3
 | 0016 | CREATE assets |
 | 0017 | CREATE liabilities |
 | 0018 | CREATE receivables |
+| 0019 | ADD source, source_detail, as_of_date to assets |
+| 0020 | CREATE networth_suggestions |
 
 ### Known Issues (open)
 - **Layer 3 vision LLM**: stub ready in pdf_parser.py, not wired. Needed for banks with fonts <8pt.
@@ -534,28 +536,66 @@ Full stack: register/login → JWT → upload (rate-limited, busts caches) → 3
 - **Alembic stamp pattern**: Dev `create_all` runs before migrations. Same known issue as behavioral_profiles — stamp head after fresh migration files land on already-seeded DB.
 - **`updated_at` on Asset only**: Assets have current_value that changes (user updates price). Liabilities/receivables changed via PATCH to status or PUT the whole row — no `updated_at` needed.
 
+### Phase 22 — Net Worth Module Fixes & Expansion (2026-06-21)
+
+#### Backend
+- [x] `backend/app/models/asset.py` — added `source` (String(50), default "manual"), `source_detail` (String(500), nullable), `as_of_date` (Date, default today); `SOURCE_TYPES` set; `ASSET_TYPES` expanded to 19 types (added: foreign_currency, bond, commodity, startup_equity, art_collectible, jewelry, life_insurance, pension, business_ownership)
+- [x] `backend/app/models/networth_suggestion.py` — new table: id UUID, user_id FK CASCADE indexed, suggestion_type String(50), asset_id UUID FK nullable (ondelete=SET NULL), suggested_change Numeric(18,2), currency String(10), reason Text, source_batch_id String(36) nullable, status String(20) default "pending", created_at
+- [x] `backend/alembic/versions/0019_add_asset_lineage.py` — ADD COLUMN source/source_detail/as_of_date to assets, chains 0018→0019, has downgrade
+- [x] `backend/alembic/versions/0020_create_networth_suggestions.py` — CREATE TABLE + indexes, chains 0019→0020, has downgrade
+- [x] `backend/app/services/currency.py` — full rewrite: 3 separate caches (fiat/crypto/commodity), all 1h TTL. Fiat: open.er-api.com/v6/latest/USD (166 currencies live). Crypto: api.coingecko.com/v3/coins/markets top 100 by market cap. Commodities: XAU/XAG from open.er-api.com + hardcoded BRENT/XPT/XPD fallback. USD as conversion pivot. New public functions: `get_fiat_list()`, `get_crypto_list()`, `get_commodity_list()`
+- [x] `backend/app/api/currency.py` — new router `/currency`: `GET /currency/list` (returns all fiat+crypto+commodity, no auth); `GET /currency/rates?base=TRY` (all rates relative to base, 270+ currencies)
+- [x] `backend/app/api/networth.py` — major expansion:
+  - AssetRequest/Response include source, source_detail, as_of_date
+  - `PATCH /receivables/{id}/status → received` auto-creates Asset (source="receivable_collection"), returns `StatusPatchResponse(receivable, created_asset, toast_message)`
+  - Suggestions endpoints: `GET /networth/suggestions` (pending only), `POST /networth/suggestions/{id}/accept`, `POST /networth/suggestions/{id}/dismiss`
+  - `GET /networth/summary` gains `warnings: list[str]` (4 rule-based instant checks) + `ai_insight: str | None` (LLM, cached 24h in ProgressInsight table data_type="networth_insight", busted on asset/liability mutation)
+  - `bust_networth_insight_cache()` helper called on all asset/liability mutations
+- [x] `backend/app/api/upload.py` — `_generate_networth_suggestions()` groups transactions by bank keyword (10 banks), creates balance_change suggestions, added to UploadResponse as `suggestions: list[SuggestionResponse]`
+- [x] `backend/app/main.py` — currency_router registered; NetworthSuggestion imported for create_all
+- [x] Migrations stamped to 0020 (create_all pre-created tables)
+
+#### Frontend
+- [x] `frontend/src/lib/api.ts` — added: `CurrencyEntry`, `CurrencyList`, `getCurrencyList()`, `getCurrencyRates()`; `SuggestionItem` interface; `getNetWorthSuggestions()`, `acceptSuggestion()`, `dismissSuggestion()`; updated `AssetItem` (source, source_detail, as_of_date), `NetWorthSummary` (warnings, ai_insight), `UploadResponse` (suggestions), `updateReceivableStatus` return type (StatusPatchResponse with created_asset + toast_message)
+- [x] `frontend/src/components/CurrencySelect.tsx` — searchable grouped dropdown; loads live list from `/currency/list`; three groups (Fiat Para Birimleri / Kripto Paralar / Emtialar); search filters all entries; closes on outside click; styled with design system
+- [x] `frontend/src/components/AddAssetModal.tsx` — 19 asset types; CurrencySelect (live dynamic); as_of_date date picker (default today); passes source="manual"
+- [x] `frontend/src/components/AddLiabilityModal.tsx` — CurrencySelect replacing static list
+- [x] `frontend/src/components/AddReceivableModal.tsx` — CurrencySelect replacing static list
+- [x] `frontend/src/app/networth/page.tsx` — AI insight card (below hero, indigo border); warning banners (amber, one per warning); asset source+date badge ("Manuel giriş · 2026-06-21"); receivable "Alındı" toast (emerald, 3s, bottom-right); "Akıllı Öneriler" section (pending suggestions, "Uygula"/"Yoksay" per card); pending count pill on section header
+- [x] `frontend/src/components/ui/Navbar.tsx` — fetches pending suggestions on pathname change; red badge count on "Net Değer" link when count > 0
+- [x] Upload page — suggestion cards shown after successful upload
+
+#### Architectural decisions
+- **USD as pivot for all conversion**: crypto (CoinGecko) and fiat (open.er-api) both quote in USD. Conversion = amount × (from_usd_rate / to_usd_rate). One pivot = zero cross-rate drift.
+- **CoinGecko no auth**: top-100 market cap endpoint has generous rate limits without API key. Symbol collision possible (multiple coins with same ticker) — use market cap rank ordering, first match wins.
+- **Networth insight separate cache key**: SHA256(user_id + "|nw|" + sorted_asset_ids + sorted_liability_ids). Different from progress cache key so bust is surgical.
+- **Suggestion atomicity**: suggestions created in same session/commit as upload transactions. If upload fails mid-way, no orphan suggestions.
+- **StatusPatchResponse instead of ReceivableResponse**: PATCH /receivables/{id}/status now returns richer object. Frontend was already handling the response — updated types in api.ts.
+
 ---
 
 ## Next Session — Start Here
 
-**Phases 1–21 complete and TESTED (docker running, alembic at 0018). Phase 21 = Net Worth module.**
+**Phases 1–22 complete and TESTED (docker running, alembic at 0020). Phase 22 = Net Worth module expansion.**
 
 Pre-flight (if docker was restarted):
 ```bash
 docker compose up -d
-docker compose exec backend alembic current   # must say 0018 (head)
+docker compose exec backend alembic current   # must say 0020 (head)
 # If behind: docker compose exec backend alembic upgrade head
 ```
 
 Quick smoke-test:
 ```bash
-# Register → should return onboarding_completed: false → browser redirects /onboarding
-curl -s -X POST http://localhost:8000/auth/register -H "Content-Type: application/json" \
-  -d '{"email":"test@example.com","password":"testpass123"}' | python3 -m json.tool
+# Currency list (public, no auth)
+curl -s http://localhost:8000/currency/list | python3 -c "import sys,json; d=json.load(sys.stdin); print(len(d['fiat']), 'fiat,', len(d['crypto']), 'crypto')"
+# → should print "166 fiat, 100 crypto"
 
-# GET /subscriptions → {"subscriptions":[]}
-# POST /auth/complete-onboarding → {"onboarding_completed":true}
-# POST /chat {"message":"merhaba"} → {"response":"...","profile_updated":false,"pending_transaction":null}
+# Net worth summary (with warnings + ai_insight)
+# GET /networth/summary → {warnings: [...], ai_insight: "..."}
+
+# Receivable received → auto-creates asset
+# PATCH /networth/receivables/{id}/status {"status":"received"} → {receivable, created_asset, toast_message}
 ```
 
 Next task options (priority order):

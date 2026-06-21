@@ -1,0 +1,1033 @@
+- generic [ref=e1]:
+  - navigation [ref=e2]:
+    - generic [ref=e3]:
+      - link "Mizan" [ref=e4] [cursor=pointer]:
+        - /url: /transactions
+      - generic [ref=e5]:
+        - link "İşlemler" [ref=e6] [cursor=pointer]:
+          - /url: /transactions
+          - img [ref=e7]
+          - text: İşlemler
+        - link "Net Değer" [ref=e10] [cursor=pointer]:
+          - /url: /networth
+          - img [ref=e11]
+          - text: Net Değer
+        - link "İlerleme" [ref=e13] [cursor=pointer]:
+          - /url: /progress
+          - img [ref=e14]
+          - text: İlerleme
+        - link "Abonelikler" [ref=e15] [cursor=pointer]:
+          - /url: /subscriptions
+          - img [ref=e16]
+          - text: Abonelikler
+        - link "Taksitler" [ref=e18] [cursor=pointer]:
+          - /url: /installments
+          - img [ref=e19]
+          - text: Taksitler
+      - generic [ref=e23]:
+        - generic [ref=e24]: nw_test@example.com
+        - link "Yükle" [ref=e25] [cursor=pointer]:
+          - /url: /upload
+          - img [ref=e26]
+          - text: Yükle
+        - button "Çıkış" [ref=e29] [cursor=pointer]:
+          - img [ref=e30]
+  - generic [ref=e33]:
+    - generic [ref=e34]:
+      - generic [ref=e35]:
+        - heading "Net Değer" [level=1] [ref=e37]
+        - paragraph [ref=e38]: Varlıklar, borçlar ve alacaklar — tüm tablonuz
+      - generic [ref=e40]:
+        - button "TRY" [ref=e41] [cursor=pointer]
+        - button "USD" [ref=e42] [cursor=pointer]
+        - button "EUR" [ref=e43] [cursor=pointer]
+    - generic [ref=e44]:
+      - paragraph [ref=e84]: Net Değeriniz
+      - paragraph [ref=e85]: ₺114.455
+      - generic [ref=e86]:
+        - generic [ref=e87]:
+          - img [ref=e88]
+          - generic [ref=e91]: Varlıklar
+          - generic [ref=e92]: ₺126.455
+        - generic [ref=e93]: —
+        - generic [ref=e94]:
+          - img [ref=e95]
+          - generic [ref=e98]: Borçlar
+          - generic [ref=e99]: ₺12.000
+      - generic [ref=e100]:
+        - generic [ref=e101]: "TRY: ₺80.000"
+        - generic [ref=e102]: "USD: ₺46.455"
+    - generic [ref=e103]:
+      - img [ref=e104]
+      - paragraph [ref=e107]: Net değeriniz 114.455 TL ile pozitif ve güçlü bir tablo çiziyor. Varlıklarınızın büyük kısmı likit ve yatırımda, bu da size esneklik sağlıyor. Tek gelişim alanınız, 12.000 TL'lik kişisel krediyi kapatmaya odaklanarak borçsuz bir yapıya kavuşmak olabilir.
+    - generic [ref=e109]:
+      - generic [ref=e110]: ⚠
+      - paragraph [ref=e111]: Yüksek faizli borcunuz var (%35.00). Erken ödeme düşünebilirsiniz.
+    - generic [ref=e48]:
+      - generic [ref=e49]:
+        - generic [ref=e50]:
+          - img [ref=e51]
+          - heading "Varlıklar" [level=2] [ref=e54]
+          - generic [ref=e112]: ₺126.455
+        - button "Varlık Ekle" [ref=e55] [cursor=pointer]:
+          - img [ref=e56]
+          - text: Varlık Ekle
+      - generic [ref=e57]:
+        - generic [ref=e113]:
+          - generic [ref=e114]:
+            - img [ref=e115]
+            - generic [ref=e119]: Nakit & Banka
+          - generic [ref=e120]:
+            - generic [ref=e121]:
+              - paragraph [ref=e122]: Garanti Vadesiz
+              - paragraph [ref=e123]:
+                - generic [ref=e124]: Banka Hesabı
+                - generic [ref=e125]: · Manuel giriş
+                - generic [ref=e126]: · 2026-06-21
+            - generic [ref=e127]:
+              - paragraph [ref=e129]: ₺50.000
+              - button "×" [ref=e130] [cursor=pointer]
+          - generic [ref=e131]:
+            - generic [ref=e132]:
+              - paragraph [ref=e133]: Ziraat Vadesiz
+              - paragraph [ref=e134]:
+                - generic [ref=e135]: Banka Hesabı
+                - generic [ref=e136]: · Manuel giriş
+                - generic [ref=e137]: · 2026-06-21
+            - generic [ref=e138]:
+              - paragraph [ref=e140]: ₺30.000
+              - button "×" [ref=e141] [cursor=pointer]
+        - generic [ref=e142]:
+          - generic [ref=e143]:
+            - img [ref=e144]
+            - generic [ref=e147]: Yatırımlar
+          - generic [ref=e148]:
+            - generic [ref=e149]:
+              - paragraph [ref=e150]: Interactive Brokers
+              - paragraph [ref=e151]:
+                - generic [ref=e152]: Hisse Senedi
+                - generic [ref=e153]: · Manuel giriş
+                - generic [ref=e154]: · 2026-06-21
+            - generic [ref=e155]:
+              - generic [ref=e156]:
+                - paragraph [ref=e157]: $1.000,00
+                - paragraph [ref=e158]: USD
+              - button "×" [ref=e159] [cursor=pointer]
+    - generic [ref=e61]:
+      - generic [ref=e62]:
+        - generic [ref=e63]:
+          - img [ref=e64]
+          - heading "Borçlar" [level=2] [ref=e67]
+          - generic [ref=e160]: ₺12.000
+        - button "Borç Ekle" [ref=e68] [cursor=pointer]:
+          - img [ref=e69]
+          - text: Borç Ekle
+      - generic [ref=e162]:
+        - generic [ref=e163]:
+          - generic [ref=e164]:
+            - paragraph [ref=e165]: İhtiyaç Kredisi
+            - generic [ref=e166]: İhtiyaç Kredisi
+            - generic [ref=e167]: "%35.00 faiz"
+          - generic [ref=e168]:
+            - generic [ref=e169]: "Kalan: ₺12.000"
+            - generic [ref=e170]: "Aylık: ₺1.500"
+          - paragraph [ref=e173]: 40% ödendi · Toplam ₺20.000
+        - button "×" [ref=e174] [cursor=pointer]
+    - generic [ref=e73]:
+      - generic [ref=e74]:
+        - generic [ref=e75]:
+          - img [ref=e76]
+          - heading "Alacaklar" [level=2] [ref=e78]
+          - generic [ref=e175]: ₺0
+        - button "Alacak Ekle" [ref=e79] [cursor=pointer]:
+          - img [ref=e80]
+          - text: Alacak Ekle
+      - generic [ref=e81]:
+        - generic [ref=e176]:
+          - generic [ref=e177]:
+            - generic [ref=e178]:
+              - paragraph [ref=e179]: Ahmet
+              - generic [ref=e180]: Alındı ✓
+            - paragraph [ref=e181]: ₺5.000 · 2026-07-15 · Kira borcu
+          - button "×" [ref=e183] [cursor=pointer]
+        - generic [ref=e184]:
+          - generic [ref=e185]:
+            - generic [ref=e186]:
+              - paragraph [ref=e187]: Umut
+              - generic [ref=e188]: Alındı ✓
+            - paragraph [ref=e189]: ₺7.000 · 2026-06-22 · kredi borcu
+          - button "×" [ref=e191] [cursor=pointer]
+    - generic [ref=e193]:
+      - generic [ref=e194]:
+        - heading "Varlık Ekle" [level=2] [ref=e195]
+        - button [ref=e196] [cursor=pointer]:
+          - img [ref=e197]
+      - generic [ref=e200]:
+        - generic [ref=e201]:
+          - generic [ref=e202]: Ad
+          - textbox "örn. Garanti vadesiz hesabı" [ref=e203]
+        - generic [ref=e204]:
+          - generic [ref=e205]: Tür
+          - combobox [ref=e206]:
+            - option "Nakit"
+            - option "Banka Hesabı" [selected]
+            - option "Hisse Senedi"
+            - option "Yatırım Fonu"
+            - option "Kripto Para"
+            - option "Gayrimenkul"
+            - option "Araç"
+            - option "BES / Emeklilik"
+            - option "Altın"
+            - option "Döviz"
+            - option "Tahvil / Bono"
+            - option "Emtia"
+            - option "Startup Hissesi"
+            - option "Sanat / Koleksiyon"
+            - option "Mücevher"
+            - option "Hayat Sigortası"
+            - option "Emeklilik Fonu"
+            - option "İşletme Ortaklığı"
+            - option "Diğer"
+        - generic [ref=e207]:
+          - generic [ref=e208]: Para Birimi
+          - generic [ref=e209]:
+            - button "TRY— Türk Lirası" [ref=e210] [cursor=pointer]:
+              - generic [ref=e211]:
+                - text: TRY
+                - generic [ref=e212]: — Türk Lirası
+              - img [ref=e213]
+            - generic [ref=e227]:
+              - textbox "Ara... (USD, Euro, Bitcoin...)" [active] [ref=e229]
+              - generic [ref=e230]:
+                - generic [ref=e231]:
+                  - paragraph [ref=e232]: Fiat Para Birimleri
+                  - button "AED UAE Dirham" [ref=e233] [cursor=pointer]:
+                    - generic [ref=e234]: AED
+                    - generic [ref=e235]: UAE Dirham
+                  - button "AFN AFN" [ref=e236] [cursor=pointer]:
+                    - generic [ref=e237]: AFN
+                    - generic [ref=e238]: AFN
+                  - button "ALL ALL" [ref=e239] [cursor=pointer]:
+                    - generic [ref=e240]: ALL
+                    - generic [ref=e241]: ALL
+                  - button "AMD AMD" [ref=e242] [cursor=pointer]:
+                    - generic [ref=e243]: AMD
+                    - generic [ref=e244]: AMD
+                  - button "ANG ANG" [ref=e245] [cursor=pointer]:
+                    - generic [ref=e246]: ANG
+                    - generic [ref=e247]: ANG
+                  - button "AOA AOA" [ref=e248] [cursor=pointer]:
+                    - generic [ref=e249]: AOA
+                    - generic [ref=e250]: AOA
+                  - button "ARS ARS" [ref=e251] [cursor=pointer]:
+                    - generic [ref=e252]: ARS
+                    - generic [ref=e253]: ARS
+                  - button "AUD Australian Dollar" [ref=e254] [cursor=pointer]:
+                    - generic [ref=e255]: AUD
+                    - generic [ref=e256]: Australian Dollar
+                  - button "AWG AWG" [ref=e257] [cursor=pointer]:
+                    - generic [ref=e258]: AWG
+                    - generic [ref=e259]: AWG
+                  - button "AZN AZN" [ref=e260] [cursor=pointer]:
+                    - generic [ref=e261]: AZN
+                    - generic [ref=e262]: AZN
+                  - button "BAM BAM" [ref=e263] [cursor=pointer]:
+                    - generic [ref=e264]: BAM
+                    - generic [ref=e265]: BAM
+                  - button "BBD BBD" [ref=e266] [cursor=pointer]:
+                    - generic [ref=e267]: BBD
+                    - generic [ref=e268]: BBD
+                  - button "BDT BDT" [ref=e269] [cursor=pointer]:
+                    - generic [ref=e270]: BDT
+                    - generic [ref=e271]: BDT
+                  - button "BGN Bulgarian Lev" [ref=e272] [cursor=pointer]:
+                    - generic [ref=e273]: BGN
+                    - generic [ref=e274]: Bulgarian Lev
+                  - button "BHD BHD" [ref=e275] [cursor=pointer]:
+                    - generic [ref=e276]: BHD
+                    - generic [ref=e277]: BHD
+                  - button "BIF BIF" [ref=e278] [cursor=pointer]:
+                    - generic [ref=e279]: BIF
+                    - generic [ref=e280]: BIF
+                  - button "BMD BMD" [ref=e281] [cursor=pointer]:
+                    - generic [ref=e282]: BMD
+                    - generic [ref=e283]: BMD
+                  - button "BND BND" [ref=e284] [cursor=pointer]:
+                    - generic [ref=e285]: BND
+                    - generic [ref=e286]: BND
+                  - button "BOB BOB" [ref=e287] [cursor=pointer]:
+                    - generic [ref=e288]: BOB
+                    - generic [ref=e289]: BOB
+                  - button "BRL Brazilian Real" [ref=e290] [cursor=pointer]:
+                    - generic [ref=e291]: BRL
+                    - generic [ref=e292]: Brazilian Real
+                  - button "BSD BSD" [ref=e293] [cursor=pointer]:
+                    - generic [ref=e294]: BSD
+                    - generic [ref=e295]: BSD
+                  - button "BTN BTN" [ref=e296] [cursor=pointer]:
+                    - generic [ref=e297]: BTN
+                    - generic [ref=e298]: BTN
+                  - button "BWP BWP" [ref=e299] [cursor=pointer]:
+                    - generic [ref=e300]: BWP
+                    - generic [ref=e301]: BWP
+                  - button "BYN BYN" [ref=e302] [cursor=pointer]:
+                    - generic [ref=e303]: BYN
+                    - generic [ref=e304]: BYN
+                  - button "BZD BZD" [ref=e305] [cursor=pointer]:
+                    - generic [ref=e306]: BZD
+                    - generic [ref=e307]: BZD
+                  - button "CAD Canadian Dollar" [ref=e308] [cursor=pointer]:
+                    - generic [ref=e309]: CAD
+                    - generic [ref=e310]: Canadian Dollar
+                  - button "CDF CDF" [ref=e311] [cursor=pointer]:
+                    - generic [ref=e312]: CDF
+                    - generic [ref=e313]: CDF
+                  - button "CHF Swiss Franc" [ref=e314] [cursor=pointer]:
+                    - generic [ref=e315]: CHF
+                    - generic [ref=e316]: Swiss Franc
+                  - button "CLF CLF" [ref=e317] [cursor=pointer]:
+                    - generic [ref=e318]: CLF
+                    - generic [ref=e319]: CLF
+                  - button "CLP CLP" [ref=e320] [cursor=pointer]:
+                    - generic [ref=e321]: CLP
+                    - generic [ref=e322]: CLP
+                  - button "CNH CNH" [ref=e323] [cursor=pointer]:
+                    - generic [ref=e324]: CNH
+                    - generic [ref=e325]: CNH
+                  - button "CNY Chinese Yuan" [ref=e326] [cursor=pointer]:
+                    - generic [ref=e327]: CNY
+                    - generic [ref=e328]: Chinese Yuan
+                  - button "COP COP" [ref=e329] [cursor=pointer]:
+                    - generic [ref=e330]: COP
+                    - generic [ref=e331]: COP
+                  - button "CRC CRC" [ref=e332] [cursor=pointer]:
+                    - generic [ref=e333]: CRC
+                    - generic [ref=e334]: CRC
+                  - button "CUP CUP" [ref=e335] [cursor=pointer]:
+                    - generic [ref=e336]: CUP
+                    - generic [ref=e337]: CUP
+                  - button "CVE CVE" [ref=e338] [cursor=pointer]:
+                    - generic [ref=e339]: CVE
+                    - generic [ref=e340]: CVE
+                  - button "CZK Czech Koruna" [ref=e341] [cursor=pointer]:
+                    - generic [ref=e342]: CZK
+                    - generic [ref=e343]: Czech Koruna
+                  - button "DJF DJF" [ref=e344] [cursor=pointer]:
+                    - generic [ref=e345]: DJF
+                    - generic [ref=e346]: DJF
+                  - button "DKK Danish Krone" [ref=e347] [cursor=pointer]:
+                    - generic [ref=e348]: DKK
+                    - generic [ref=e349]: Danish Krone
+                  - button "DOP DOP" [ref=e350] [cursor=pointer]:
+                    - generic [ref=e351]: DOP
+                    - generic [ref=e352]: DOP
+                  - button "DZD DZD" [ref=e353] [cursor=pointer]:
+                    - generic [ref=e354]: DZD
+                    - generic [ref=e355]: DZD
+                  - button "EGP Egyptian Pound" [ref=e356] [cursor=pointer]:
+                    - generic [ref=e357]: EGP
+                    - generic [ref=e358]: Egyptian Pound
+                  - button "ERN ERN" [ref=e359] [cursor=pointer]:
+                    - generic [ref=e360]: ERN
+                    - generic [ref=e361]: ERN
+                  - button "ETB ETB" [ref=e362] [cursor=pointer]:
+                    - generic [ref=e363]: ETB
+                    - generic [ref=e364]: ETB
+                  - button "EUR Euro" [ref=e365] [cursor=pointer]:
+                    - generic [ref=e366]: EUR
+                    - generic [ref=e367]: Euro
+                  - button "FJD FJD" [ref=e368] [cursor=pointer]:
+                    - generic [ref=e369]: FJD
+                    - generic [ref=e370]: FJD
+                  - button "FKP FKP" [ref=e371] [cursor=pointer]:
+                    - generic [ref=e372]: FKP
+                    - generic [ref=e373]: FKP
+                  - button "FOK FOK" [ref=e374] [cursor=pointer]:
+                    - generic [ref=e375]: FOK
+                    - generic [ref=e376]: FOK
+                  - button "GBP British Pound" [ref=e377] [cursor=pointer]:
+                    - generic [ref=e378]: GBP
+                    - generic [ref=e379]: British Pound
+                  - button "GEL GEL" [ref=e380] [cursor=pointer]:
+                    - generic [ref=e381]: GEL
+                    - generic [ref=e382]: GEL
+                  - button "GGP GGP" [ref=e383] [cursor=pointer]:
+                    - generic [ref=e384]: GGP
+                    - generic [ref=e385]: GGP
+                  - button "GHS GHS" [ref=e386] [cursor=pointer]:
+                    - generic [ref=e387]: GHS
+                    - generic [ref=e388]: GHS
+                  - button "GIP GIP" [ref=e389] [cursor=pointer]:
+                    - generic [ref=e390]: GIP
+                    - generic [ref=e391]: GIP
+                  - button "GMD GMD" [ref=e392] [cursor=pointer]:
+                    - generic [ref=e393]: GMD
+                    - generic [ref=e394]: GMD
+                  - button "GNF GNF" [ref=e395] [cursor=pointer]:
+                    - generic [ref=e396]: GNF
+                    - generic [ref=e397]: GNF
+                  - button "GTQ GTQ" [ref=e398] [cursor=pointer]:
+                    - generic [ref=e399]: GTQ
+                    - generic [ref=e400]: GTQ
+                  - button "GYD GYD" [ref=e401] [cursor=pointer]:
+                    - generic [ref=e402]: GYD
+                    - generic [ref=e403]: GYD
+                  - button "HKD Hong Kong Dollar" [ref=e404] [cursor=pointer]:
+                    - generic [ref=e405]: HKD
+                    - generic [ref=e406]: Hong Kong Dollar
+                  - button "HNL HNL" [ref=e407] [cursor=pointer]:
+                    - generic [ref=e408]: HNL
+                    - generic [ref=e409]: HNL
+                  - button "HRK Croatian Kuna" [ref=e410] [cursor=pointer]:
+                    - generic [ref=e411]: HRK
+                    - generic [ref=e412]: Croatian Kuna
+                  - button "HTG HTG" [ref=e413] [cursor=pointer]:
+                    - generic [ref=e414]: HTG
+                    - generic [ref=e415]: HTG
+                  - button "HUF Hungarian Forint" [ref=e416] [cursor=pointer]:
+                    - generic [ref=e417]: HUF
+                    - generic [ref=e418]: Hungarian Forint
+                  - button "IDR IDR" [ref=e419] [cursor=pointer]:
+                    - generic [ref=e420]: IDR
+                    - generic [ref=e421]: IDR
+                  - button "ILS ILS" [ref=e422] [cursor=pointer]:
+                    - generic [ref=e423]: ILS
+                    - generic [ref=e424]: ILS
+                  - button "IMP IMP" [ref=e425] [cursor=pointer]:
+                    - generic [ref=e426]: IMP
+                    - generic [ref=e427]: IMP
+                  - button "INR Indian Rupee" [ref=e428] [cursor=pointer]:
+                    - generic [ref=e429]: INR
+                    - generic [ref=e430]: Indian Rupee
+                  - button "IQD IQD" [ref=e431] [cursor=pointer]:
+                    - generic [ref=e432]: IQD
+                    - generic [ref=e433]: IQD
+                  - button "IRR IRR" [ref=e434] [cursor=pointer]:
+                    - generic [ref=e435]: IRR
+                    - generic [ref=e436]: IRR
+                  - button "ISK ISK" [ref=e437] [cursor=pointer]:
+                    - generic [ref=e438]: ISK
+                    - generic [ref=e439]: ISK
+                  - button "JEP JEP" [ref=e440] [cursor=pointer]:
+                    - generic [ref=e441]: JEP
+                    - generic [ref=e442]: JEP
+                  - button "JMD JMD" [ref=e443] [cursor=pointer]:
+                    - generic [ref=e444]: JMD
+                    - generic [ref=e445]: JMD
+                  - button "JOD JOD" [ref=e446] [cursor=pointer]:
+                    - generic [ref=e447]: JOD
+                    - generic [ref=e448]: JOD
+                  - button "JPY Japanese Yen" [ref=e449] [cursor=pointer]:
+                    - generic [ref=e450]: JPY
+                    - generic [ref=e451]: Japanese Yen
+                  - button "KES KES" [ref=e452] [cursor=pointer]:
+                    - generic [ref=e453]: KES
+                    - generic [ref=e454]: KES
+                  - button "KGS KGS" [ref=e455] [cursor=pointer]:
+                    - generic [ref=e456]: KGS
+                    - generic [ref=e457]: KGS
+                  - button "KHR KHR" [ref=e458] [cursor=pointer]:
+                    - generic [ref=e459]: KHR
+                    - generic [ref=e460]: KHR
+                  - button "KID KID" [ref=e461] [cursor=pointer]:
+                    - generic [ref=e462]: KID
+                    - generic [ref=e463]: KID
+                  - button "KMF KMF" [ref=e464] [cursor=pointer]:
+                    - generic [ref=e465]: KMF
+                    - generic [ref=e466]: KMF
+                  - button "KRW South Korean Won" [ref=e467] [cursor=pointer]:
+                    - generic [ref=e468]: KRW
+                    - generic [ref=e469]: South Korean Won
+                  - button "KWD Kuwaiti Dinar" [ref=e470] [cursor=pointer]:
+                    - generic [ref=e471]: KWD
+                    - generic [ref=e472]: Kuwaiti Dinar
+                  - button "KYD KYD" [ref=e473] [cursor=pointer]:
+                    - generic [ref=e474]: KYD
+                    - generic [ref=e475]: KYD
+                  - button "KZT KZT" [ref=e476] [cursor=pointer]:
+                    - generic [ref=e477]: KZT
+                    - generic [ref=e478]: KZT
+                  - button "LAK LAK" [ref=e479] [cursor=pointer]:
+                    - generic [ref=e480]: LAK
+                    - generic [ref=e481]: LAK
+                  - button "LBP LBP" [ref=e482] [cursor=pointer]:
+                    - generic [ref=e483]: LBP
+                    - generic [ref=e484]: LBP
+                  - button "LKR LKR" [ref=e485] [cursor=pointer]:
+                    - generic [ref=e486]: LKR
+                    - generic [ref=e487]: LKR
+                  - button "LRD LRD" [ref=e488] [cursor=pointer]:
+                    - generic [ref=e489]: LRD
+                    - generic [ref=e490]: LRD
+                  - button "LSL LSL" [ref=e491] [cursor=pointer]:
+                    - generic [ref=e492]: LSL
+                    - generic [ref=e493]: LSL
+                  - button "LYD LYD" [ref=e494] [cursor=pointer]:
+                    - generic [ref=e495]: LYD
+                    - generic [ref=e496]: LYD
+                  - button "MAD Moroccan Dirham" [ref=e497] [cursor=pointer]:
+                    - generic [ref=e498]: MAD
+                    - generic [ref=e499]: Moroccan Dirham
+                  - button "MDL MDL" [ref=e500] [cursor=pointer]:
+                    - generic [ref=e501]: MDL
+                    - generic [ref=e502]: MDL
+                  - button "MGA MGA" [ref=e503] [cursor=pointer]:
+                    - generic [ref=e504]: MGA
+                    - generic [ref=e505]: MGA
+                  - button "MKD MKD" [ref=e506] [cursor=pointer]:
+                    - generic [ref=e507]: MKD
+                    - generic [ref=e508]: MKD
+                  - button "MMK MMK" [ref=e509] [cursor=pointer]:
+                    - generic [ref=e510]: MMK
+                    - generic [ref=e511]: MMK
+                  - button "MNT MNT" [ref=e512] [cursor=pointer]:
+                    - generic [ref=e513]: MNT
+                    - generic [ref=e514]: MNT
+                  - button "MOP MOP" [ref=e515] [cursor=pointer]:
+                    - generic [ref=e516]: MOP
+                    - generic [ref=e517]: MOP
+                  - button "MRU MRU" [ref=e518] [cursor=pointer]:
+                    - generic [ref=e519]: MRU
+                    - generic [ref=e520]: MRU
+                  - button "MUR MUR" [ref=e521] [cursor=pointer]:
+                    - generic [ref=e522]: MUR
+                    - generic [ref=e523]: MUR
+                  - button "MVR MVR" [ref=e524] [cursor=pointer]:
+                    - generic [ref=e525]: MVR
+                    - generic [ref=e526]: MVR
+                  - button "MWK MWK" [ref=e527] [cursor=pointer]:
+                    - generic [ref=e528]: MWK
+                    - generic [ref=e529]: MWK
+                  - button "MXN Mexican Peso" [ref=e530] [cursor=pointer]:
+                    - generic [ref=e531]: MXN
+                    - generic [ref=e532]: Mexican Peso
+                  - button "MYR MYR" [ref=e533] [cursor=pointer]:
+                    - generic [ref=e534]: MYR
+                    - generic [ref=e535]: MYR
+                  - button "MZN MZN" [ref=e536] [cursor=pointer]:
+                    - generic [ref=e537]: MZN
+                    - generic [ref=e538]: MZN
+                  - button "NAD NAD" [ref=e539] [cursor=pointer]:
+                    - generic [ref=e540]: NAD
+                    - generic [ref=e541]: NAD
+                  - button "NGN NGN" [ref=e542] [cursor=pointer]:
+                    - generic [ref=e543]: NGN
+                    - generic [ref=e544]: NGN
+                  - button "NIO NIO" [ref=e545] [cursor=pointer]:
+                    - generic [ref=e546]: NIO
+                    - generic [ref=e547]: NIO
+                  - button "NOK Norwegian Krone" [ref=e548] [cursor=pointer]:
+                    - generic [ref=e549]: NOK
+                    - generic [ref=e550]: Norwegian Krone
+                  - button "NPR NPR" [ref=e551] [cursor=pointer]:
+                    - generic [ref=e552]: NPR
+                    - generic [ref=e553]: NPR
+                  - button "NZD NZD" [ref=e554] [cursor=pointer]:
+                    - generic [ref=e555]: NZD
+                    - generic [ref=e556]: NZD
+                  - button "OMR OMR" [ref=e557] [cursor=pointer]:
+                    - generic [ref=e558]: OMR
+                    - generic [ref=e559]: OMR
+                  - button "PAB PAB" [ref=e560] [cursor=pointer]:
+                    - generic [ref=e561]: PAB
+                    - generic [ref=e562]: PAB
+                  - button "PEN PEN" [ref=e563] [cursor=pointer]:
+                    - generic [ref=e564]: PEN
+                    - generic [ref=e565]: PEN
+                  - button "PGK PGK" [ref=e566] [cursor=pointer]:
+                    - generic [ref=e567]: PGK
+                    - generic [ref=e568]: PGK
+                  - button "PHP PHP" [ref=e569] [cursor=pointer]:
+                    - generic [ref=e570]: PHP
+                    - generic [ref=e571]: PHP
+                  - button "PKR PKR" [ref=e572] [cursor=pointer]:
+                    - generic [ref=e573]: PKR
+                    - generic [ref=e574]: PKR
+                  - button "PLN Polish Zloty" [ref=e575] [cursor=pointer]:
+                    - generic [ref=e576]: PLN
+                    - generic [ref=e577]: Polish Zloty
+                  - button "PYG PYG" [ref=e578] [cursor=pointer]:
+                    - generic [ref=e579]: PYG
+                    - generic [ref=e580]: PYG
+                  - button "QAR Qatari Riyal" [ref=e581] [cursor=pointer]:
+                    - generic [ref=e582]: QAR
+                    - generic [ref=e583]: Qatari Riyal
+                  - button "RON Romanian Leu" [ref=e584] [cursor=pointer]:
+                    - generic [ref=e585]: RON
+                    - generic [ref=e586]: Romanian Leu
+                  - button "RSD RSD" [ref=e587] [cursor=pointer]:
+                    - generic [ref=e588]: RSD
+                    - generic [ref=e589]: RSD
+                  - button "RUB Russian Ruble" [ref=e590] [cursor=pointer]:
+                    - generic [ref=e591]: RUB
+                    - generic [ref=e592]: Russian Ruble
+                  - button "RWF RWF" [ref=e593] [cursor=pointer]:
+                    - generic [ref=e594]: RWF
+                    - generic [ref=e595]: RWF
+                  - button "SAR Saudi Riyal" [ref=e596] [cursor=pointer]:
+                    - generic [ref=e597]: SAR
+                    - generic [ref=e598]: Saudi Riyal
+                  - button "SBD SBD" [ref=e599] [cursor=pointer]:
+                    - generic [ref=e600]: SBD
+                    - generic [ref=e601]: SBD
+                  - button "SCR SCR" [ref=e602] [cursor=pointer]:
+                    - generic [ref=e603]: SCR
+                    - generic [ref=e604]: SCR
+                  - button "SDG SDG" [ref=e605] [cursor=pointer]:
+                    - generic [ref=e606]: SDG
+                    - generic [ref=e607]: SDG
+                  - button "SEK Swedish Krona" [ref=e608] [cursor=pointer]:
+                    - generic [ref=e609]: SEK
+                    - generic [ref=e610]: Swedish Krona
+                  - button "SGD Singapore Dollar" [ref=e611] [cursor=pointer]:
+                    - generic [ref=e612]: SGD
+                    - generic [ref=e613]: Singapore Dollar
+                  - button "SHP SHP" [ref=e614] [cursor=pointer]:
+                    - generic [ref=e615]: SHP
+                    - generic [ref=e616]: SHP
+                  - button "SLE SLE" [ref=e617] [cursor=pointer]:
+                    - generic [ref=e618]: SLE
+                    - generic [ref=e619]: SLE
+                  - button "SLL SLL" [ref=e620] [cursor=pointer]:
+                    - generic [ref=e621]: SLL
+                    - generic [ref=e622]: SLL
+                  - button "SOS SOS" [ref=e623] [cursor=pointer]:
+                    - generic [ref=e624]: SOS
+                    - generic [ref=e625]: SOS
+                  - button "SRD SRD" [ref=e626] [cursor=pointer]:
+                    - generic [ref=e627]: SRD
+                    - generic [ref=e628]: SRD
+                  - button "SSP SSP" [ref=e629] [cursor=pointer]:
+                    - generic [ref=e630]: SSP
+                    - generic [ref=e631]: SSP
+                  - button "STN STN" [ref=e632] [cursor=pointer]:
+                    - generic [ref=e633]: STN
+                    - generic [ref=e634]: STN
+                  - button "SYP SYP" [ref=e635] [cursor=pointer]:
+                    - generic [ref=e636]: SYP
+                    - generic [ref=e637]: SYP
+                  - button "SZL SZL" [ref=e638] [cursor=pointer]:
+                    - generic [ref=e639]: SZL
+                    - generic [ref=e640]: SZL
+                  - button "THB THB" [ref=e641] [cursor=pointer]:
+                    - generic [ref=e642]: THB
+                    - generic [ref=e643]: THB
+                  - button "TJS TJS" [ref=e644] [cursor=pointer]:
+                    - generic [ref=e645]: TJS
+                    - generic [ref=e646]: TJS
+                  - button "TMT TMT" [ref=e647] [cursor=pointer]:
+                    - generic [ref=e648]: TMT
+                    - generic [ref=e649]: TMT
+                  - button "TND TND" [ref=e650] [cursor=pointer]:
+                    - generic [ref=e651]: TND
+                    - generic [ref=e652]: TND
+                  - button "TOP TOP" [ref=e653] [cursor=pointer]:
+                    - generic [ref=e654]: TOP
+                    - generic [ref=e655]: TOP
+                  - button "TRY Türk Lirası" [ref=e656] [cursor=pointer]:
+                    - generic [ref=e657]: TRY
+                    - generic [ref=e658]: Türk Lirası
+                  - button "TTD TTD" [ref=e659] [cursor=pointer]:
+                    - generic [ref=e660]: TTD
+                    - generic [ref=e661]: TTD
+                  - button "TVD TVD" [ref=e662] [cursor=pointer]:
+                    - generic [ref=e663]: TVD
+                    - generic [ref=e664]: TVD
+                  - button "TWD TWD" [ref=e665] [cursor=pointer]:
+                    - generic [ref=e666]: TWD
+                    - generic [ref=e667]: TWD
+                  - button "TZS TZS" [ref=e668] [cursor=pointer]:
+                    - generic [ref=e669]: TZS
+                    - generic [ref=e670]: TZS
+                  - button "UAH UAH" [ref=e671] [cursor=pointer]:
+                    - generic [ref=e672]: UAH
+                    - generic [ref=e673]: UAH
+                  - button "UGX UGX" [ref=e674] [cursor=pointer]:
+                    - generic [ref=e675]: UGX
+                    - generic [ref=e676]: UGX
+                  - button "USD US Dollar" [ref=e677] [cursor=pointer]:
+                    - generic [ref=e678]: USD
+                    - generic [ref=e679]: US Dollar
+                  - button "UYU UYU" [ref=e680] [cursor=pointer]:
+                    - generic [ref=e681]: UYU
+                    - generic [ref=e682]: UYU
+                  - button "UZS UZS" [ref=e683] [cursor=pointer]:
+                    - generic [ref=e684]: UZS
+                    - generic [ref=e685]: UZS
+                  - button "VES VES" [ref=e686] [cursor=pointer]:
+                    - generic [ref=e687]: VES
+                    - generic [ref=e688]: VES
+                  - button "VND VND" [ref=e689] [cursor=pointer]:
+                    - generic [ref=e690]: VND
+                    - generic [ref=e691]: VND
+                  - button "VUV VUV" [ref=e692] [cursor=pointer]:
+                    - generic [ref=e693]: VUV
+                    - generic [ref=e694]: VUV
+                  - button "WST WST" [ref=e695] [cursor=pointer]:
+                    - generic [ref=e696]: WST
+                    - generic [ref=e697]: WST
+                  - button "XAF XAF" [ref=e698] [cursor=pointer]:
+                    - generic [ref=e699]: XAF
+                    - generic [ref=e700]: XAF
+                  - button "XCD XCD" [ref=e701] [cursor=pointer]:
+                    - generic [ref=e702]: XCD
+                    - generic [ref=e703]: XCD
+                  - button "XCG XCG" [ref=e704] [cursor=pointer]:
+                    - generic [ref=e705]: XCG
+                    - generic [ref=e706]: XCG
+                  - button "XDR XDR" [ref=e707] [cursor=pointer]:
+                    - generic [ref=e708]: XDR
+                    - generic [ref=e709]: XDR
+                  - button "XOF XOF" [ref=e710] [cursor=pointer]:
+                    - generic [ref=e711]: XOF
+                    - generic [ref=e712]: XOF
+                  - button "XPF XPF" [ref=e713] [cursor=pointer]:
+                    - generic [ref=e714]: XPF
+                    - generic [ref=e715]: XPF
+                  - button "YER YER" [ref=e716] [cursor=pointer]:
+                    - generic [ref=e717]: YER
+                    - generic [ref=e718]: YER
+                  - button "ZAR South African Rand" [ref=e719] [cursor=pointer]:
+                    - generic [ref=e720]: ZAR
+                    - generic [ref=e721]: South African Rand
+                  - button "ZMW ZMW" [ref=e722] [cursor=pointer]:
+                    - generic [ref=e723]: ZMW
+                    - generic [ref=e724]: ZMW
+                  - button "ZWG ZWG" [ref=e725] [cursor=pointer]:
+                    - generic [ref=e726]: ZWG
+                    - generic [ref=e727]: ZWG
+                  - button "ZWL ZWL" [ref=e728] [cursor=pointer]:
+                    - generic [ref=e729]: ZWL
+                    - generic [ref=e730]: ZWL
+                - generic [ref=e731]:
+                  - paragraph [ref=e732]: Kripto Paralar
+                  - button "BTC Bitcoin" [ref=e733] [cursor=pointer]:
+                    - generic [ref=e734]: BTC
+                    - generic [ref=e735]: Bitcoin
+                  - button "ETH Ethereum" [ref=e736] [cursor=pointer]:
+                    - generic [ref=e737]: ETH
+                    - generic [ref=e738]: Ethereum
+                  - button "USDT Tether" [ref=e739] [cursor=pointer]:
+                    - generic [ref=e740]: USDT
+                    - generic [ref=e741]: Tether
+                  - button "BNB BNB" [ref=e742] [cursor=pointer]:
+                    - generic [ref=e743]: BNB
+                    - generic [ref=e744]: BNB
+                  - button "USDC USDC" [ref=e745] [cursor=pointer]:
+                    - generic [ref=e746]: USDC
+                    - generic [ref=e747]: USDC
+                  - button "XRP XRP" [ref=e748] [cursor=pointer]:
+                    - generic [ref=e749]: XRP
+                    - generic [ref=e750]: XRP
+                  - button "SOL Solana" [ref=e751] [cursor=pointer]:
+                    - generic [ref=e752]: SOL
+                    - generic [ref=e753]: Solana
+                  - button "TRX TRON" [ref=e754] [cursor=pointer]:
+                    - generic [ref=e755]: TRX
+                    - generic [ref=e756]: TRON
+                  - button "FIGR_HELOC Figure Heloc" [ref=e757] [cursor=pointer]:
+                    - generic [ref=e758]: FIGR_HELOC
+                    - generic [ref=e759]: Figure Heloc
+                  - button "HYPE Hyperliquid" [ref=e760] [cursor=pointer]:
+                    - generic [ref=e761]: HYPE
+                    - generic [ref=e762]: Hyperliquid
+                  - button "DOGE Dogecoin" [ref=e763] [cursor=pointer]:
+                    - generic [ref=e764]: DOGE
+                    - generic [ref=e765]: Dogecoin
+                  - button "USDS USDS" [ref=e766] [cursor=pointer]:
+                    - generic [ref=e767]: USDS
+                    - generic [ref=e768]: USDS
+                  - button "RAIN Rain" [ref=e769] [cursor=pointer]:
+                    - generic [ref=e770]: RAIN
+                    - generic [ref=e771]: Rain
+                  - button "LEO LEO Token" [ref=e772] [cursor=pointer]:
+                    - generic [ref=e773]: LEO
+                    - generic [ref=e774]: LEO Token
+                  - button "ZEC Zcash" [ref=e775] [cursor=pointer]:
+                    - generic [ref=e776]: ZEC
+                    - generic [ref=e777]: Zcash
+                  - button "XLM Stellar" [ref=e778] [cursor=pointer]:
+                    - generic [ref=e779]: XLM
+                    - generic [ref=e780]: Stellar
+                  - button "WBT WhiteBIT Coin" [ref=e781] [cursor=pointer]:
+                    - generic [ref=e782]: WBT
+                    - generic [ref=e783]: WhiteBIT Coin
+                  - button "ADA Cardano" [ref=e784] [cursor=pointer]:
+                    - generic [ref=e785]: ADA
+                    - generic [ref=e786]: Cardano
+                  - button "XMR Monero" [ref=e787] [cursor=pointer]:
+                    - generic [ref=e788]: XMR
+                    - generic [ref=e789]: Monero
+                  - button "LINK Chainlink" [ref=e790] [cursor=pointer]:
+                    - generic [ref=e791]: LINK
+                    - generic [ref=e792]: Chainlink
+                  - button "CC Canton" [ref=e793] [cursor=pointer]:
+                    - generic [ref=e794]: CC
+                    - generic [ref=e795]: Canton
+                  - button "USD1 USD1" [ref=e796] [cursor=pointer]:
+                    - generic [ref=e797]: USD1
+                    - generic [ref=e798]: USD1
+                  - button "GRAM Gram (prev. Toncoin)" [ref=e799] [cursor=pointer]:
+                    - generic [ref=e800]: GRAM
+                    - generic [ref=e801]: Gram (prev. Toncoin)
+                  - button "USDE Ethena USDe" [ref=e802] [cursor=pointer]:
+                    - generic [ref=e803]: USDE
+                    - generic [ref=e804]: Ethena USDe
+                  - button "DAI Dai" [ref=e805] [cursor=pointer]:
+                    - generic [ref=e806]: DAI
+                    - generic [ref=e807]: Dai
+                  - button "LAB LAB" [ref=e808] [cursor=pointer]:
+                    - generic [ref=e809]: LAB
+                    - generic [ref=e810]: LAB
+                  - button "BCH Bitcoin Cash" [ref=e811] [cursor=pointer]:
+                    - generic [ref=e812]: BCH
+                    - generic [ref=e813]: Bitcoin Cash
+                  - button "M MemeCore" [ref=e814] [cursor=pointer]:
+                    - generic [ref=e815]: M
+                    - generic [ref=e816]: MemeCore
+                  - button "LTC Litecoin" [ref=e817] [cursor=pointer]:
+                    - generic [ref=e818]: LTC
+                    - generic [ref=e819]: Litecoin
+                  - button "HBAR Hedera" [ref=e820] [cursor=pointer]:
+                    - generic [ref=e821]: HBAR
+                    - generic [ref=e822]: Hedera
+                  - button "USYC Circle USYC" [ref=e823] [cursor=pointer]:
+                    - generic [ref=e824]: USYC
+                    - generic [ref=e825]: Circle USYC
+                  - button "SUI Sui" [ref=e826] [cursor=pointer]:
+                    - generic [ref=e827]: SUI
+                    - generic [ref=e828]: Sui
+                  - button "USDG Global Dollar" [ref=e829] [cursor=pointer]:
+                    - generic [ref=e830]: USDG
+                    - generic [ref=e831]: Global Dollar
+                  - button "NEAR NEAR Protocol" [ref=e832] [cursor=pointer]:
+                    - generic [ref=e833]: NEAR
+                    - generic [ref=e834]: NEAR Protocol
+                  - button "PYUSD PayPal USD" [ref=e835] [cursor=pointer]:
+                    - generic [ref=e836]: PYUSD
+                    - generic [ref=e837]: PayPal USD
+                  - button "SHIB Shiba Inu" [ref=e838] [cursor=pointer]:
+                    - generic [ref=e839]: SHIB
+                    - generic [ref=e840]: Shiba Inu
+                  - button "CRO Cronos" [ref=e841] [cursor=pointer]:
+                    - generic [ref=e842]: CRO
+                    - generic [ref=e843]: Cronos
+                  - button "AVAX Avalanche" [ref=e844] [cursor=pointer]:
+                    - generic [ref=e845]: AVAX
+                    - generic [ref=e846]: Avalanche
+                  - button "XAUT Tether Gold" [ref=e847] [cursor=pointer]:
+                    - generic [ref=e848]: XAUT
+                    - generic [ref=e849]: Tether Gold
+                  - button "BUIDL BlackRock USD Institutional Digital Liquidity Fund" [ref=e850] [cursor=pointer]:
+                    - generic [ref=e851]: BUIDL
+                    - generic [ref=e852]: BlackRock USD Institutional Digital Liquidity Fund
+                  - button "TAO Bittensor" [ref=e853] [cursor=pointer]:
+                    - generic [ref=e854]: TAO
+                    - generic [ref=e855]: Bittensor
+                  - button "WLD Worldcoin" [ref=e856] [cursor=pointer]:
+                    - generic [ref=e857]: WLD
+                    - generic [ref=e858]: Worldcoin
+                  - button "USDY Ondo US Dollar Yield" [ref=e859] [cursor=pointer]:
+                    - generic [ref=e860]: USDY
+                    - generic [ref=e861]: Ondo US Dollar Yield
+                  - button "UNI Uniswap" [ref=e862] [cursor=pointer]:
+                    - generic [ref=e863]: UNI
+                    - generic [ref=e864]: Uniswap
+                  - button "PAXG PAX Gold" [ref=e865] [cursor=pointer]:
+                    - generic [ref=e866]: PAXG
+                    - generic [ref=e867]: PAX Gold
+                  - button "WLFI World Liberty Financial" [ref=e868] [cursor=pointer]:
+                    - generic [ref=e869]: WLFI
+                    - generic [ref=e870]: World Liberty Financial
+                  - button "MNT Mantle" [ref=e871] [cursor=pointer]:
+                    - generic [ref=e872]: MNT
+                    - generic [ref=e873]: Mantle
+                  - button "ASTER Aster" [ref=e874] [cursor=pointer]:
+                    - generic [ref=e875]: ASTER
+                    - generic [ref=e876]: Aster
+                  - button "ONDO Ondo" [ref=e877] [cursor=pointer]:
+                    - generic [ref=e878]: ONDO
+                    - generic [ref=e879]: Ondo
+                  - button "RLUSD Ripple USD" [ref=e880] [cursor=pointer]:
+                    - generic [ref=e881]: RLUSD
+                    - generic [ref=e882]: Ripple USD
+                  - button "DOT Polkadot" [ref=e883] [cursor=pointer]:
+                    - generic [ref=e884]: DOT
+                    - generic [ref=e885]: Polkadot
+                  - button "OKB OKB" [ref=e886] [cursor=pointer]:
+                    - generic [ref=e887]: OKB
+                    - generic [ref=e888]: OKB
+                  - button "HTX HTX DAO" [ref=e889] [cursor=pointer]:
+                    - generic [ref=e890]: HTX
+                    - generic [ref=e891]: HTX DAO
+                  - button "PI Pi Network" [ref=e892] [cursor=pointer]:
+                    - generic [ref=e893]: PI
+                    - generic [ref=e894]: Pi Network
+                  - button "USDF Falcon USD" [ref=e895] [cursor=pointer]:
+                    - generic [ref=e896]: USDF
+                    - generic [ref=e897]: Falcon USD
+                  - button "SKY Sky" [ref=e898] [cursor=pointer]:
+                    - generic [ref=e899]: SKY
+                    - generic [ref=e900]: Sky
+                  - button "USDD USDD" [ref=e901] [cursor=pointer]:
+                    - generic [ref=e902]: USDD
+                    - generic [ref=e903]: USDD
+                  - button "BFUSD BFUSD" [ref=e904] [cursor=pointer]:
+                    - generic [ref=e905]: BFUSD
+                    - generic [ref=e906]: BFUSD
+                  - button "ICP Internet Computer" [ref=e907] [cursor=pointer]:
+                    - generic [ref=e908]: ICP
+                    - generic [ref=e909]: Internet Computer
+                  - button "BGB Bitget Token" [ref=e910] [cursor=pointer]:
+                    - generic [ref=e911]: BGB
+                    - generic [ref=e912]: Bitget Token
+                  - button "MORPHO Morpho" [ref=e913] [cursor=pointer]:
+                    - generic [ref=e914]: MORPHO
+                    - generic [ref=e915]: Morpho
+                  - button "PEPE Pepe" [ref=e916] [cursor=pointer]:
+                    - generic [ref=e917]: PEPE
+                    - generic [ref=e918]: Pepe
+                  - button "ETC Ethereum Classic" [ref=e919] [cursor=pointer]:
+                    - generic [ref=e920]: ETC
+                    - generic [ref=e921]: Ethereum Classic
+                  - button "AAVE Aave" [ref=e922] [cursor=pointer]:
+                    - generic [ref=e923]: AAVE
+                    - generic [ref=e924]: Aave
+                  - button "QNT Quant" [ref=e925] [cursor=pointer]:
+                    - generic [ref=e926]: QNT
+                    - generic [ref=e927]: Quant
+                  - button "U United Stables" [ref=e928] [cursor=pointer]:
+                    - generic [ref=e929]: U
+                    - generic [ref=e930]: United Stables
+                  - button "USTB Invesco Short Duration US Government Securities Fund" [ref=e931] [cursor=pointer]:
+                    - generic [ref=e932]: USTB
+                    - generic [ref=e933]: Invesco Short Duration US Government Securities Fund
+                  - button "KCS KuCoin" [ref=e934] [cursor=pointer]:
+                    - generic [ref=e935]: KCS
+                    - generic [ref=e936]: KuCoin
+                  - button "BCAP Blockchain Capital" [ref=e937] [cursor=pointer]:
+                    - generic [ref=e938]: BCAP
+                    - generic [ref=e939]: Blockchain Capital
+                  - button "EUTBL Spiko EU T-Bills Money Market Fund" [ref=e940] [cursor=pointer]:
+                    - generic [ref=e941]: EUTBL
+                    - generic [ref=e942]: Spiko EU T-Bills Money Market Fund
+                  - button "USDTB USDtb" [ref=e943] [cursor=pointer]:
+                    - generic [ref=e944]: USDTB
+                    - generic [ref=e945]: USDtb
+                  - button "ATOM Cosmos Hub" [ref=e946] [cursor=pointer]:
+                    - generic [ref=e947]: ATOM
+                    - generic [ref=e948]: Cosmos Hub
+                  - button "RENDER Render" [ref=e949] [cursor=pointer]:
+                    - generic [ref=e950]: RENDER
+                    - generic [ref=e951]: Render
+                  - button "JTRSY Janus Henderson Anemoy Treasury Fund" [ref=e952] [cursor=pointer]:
+                    - generic [ref=e953]: JTRSY
+                    - generic [ref=e954]: Janus Henderson Anemoy Treasury Fund
+                  - button "POL POL (ex-MATIC)" [ref=e955] [cursor=pointer]:
+                    - generic [ref=e956]: POL
+                    - generic [ref=e957]: POL (ex-MATIC)
+                  - button "ENA Ethena" [ref=e958] [cursor=pointer]:
+                    - generic [ref=e959]: ENA
+                    - generic [ref=e960]: Ethena
+                  - button "ALGO Algorand" [ref=e961] [cursor=pointer]:
+                    - generic [ref=e962]: ALGO
+                    - generic [ref=e963]: Algorand
+                  - button "KAS Kaspa" [ref=e964] [cursor=pointer]:
+                    - generic [ref=e965]: KAS
+                    - generic [ref=e966]: Kaspa
+                  - button "STABLE Stable" [ref=e967] [cursor=pointer]:
+                    - generic [ref=e968]: STABLE
+                    - generic [ref=e969]: Stable
+                  - button "NEXO NEXO" [ref=e970] [cursor=pointer]:
+                    - generic [ref=e971]: NEXO
+                    - generic [ref=e972]: NEXO
+                  - button "JUP Jupiter" [ref=e973] [cursor=pointer]:
+                    - generic [ref=e974]: JUP
+                    - generic [ref=e975]: Jupiter
+                  - button "JAAA Janus Henderson Anemoy AAA CLO Fund" [ref=e976] [cursor=pointer]:
+                    - generic [ref=e977]: JAAA
+                    - generic [ref=e978]: Janus Henderson Anemoy AAA CLO Fund
+                  - button "VVV Venice Token" [ref=e979] [cursor=pointer]:
+                    - generic [ref=e980]: VVV
+                    - generic [ref=e981]: Venice Token
+                  - button "GT Gate" [ref=e982] [cursor=pointer]:
+                    - generic [ref=e983]: GT
+                    - generic [ref=e984]: Gate
+                  - button "JST JUST" [ref=e985] [cursor=pointer]:
+                    - generic [ref=e986]: JST
+                    - generic [ref=e987]: JUST
+                  - button "币安人生 币安人生 (BinanceLife)" [ref=e988] [cursor=pointer]:
+                    - generic [ref=e989]: 币安人生
+                    - generic [ref=e990]: 币安人生 (BinanceLife)
+                  - button "DEXE DeXe" [ref=e991] [cursor=pointer]:
+                    - generic [ref=e992]: DEXE
+                    - generic [ref=e993]: DeXe
+                  - button "FLR Flare" [ref=e994] [cursor=pointer]:
+                    - generic [ref=e995]: FLR
+                    - generic [ref=e996]: Flare
+                  - button "FIL Filecoin" [ref=e997] [cursor=pointer]:
+                    - generic [ref=e998]: FIL
+                    - generic [ref=e999]: Filecoin
+                  - button "BDX Beldex" [ref=e1000] [cursor=pointer]:
+                    - generic [ref=e1001]: BDX
+                    - generic [ref=e1002]: Beldex
+                  - button "GHO GHO" [ref=e1003] [cursor=pointer]:
+                    - generic [ref=e1004]: GHO
+                    - generic [ref=e1005]: GHO
+                  - button "XDC XDC Network" [ref=e1006] [cursor=pointer]:
+                    - generic [ref=e1007]: XDC
+                    - generic [ref=e1008]: XDC Network
+                  - button "YLDS YLDS" [ref=e1009] [cursor=pointer]:
+                    - generic [ref=e1010]: YLDS
+                    - generic [ref=e1011]: YLDS
+                  - button "EURSAFO Spiko Amundi Overnight Swap Fund (EUR)" [ref=e1012] [cursor=pointer]:
+                    - generic [ref=e1013]: EURSAFO
+                    - generic [ref=e1014]: Spiko Amundi Overnight Swap Fund (EUR)
+                  - button "USD0 Usual USD" [ref=e1015] [cursor=pointer]:
+                    - generic [ref=e1016]: USD0
+                    - generic [ref=e1017]: Usual USD
+                  - button "HASH Provenance Blockchain" [ref=e1018] [cursor=pointer]:
+                    - generic [ref=e1019]: HASH
+                    - generic [ref=e1020]: Provenance Blockchain
+                  - button "NIGHT Midnight" [ref=e1021] [cursor=pointer]:
+                    - generic [ref=e1022]: NIGHT
+                    - generic [ref=e1023]: Midnight
+                  - button "APT Aptos" [ref=e1024] [cursor=pointer]:
+                    - generic [ref=e1025]: APT
+                    - generic [ref=e1026]: Aptos
+                  - button "ARB Arbitrum" [ref=e1027] [cursor=pointer]:
+                    - generic [ref=e1028]: ARB
+                    - generic [ref=e1029]: Arbitrum
+                  - button "PUMP Pump.fun" [ref=e1030] [cursor=pointer]:
+                    - generic [ref=e1031]: PUMP
+                    - generic [ref=e1032]: Pump.fun
+                - generic [ref=e1033]:
+                  - paragraph [ref=e1034]: Emtialar
+                  - button "BRENT Brent Petrol (varil)" [ref=e1035] [cursor=pointer]:
+                    - generic [ref=e1036]: BRENT
+                    - generic [ref=e1037]: Brent Petrol (varil)
+                  - button "XAG Gümüş (troy oz)" [ref=e1038] [cursor=pointer]:
+                    - generic [ref=e1039]: XAG
+                    - generic [ref=e1040]: Gümüş (troy oz)
+                  - button "XAU Altın (troy oz)" [ref=e1041] [cursor=pointer]:
+                    - generic [ref=e1042]: XAU
+                    - generic [ref=e1043]: Altın (troy oz)
+                  - button "XPD Paladyum (troy oz)" [ref=e1044] [cursor=pointer]:
+                    - generic [ref=e1045]: XPD
+                    - generic [ref=e1046]: Paladyum (troy oz)
+                  - button "XPT Platin (troy oz)" [ref=e1047] [cursor=pointer]:
+                    - generic [ref=e1048]: XPT
+                    - generic [ref=e1049]: Platin (troy oz)
+        - generic [ref=e215]:
+          - generic [ref=e216]: Güncel Değer
+          - spinbutton [ref=e217]
+        - generic [ref=e218]:
+          - generic [ref=e219]: Değerleme Tarihi
+          - textbox [ref=e220]: 2026-06-21
+        - generic [ref=e221]:
+          - generic [ref=e222]: Not (opsiyonel)
+          - textbox "ör. IBAN, kurum adı..." [ref=e223]
+        - generic [ref=e224]:
+          - button "İptal" [ref=e225] [cursor=pointer]
+          - button "Ekle" [disabled] [ref=e226]
+  - alert [ref=e83]

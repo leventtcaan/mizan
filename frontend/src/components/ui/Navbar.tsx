@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import Link from "next/link";
-import { getToken, getStoredUser, clearToken } from "@/lib/api";
+import { getToken, getStoredUser, clearToken, getNetWorthSuggestions } from "@/lib/api";
 import { BarChart2, CreditCard, Layers, Upload, LogOut, Menu, X, Scale } from "@/components/ui/Icons";
 
 const HIDDEN_PATHS = ["/login", "/onboarding"];
@@ -37,13 +37,19 @@ export default function Navbar() {
   const [userEmail, setUserEmail] = useState<string | null>(null);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [emailEnabled, setEmailEnabled] = useState<boolean | null>(null);
+  const [suggestionCount, setSuggestionCount] = useState(0);
 
   useEffect(() => {
     const user = getStoredUser();
     if (user && getToken()) {
       setUserEmail(user.email);
+      // Fetch pending suggestions count (silent on error)
+      getNetWorthSuggestions()
+        .then((suggs) => setSuggestionCount(suggs.filter((s) => s.status === "pending").length))
+        .catch(() => setSuggestionCount(0));
     } else {
       setUserEmail(null);
+      setSuggestionCount(0);
     }
   }, [pathname]);
 
@@ -73,11 +79,12 @@ export default function Navbar() {
           <div className="hidden md:flex items-center gap-1 flex-1 justify-center">
             {NAV_LINKS.map((link) => {
               const isActive = pathname === link.href || pathname.startsWith(link.href + "/");
+              const showBadge = link.href === "/networth" && suggestionCount > 0;
               return (
                 <Link
                   key={link.href}
                   href={link.href}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm transition-colors ${
+                  className={`relative flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm transition-colors ${
                     isActive
                       ? "text-white bg-[#2A2A2A]"
                       : "text-gray-400 hover:text-gray-200 hover:bg-[#1A1A1A]"
@@ -85,6 +92,11 @@ export default function Navbar() {
                 >
                   {link.icon}
                   {link.label}
+                  {showBadge && (
+                    <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-red-500 text-white text-[9px] font-bold flex items-center justify-center">
+                      {suggestionCount}
+                    </span>
+                  )}
                 </Link>
               );
             })}

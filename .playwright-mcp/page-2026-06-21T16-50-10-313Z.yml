@@ -1,0 +1,210 @@
+- generic [ref=e1]:
+  - navigation [ref=e2]:
+    - generic [ref=e3]:
+      - link "Mizan" [ref=e4] [cursor=pointer]:
+        - /url: /transactions
+      - generic [ref=e5]:
+        - link "İşlemler" [ref=e6] [cursor=pointer]:
+          - /url: /transactions
+          - img [ref=e7]
+          - text: İşlemler
+        - link "Net Değer" [ref=e10] [cursor=pointer]:
+          - /url: /networth
+          - img [ref=e11]
+          - text: Net Değer
+        - link "İlerleme" [ref=e13] [cursor=pointer]:
+          - /url: /progress
+          - img [ref=e14]
+          - text: İlerleme
+        - link "Abonelikler" [ref=e15] [cursor=pointer]:
+          - /url: /subscriptions
+          - img [ref=e16]
+          - text: Abonelikler
+        - link "Taksitler" [ref=e18] [cursor=pointer]:
+          - /url: /installments
+          - img [ref=e19]
+          - text: Taksitler
+      - generic [ref=e23]:
+        - generic [ref=e24]: nw_test@example.com
+        - link "Yükle" [ref=e25] [cursor=pointer]:
+          - /url: /upload
+          - img [ref=e26]
+          - text: Yükle
+        - button "Çıkış" [ref=e29] [cursor=pointer]:
+          - img [ref=e30]
+  - generic [ref=e33]:
+    - generic [ref=e34]:
+      - generic [ref=e35]:
+        - heading "Net Değer" [level=1] [ref=e37]
+        - paragraph [ref=e38]: Varlıklar, borçlar ve alacaklar — tüm tablonuz
+      - generic [ref=e40]:
+        - button "TRY" [ref=e41] [cursor=pointer]
+        - button "USD" [ref=e42] [cursor=pointer]
+        - button "EUR" [ref=e43] [cursor=pointer]
+    - generic [ref=e44]:
+      - paragraph [ref=e84]: Net Değeriniz
+      - paragraph [ref=e85]: ₺114.455
+      - generic [ref=e86]:
+        - generic [ref=e87]:
+          - img [ref=e88]
+          - generic [ref=e91]: Varlıklar
+          - generic [ref=e92]: ₺126.455
+        - generic [ref=e93]: —
+        - generic [ref=e94]:
+          - img [ref=e95]
+          - generic [ref=e98]: Borçlar
+          - generic [ref=e99]: ₺12.000
+      - generic [ref=e100]:
+        - generic [ref=e101]: "TRY: ₺80.000"
+        - generic [ref=e102]: "USD: ₺46.455"
+    - generic [ref=e103]:
+      - img [ref=e104]
+      - paragraph [ref=e107]: Net değeriniz 114.455 TL ile pozitif ve güçlü bir tablo çiziyor. Varlıklarınızın büyük kısmı likit ve yatırımda, bu da size esneklik sağlıyor. Tek gelişim alanınız, 12.000 TL'lik kişisel krediyi kapatmaya odaklanarak borçsuz bir yapıya kavuşmak olabilir.
+    - generic [ref=e109]:
+      - generic [ref=e110]: ⚠
+      - paragraph [ref=e111]: Yüksek faizli borcunuz var (%35.00). Erken ödeme düşünebilirsiniz.
+    - generic [ref=e48]:
+      - generic [ref=e49]:
+        - generic [ref=e50]:
+          - img [ref=e51]
+          - heading "Varlıklar" [level=2] [ref=e54]
+          - generic [ref=e112]: ₺126.455
+        - button "Varlık Ekle" [active] [ref=e55] [cursor=pointer]:
+          - img [ref=e56]
+          - text: Varlık Ekle
+      - generic [ref=e57]:
+        - generic [ref=e113]:
+          - generic [ref=e114]:
+            - img [ref=e115]
+            - generic [ref=e119]: Nakit & Banka
+          - generic [ref=e120]:
+            - generic [ref=e121]:
+              - paragraph [ref=e122]: Garanti Vadesiz
+              - paragraph [ref=e123]:
+                - generic [ref=e124]: Banka Hesabı
+                - generic [ref=e125]: · Manuel giriş
+                - generic [ref=e126]: · 2026-06-21
+            - generic [ref=e127]:
+              - paragraph [ref=e129]: ₺50.000
+              - button "×" [ref=e130] [cursor=pointer]
+          - generic [ref=e131]:
+            - generic [ref=e132]:
+              - paragraph [ref=e133]: Ziraat Vadesiz
+              - paragraph [ref=e134]:
+                - generic [ref=e135]: Banka Hesabı
+                - generic [ref=e136]: · Manuel giriş
+                - generic [ref=e137]: · 2026-06-21
+            - generic [ref=e138]:
+              - paragraph [ref=e140]: ₺30.000
+              - button "×" [ref=e141] [cursor=pointer]
+        - generic [ref=e142]:
+          - generic [ref=e143]:
+            - img [ref=e144]
+            - generic [ref=e147]: Yatırımlar
+          - generic [ref=e148]:
+            - generic [ref=e149]:
+              - paragraph [ref=e150]: Interactive Brokers
+              - paragraph [ref=e151]:
+                - generic [ref=e152]: Hisse Senedi
+                - generic [ref=e153]: · Manuel giriş
+                - generic [ref=e154]: · 2026-06-21
+            - generic [ref=e155]:
+              - generic [ref=e156]:
+                - paragraph [ref=e157]: $1.000,00
+                - paragraph [ref=e158]: USD
+              - button "×" [ref=e159] [cursor=pointer]
+    - generic [ref=e61]:
+      - generic [ref=e62]:
+        - generic [ref=e63]:
+          - img [ref=e64]
+          - heading "Borçlar" [level=2] [ref=e67]
+          - generic [ref=e160]: ₺12.000
+        - button "Borç Ekle" [ref=e68] [cursor=pointer]:
+          - img [ref=e69]
+          - text: Borç Ekle
+      - generic [ref=e162]:
+        - generic [ref=e163]:
+          - generic [ref=e164]:
+            - paragraph [ref=e165]: İhtiyaç Kredisi
+            - generic [ref=e166]: İhtiyaç Kredisi
+            - generic [ref=e167]: "%35.00 faiz"
+          - generic [ref=e168]:
+            - generic [ref=e169]: "Kalan: ₺12.000"
+            - generic [ref=e170]: "Aylık: ₺1.500"
+          - paragraph [ref=e173]: 40% ödendi · Toplam ₺20.000
+        - button "×" [ref=e174] [cursor=pointer]
+    - generic [ref=e73]:
+      - generic [ref=e74]:
+        - generic [ref=e75]:
+          - img [ref=e76]
+          - heading "Alacaklar" [level=2] [ref=e78]
+          - generic [ref=e175]: ₺0
+        - button "Alacak Ekle" [ref=e79] [cursor=pointer]:
+          - img [ref=e80]
+          - text: Alacak Ekle
+      - generic [ref=e81]:
+        - generic [ref=e176]:
+          - generic [ref=e177]:
+            - generic [ref=e178]:
+              - paragraph [ref=e179]: Ahmet
+              - generic [ref=e180]: Alındı ✓
+            - paragraph [ref=e181]: ₺5.000 · 2026-07-15 · Kira borcu
+          - button "×" [ref=e183] [cursor=pointer]
+        - generic [ref=e184]:
+          - generic [ref=e185]:
+            - generic [ref=e186]:
+              - paragraph [ref=e187]: Umut
+              - generic [ref=e188]: Alındı ✓
+            - paragraph [ref=e189]: ₺7.000 · 2026-06-22 · kredi borcu
+          - button "×" [ref=e191] [cursor=pointer]
+    - generic [ref=e193]:
+      - generic [ref=e194]:
+        - heading "Varlık Ekle" [level=2] [ref=e195]
+        - button [ref=e196] [cursor=pointer]:
+          - img [ref=e197]
+      - generic [ref=e200]:
+        - generic [ref=e201]:
+          - generic [ref=e202]: Ad
+          - textbox "örn. Garanti vadesiz hesabı" [ref=e203]
+        - generic [ref=e204]:
+          - generic [ref=e205]: Tür
+          - combobox [ref=e206]:
+            - option "Nakit"
+            - option "Banka Hesabı" [selected]
+            - option "Hisse Senedi"
+            - option "Yatırım Fonu"
+            - option "Kripto Para"
+            - option "Gayrimenkul"
+            - option "Araç"
+            - option "BES / Emeklilik"
+            - option "Altın"
+            - option "Döviz"
+            - option "Tahvil / Bono"
+            - option "Emtia"
+            - option "Startup Hissesi"
+            - option "Sanat / Koleksiyon"
+            - option "Mücevher"
+            - option "Hayat Sigortası"
+            - option "Emeklilik Fonu"
+            - option "İşletme Ortaklığı"
+            - option "Diğer"
+        - generic [ref=e207]:
+          - generic [ref=e208]: Para Birimi
+          - button "TRY— Türk Lirası" [ref=e210] [cursor=pointer]:
+            - generic [ref=e211]:
+              - text: TRY
+              - generic [ref=e212]: — Türk Lirası
+            - img [ref=e213]
+        - generic [ref=e215]:
+          - generic [ref=e216]: Güncel Değer
+          - spinbutton [ref=e217]
+        - generic [ref=e218]:
+          - generic [ref=e219]: Değerleme Tarihi
+          - textbox [ref=e220]: 2026-06-21
+        - generic [ref=e221]:
+          - generic [ref=e222]: Not (opsiyonel)
+          - textbox "ör. IBAN, kurum adı..." [ref=e223]
+        - generic [ref=e224]:
+          - button "İptal" [ref=e225] [cursor=pointer]
+          - button "Ekle" [disabled] [ref=e226]
+  - alert [ref=e83]

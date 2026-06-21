@@ -16,16 +16,25 @@ import {
   deleteLiability,
   deleteReceivable,
   updateReceivableStatus,
+  getNetWorthSuggestions,
+  acceptSuggestion,
+  dismissSuggestion,
   AssetItem,
   LiabilityItem,
   ReceivableItem,
   NetWorthSummary,
+  SuggestionItem,
 } from "@/lib/api";
-import { Plus, TrendingUp, TrendingDown, DollarSign, Home, Wallet, Briefcase, Scale } from "@/components/ui/Icons";
+import { Plus, TrendingUp, TrendingDown, DollarSign, Home, Wallet, Briefcase, Scale, Brain, Zap } from "@/components/ui/Icons";
 
 const CURRENCIES = ["TRY", "USD", "EUR"];
 
-// --- Display helpers ---
+const SOURCE_LABELS: Record<string, string> = {
+  manual: "Manuel giriş",
+  statement_upload: "Ekstre",
+  receivable_collection: "Alacak tahsilatı",
+  auto_detected: "Otomatik",
+};
 
 const ASSET_TYPE_LABELS: Record<string, string> = {
   cash: "Nakit",
@@ -37,6 +46,15 @@ const ASSET_TYPE_LABELS: Record<string, string> = {
   vehicle: "Araç",
   bes: "BES / Emeklilik",
   gold: "Altın",
+  foreign_currency: "Döviz",
+  bond: "Tahvil / Bono",
+  commodity: "Emtia",
+  startup_equity: "Startup Hissesi",
+  art_collectible: "Sanat / Koleksiyon",
+  jewelry: "Mücevher",
+  life_insurance: "Hayat Sigortası",
+  pension: "Emeklilik Fonu",
+  business_ownership: "İşletme Ortaklığı",
   other_asset: "Diğer",
 };
 
@@ -54,17 +72,22 @@ const ASSET_TYPE_GROUPS: { label: string; icon: ReactNode; types: string[] }[] =
   {
     label: "Nakit & Banka",
     icon: <Wallet size={16} className="text-emerald-400" />,
-    types: ["cash", "bank_account"],
+    types: ["cash", "bank_account", "foreign_currency"],
   },
   {
     label: "Yatırımlar",
     icon: <TrendingUp size={16} className="text-indigo-400" />,
-    types: ["stock", "fund", "crypto", "bes", "gold"],
+    types: ["stock", "fund", "crypto", "bes", "gold", "bond", "commodity", "startup_equity"],
   },
   {
     label: "Gayrimenkul & Araç",
     icon: <Home size={16} className="text-amber-400" />,
     types: ["real_estate", "vehicle"],
+  },
+  {
+    label: "Kişisel Varlıklar",
+    icon: <Briefcase size={16} className="text-purple-400" />,
+    types: ["art_collectible", "jewelry", "life_insurance", "pension", "business_ownership"],
   },
   {
     label: "Diğer",
@@ -94,7 +117,6 @@ function fmtItem(value: string, currency: string): string {
   return fmt(n, currency);
 }
 
-// --- Section header component ---
 function SectionHeader({
   label,
   icon,
@@ -103,6 +125,7 @@ function SectionHeader({
   onAdd,
   addLabel,
   addColor = "indigo",
+  badge,
 }: {
   label: string;
   icon: ReactNode;
@@ -111,6 +134,7 @@ function SectionHeader({
   onAdd: () => void;
   addLabel: string;
   addColor?: string;
+  badge?: ReactNode;
 }) {
   const btnColors: Record<string, string> = {
     indigo: "bg-indigo-600/20 text-indigo-400 hover:bg-indigo-600/30 border-indigo-800/40",
@@ -122,6 +146,7 @@ function SectionHeader({
       <div className="flex items-center gap-2">
         {icon}
         <h2 className="text-white font-semibold">{label}</h2>
+        {badge}
         {total !== undefined && (
           <span className="text-sm text-gray-400">{fmt(total, displayCurrency)}</span>
         )}
@@ -137,6 +162,20 @@ function SectionHeader({
   );
 }
 
+// Toast component
+function Toast({ message, onDismiss }: { message: string; onDismiss: () => void }) {
+  useEffect(() => {
+    const t = setTimeout(onDismiss, 3000);
+    return () => clearTimeout(t);
+  }, [onDismiss]);
+
+  return (
+    <div className="fixed bottom-4 right-4 z-50 bg-emerald-700 text-white rounded-lg px-4 py-3 shadow-lg text-sm max-w-xs">
+      {message}
+    </div>
+  );
+}
+
 export default function NetWorthPage() {
   const router = useRouter();
   const [displayCurrency, setDisplayCurrency] = useState("TRY");
@@ -145,8 +184,10 @@ export default function NetWorthPage() {
   const [assets, setAssets] = useState<AssetItem[]>([]);
   const [liabilities, setLiabilities] = useState<LiabilityItem[]>([]);
   const [receivables, setReceivables] = useState<ReceivableItem[]>([]);
+  const [suggestions, setSuggestions] = useState<SuggestionItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [summaryLoading, setSummaryLoading] = useState(false);
+  const [toast, setToast] = useState<string | null>(null);
 
   const [showAddAsset, setShowAddAsset] = useState(false);
   const [showAddLiability, setShowAddLiability] = useState(false);
@@ -163,16 +204,18 @@ export default function NetWorthPage() {
   const loadAll = async () => {
     setLoading(true);
     try {
-      const [s, a, l, r] = await Promise.all([
+      const [s, a, l, r, sugg] = await Promise.all([
         getNetWorthSummary(displayCurrency),
         getAssets(),
         getLiabilities(),
         getReceivables(),
+        getNetWorthSuggestions().catch(() => [] as SuggestionItem[]),
       ]);
       setSummary(s);
       setAssets(a);
       setLiabilities(l);
       setReceivables(r);
+      setSuggestions(sugg);
     } catch {
       // silent — empty state shows
     } finally {
@@ -190,7 +233,6 @@ export default function NetWorthPage() {
     }
   }, [displayCurrency]);
 
-  // Re-fetch summary when currency changes
   useEffect(() => {
     if (!loading) reloadSummary();
   }, [displayCurrency]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -214,12 +256,31 @@ export default function NetWorthPage() {
   };
 
   const handleMarkReceived = async (id: string) => {
-    const updated = await updateReceivableStatus(id, "received");
-    setReceivables((prev) => prev.map((r) => (r.id === id ? updated : r)));
+    const result = await updateReceivableStatus(id, "received");
+    setReceivables((prev) => prev.map((r) => (r.id === id ? result.receivable : r)));
+    if (result.created_asset) {
+      setAssets((prev) => [...prev, result.created_asset!]);
+    }
+    if (result.toast_message) {
+      setToast(result.toast_message);
+    }
     void reloadSummary();
   };
 
+  const handleAcceptSuggestion = async (id: string) => {
+    await acceptSuggestion(id);
+    setSuggestions((prev) => prev.filter((s) => s.id !== id));
+    void reloadSummary();
+    void loadAll(); // also reload assets
+  };
+
+  const handleDismissSuggestion = async (id: string) => {
+    await dismissSuggestion(id);
+    setSuggestions((prev) => prev.filter((s) => s.id !== id));
+  };
+
   const netPositive = (summary?.net_worth_try ?? 0) >= 0;
+  const pendingSuggestions = suggestions.filter((s) => s.status === "pending");
 
   return (
     <PageLayout
@@ -244,8 +305,11 @@ export default function NetWorthPage() {
         </div>
       }
     >
+      {/* Toast */}
+      {toast && <Toast message={toast} onDismiss={() => setToast(null)} />}
+
       {/* Hero — Net Worth */}
-      <div className="bg-[#1A1A1A] border border-[#2A2A2A] rounded-2xl p-8 mb-8 text-center">
+      <div className="bg-[#1A1A1A] border border-[#2A2A2A] rounded-2xl p-8 mb-6 text-center">
         {loading ? (
           <div className="space-y-3">
             <div className="h-12 w-64 bg-[#2A2A2A] rounded-lg mx-auto animate-pulse" />
@@ -310,6 +374,29 @@ export default function NetWorthPage() {
         )}
       </div>
 
+      {/* AI Insight */}
+      {summary?.ai_insight && (
+        <div className="mb-4 bg-[#1A1A1A] border border-indigo-900/30 rounded-xl p-4 flex gap-3">
+          <Brain size={16} className="text-indigo-400 shrink-0 mt-0.5" />
+          <p className="text-gray-300 text-sm leading-relaxed">{summary.ai_insight}</p>
+        </div>
+      )}
+
+      {/* Warnings */}
+      {summary && summary.warnings.length > 0 && (
+        <div className="mb-6 flex flex-col gap-2">
+          {summary.warnings.map((w, i) => (
+            <div
+              key={i}
+              className="flex items-start gap-2 bg-amber-950/30 border border-amber-800/40 rounded-xl px-4 py-3"
+            >
+              <span className="text-amber-400 text-sm shrink-0">⚠</span>
+              <p className="text-amber-200 text-sm">{w}</p>
+            </div>
+          ))}
+        </div>
+      )}
+
       {/* VARLIKLAR */}
       <section className="mb-8">
         <SectionHeader
@@ -358,9 +445,13 @@ export default function NetWorthPage() {
                     >
                       <div>
                         <p className="text-white text-sm font-medium">{a.name}</p>
-                        <p className="text-gray-500 text-xs mt-0.5">
-                          {ASSET_TYPE_LABELS[a.asset_type] ?? a.asset_type}
-                          {a.notes && ` · ${a.notes}`}
+                        <p className="text-gray-500 text-xs mt-0.5 flex items-center gap-2 flex-wrap">
+                          <span>{ASSET_TYPE_LABELS[a.asset_type] ?? a.asset_type}</span>
+                          {a.notes && <span>· {a.notes}</span>}
+                          <span className="text-gray-600">· {SOURCE_LABELS[a.source] ?? a.source}</span>
+                          {a.as_of_date && (
+                            <span className="text-gray-600">· {a.as_of_date}</span>
+                          )}
                         </p>
                       </div>
                       <div className="flex items-center gap-3">
@@ -446,7 +537,6 @@ export default function NetWorthPage() {
                         )}
                         {l.due_date && <span>Bitiş: {l.due_date}</span>}
                       </div>
-                      {/* Progress bar */}
                       <div className="mt-3 h-1.5 bg-[#2A2A2A] rounded-full overflow-hidden">
                         <div
                           className="h-full bg-red-500 rounded-full transition-all"
@@ -472,7 +562,7 @@ export default function NetWorthPage() {
       </section>
 
       {/* ALACAKLAR */}
-      <section>
+      <section className="mb-8">
         <SectionHeader
           label="Alacaklar"
           icon={<Scale size={18} className="text-amber-400" />}
@@ -552,6 +642,48 @@ export default function NetWorthPage() {
           </div>
         )}
       </section>
+
+      {/* AKILLI ÖNERİLER */}
+      {pendingSuggestions.length > 0 && (
+        <section className="mb-8">
+          <div className="flex items-center gap-2 mb-4">
+            <Zap size={18} className="text-amber-400" />
+            <h2 className="text-white font-semibold">Akıllı Öneriler</h2>
+            <span className="px-2 py-0.5 rounded-full bg-amber-950/50 border border-amber-800/40 text-amber-400 text-xs font-medium">
+              {pendingSuggestions.length}
+            </span>
+          </div>
+          <div className="space-y-3">
+            {pendingSuggestions.map((s) => (
+              <div
+                key={s.id}
+                className="bg-[#1A1A1A] border border-amber-900/30 rounded-xl p-4 flex items-start justify-between gap-3"
+              >
+                <div className="flex-1 min-w-0">
+                  <p className="text-gray-200 text-sm">{s.reason}</p>
+                  <p className="text-amber-400 text-xs mt-1 font-semibold tabular-nums">
+                    {parseFloat(s.suggested_change) >= 0 ? "+" : ""}{parseFloat(s.suggested_change).toLocaleString("tr-TR")} {s.currency}
+                  </p>
+                </div>
+                <div className="flex gap-2 shrink-0">
+                  <button
+                    onClick={() => handleAcceptSuggestion(s.id)}
+                    className="px-3 py-1.5 rounded-lg bg-indigo-600/20 text-indigo-400 border border-indigo-800/40 hover:bg-indigo-600/30 text-xs font-medium transition-colors"
+                  >
+                    Uygula
+                  </button>
+                  <button
+                    onClick={() => handleDismissSuggestion(s.id)}
+                    className="px-3 py-1.5 rounded-lg bg-[#2A2A2A] text-gray-400 hover:text-gray-200 text-xs font-medium transition-colors"
+                  >
+                    Yoksay
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
 
       {/* Modals */}
       {showAddAsset && (

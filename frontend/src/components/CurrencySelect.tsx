@@ -1,0 +1,201 @@
+"use client";
+
+import { useEffect, useRef, useState } from "react";
+import { getCurrencyList, type CurrencyList, type CurrencyEntry } from "@/lib/api";
+
+interface Props {
+  value: string;
+  onChange: (code: string) => void;
+  className?: string;
+}
+
+export default function CurrencySelect({ value, onChange, className = "" }: Props) {
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState("");
+  const [list, setList] = useState<CurrencyList | null>(null);
+  const [loading, setLoading] = useState(true);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    getCurrencyList()
+      .then((data) => setList(data))
+      .catch(() => {
+        // silent — static fallback
+        setList({
+          fiat: [
+            { code: "TRY", name: "Türk Lirası" },
+            { code: "USD", name: "US Dollar" },
+            { code: "EUR", name: "Euro" },
+            { code: "GBP", name: "British Pound" },
+            { code: "CHF", name: "Swiss Franc" },
+            { code: "JPY", name: "Japanese Yen" },
+          ],
+          crypto: [
+            { code: "BTC", name: "Bitcoin" },
+            { code: "ETH", name: "Ethereum" },
+          ],
+          commodities: [
+            { code: "XAU", name: "Altın (troy oz)" },
+            { code: "XAG", name: "Gümüş (troy oz)" },
+          ],
+        });
+      })
+      .finally(() => setLoading(false));
+  }, []);
+
+  // Close on outside click
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        setOpen(false);
+        setQuery("");
+      }
+    }
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, []);
+
+  function filterEntries(entries: CurrencyEntry[]): CurrencyEntry[] {
+    if (!query) return entries;
+    const q = query.toLowerCase();
+    return entries.filter(
+      (e) => e.code.toLowerCase().includes(q) || e.name.toLowerCase().includes(q)
+    );
+  }
+
+  function findCurrentName(): string {
+    if (!list) return value;
+    const all = [...list.fiat, ...list.crypto, ...list.commodities];
+    return all.find((e) => e.code === value)?.name ?? value;
+  }
+
+  function handleSelect(code: string) {
+    onChange(code);
+    setOpen(false);
+    setQuery("");
+  }
+
+  const fiatFiltered = list ? filterEntries(list.fiat) : [];
+  const cryptoFiltered = list ? filterEntries(list.crypto) : [];
+  const commodityFiltered = list ? filterEntries(list.commodities) : [];
+  const hasResults = fiatFiltered.length > 0 || cryptoFiltered.length > 0 || commodityFiltered.length > 0;
+
+  return (
+    <div ref={containerRef} className={`relative ${className}`}>
+      {/* Trigger button */}
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="w-full bg-[#0F0F0F] border border-[#2A2A2A] rounded-lg px-3 py-2 text-sm text-white text-left flex items-center justify-between focus:outline-none focus:border-indigo-600 transition-colors"
+      >
+        {loading ? (
+          <span className="text-gray-500">Yükleniyor...</span>
+        ) : (
+          <span>
+            <span className="font-semibold text-indigo-300">{value}</span>
+            <span className="text-gray-500 ml-1.5 text-xs">— {findCurrentName()}</span>
+          </span>
+        )}
+        <svg
+          width="12"
+          height="12"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          className={`text-gray-500 transition-transform ${open ? "rotate-180" : ""}`}
+        >
+          <polyline points="6 9 12 15 18 9" />
+        </svg>
+      </button>
+
+      {/* Dropdown */}
+      {open && (
+        <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-[#0F0F0F] border border-[#2A2A2A] rounded-lg shadow-xl overflow-hidden">
+          {/* Search */}
+          <div className="p-2 border-b border-[#2A2A2A]">
+            <input
+              autoFocus
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Ara... (USD, Euro, Bitcoin...)"
+              className="w-full bg-[#1A1A1A] border border-[#2A2A2A] rounded-md px-2.5 py-1.5 text-xs text-white placeholder-gray-600 focus:outline-none focus:border-indigo-600"
+            />
+          </div>
+
+          {/* Options */}
+          <div className="max-h-56 overflow-y-auto">
+            {!hasResults && (
+              <p className="text-gray-600 text-xs text-center py-4">Sonuç bulunamadı</p>
+            )}
+
+            {fiatFiltered.length > 0 && (
+              <div>
+                <p className="px-3 py-1.5 text-[10px] font-semibold text-gray-600 uppercase tracking-wider bg-[#111]">
+                  Fiat Para Birimleri
+                </p>
+                {fiatFiltered.map((e) => (
+                  <button
+                    key={e.code}
+                    type="button"
+                    onClick={() => handleSelect(e.code)}
+                    className={`w-full text-left px-3 py-2 text-sm hover:bg-[#1A1A1A] transition-colors flex items-center justify-between ${
+                      e.code === value ? "bg-indigo-950/40 text-indigo-300" : "text-white"
+                    }`}
+                  >
+                    <span className="font-semibold text-xs w-12 shrink-0">{e.code}</span>
+                    <span className="text-gray-400 text-xs flex-1 text-right truncate">{e.name}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {cryptoFiltered.length > 0 && (
+              <div>
+                <p className="px-3 py-1.5 text-[10px] font-semibold text-gray-600 uppercase tracking-wider bg-[#111]">
+                  Kripto Paralar
+                </p>
+                {cryptoFiltered.map((e) => (
+                  <button
+                    key={e.code}
+                    type="button"
+                    onClick={() => handleSelect(e.code)}
+                    className={`w-full text-left px-3 py-2 text-sm hover:bg-[#1A1A1A] transition-colors flex items-center justify-between ${
+                      e.code === value ? "bg-indigo-950/40 text-indigo-300" : "text-white"
+                    }`}
+                  >
+                    <span className="font-semibold text-xs w-12 shrink-0">{e.code}</span>
+                    <span className="text-gray-400 text-xs flex-1 text-right truncate">{e.name}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {commodityFiltered.length > 0 && (
+              <div>
+                <p className="px-3 py-1.5 text-[10px] font-semibold text-gray-600 uppercase tracking-wider bg-[#111]">
+                  Emtialar
+                </p>
+                {commodityFiltered.map((e) => (
+                  <button
+                    key={e.code}
+                    type="button"
+                    onClick={() => handleSelect(e.code)}
+                    className={`w-full text-left px-3 py-2 text-sm hover:bg-[#1A1A1A] transition-colors flex items-center justify-between ${
+                      e.code === value ? "bg-indigo-950/40 text-indigo-300" : "text-white"
+                    }`}
+                  >
+                    <span className="font-semibold text-xs w-12 shrink-0">{e.code}</span>
+                    <span className="text-gray-400 text-xs flex-1 text-right truncate">{e.name}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
