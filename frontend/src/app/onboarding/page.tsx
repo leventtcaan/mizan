@@ -5,59 +5,20 @@ import { useRouter } from "next/navigation";
 import { getStoredUser, setStoredUser, uploadStatement, completeOnboarding, type UploadResponse } from "@/lib/api";
 import { FileText, ArrowRight } from "@/components/ui/Icons";
 
-type Bank = "ziraat" | "vakifbank" | "yapikredi" | "garanti" | "diger";
 type Step = 1 | 2 | 3;
 
-const BANK_LABELS: Record<Bank, string> = {
-  ziraat: "Ziraat Bankası",
-  vakifbank: "VakıfBank",
-  yapikredi: "Yapı Kredi",
-  garanti: "Garanti BBVA",
-  diger: "Diğer",
-};
-
-const BANK_INSTRUCTIONS: Record<Bank, string[]> = {
-  ziraat: [
-    "Ziraat Mobil uygulamasını açın",
-    'Altta "Hesaplarım" sekmesine gidin',
-    '"Hesap Hareketleri"ni seçin',
-    'Sağ üstten "PDF İndir"e basın',
-    "Son 3 aylık dönemi seçip indirin",
-  ],
-  vakifbank: [
-    "VakıfBank Mobil uygulamasını açın",
-    '"Hesaplarım" bölümüne gidin',
-    '"Hesap Hareketleri"ni seçin',
-    '"Dışa Aktar" butonuna basın',
-    "PDF formatını seçip indirin",
-  ],
-  yapikredi: [
-    "Yapı Kredi Mobil uygulamasını açın",
-    '"Hesaplarım"a gidin',
-    '"Ekstre" sekmesini açın',
-    '"PDF" formatını seçin',
-    "Son 3 aylık ekstre indirin",
-  ],
-  garanti: [
-    "Garanti BBVA Mobil uygulamasını açın",
-    '"Hesaplarım" bölümüne gidin',
-    '"Ekstre"yi seçin',
-    '"İndir" butonuna basın',
-    "PDF olarak kaydedin",
-  ],
-  diger: [
-    "Bankanızın mobil uygulamasını açın",
-    "Hesap hareketleri veya ekstre bölümüne gidin",
-    "Son 3 aylık dönemi seçin",
-    "PDF olarak indirin",
-    "İndirdiğiniz dosyayı aşağıya yükleyin",
-  ],
-};
+const STATEMENT_INSTRUCTIONS = [
+  "Open your bank, wallet, card, broker, or payment app.",
+  "Find statements, activity, transactions, history, or export.",
+  "Choose a recent date range. Three months is enough to start.",
+  "Export as PDF or CSV when possible.",
+  "Upload the file here. Mizan will try to detect institution and account details.",
+];
 
 export default function OnboardingPage() {
   const router = useRouter();
   const [step, setStep] = useState<Step>(1);
-  const [bank, setBank] = useState<Bank>("ziraat");
+  const [institutionName, setInstitutionName] = useState("");
   const [userEmail, setUserEmail] = useState<string | null>(null);
   const [dragging, setDragging] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -129,33 +90,32 @@ export default function OnboardingPage() {
           <div className="flex justify-between mt-2">
             {[1,2,3].map(n => (
               <span key={n} className={`text-xs ${step >= n ? "text-indigo-400" : "text-gray-700"}`}>
-                {n === 1 ? "Banka" : n === 2 ? "Talimatlar" : "Yükleme"}
+                {n === 1 ? "Kaynak" : n === 2 ? "Talimatlar" : "Yükleme"}
               </span>
             ))}
           </div>
         </div>
 
-        {/* Step 1: Bank select */}
+        {/* Step 1: Source select */}
         {step === 1 && (
           <div>
             <h1 className="text-3xl font-bold mb-2">Hoş geldiniz</h1>
             {userEmail && <p className="text-gray-500 text-sm mb-6">{userEmail}</p>}
-            <p className="text-gray-300 mb-8">Hangi bankanızla başlamak istersiniz?</p>
+            <p className="text-gray-300 mb-6">Start with any financial source you use.</p>
 
-            <div className="grid grid-cols-2 gap-3 mb-8 sm:grid-cols-3">
-              {(Object.entries(BANK_LABELS) as [Bank, string][]).map(([key, label]) => (
-                <button
-                  key={key}
-                  onClick={() => setBank(key)}
-                  className={`py-3 px-4 rounded-xl border text-sm font-medium transition-all text-left ${
-                    bank === key
-                      ? "bg-indigo-950 border-indigo-600 text-indigo-200"
-                      : "bg-[#1A1A1A] border-[#2A2A2A] text-gray-300 hover:border-[#3A3A3A]"
-                  }`}
-                >
-                  {label}
-                </button>
-              ))}
+            <div className="mb-8">
+              <label className="block text-xs text-gray-500 mb-2 uppercase tracking-wide">
+                Institution name
+              </label>
+              <input
+                value={institutionName}
+                onChange={(e) => setInstitutionName(e.target.value)}
+                placeholder="Bank, card, wallet, broker..."
+                className="w-full bg-[#1A1A1A] border border-[#2A2A2A] rounded-xl px-4 py-3 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-indigo-600"
+              />
+              <p className="text-gray-600 text-xs mt-2">
+                Optional. You can also skip and let Mizan detect it from the uploaded file.
+              </p>
             </div>
 
             <button
@@ -170,11 +130,13 @@ export default function OnboardingPage() {
         {/* Step 2: Instructions */}
         {step === 2 && (
           <div>
-            <h2 className="text-2xl font-bold mb-2">Ekstreyi nasıl indirirsiniz?</h2>
-            <p className="text-gray-500 text-sm mb-8">{BANK_LABELS[bank]} için adım adım</p>
+            <h2 className="text-2xl font-bold mb-2">How to export a statement</h2>
+            <p className="text-gray-500 text-sm mb-8">
+              {institutionName.trim() || "Your financial institution"}
+            </p>
 
             <div className="space-y-3 mb-8">
-              {BANK_INSTRUCTIONS[bank].map((instruction, i) => (
+              {STATEMENT_INSTRUCTIONS.map((instruction, i) => (
                 <div key={i} className="flex items-start gap-4 p-4 bg-[#1A1A1A] border border-[#2A2A2A] rounded-xl">
                   <span className="w-6 h-6 rounded-full bg-indigo-950 border border-indigo-800 text-indigo-400 text-xs font-bold flex items-center justify-center shrink-0">
                     {i + 1}
@@ -187,7 +149,7 @@ export default function OnboardingPage() {
             <div className="bg-[#1A1A1A] border border-[#2A2A2A] rounded-xl p-4 mb-8">
               <p className="text-gray-400 text-xs leading-relaxed">
                 <span className="text-gray-300 font-medium">İpucu: </span>
-                Son 3 aylık ekstre yüklediğinizde daha iyi bir analiz alırsınız. PDF veya CSV desteklenir.
+                PDF and CSV work best. Images and scanned PDFs may need OCR and can be less accurate.
               </p>
             </div>
 

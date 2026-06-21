@@ -15,8 +15,8 @@ from app.services.llm_provider import LLMProvider
 
 logger = logging.getLogger(__name__)
 
-# WHY: Turkish categories — app is Turkey-targeted. English labels are used internally
-# so the rest of the code avoids encoding issues; display-layer translates if needed.
+# WHY: Legacy category slugs are stable API/storage values. Do not rename without a migration.
+# Display labels can be localized above this layer.
 VALID_CATEGORIES = {
     "market",
     "restoran",
@@ -34,11 +34,11 @@ VALID_CATEGORIES = {
 }
 
 _SYSTEM_PROMPT = """\
-Sen bir Türk bankacılık işlemlerini kategorize eden yapay zekasın.
-Her işlem açıklaması için aşağıdaki kategorilerden birini seç:
+You categorize global financial transactions.
+For each transaction description, choose exactly one of these stable category slugs:
 market, restoran, ulasim, fatura, saglik, giyim, eglence, nakit_atm, transfer, iade, vergi, teknoloji, diger
 
-Kategori kuralları (öncelik sırasına göre):
+Category rules (priority order):
 - teknoloji: "Yurt Dışı Sanal POS" + açıklamada AWS/Google/Azure/Apple/Spotify/Netflix/GitHub/Dropbox/Adobe/Microsoft/OpenAI/Anthropic/ChatGPT/cloud/dijital/yazılım/hosting geçiyorsa
 - vergi: "Kambiyo Muameleleri Vergisi", "BSMV", "Vergi Kesintisi", "Stopaj"
 - iade: "İade", "Debit Kart İade", "Geri Ödeme", "Refund", "İPTAL"
@@ -51,9 +51,9 @@ Kategori kuralları (öncelik sırasına göre):
 - saglik: eczane, hastane, klinik, doktor, diş, optik, laborat
 - giyim: Zara, H&M, LC Waikiki, Koton, Mango, Pull&Bear, DeFacto, Boyner, giyim, ayakkabı
 - eglence: sinema, tiyatro, konser, oyun, Netflix (içerik), Spotify (içerik)
-- Emin olamadığında "diger" seç
+- If unsure, choose "diger"
 
-Genel kural: Sadece yukarıdaki kategorilerden birini kullan. Yanıtı SADECE JSON listesi olarak ver, başka hiçbir şey yazma.
+General rule: use only one of the listed slugs. Return ONLY a JSON list, nothing else.
 """
 
 _USER_PROMPT_TEMPLATE = """\

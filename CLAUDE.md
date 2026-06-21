@@ -118,9 +118,7 @@ Dependency direction (strict): `api → services → models`. Never reverse.
 
 ## Known Issues (fix next session, priority order)
 
-1. **"Turkish personal finance" in system prompts** — coach.py, behavioral_coach.py, weekly_summary.py still say "Turkish". Replace with locale-aware: use user's language preference or `lang` param.
-2. **Onboarding bank list** — onboarding/page.tsx hardcodes Ziraat/Vakıfbank/Yapı Kredi/Garanti/Diğer. Make generic: "Your bank" + any bank name input, or detect from uploaded PDF.
-3. **Transactions SpendingChart** — basic bar chart, needs redesign (pie + trend combo, or area chart).
+1. **Transactions SpendingChart** — basic bar chart, needs redesign (pie + trend combo, or area chart).
 
 ---
 
@@ -259,9 +257,9 @@ When context reaches ~70% capacity:
 
 ## Current Status
 
-**Phases 1–26 complete. Docker not changed this session. Alembic head = 0021.**
+**Phases 1–27 complete. Docker not changed this session. Alembic head = 0021.**
 
-Full stack: register/login → JWT → upload (rate-limited, busts caches) → 3-layer OCR → LLM extract → OCR cleanup → dedup → zero-amount filter → persist → LLM categorize (13 categories) → insight cache → LLM coach with corrections+notes injected → spending chart + progress page (LineChart 3-month trend + cross-batch-deduped category comparison + LLM one-liners, 24h cached) → PersonalityCard (5 types, cached per batch) → AlertsPanel (3 algorithmic detectors, dismiss persisted, stale dismissals auto-cleaned) → GoalsPanel (monthly budget vs actual) → ChatPanel (conversational coaching, behavioral profile memory, voice input, chat-based tx entry with confirmation card, sessionStorage prefill from alerts) → weekly email summary (Resend HTML, preferences toggle) → inflation-adjusted analysis (TUFE 2023-2026, real vs nominal per category, ProgressInsight cache) → net worth asset subtype capture (all asset types have specific fields; crypto/fiat/commodity live picker; gold unit picker; stock/fund code fields; manual categories store structured metadata in `Asset.source_detail` JSON) → net worth display currency searchable via live `CurrencySelect` → receivable collection creates linked cash asset, repeated collection is idempotent, delete/write-off removes linked asset → stale received receivables and processed suggestions are hidden/cleaned after 30 days.
+Full stack: register/login → JWT → upload (rate-limited, busts caches) → 3-layer OCR → LLM extract → OCR cleanup → dedup → zero-amount filter → persist → LLM categorize (13 categories) → insight cache → globalized LLM coach with corrections+notes injected → spending chart + progress page (LineChart 3-month trend + cross-batch-deduped category comparison + LLM one-liners, 24h cached) → PersonalityCard (5 types, cached per batch) → AlertsPanel (3 algorithmic detectors, dismiss persisted, stale dismissals auto-cleaned) → GoalsPanel (monthly budget vs actual) → ChatPanel (globalized conversational coaching, behavioral profile memory, voice input, chat-based tx entry with confirmation card, sessionStorage prefill from alerts) → weekly email summary (Resend HTML, preferences toggle) → inflation-adjusted analysis (TUFE 2023-2026, real vs nominal per category, ProgressInsight cache) → net worth asset subtype capture (all asset types have specific fields; crypto/fiat/commodity live picker; gold unit picker; stock/fund code fields; manual categories store structured metadata in `Asset.source_detail` JSON) → net worth display currency searchable via live `CurrencySelect` → receivable collection creates linked cash asset, repeated collection is idempotent, delete/write-off removes linked asset → stale received receivables and processed suggestions are hidden/cleaned after 30 days → onboarding accepts any institution/export source instead of hardcoded Turkish banks.
 
 ### Migrations (head = 0021)
 | Migration | What |
@@ -761,11 +759,47 @@ Full stack: register/login → JWT → upload (rate-limited, busts caches) → 3
 - **Dismissed alerts expire**: if a user dismissed something 30+ days ago and it is still detected, it can return. That is correct for recurring risk.
 - **Processed suggestions can be deleted**: accepted/dismissed suggestions are UI workflow artifacts, not source-of-truth ledger rows.
 
+### Phase 27 — Globalization Cleanup: Prompts + Onboarding + Landing (2026-06-21)
+
+#### Backend prompts
+- [x] `backend/app/services/coach.py` — removed "Turkish personal finance coach" assumption. Prompt now says global coach, use user's language when clear, otherwise simple English. Removed hardcoded lira symbols from prompt amounts.
+- [x] `backend/app/services/behavioral_coach.py` — removed Turkish-user assumption. Chat coach, profile extraction, and transaction-intent prompts now global/multilingual. Examples now generic.
+- [x] `backend/app/services/weekly_summary.py` — removed Turkish-coach assumption. Insight prompt now uses user's language when clear, otherwise simple English.
+- [x] `backend/app/api/networth.py` — net worth AI insight prompt now global; no "Turkish user" system prompt.
+- [x] `backend/app/api/progress.py` — comparison insight prompt now global; no "Turkish personal finance coach".
+- [x] `backend/app/api/installments.py` — installment insight prompt now global; no "Turkish finance coach".
+- [x] `backend/app/services/categorizer.py` — removed "Turkey-targeted" comment and Turkish banking system prompt. Category slugs kept as legacy stable values.
+- [x] `backend/app/services/personality.py` — removed "Turkish personality types" wording. Legacy labels kept; prompt asks for user's language when clear.
+
+#### Frontend onboarding/landing
+- [x] `frontend/src/app/onboarding/page.tsx` — removed hardcoded Ziraat/Vakıfbank/Yapı Kredi/Garanti bank selector.
+- [x] `frontend/src/app/onboarding/page.tsx` — new generic institution input: bank, card, wallet, broker, payment app. Optional; app can detect from file later.
+- [x] `frontend/src/app/onboarding/page.tsx` — instructions now generic export flow: statements/activity/history/export, PDF/CSV.
+- [x] `frontend/src/app/page.tsx` — removed Turkey positioning and hardcoded bank logos. Replaced with global source types: banks, credit cards, wallets, brokerages, payment apps.
+- [x] `frontend/src/app/page.tsx` — hero copy now points to holistic financial operating system, not Turkish statement dashboard.
+
+#### Legacy text neutralized
+- [x] `backend/app/services/pdf_parser.py` — comments/prompt wording no longer says Turkish bank statement OCR corrector. Behavior unchanged. Full global parser still needs separate architecture.
+- [x] `backend/app/services/installment.py` — comments no longer call feature Turkey-specific.
+- [x] `backend/app/api/subscriptions.py` — comment changed from Turkish bank prefixes to generic statement prefixes.
+
+#### Checks
+- [x] Targeted search for Turkish/Turkey bank assumptions returned clean for prompt/onboarding/landing scope.
+- [x] `npm run build` passed.
+- [x] `python3 -m py_compile` passed for changed backend files.
+- [x] `git diff --check` clean.
+
+#### Architectural decisions
+- **Keep legacy slugs/labels**: category slugs and personality labels remain until migration/i18n plan. Renaming now would break data and UI mapping.
+- **Prompt default language**: use user's language when clear; otherwise simple English. This avoids assuming Turkish.
+- **Parser behavior unchanged**: OCR still includes `tur+eng` and legacy regex. Full global statement parser is a larger phase, not a safe prompt-cleanup patch.
+- **Onboarding source-first**: no bank list. Any institution/export source can start onboarding.
+
 ---
 
 ## Next Session — Start Here
 
-**Phases 1–26 complete. Phase 26 = auto-archive stale items. Next fix Known Issue 1 from current list: globalization cleanup.**
+**Phases 1–27 complete. Phase 27 = globalization cleanup. Next: start net worth event/reconciliation architecture, then redesign/replace transactions SpendingChart.**
 
 Pre-flight (if docker was restarted):
 ```bash
@@ -788,18 +822,16 @@ curl -s http://localhost:8000/currency/list | python3 -c "import sys,json; d=jso
 ```
 
 Next task options (priority order — fix known issues first):
-1. **System prompt globalization** — remove "Turkish personal finance" from coach.py, behavioral_coach.py, weekly_summary.py; use user locale/lang.
-2. **Onboarding bank list** — remove Turkish bank names; generic bank name input or PDF detection.
-3. **Transactions SpendingChart redesign** — better chart mix; current bar chart too weak.
-4. **Real-time asset prices** — `services/asset_prices.py` + `/networth/assets/{id}/refresh-price`; read subtype JSON from `source_detail`.
-5. **Schema cleanup** — split `Asset.current_value` into quantity/value fields before production if possible.
-6. **Net worth product reset** — start event/reconciliation design. See Product Direction Reset section.
+1. **Net worth event/reconciliation architecture** — add first `FinancialEvent`/reconciliation skeleton or design doc + models.
+2. **Transactions SpendingChart redesign** — better chart mix or replace with action/reconciliation panel.
+3. **Real-time asset prices** — `services/asset_prices.py` + `/networth/assets/{id}/refresh-price`; read subtype JSON from `source_detail`.
+4. **Schema cleanup** — split `Asset.current_value` into quantity/value fields before production if possible.
 
 ---
 
 ## Backlog (priority order)
 
-1. **Fix known issues** (3 items listed in Known Issues section) — do before new features
+1. **Fix known issues** (1 item listed in Known Issues section) — do before new features
 2. **Real-time price refresh** — `GET /networth/assets/{id}/refresh-price` → calls asset_prices.py per type
 3. **Global market search** — stock ticker search + fund ISIN lookup via chosen providers; current Phase 23 stores structured fields but does not fetch full global search results yet.
 4. **Cash flow calendar** — monthly timeline: liability payments due + receivables expected + goal deadlines

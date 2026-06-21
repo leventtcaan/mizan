@@ -33,9 +33,9 @@ def _normalize_key(description: str) -> str:
 
 
 def _clean_merchant_name(description: str) -> str:
-    """Best-effort display name from raw bank transaction description."""
+    """Best-effort display name from raw transaction description."""
     name = description.strip()
-    # Strip common Turkish bank prefixes
+    # Strip common card/banking prefixes seen in statement descriptions.
     for prefix in ("POS ALIŞVERİŞİ ", "SANAL POS ", "YURT DIŞI SANAL POS ", "İNTERNET ", "MOBİL "):
         if name.upper().startswith(prefix):
             name = name[len(prefix):]

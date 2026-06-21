@@ -45,7 +45,7 @@ const STEPS = [
   {
     icon: FileText,
     title: "Ekstrenizi Yükleyin",
-    desc: "Ziraat, Garanti, Yapı Kredi, VakıfBank ve diğerlerinden PDF veya CSV.",
+    desc: "Bank, card, wallet, broker, or payment account exports in PDF or CSV.",
     step: "01",
   },
   {
@@ -62,7 +62,7 @@ const STEPS = [
   },
 ];
 
-const BANKS = ["Ziraat Bankası", "VakıfBank", "Yapı Kredi", "Garanti BBVA"];
+const SOURCES = ["Banks", "Credit cards", "Wallets", "Brokerages", "Payment apps"];
 
 export default function HomePage() {
   const [userEmail, setUserEmail] = useState<string | null>(null);
@@ -112,7 +112,7 @@ export default function HomePage() {
         <div className="relative">
           <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-indigo-950 border border-indigo-800 text-indigo-400 text-xs font-medium mb-8">
             <span className="w-1.5 h-1.5 rounded-full bg-indigo-400 animate-pulse" />
-            Türkiye&apos;nin ilk davranışsal finans koçu
+            Global financial operating system
           </div>
 
           <h1 className="text-5xl sm:text-6xl lg:text-7xl font-bold tracking-tight leading-[1.05] mb-6">
@@ -124,8 +124,8 @@ export default function HomePage() {
           </h1>
 
           <p className="text-gray-400 text-lg sm:text-xl leading-relaxed mb-10 max-w-xl mx-auto">
-            Banka ekstrenizi yükleyin, yapay zeka harcama koçunuz devreye girsin.
-            Türkçe, ücretsiz, verileriniz sizde.
+            Bring statements, assets, debts, receivables, and cash flow into one place.
+            AI helps reconcile what changed and what needs action.
           </p>
 
           <div className="flex flex-col sm:flex-row gap-3 justify-center">
@@ -214,21 +214,21 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* Banks */}
+      {/* Sources */}
       <section className="py-16 px-6 border-t border-[#1A1A1A]">
         <div className="max-w-3xl mx-auto text-center">
-          <p className="text-gray-500 text-xs uppercase tracking-widest mb-6">Desteklenen Bankalar</p>
+          <p className="text-gray-500 text-xs uppercase tracking-widest mb-6">Supported Sources</p>
           <div className="flex flex-wrap justify-center gap-3">
-            {BANKS.map((bank) => (
+            {SOURCES.map((source) => (
               <span
-                key={bank}
+                key={source}
                 className="px-4 py-2 rounded-lg bg-[#1A1A1A] border border-[#2A2A2A] text-gray-300 text-sm font-medium"
               >
-                {bank}
+                {source}
               </span>
             ))}
           </div>
-          <p className="text-gray-600 text-xs mt-4">PDF veya CSV formatındaki tüm bankalar desteklenir</p>
+          <p className="text-gray-600 text-xs mt-4">Any institution with PDF or CSV export can be used</p>
         </div>
       </section>
 

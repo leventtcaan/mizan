@@ -21,29 +21,29 @@ from app.services.llm_provider import LLMProvider
 logger = logging.getLogger(__name__)
 
 _COACH_SYSTEM_TEMPLATE = """\
-Sen Mizan'sın — Türk kullanıcıların kişisel finans koçusun.
-Kullanıcının gerçek harcama verisine ve biriktirdiğin profiline erişimin var.
+You are Mizan — a global personal finance coach.
+You have access to the user's real transaction data and saved behavioral profile.
 
-KURALLAR:
-- Kısa, samimi, Türkçe cevap ver. Emoji kullanma.
-- Yargılayıcı değil, merak eden bir ton kullan.
-- Rakam gösterme — kalıpları ve davranışı yorumla.
-- 2-4 cümle, odaklı ve kişisel.
-- Kullanıcı bir şey paylaştığında (kira, maaş, alışkanlık) bunu kabul et ve dikkate al.{profile_section}{spending_section}"""
+RULES:
+- Reply in the user's language when clear; otherwise use simple English. Do not use emoji.
+- Be curious, not judgmental.
+- Do not just show numbers — interpret patterns and behavior.
+- 2-4 sentences, focused and personal.
+- When the user shares context (rent, salary, habits), acknowledge it and use it.{profile_section}{spending_section}"""
 
 _EXTRACTION_SYSTEM_PROMPT = """\
-Kullanıcının mesajından SADECE açıkça belirtilen finansal bilgileri çıkar.
-Tahmin etme, yorum yapma — sadece kullanıcının net olarak söylediklerini al.
+Extract ONLY explicitly stated financial facts from the user's message.
+Do not guess or interpret — only keep facts the user clearly said.
 
-SADECE şu JSON formatını döndür, başka hiçbir şey yazma:
+Return ONLY this JSON shape, nothing else:
 {"fixed_expenses": {}, "income_sources": {}, "spending_patterns": {}, "user_notes": ""}
 
-fixed_expenses: aylık sabit ödemeler, örn. {"kira": 8000, "yurt_ödemesi": 12500}
-income_sources: gelir kaynakları, örn. {"maaş": 45000, "freelance": 5000}
-spending_patterns: davranış kalıpları, örn. {"hafta_sonu_dışarı_çıkıyor": true}
-user_notes: yaşam bağlamı — şehir, aile durumu, iş durumu vb.
+fixed_expenses: recurring fixed payments, e.g. {"rent": 1200, "loan_payment": 350}
+income_sources: income sources, e.g. {"salary": 4500, "freelance": 500}
+spending_patterns: behavioral patterns, e.g. {"eats_out_weekends": true}
+user_notes: life context — city, family status, work status, etc.
 
-Eğer mesajda öğrenilecek bir şey yoksa boş obje/string döndür."""
+If there is nothing to learn, return empty objects/strings."""
 
 
 async def get_or_create_profile(
@@ -66,12 +66,12 @@ def build_profile_context(profile: BehavioralProfile) -> str:
 
     fixed = json.loads(profile.fixed_expenses or "{}")
     if fixed:
-        lines = ", ".join(f"{k}: {v} ₺" for k, v in fixed.items())
+        lines = ", ".join(f"{k}: {v}" for k, v in fixed.items())
         parts.append(f"Sabit giderler: {lines}")
 
     income = json.loads(profile.income_sources or "{}")
     if income:
-        lines = ", ".join(f"{k}: {v} ₺" for k, v in income.items())
+        lines = ", ".join(f"{k}: {v}" for k, v in income.items())
         parts.append(f"Gelir kaynakları: {lines}")
 
     patterns = json.loads(profile.spending_patterns or "{}")
@@ -101,9 +101,9 @@ def build_spending_summary(transactions: list[Transaction]) -> str:
     today = date.today()
     lines = [f"Dönem: {today.strftime('%Y-%m')}"]
     for cat, amount in sorted(totals.items(), key=lambda x: x[1], reverse=True)[:8]:
-        lines.append(f"  {cat}: {amount:.0f} ₺")
+        lines.append(f"  {cat}: {amount:.0f}")
     if total_income > 0:
-        lines.append(f"Gelir: {total_income:.0f} ₺")
+        lines.append(f"Gelir: {total_income:.0f}")
     return "\n".join(lines)
 
 
@@ -150,19 +150,19 @@ def extract_profile_facts(message: str, provider: LLMProvider) -> dict:
 
 
 _INTENT_SYSTEM_PROMPT = """\
-Bu mesaj bir finansal işlem içeriyor mu?
+Does this message contain a financial transaction?
 
-EVET ise şu JSON formatını döndür:
-{{"amount": "150.00", "type": "debit", "description": "Market alışverişi", "date": "{today}", "category": "market"}}
+If YES, return this JSON:
+{{"amount": "150.00", "type": "debit", "description": "Grocery shopping", "date": "{today}", "category": "market"}}
 
-Kurallar:
-- type: "debit" (gider/ödeme) veya "credit" (gelir/para gelen)
-- amount: pozitif sayı, string olarak
-- date: belirtilmediyse bugün ({today})
+Rules:
+- type: "debit" for spending/payment or "credit" for income/money received
+- amount: positive number as a string
+- date: if not specified, use today ({today})
 - category: market|restoran|ulasim|eglence|saglik|fatura|giyim|nakit_atm|transfer|iade|vergi|teknoloji|diger
 
-HAYIR ise sadece null döndür.
-SADECE JSON veya null yaz, başka hiçbir şey yazma."""
+If NO, return only null.
+Write ONLY JSON or null, nothing else."""
 
 VALID_CATEGORIES = {
     "market", "restoran", "ulasim", "eglence", "saglik", "fatura",
@@ -173,7 +173,7 @@ VALID_CATEGORIES = {
 def detect_transaction_intent(message: str, provider: LLMProvider) -> dict | None:
     """
     WHAT: Lightweight LLM call to detect if a user message describes a financial transaction.
-    WHY: Lets users add transactions conversationally ("bugün 150 TL market harcadım")
+    WHY: Lets users add transactions conversationally ("spent 150 on groceries today")
          instead of opening a separate form. Returns None on failure — safe to ignore.
     """
     today = date.today().isoformat()

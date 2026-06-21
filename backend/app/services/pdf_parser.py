@@ -1,6 +1,6 @@
 """
 WHAT: Bank-agnostic PDF/CSV parser with a 3-layer extraction pipeline.
-WHY: Turkish banks generate image-based PDFs — pdfplumber returns empty text on them.
+WHY: Many financial institutions generate image-based PDFs — pdfplumber returns empty text on them.
      A layered approach ensures at least one method always produces output:
      Layer 1 (pdfplumber) is fast and free; Layer 2 (Tesseract OCR) handles scanned PDFs;
      Layer 3 (vision LLM) is reserved for low-confidence OCR (future).
@@ -122,7 +122,7 @@ def _layer2_ocr(contents: bytes, page_count: int) -> str:
          no selectable text. pymupdf renders them pixel-perfect; Tesseract reads pixels.
          Turkish language pack (tur) is mandatory — English-only Tesseract misreads
          ş→s, ğ→g, ı→i, which corrupts Turkish merchant names and keywords.
-    BREAKS IF REMOVED: Image-based PDFs (majority of Turkish bank statements) yield
+    BREAKS IF REMOVED: Image-based/scanned PDFs yield
                        zero transactions — the whole app is unusable without this.
     """
     import fitz          # pymupdf
@@ -142,7 +142,7 @@ def _layer2_ocr(contents: bytes, page_count: int) -> str:
     for page_num in range(len(doc)):
         page = doc[page_num]
         # WHY: 400 DPI (zoom=400/72 ≈ 5.56) — upgraded from 300 DPI.
-        # Turkish bank PDFs use small fonts (8-9pt); at 300 DPI these are ~33px tall,
+        # Some statement PDFs use small fonts (8-9pt); at 300 DPI these are ~33px tall,
         # which is below Tesseract's sweet spot. 400 DPI raises them to ~44px,
         # significantly improving recognition of ş, ğ, ı, ü, ö, ç.
         mat = fitz.Matrix(400 / 72, 400 / 72)
@@ -295,14 +295,14 @@ def _parse_llm_json(raw: str) -> list[RawTransaction]:
 # ─── OCR description post-processing ─────────────────────────────────────────
 
 _OCR_CLEANUP_SYSTEM = (
-    "You are a Turkish bank statement OCR corrector. "
+    "You are a multilingual financial statement OCR corrector. "
     "Fix garbled OCR text in transaction descriptions. "
     "Return only JSON, nothing else."
 )
 
 _OCR_CLEANUP_TEMPLATE = """\
-These are Turkish bank transaction descriptions extracted via OCR. Some are garbled due to OCR errors.
-Clean each one to readable Turkish. Keep merchant names and amounts untouched.
+These are financial transaction descriptions extracted via OCR. Some are garbled due to OCR errors.
+Clean each one to readable text in the original language when possible. Keep merchant names and amounts untouched.
 If a description is already clean, return it as-is.
 Return a JSON array in the same order: [{{"index": 0, "cleaned_description": "..."}}, ...]
 
@@ -413,10 +413,10 @@ def _infer_type_from_line(line: str) -> str:
 
 def _extract_with_regex(text: str) -> list[RawTransaction]:
     """
-    WHAT: Scans text line-by-line for DD.MM.YYYY + Turkish amount patterns.
+    WHAT: Scans text line-by-line for DD.MM.YYYY + comma-decimal amount patterns.
     WHY: Works with zero dependencies beyond Python stdlib — no API key, no network.
-         Covers Ziraat, Garanti, Akbank, İş Bankası, Yapı Kredi whose statements
-         all use DD.MM.YYYY dates and Turkish decimal format on the same line.
+         This is a legacy offline fallback for statements that use DD.MM.YYYY dates
+         and comma-decimal amounts on the same line.
     BREAKS IF REMOVED: No offline extraction path; app is unusable without an LLM key.
     """
     results: list[RawTransaction] = []
@@ -506,7 +506,7 @@ def _extract_with_regex(text: str) -> list[RawTransaction]:
 def _parse_csv(contents: bytes) -> ParseResult:
     """
     WHAT: Extracts transactions from a CSV bank statement, sniffing delimiter and encoding.
-    WHY: Turkish bank CSVs vary between UTF-8/latin-1 and comma/semicolon delimiters.
+    WHY: CSV exports vary between UTF-8/latin-1 and comma/semicolon delimiters.
          Sniffing handles both without per-bank configuration.
     BREAKS IF REMOVED: CSV statements produce no transactions.
     """
@@ -646,7 +646,7 @@ _INCOME_KEYWORDS  = {"gönd:", "fast işlemi", "havale", "virman"}
 
 def _apply_sign_correction(transactions: list[RawTransaction]) -> list[RawTransaction]:
     """
-    WHAT: Corrects transaction_type based on well-known Turkish banking keywords.
+    WHAT: Corrects transaction_type based on legacy banking keywords.
     WHY: The regex heuristic (alacak/yatırma keywords) misses POS/ATM lines that
          pdfplumber or OCR output without the Turkish debit/credit column label.
          LLM output also gets this correction because the LLM may infer type from

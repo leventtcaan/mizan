@@ -931,7 +931,7 @@ async def _generate_ai_insight(
     liabilities_by_type: dict[str, float],
     display_currency: str,
 ) -> str | None:
-    """Generate a brief Turkish financial coaching insight. Returns None on failure."""
+    """Generate a brief financial coaching insight. Returns None on failure."""
     llm_available = len(settings.DEEPSEEK_API_KEY) > 0 or len(settings.OPENAI_API_KEY) > 0
     if not llm_available:
         return None
@@ -948,14 +948,14 @@ async def _generate_ai_insight(
             f"Net değer: {net_worth:.0f}\n"
             f"Varlık dağılımı: {asset_breakdown}\n"
             f"Borç dağılımı: {liability_breakdown}\n\n"
-            "Bu finansal tablo hakkında 2-3 cümlelik kısa, somut ve motive edici bir Türkçe koçluk yorumu yaz. "
-            "Güçlü yanları ve geliştirilebilecek bir noktayı belirt."
+            "Write a short, concrete, motivating 2-3 sentence coaching note about this net worth picture. "
+            "Use the user's language when clear; otherwise use simple English. Mention one strength and one improvement point."
         )
 
         response = provider.client.chat.completions.create(
             model=provider.model,
             messages=[
-                {"role": "system", "content": "Sen Türk kullanıcılara kişisel finans koçluğu yapan bir uzmansın. Kısa ve net konuş."},
+                {"role": "system", "content": "You are a global personal finance coach. Be concise, practical, and non-judgmental."},
                 {"role": "user", "content": prompt},
             ],
             temperature=0.4,

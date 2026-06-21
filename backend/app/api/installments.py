@@ -124,16 +124,17 @@ def _generate_insight(plans: list[dict]) -> str | None:
 
         prompt = (
             f"Kullanıcının {plan_count} adet taksit planı var. "
-            f"Toplam aylık taksit yükü: ₺{total_monthly:.0f}. "
-            f"Kalan toplam taksit tutarı: ₺{total_remaining:.0f}. "
+            f"Toplam aylık taksit yükü: {total_monthly:.0f}. "
+            f"Kalan toplam taksit tutarı: {total_remaining:.0f}. "
             f"Başlıca taksitler: {merchants}. "
-            "Bu taksit yükü hakkında tek cümle, Türkçe, davranışsal bir koçluk yorumu yaz. "
+            "Write one behavioral coaching sentence about this installment load. "
+            "Use the user's language when clear; otherwise use simple English. "
             "Rakamları tekrarlama — sadece ne yapmalı veya nasıl düşünmeli."
         )
         response = provider.client.chat.completions.create(
             model=provider.model,
             messages=[
-                {"role": "system", "content": "Sen kısa ve etkili bir Türk finans koçusun."},
+                {"role": "system", "content": "You are a concise, practical global personal finance coach."},
                 {"role": "user", "content": prompt},
             ],
             temperature=0.6,

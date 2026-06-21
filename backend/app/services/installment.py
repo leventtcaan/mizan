@@ -1,7 +1,7 @@
 """
 WHAT: Detects taksit (installment) payment plans in transaction history.
-WHY: Turkey-specific — millions of consumers buy on installment (taksit) via credit cards.
-     Banks show each monthly charge separately; no PFM surfaces how many remain or the true cost.
+WHY: Installment purchases are common in many markets. Some card statements show each
+     monthly charge separately; few finance apps surface how many remain or the true cost.
      This service identifies those recurring monthly charges and estimates residual burden.
 """
 
@@ -23,7 +23,7 @@ _MIN_AMOUNT = Decimal("50")   # ignore trivial amounts
 _MIN_MONTHS = 3               # need at least 3 months to confidently call it installment
 _DEFAULT_PLAN_MONTHS = 12     # assume 12-month plan when we can't parse it from description
 
-# Turkish bank installment markers in transaction descriptions
+# Installment markers seen in statement descriptions
 _TAKSIT_RE = re.compile(
     r"(?:TAKSİT|TAKSIT|TAKS\.?)\s*(\d+)/(\d+)"   # "TAKSİT 3/12" or "TAKS.3/12"
     r"|(\d+)/(\d+)\s*(?:TAKSİT|TAKSIT)"            # "3/12 TAKSİT"

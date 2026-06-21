@@ -1,6 +1,6 @@
 """
 WHAT: Financial personality analysis — single LLM call over 3 months of transaction
-      data + behavioral profile → one of 5 Turkish personality types with description,
+      data + behavioral profile → one of 5 legacy personality labels with description,
       strengths, watch-outs, and one actionable tip.
 WHY: A personality type gives users a frame for their own behaviour. "You're an Instant
      Decision Maker" is more memorable and actionable than a pie chart. Cached per
@@ -40,17 +40,17 @@ _NO_DATA_RESULT = {
 }
 
 _SYSTEM_PROMPT = """\
-Sen bir finansal davranış uzmanısın. Kullanıcının harcama verisine bakarak \
-finansal kişilik analizi yapacaksın.
+You are a financial behavior specialist. Analyze the user's transaction data and \
+produce a financial personality profile.
 
-Sadece şu 5 kişilik tipinden birini seç:
+Choose exactly one of these 5 legacy UI labels:
 - Anlık Karar Verici: Plansız, anlık kararlarla harcıyor. Aylara göre tutarsız.
 - Planlı Harcayan: Düzenli kategorilerde harcıyor, bütçe bilinçli.
 - Tasarruf Odaklı: Harcaması geliriyle kıyasla düşük; geri kalan biriktirilmiş görünüyor.
 - Konfor Odaklı: Yaşam kalitesine yatırım yapıyor, sabit ve konfor harcamaları yüksek.
 - Dengesiz Harcayan: Bazı kategorilerde aşırı, bazılarında beklenenden az harcıyor.
 
-SADECE şu JSON yapısını döndür, başka hiçbir şey yazma:
+Return ONLY this JSON shape, nothing else:
 {
   "type": "...",
   "description": "...",
@@ -59,13 +59,13 @@ SADECE şu JSON yapısını döndür, başka hiçbir şey yazma:
   "tip": "..."
 }
 
-Kurallar:
-- type: yukarıdaki 5 tipten tam olarak biri
-- description: 2-3 cümle, sıcak ve destekleyici ton, yargılayıcı değil
-- strengths: 2 madde — olumlu, "sen yapıyorsun" yerine davranışı tanımla
-- watch_out: 2 madde — yapıcı, "dikkat etmek faydalı olabilir" tonunda
-- tip: tek, somut, uygulanabilir bir ipucu
-- Her şey Türkçe"""
+Rules:
+- type: exactly one of the 5 labels above
+- description: 2-3 sentences, warm and supportive, not judgmental
+- strengths: 2 items, behavior-focused
+- watch_out: 2 constructive items
+- tip: one concrete, actionable tip
+- Use the user's language when clear; otherwise use simple English"""
 
 
 def _build_analysis_prompt(
@@ -88,7 +88,7 @@ def _build_analysis_prompt(
     total_spend = sum(totals.values()) if totals else Decimal("0")
 
     dist_lines = "\n".join(
-        f"  {cat}: {amt:.0f} TL"
+        f"  {cat}: {amt:.0f}"
         for cat, amt in sorted(totals.items(), key=lambda x: x[1], reverse=True)[:10]
     ) or "  veri yok"
 
@@ -113,8 +113,8 @@ def _build_analysis_prompt(
 
     return (
         f"Son 3 aylık harcama özeti ({len(recent)} işlem):\n"
-        f"  Toplam gider: {total_spend:.0f} TL\n"
-        f"  Toplam gelir: {total_income:.0f} TL\n"
+        f"  Toplam gider: {total_spend:.0f}\n"
+        f"  Toplam gelir: {total_income:.0f}\n"
         f"  {variance_line}\n"
         f"\nKategori dağılımı:\n{dist_lines}"
         f"{profile_section}"

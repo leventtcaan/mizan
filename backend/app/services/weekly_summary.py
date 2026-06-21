@@ -29,17 +29,17 @@ _CAT_DISPLAY: dict[str, str] = {
 }
 
 _INSIGHT_SYSTEM = """\
-Sen Mizan adlı Türk kişisel finans koçusun. Kısa, samimi ve motive edici yazıyorsun.
+You are Mizan, a global personal finance coach. Write short, warm, practical feedback.
 """
 
 _INSIGHT_USER = """\
 Kullanıcının bu haftaki harcama özeti:
-- Toplam harcama: {this_week_spend} ₺
+- Toplam harcama: {this_week_spend}
 - Geçen haftaya göre değişim: {change_str}
 - En yüksek kategori: {top_cat}
 - En çok harcama yapılan merchant: {top_merchant}
 
-Tam olarak 3 cümle yaz. Türkçe. Samimi ve destekleyici ton. Rakam tekrarlama.
+Write exactly 3 sentences. Use the user's language when clear; otherwise use simple English. Be supportive. Do not repeat the numbers.
 """
 
 
@@ -252,7 +252,7 @@ def render_email(summary: dict, user_email: str) -> str:
         display = _CAT_DISPLAY.get(cat, cat)
         last_amount = last_week["by_category"].get(cat, Decimal("0"))
         diff = amount - last_amount
-        diff_str = f'+{diff:.2f} ₺' if diff > 0 else f'{diff:.2f} ₺'
+        diff_str = f'+{diff:.2f}' if diff > 0 else f'{diff:.2f}'
         diff_color = "#dc2626" if diff > 0 else "#16a34a"
         cat_rows += f"""
         <tr>

@@ -339,17 +339,17 @@ def _llm_insight(provider, cat: str, last: Decimal, this: Decimal, pct: float, t
                 {
                     "role": "system",
                     "content": (
-                        "Sen Mizan adlı Türk kişisel finans koçusun. "
-                        "Kullanıcıya kısa, samimi, Türkçe tek cümlelik yorum yap. "
-                        "Yargılamadan, merak eden bir tonla."
+                        "You are Mizan, a global personal finance coach. "
+                        "Write one short, warm sentence in the user's language when clear; otherwise use simple English. "
+                        "Be curious, not judgmental."
                     ),
                 },
                 {
                     "role": "user",
                     "content": (
                         f"Kategori: {cat}\n"
-                        f"Geçen ay: {last:.2f} ₺\n"
-                        f"Bu ay: {this:.2f} ₺\n"
+                        f"Geçen ay: {last:.2f}\n"
+                        f"Bu ay: {this:.2f}\n"
                         f"Değişim: %{abs(pct):.1f} {direction}\n"
                         "Tek cümlelik yorum:"
                     ),

@@ -14,15 +14,15 @@ from app.services.llm_provider import LLMProvider
 logger = logging.getLogger(__name__)
 
 _COACH_SYSTEM_PROMPT = """\
-Sen Mizan adlı bir Türk kişisel finans koçusun.
-Kullanıcının harcama verilerini analiz edip onlara Türkçe, samimi ve yapıcı bir geri bildirim veriyorsun.
+You are Mizan, a global personal finance coach.
+Analyze the user's transaction data and give warm, practical, non-judgmental feedback.
 
-Kurallar:
-- Yargılayıcı değil, merak eden bir ton kullan
-- Sadece veri gösterme — NEDEN böyle harcıyor olabileceğini yorumla
-- 2-4 cümle, odaklı ve kişisel
-- Rakamlar yerine kalıpları (pattern) vurgula
-- Türkçe yaz
+Rules:
+- Use the user's language when it is clear from context; otherwise use simple English
+- Be curious, not judgmental
+- Do not only report data — explain likely behavior patterns
+- 2-4 sentences, focused and personal
+- Emphasize patterns, not raw numbers
 """
 
 _COACH_USER_TEMPLATE = """\
@@ -32,8 +32,8 @@ Kategori dağılımı:
 {distribution}
 
 En yüksek harcama kategorisi: {top_category}
-Toplam harcama: {total_spend} ₺
-Toplam gelir: {total_income} ₺
+Toplam harcama: {total_spend}
+Toplam gelir: {total_income}
 {corrections_section}{notes_section}
 Bu kullanıcının harcama davranışı hakkında kısa bir koçluk yorumu yaz.
 """
@@ -120,7 +120,7 @@ async def generate_insight(
     top_category = max(distribution, key=lambda k: distribution[k]) if distribution else "diger"
 
     dist_lines = "\n".join(
-        f"  {cat}: {amount:.2f} ₺"
+        f"  {cat}: {amount:.2f}"
         for cat, amount in sorted(distribution.items(), key=lambda x: x[1], reverse=True)
     )
 
