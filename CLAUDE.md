@@ -118,13 +118,12 @@ Dependency direction (strict): `api → services → models`. Never reverse.
 
 ## Known Issues (fix next session, priority order)
 
-1. **Asset type UX missing subtype selectors** — when user picks "crypto" → show CoinGecko top-100 coin picker as unit; "stock" → searchable ticker (Yahoo Finance symbol); "gold" → gram/quarter/half/full coin picker; "fund" → ISIN/fund code search. Each asset type needs own unit/subtype UX, not just free-text name.
-2. **Currency display switcher** — only TRY/USD/EUR pill buttons on net worth page. Should be searchable dropdown from all 270+ live rates, same CurrencySelect component used in modals.
-3. **Receivable delete cascade** — deleting a receivable that was already "received" (auto-created a cash Asset) leaves orphan Asset. Need: delete of received receivable → warn user + offer to delete linked asset, or store asset_id on receivable for lookup.
-4. **Auto-archive stale items** — dismissed alerts, received receivables, accepted suggestions clutter UI after 30 days. Need: filter by created_at < now-30d OR add `archived_at` column.
-5. **"Turkish personal finance" in system prompts** — coach.py, behavioral_coach.py, weekly_summary.py still say "Turkish". Replace with locale-aware: use user's language preference or `lang` param.
-6. **Onboarding bank list** — onboarding/page.tsx hardcodes Ziraat/Vakıfbank/Yapı Kredi/Garanti/Diğer. Make generic: "Your bank" + any bank name input, or detect from uploaded PDF.
-7. **Transactions SpendingChart** — basic bar chart, needs redesign (pie + trend combo, or area chart).
+1. **Currency display switcher** — only TRY/USD/EUR pill buttons on net worth page. Should be searchable dropdown from all 270+ live rates, same CurrencySelect component used in modals.
+2. **Receivable delete cascade** — deleting a receivable that was already "received" (auto-created a cash Asset) leaves orphan Asset. Need: delete of received receivable → warn user + offer to delete linked asset, or store asset_id on receivable for lookup.
+3. **Auto-archive stale items** — dismissed alerts, received receivables, accepted suggestions clutter UI after 30 days. Need: filter by created_at < now-30d OR add `archived_at` column.
+4. **"Turkish personal finance" in system prompts** — coach.py, behavioral_coach.py, weekly_summary.py still say "Turkish". Replace with locale-aware: use user's language preference or `lang` param.
+5. **Onboarding bank list** — onboarding/page.tsx hardcodes Ziraat/Vakıfbank/Yapı Kredi/Garanti/Diğer. Make generic: "Your bank" + any bank name input, or detect from uploaded PDF.
+6. **Transactions SpendingChart** — basic bar chart, needs redesign (pie + trend combo, or area chart).
 
 ---
 
@@ -263,9 +262,9 @@ When context reaches ~70% capacity:
 
 ## Current Status
 
-**Phases 1–22 complete and tested. Docker running. Alembic head = 0020. All features working.**
+**Phases 1–23 complete. Docker not changed this session. Alembic head still = 0020.**
 
-Full stack: register/login → JWT → upload (rate-limited, busts caches) → 3-layer OCR → LLM extract → OCR cleanup → dedup → zero-amount filter → persist → LLM categorize (13 categories) → insight cache → LLM coach with corrections+notes injected → spending chart + progress page (LineChart 3-month trend + cross-batch-deduped category comparison + LLM one-liners, 24h cached) → PersonalityCard (5 types, cached per batch) → AlertsPanel (3 algorithmic detectors, dismiss persisted) → GoalsPanel (monthly budget vs actual) → ChatPanel (conversational coaching, behavioral profile memory, voice input, chat-based tx entry with confirmation card, sessionStorage prefill from alerts) → weekly email summary (Resend HTML, preferences toggle) → inflation-adjusted analysis (TUFE 2023-2026, real vs nominal per category, ProgressInsight cache).
+Full stack: register/login → JWT → upload (rate-limited, busts caches) → 3-layer OCR → LLM extract → OCR cleanup → dedup → zero-amount filter → persist → LLM categorize (13 categories) → insight cache → LLM coach with corrections+notes injected → spending chart + progress page (LineChart 3-month trend + cross-batch-deduped category comparison + LLM one-liners, 24h cached) → PersonalityCard (5 types, cached per batch) → AlertsPanel (3 algorithmic detectors, dismiss persisted) → GoalsPanel (monthly budget vs actual) → ChatPanel (conversational coaching, behavioral profile memory, voice input, chat-based tx entry with confirmation card, sessionStorage prefill from alerts) → weekly email summary (Resend HTML, preferences toggle) → inflation-adjusted analysis (TUFE 2023-2026, real vs nominal per category, ProgressInsight cache) → net worth asset subtype capture (crypto/fiat/commodity live picker, gold unit picker, stock/fund code fields, stored in `Asset.source_detail` JSON).
 
 ### Migrations (head = 0015)
 | Migration | What |
@@ -298,6 +297,8 @@ Full stack: register/login → JWT → upload (rate-limited, busts caches) → 3
 - **Migration drift in dev**: `create_all` adds base schema but not Alembic migrations. Must run `alembic upgrade head` then `alembic stamp HEAD` after fresh DB. behavioral_profiles.personality_cache + personality_batch_id had to be manually ALTER TABLE'd in current dev DB (same issue will recur on fresh DB — 0011 migration runs correctly on clean install).
 - **TUFE rates 2025-2026**: approximate (TCMB trajectory estimates). Users see disclaimer. Real rates available from TÜİK monthly.
 - **Subscription flag toggle**: UI supports toggle-off optimistically but backend has no "unflag" endpoint — only upsert. Visually works but flag is never deleted; workaround: flag to different value.
+- **Frontend lint missing config**: `npm run lint` opens Next ESLint setup wizard. Build still runs type check. Add ESLint config later.
+- **Dependency risk**: `npm ci` warns Next 14.2.0 has security issue; Recharts 2.x deprecated; npm audit shows 1 moderate + 1 critical vulnerability. Upgrade needed soon.
 
 ### Phase 7 — Chat Interface + Behavioral Vector (2026-06-18)
 - [x] `backend/app/models/transaction_note.py` — TransactionNote table: id UUID, transaction_id FK CASCADE, user_id FK CASCADE, note_text Text, created_at tz-aware
@@ -623,11 +624,39 @@ Full stack: register/login → JWT → upload (rate-limited, busts caches) → 3
 - **Suggestion atomicity**: suggestions created in same session/commit as upload transactions. If upload fails mid-way, no orphan suggestions.
 - **StatusPatchResponse instead of ReceivableResponse**: PATCH /receivables/{id}/status now returns richer object. Frontend was already handling the response — updated types in api.ts.
 
+### Phase 23 — Asset Subtype UX, First Globalization Fix (2026-06-21)
+
+#### Frontend
+- [x] `frontend/src/components/AddAssetModal.tsx` — asset type now changes subtype UI. No more one generic free-text-only path for all asset types.
+- [x] Crypto asset flow: loads `/currency/list`, uses live CoinGecko top-100 data already exposed by backend, searchable by code/name, selecting coin sets currency to coin symbol and stores `{subtype:"crypto", symbol, name}` in `Asset.source_detail`.
+- [x] Foreign currency asset flow: uses live fiat list from `/currency/list`, searchable by code/name, selecting fiat sets asset currency and stores `{subtype:"foreign_currency", code, name}`.
+- [x] Commodity asset flow: uses live commodity list from `/currency/list`, selecting commodity sets asset currency and stores `{subtype:"commodity", code, name}`.
+- [x] Gold asset flow: added physical/unit picker: troy ounce, gram 24K/22K/18K, kilogram bar, sovereign, American Eagle, Maple Leaf, Krugerrand, quarter/half/full coin. Stores `{subtype:"gold", unit, label}`.
+- [x] Stock asset flow: added ticker/symbol field + optional name + optional exchange/provider field. Stores `{subtype:"stock", symbol, name, venue}`. Real global stock search still needs backend market data provider.
+- [x] Fund asset flow: added ISIN/fund-code field + optional name + optional provider field. Stores `{subtype:"fund", code, name, venue}`. Real global fund search still needs provider strategy.
+- [x] Submit button now blocks missing subtype for crypto, foreign currency, commodity, stock, fund. Prevents empty meaningless asset rows.
+- [x] `frontend/src/app/networth/page.tsx` — parses `Asset.source_detail` JSON and shows readable subtype label on asset rows.
+- [x] `frontend/next-env.d.ts` — generated by Next build and should be tracked; repo was missing it.
+
+#### Checks
+- [x] `npm ci` completed.
+- [x] `npm run build` completed successfully. Next compiled, type check passed, 12 static pages generated.
+- [x] `git diff --check` clean.
+- [x] Localhost probe: `http://localhost:3000/networth` returned HTTP 200.
+- [!] `npm run lint` not usable: Next opened ESLint setup wizard because repo has no ESLint config.
+- [!] Browser modal smoke blocked by auth redirect. Page loaded, then auth guard sent browser to `/login`. Build is main verification for this phase.
+
+#### Architectural decisions
+- **Use `Asset.source_detail` JSON for subtype metadata**: no migration needed. Existing column can hold structured data. Future `asset_prices.py` can read exact symbol/unit/code. Alternative was new columns (`symbol`, `unit`, `venue`), but that would add migration before model is stable.
+- **Crypto/fiat/commodity reuse `/currency/list`**: one source of truth. No duplicate client lists. Alternative was hardcoded frontend list, rejected because global app must stay live and broad.
+- **Gold unit list is local constant for now**: physical gold units are product units, not live currencies. Needs later price multiplier logic. Alternative was external gold product API; no free global reliable source chosen yet.
+- **Stock/fund are structured input now, not full provider search yet**: enough to stop generic free-text asset creation and prepare backend price refresh. Full search belongs with real-time asset prices task.
+
 ---
 
 ## Next Session — Start Here
 
-**Phases 1–22 complete and TESTED (docker running, alembic at 0020). Phase 22 = Net Worth module expansion.**
+**Phases 1–23 complete. Phase 23 = asset subtype UX. Next fix Known Issue 1 from current list: net worth display currency switcher.**
 
 Pre-flight (if docker was restarted):
 ```bash
@@ -650,20 +679,21 @@ curl -s http://localhost:8000/currency/list | python3 -c "import sys,json; d=jso
 ```
 
 Next task options (priority order — fix known issues first):
-1. **Known Issues** — see Known Issues section above (7 items, fix before new features)
-2. **Asset subtype UX** — crypto coin picker, stock ticker search, gold unit picker (see Asset Type Data Architecture)
-3. **Real-time asset prices** — `services/asset_prices.py` + `/networth/assets/{id}/refresh-price` endpoint
-4. **Cash flow calendar** — upcoming liability payments + receivables on a timeline view
-5. **Deployment** — Railway (backend + Postgres) + Vercel (frontend); `alembic upgrade head` on first deploy
-6. **Multi-language i18n** — i18next or next-intl; TR/EN toggle in settings; locale-aware LLM prompts
+1. **Currency display switcher** — replace TRY/USD/EUR pills on net worth page with searchable live `CurrencySelect`; no display currency limit.
+2. **Receivable delete cascade** — deleting received receivable must delete/warn linked auto-created asset. Better fix: add `asset_id` to receivables or source_detail lookup fallback.
+3. **Auto-archive stale items** — clean old dismissed alerts, received receivables, accepted suggestions after 30 days or add `archived_at`.
+4. **System prompt globalization** — remove "Turkish personal finance" from coach.py, behavioral_coach.py, weekly_summary.py; use user locale/lang.
+5. **Onboarding bank list** — remove Turkish bank names; generic bank name input or PDF detection.
+6. **Transactions SpendingChart redesign** — better chart mix; current bar chart too weak.
+7. **Real-time asset prices** — `services/asset_prices.py` + `/networth/assets/{id}/refresh-price`; read subtype JSON from `source_detail`.
 
 ---
 
 ## Backlog (priority order)
 
-1. **Fix known issues** (7 items listed in Known Issues section) — do before new features
-2. **Asset subtype UX** — per-type unit picker: crypto→CoinGecko, stock→ticker, gold→gram/coin
-3. **Real-time price refresh** — `GET /networth/assets/{id}/refresh-price` → calls asset_prices.py per type
+1. **Fix known issues** (6 items listed in Known Issues section) — do before new features
+2. **Real-time price refresh** — `GET /networth/assets/{id}/refresh-price` → calls asset_prices.py per type
+3. **Global market search** — stock ticker search + fund ISIN lookup via chosen providers; current Phase 23 stores structured fields but does not fetch full global search results yet.
 4. **Cash flow calendar** — monthly timeline: liability payments due + receivables expected + goal deadlines
 5. **Multi-language** — i18n setup, TR/EN toggle, locale stored in user profile, AI prompts use user locale
 6. **Deployment** — Railway backend + Vercel frontend; RESEND_API_KEY + SECRET_KEY via platform env; alembic head on cold start

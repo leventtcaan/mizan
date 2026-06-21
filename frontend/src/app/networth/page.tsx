@@ -117,6 +117,42 @@ function fmtItem(value: string, currency: string): string {
   return fmt(n, currency);
 }
 
+function sourceDetailLabel(raw: string | null): string | null {
+  if (!raw) return null;
+  try {
+    const data = JSON.parse(raw) as {
+      subtype?: string;
+      symbol?: string;
+      code?: string;
+      unit?: string;
+      label?: string;
+      name?: string;
+      venue?: string;
+    };
+    if (data.subtype === "crypto" && data.symbol) {
+      return [data.symbol, data.name].filter(Boolean).join(" · ");
+    }
+    if (data.subtype === "foreign_currency" && data.code) {
+      return [data.code, data.name].filter(Boolean).join(" · ");
+    }
+    if (data.subtype === "commodity" && data.code) {
+      return [data.code, data.name].filter(Boolean).join(" · ");
+    }
+    if (data.subtype === "gold") {
+      return data.label ?? data.unit ?? null;
+    }
+    if (data.subtype === "stock" && data.symbol) {
+      return [data.symbol, data.name, data.venue].filter(Boolean).join(" · ");
+    }
+    if (data.subtype === "fund" && data.code) {
+      return [data.code, data.name, data.venue].filter(Boolean).join(" · ");
+    }
+  } catch {
+    return raw;
+  }
+  return raw;
+}
+
 function SectionHeader({
   label,
   icon,
@@ -436,42 +472,48 @@ export default function NetWorthPage() {
                     {group.icon}
                     <span className="text-xs text-gray-400 font-medium">{group.label}</span>
                   </div>
-                  {groupAssets.map((a, idx) => (
-                    <div
-                      key={a.id}
-                      className={`flex items-center justify-between px-4 py-3 ${
-                        idx < groupAssets.length - 1 ? "border-b border-[#2A2A2A]" : ""
-                      }`}
-                    >
-                      <div>
-                        <p className="text-white text-sm font-medium">{a.name}</p>
-                        <p className="text-gray-500 text-xs mt-0.5 flex items-center gap-2 flex-wrap">
-                          <span>{ASSET_TYPE_LABELS[a.asset_type] ?? a.asset_type}</span>
-                          {a.notes && <span>· {a.notes}</span>}
-                          <span className="text-gray-600">· {SOURCE_LABELS[a.source] ?? a.source}</span>
-                          {a.as_of_date && (
-                            <span className="text-gray-600">· {a.as_of_date}</span>
-                          )}
-                        </p>
-                      </div>
-                      <div className="flex items-center gap-3">
-                        <div className="text-right">
-                          <p className="text-emerald-400 text-sm font-semibold tabular-nums">
-                            {fmtItem(a.current_value, a.currency)}
+                  {groupAssets.map((a, idx) => {
+                    const detailLabel = sourceDetailLabel(a.source_detail);
+                    return (
+                      <div
+                        key={a.id}
+                        className={`flex items-center justify-between px-4 py-3 ${
+                          idx < groupAssets.length - 1 ? "border-b border-[#2A2A2A]" : ""
+                        }`}
+                      >
+                        <div>
+                          <p className="text-white text-sm font-medium">{a.name}</p>
+                          <p className="text-gray-500 text-xs mt-0.5 flex items-center gap-2 flex-wrap">
+                            <span>{ASSET_TYPE_LABELS[a.asset_type] ?? a.asset_type}</span>
+                            {detailLabel && (
+                              <span className="text-gray-400">· {detailLabel}</span>
+                            )}
+                            {a.notes && <span>· {a.notes}</span>}
+                            <span className="text-gray-600">· {SOURCE_LABELS[a.source] ?? a.source}</span>
+                            {a.as_of_date && (
+                              <span className="text-gray-600">· {a.as_of_date}</span>
+                            )}
                           </p>
-                          {a.currency !== "TRY" && (
-                            <p className="text-gray-600 text-xs">{a.currency}</p>
-                          )}
                         </div>
-                        <button
-                          onClick={() => handleDeleteAsset(a.id)}
-                          className="text-gray-700 hover:text-red-400 transition-colors text-xs px-2"
-                        >
-                          ×
-                        </button>
+                        <div className="flex items-center gap-3">
+                          <div className="text-right">
+                            <p className="text-emerald-400 text-sm font-semibold tabular-nums">
+                              {fmtItem(a.current_value, a.currency)}
+                            </p>
+                            {a.currency !== "TRY" && (
+                              <p className="text-gray-600 text-xs">{a.currency}</p>
+                            )}
+                          </div>
+                          <button
+                            onClick={() => handleDeleteAsset(a.id)}
+                            className="text-gray-700 hover:text-red-400 transition-colors text-xs px-2"
+                          >
+                            ×
+                          </button>
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               );
             })}
