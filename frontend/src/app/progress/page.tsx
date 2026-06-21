@@ -100,6 +100,12 @@ export default function ProgressPage() {
             {userEmail && (
               <span className="text-gray-500 text-xs hidden sm:block">{userEmail}</span>
             )}
+            <Link
+              href="/subscriptions"
+              className="px-3 py-1.5 rounded-lg bg-gray-800 hover:bg-gray-700 text-sm text-gray-300 transition-colors"
+            >
+              Abonelikler
+            </Link>
             <button
               onClick={handleLogout}
               className="px-3 py-1.5 rounded-lg bg-gray-800 hover:bg-gray-700 text-sm text-gray-300 transition-colors"

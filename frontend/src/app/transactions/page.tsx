@@ -124,6 +124,12 @@ export default function TransactionsPage() {
               </button>
             )}
             <Link
+              href="/subscriptions"
+              className="px-3 py-1.5 rounded-lg bg-gray-800 hover:bg-gray-700 text-sm text-gray-300 transition-colors"
+            >
+              Abonelikler
+            </Link>
+            <Link
               href="/progress"
               className="px-3 py-1.5 rounded-lg bg-gray-800 hover:bg-gray-700 text-sm text-gray-300 transition-colors"
             >

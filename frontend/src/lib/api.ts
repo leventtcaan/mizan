@@ -529,3 +529,57 @@ export async function correctCategory(
   }
   return response.json() as Promise<CategoryPatchResponse>;
 }
+
+// --- Subscriptions ---
+
+export interface SubscriptionItem {
+  merchant_key: string;
+  merchant: string;
+  avg_amount: string;
+  frequency: "monthly" | "weekly";
+  last_seen: string;
+  total_paid_all_time: string;
+  months_active: number;
+  category: string;
+  flag: "essential" | "review" | "cancelled" | null;
+}
+
+export interface SubscriptionsResponse {
+  subscriptions: SubscriptionItem[];
+}
+
+export interface SubscriptionSummary {
+  total_monthly_cost: string;
+  count: number;
+  flagged_for_review: string[];
+  potential_savings: string;
+}
+
+export async function getSubscriptions(): Promise<SubscriptionsResponse> {
+  const response = await fetch(`${API_BASE_URL}/subscriptions`, {
+    headers: authHeaders(),
+  });
+  if (!response.ok) throw new Error(`Failed to fetch subscriptions: ${response.status}`);
+  return response.json() as Promise<SubscriptionsResponse>;
+}
+
+export async function flagSubscription(
+  merchant_key: string,
+  flag: "essential" | "review" | "cancelled",
+): Promise<{ merchant_key: string; flag: string }> {
+  const response = await fetch(`${API_BASE_URL}/subscriptions/flag`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...authHeaders() },
+    body: JSON.stringify({ merchant_key, flag }),
+  });
+  if (!response.ok) throw new Error(`Failed to flag subscription: ${response.status}`);
+  return response.json() as Promise<{ merchant_key: string; flag: string }>;
+}
+
+export async function getSubscriptionSummary(): Promise<SubscriptionSummary> {
+  const response = await fetch(`${API_BASE_URL}/subscriptions/summary`, {
+    headers: authHeaders(),
+  });
+  if (!response.ok) throw new Error(`Failed to fetch subscription summary: ${response.status}`);
+  return response.json() as Promise<SubscriptionSummary>;
+}

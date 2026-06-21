@@ -11,6 +11,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.auth import router as auth_router
+from app.api.subscriptions import router as subscriptions_router
 from app.api.email import router as email_router
 from app.api.inflation import router as inflation_router
 from app.api.chat import router as chat_router
@@ -35,6 +36,7 @@ from app.models.budget_goal import BudgetGoal  # noqa: F401 — registers table 
 from app.models.conversation import ConversationMessage  # noqa: F401 — registers table in metadata
 from app.models.progress_insight import ProgressInsight  # noqa: F401 — registers table in metadata
 from app.models.dismissed_alert import DismissedAlert  # noqa: F401 — registers table in metadata
+from app.models.subscription_flag import SubscriptionFlag  # noqa: F401 — registers table in metadata
 
 logging.basicConfig(
     level=logging.INFO,
@@ -95,6 +97,7 @@ app.include_router(personality_router)
 app.include_router(patterns_router)
 app.include_router(email_router)
 app.include_router(inflation_router)
+app.include_router(subscriptions_router)
 
 
 @app.get("/health")
