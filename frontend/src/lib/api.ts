@@ -963,6 +963,15 @@ export async function getReconciliationItems(status = "open"): Promise<Reconcili
   return response.json() as Promise<ReconciliationItem[]>;
 }
 
+export async function scanReconciliation(): Promise<{ created: number }> {
+  const response = await fetch(`${API_BASE_URL}/reconciliation/scan`, {
+    method: "POST",
+    headers: authHeaders(),
+  });
+  if (!response.ok) throw new Error(`Failed to scan reconciliation items: ${response.status}`);
+  return response.json() as Promise<{ created: number }>;
+}
+
 export async function updateReconciliationItemStatus(
   id: string,
   status: "open" | "resolved" | "dismissed",

@@ -22,6 +22,7 @@ import {
   dismissSuggestion,
   getFinancialEvents,
   getReconciliationItems,
+  scanReconciliation,
   updateReconciliationItemStatus,
   AssetItem,
   LiabilityItem,
@@ -191,6 +192,11 @@ function eventDetail(detail: FinancialEventItem["source_detail"]): string | null
   return parts.length > 0 ? parts.join(" · ") : null;
 }
 
+async function loadOpenReconciliationItems(): Promise<ReconciliationItem[]> {
+  await scanReconciliation().catch(() => null);
+  return getReconciliationItems("open").catch(() => [] as ReconciliationItem[]);
+}
+
 function SectionHeader({
   label,
   icon,
@@ -287,7 +293,7 @@ export default function NetWorthPage() {
         getReceivables(),
         getNetWorthSuggestions().catch(() => [] as SuggestionItem[]),
         getFinancialEvents(8).catch(() => [] as FinancialEventItem[]),
-        getReconciliationItems("open").catch(() => [] as ReconciliationItem[]),
+        loadOpenReconciliationItems(),
       ]);
       setSummary(s);
       setAssets(a);
@@ -316,7 +322,7 @@ export default function NetWorthPage() {
   const reloadReconciliation = useCallback(async () => {
     const [eventRows, itemRows] = await Promise.all([
       getFinancialEvents(8).catch(() => [] as FinancialEventItem[]),
-      getReconciliationItems("open").catch(() => [] as ReconciliationItem[]),
+      loadOpenReconciliationItems(),
     ]);
     setEvents(eventRows);
     setReconciliationItems(itemRows);

@@ -257,9 +257,9 @@ When context reaches ~70% capacity:
 
 ## Current Status
 
-**Phases 1–29 complete. Docker not changed this session. Alembic head = 0022.**
+**Phases 1–30 complete. Docker not changed this session. Alembic head = 0022.**
 
-Full stack: register/login → JWT → upload (rate-limited, busts caches) → 3-layer OCR → LLM extract → OCR cleanup → dedup → zero-amount filter → persist → LLM categorize (13 categories) → insight cache → globalized LLM coach with corrections+notes injected → spending chart + progress page (LineChart 3-month trend + cross-batch-deduped category comparison + LLM one-liners, 24h cached) → PersonalityCard (5 types, cached per batch) → AlertsPanel (3 algorithmic detectors, dismiss persisted, stale dismissals auto-cleaned) → GoalsPanel (monthly budget vs actual) → ChatPanel (globalized conversational coaching, behavioral profile memory, voice input, chat-based tx entry with confirmation card, sessionStorage prefill from alerts) → weekly email summary (Resend HTML, preferences toggle) → inflation-adjusted analysis (TUFE 2023-2026, real vs nominal per category, ProgressInsight cache) → net worth asset subtype capture (all asset types have specific fields; crypto/fiat/commodity live picker; gold unit picker; stock/fund code fields; manual categories store structured metadata in `Asset.source_detail` JSON) → net worth display currency searchable via live `CurrencySelect` → receivable collection creates linked cash asset, repeated collection is idempotent, delete/write-off removes linked asset → stale received receivables and processed suggestions are hidden/cleaned after 30 days → onboarding accepts any institution/export source instead of hardcoded Turkish banks → financial event log + reconciliation item backend skeleton exists → net worth page shows Action Queue with open reconciliation items and recent financial events.
+Full stack: register/login → JWT → upload (rate-limited, busts caches) → 3-layer OCR → LLM extract → OCR cleanup → dedup → zero-amount filter → persist → LLM categorize (13 categories) → insight cache → globalized LLM coach with corrections+notes injected → spending chart + progress page (LineChart 3-month trend + cross-batch-deduped category comparison + LLM one-liners, 24h cached) → PersonalityCard (5 types, cached per batch) → AlertsPanel (3 algorithmic detectors, dismiss persisted, stale dismissals auto-cleaned) → GoalsPanel (monthly budget vs actual) → ChatPanel (globalized conversational coaching, behavioral profile memory, voice input, chat-based tx entry with confirmation card, sessionStorage prefill from alerts) → weekly email summary (Resend HTML, preferences toggle) → inflation-adjusted analysis (TUFE 2023-2026, real vs nominal per category, ProgressInsight cache) → net worth asset subtype capture (all asset types have specific fields; crypto/fiat/commodity live picker; gold unit picker; stock/fund code fields; manual categories store structured metadata in `Asset.source_detail` JSON) → net worth display currency searchable via live `CurrencySelect` → receivable collection creates linked cash asset, repeated collection is idempotent, delete/write-off removes linked asset → stale received receivables and processed suggestions are hidden/cleaned after 30 days → onboarding accepts any institution/export source instead of hardcoded Turkish banks → financial event log + reconciliation item backend skeleton exists → net worth page shows Action Queue with open reconciliation items and recent financial events → reconciliation producers create queue items from overdue receivables, missing receivable assets, possible duplicate transactions, and large transaction review.
 
 ### Migrations (head = 0022)
 | Migration | What |
@@ -866,11 +866,43 @@ Full stack: register/login → JWT → upload (rate-limited, busts caches) → 3
 - **Events are read-only in UI for now**: events are audit trail. User actions happen through reconciliation items.
 - **Open items only by default**: stale/resolved/dismissed work should not clutter main net worth page.
 
+### Phase 30 — Reconciliation Producers (2026-06-21)
+
+#### Backend producers
+- [x] `backend/app/services/reconciliation_producers.py` — new producer service. Turns detected data problems into `reconciliation_items`.
+- [x] Overdue receivable detector: pending/overdue receivable past expected date creates `overdue_receivable`. Pending row is also marked `overdue`.
+- [x] Missing asset detector: received receivable without linked asset creates `received_receivable_missing_asset`.
+- [x] Duplicate transaction detector: groups recent transactions by date, amount, type, normalized description prefix. Creates `possible_duplicate_transaction`.
+- [x] Large transaction detector: compares recent transactions against median. Creates `large_transaction_review` for outliers.
+- [x] Producer dedupe: same issue/entity does not create repeated open rows. Open item gets refreshed; resolved/dismissed item stays closed.
+
+#### Backend API
+- [x] `backend/app/api/reconciliation.py` — added `POST /reconciliation/scan`.
+- [x] `POST /reconciliation/scan` runs producers and returns `{created}`.
+- [x] `GET /reconciliation/items` stays read-only. No hidden write side effect on GET.
+
+#### Frontend
+- [x] `frontend/src/lib/api.ts` — added `scanReconciliation()`.
+- [x] `frontend/src/app/networth/page.tsx` — calls scan before loading open reconciliation items.
+- [x] Net worth Action Queue now gets real generated review items on page load/refresh.
+
+#### Checks
+- [x] `python3 -m py_compile backend/app/services/reconciliation_producers.py backend/app/api/reconciliation.py` passed.
+- [x] `npm run build` passed.
+- [x] `git diff --check` clean.
+- [!] Docker runtime not run by Codex because user runs Docker commands manually.
+
+#### Architectural decisions
+- **POST scan writes, GET reads**: no hidden mutation inside list endpoint. Cleaner API and easier debugging.
+- **No migration needed**: uses existing `reconciliation_items` table from 0022.
+- **Resolved/dismissed means user choice**: producer does not recreate same closed issue immediately. Later can add expiry/reopen policy.
+- **Median threshold for large transaction**: avoids hardcoded country/currency assumption. Still rough because transaction rows have no currency field.
+
 ---
 
 ## Next Session — Start Here
 
-**Phases 1–29 complete. Phase 29 = Action Queue on net worth page + 0022 migration drift fix. Next: user must rerun migration, then build actual reconciliation producers.**
+**Phases 1–30 complete. Phase 30 = reconciliation producers. Next: run Docker migration/current check, then add action handlers for queue items.**
 
 Pre-flight (if docker was restarted):
 ```bash
@@ -893,8 +925,8 @@ curl -s http://localhost:8000/currency/list | python3 -c "import sys,json; d=jso
 ```
 
 Next task options (priority order):
-1. **Run migration** — `docker compose exec backend alembic upgrade head`; head must be 0022 after idempotent fix.
-2. **Create reconciliation producers** — detect duplicate manual/statement entries, stale receivables, asset balance drift, missing linked events, suspicious cash movements; write `reconciliation_items`.
+1. **Run migration/current check** — `docker compose exec backend alembic upgrade head`; then `docker compose exec backend alembic current`; head must be 0022.
+2. **Queue action handlers** — Action Queue buttons currently only resolve/dismiss. Add real actions: mark receivable received, write off, review duplicate transactions, link large transaction to asset/liability.
 3. **Transactions SpendingChart redesign** — replace weak chart with action/reconciliation panel or cash-flow chart.
 4. **Real-time asset prices** — `services/asset_prices.py` + `/networth/assets/{id}/refresh-price`; read subtype JSON from `source_detail`.
 5. **Schema cleanup** — split `Asset.current_value` into quantity/value fields before production if possible.

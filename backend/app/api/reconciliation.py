@@ -12,6 +12,7 @@ from app.core.dependencies import get_current_user
 from app.models.financial_event import FinancialEvent
 from app.models.reconciliation_item import RECONCILIATION_STATUSES, ReconciliationItem
 from app.models.user import User
+from app.services.reconciliation_producers import run_reconciliation_producers
 
 router = APIRouter(prefix="/reconciliation", tags=["reconciliation"])
 
@@ -55,6 +56,10 @@ class ReconciliationStatusPatch(BaseModel):
         if value not in RECONCILIATION_STATUSES:
             raise ValueError(f"status must be one of: {sorted(RECONCILIATION_STATUSES)}")
         return value
+
+
+class ReconciliationScanResponse(BaseModel):
+    created: int
 
 
 def _json_or_text(raw: str | None) -> dict | str | None:
@@ -134,6 +139,16 @@ async def list_items(
         .order_by(ReconciliationItem.created_at.desc())
     )
     return [_item_resp(item) for item in result.scalars().all()]
+
+
+@router.post("/scan", response_model=ReconciliationScanResponse)
+async def scan_reconciliation(
+    current_user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
+) -> ReconciliationScanResponse:
+    created = await run_reconciliation_producers(current_user.id, session)
+    await session.commit()
+    return ReconciliationScanResponse(created=created)
 
 
 @router.patch("/items/{item_id}/status", response_model=ReconciliationItemResponse)
