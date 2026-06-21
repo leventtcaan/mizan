@@ -212,7 +212,7 @@ When context reaches ~70% capacity:
 
 ## Current Status
 
-**Phases 1–18 complete and tested. Docker running. Alembic head = 0015. All features working.**
+**Phases 1–19 complete and tested. Docker running. Alembic head = 0015 (no new migration in Phase 19). All features working.**
 
 Full stack: register/login → JWT → upload (rate-limited, busts caches) → 3-layer OCR → LLM extract → OCR cleanup → dedup → zero-amount filter → persist → LLM categorize (13 categories) → insight cache → LLM coach with corrections+notes injected → spending chart + progress page (LineChart 3-month trend + cross-batch-deduped category comparison + LLM one-liners, 24h cached) → PersonalityCard (5 types, cached per batch) → AlertsPanel (3 algorithmic detectors, dismiss persisted) → GoalsPanel (monthly budget vs actual) → ChatPanel (conversational coaching, behavioral profile memory, voice input, chat-based tx entry with confirmation card, sessionStorage prefill from alerts) → weekly email summary (Resend HTML, preferences toggle) → inflation-adjusted analysis (TUFE 2023-2026, real vs nominal per category, ProgressInsight cache).
 
@@ -341,6 +341,14 @@ Full stack: register/login → JWT → upload (rate-limited, busts caches) → 3
 
 ---
 
+### Phase 19 — Installment (Taksit) Analysis (2026-06-21)
+- [x] `backend/app/services/installment.py` — `detect_installments(transactions)`: two detection paths. **Path A (explicit)**: `_TAKSIT_RE` regex catches "TAKSİT X/Y", "X/Y TAKSİT", bare "3/12" in description; `_merchant_key_for_explicit()` strips the installment number before keying so "APPLE STORE TAKSİT 1/12" + "2/12" + "3/12" all merge to one plan; tracks current_installment from most recent tx, remaining = total − current. **Path B (implicit)**: same merchant (desc[:30].lower()), ±2% amount variance (tighter than subscriptions), consecutive months with no gap >1, ≥3 months → estimated_remaining = 12 − months_detected. Explicit keys excluded from implicit scan. `calculate_real_cost(monthly, remaining)`: FV annuity formula at 40% annual / 12 monthly (TCMB 2024 era); returns nominal, opportunity_loss, real_cost_with_opportunity. `analyze_user_installments(user_id, session)`: fetches all_batches tx → detect_installments → log count.
+- [x] `backend/app/api/installments.py` — `GET /installments`: same 24h cache pattern as inflation.py; reuses `ProgressInsight` table with `data_type="installments"` (no new migration); single LLM call for one-liner insight (silent on failure); returns `InstallmentResponse(plans, insight, cached)`. `GET /installments/summary`: total_monthly_burden, active_plan_count, months_until_debt_free (max remaining across plans), total_remaining_nominal, total_opportunity_loss, income_pct (estimated from last 90d credit txs / 3, None if no credits).
+- [x] `backend/app/main.py` — `installments_router` registered at `/installments`.
+- [x] `frontend/src/lib/api.ts` — `InstallmentPlan`, `InstallmentResponse`, `InstallmentSummary` interfaces; `getInstallments()`, `getInstallmentSummary()` functions.
+- [x] `frontend/src/app/installments/page.tsx` — hero: monthly burden + "X ay sonra taksit yükünden kurtuluyorsunuz" tile + income % badge (red if >30%) + opportunity cost summary line; LLM insight card; cards per plan: merchant + category badge + "Ekstre'den" badge for explicit source + progress bar (X/total ödendi) + paid/remaining/real-cost stats grid; "Erken ödeyebilirim ▼" collapsible showing nominal remaining, opportunity loss, total gain; "Tamamlandı ✓" label when remaining=0; empty state explains detection threshold; TUFE/rate disclaimer.
+- [x] "Taksitler" nav link added to `transactions/page.tsx` and `progress/page.tsx`; "Taksitler" + "Abonelikler" also appear in `installments/page.tsx` header nav.
+
 ### Phase 18 — Landing Page + Onboarding Flow (2026-06-21)
 - [x] `backend/app/models/user.py` — added `onboarding_completed: Mapped[bool]` (Boolean, nullable=False, default=False, server_default=text("false"))
 - [x] `backend/alembic/versions/0015_add_onboarding_completed_to_users.py` — ADD COLUMN, chains 0014→0015, has downgrade; ran cleanly (ALTER TABLE, not CREATE TABLE — no create_all conflict)
@@ -441,7 +449,7 @@ Full stack: register/login → JWT → upload (rate-limited, busts caches) → 3
 
 ## Next Session — Start Here
 
-**Phases 1–18 complete and TESTED (docker running, alembic at 0015). Ready for deployment or next feature.**
+**Phases 1–19 complete and TESTED (docker running, alembic at 0015). Ready for deployment or next feature.**
 
 Pre-flight (if docker was restarted):
 ```bash
@@ -466,8 +474,7 @@ curl -s -X POST http://localhost:8000/auth/register -H "Content-Type: applicatio
 ## Backlog (post-MVP, priority order)
 
 1. **Deployment** — Vercel (frontend, NEXT_PUBLIC_API_URL → prod); fly.io or Railway (backend + Postgres); RESEND_API_KEY + SECRET_KEY via platform secrets; alembic upgrade head on first deploy
-2. **Installment analysis** — detect taksit patterns (3×500 TL same merchant ≈30 days apart → "2 taksit kaldı"); pure Python, no LLM; new service `installments.py`
-3. **Multi-statement overlap warning** — before insert, check (date, amount, desc[:30]) already exists for user; surface warning before committing
+2. **Multi-statement overlap warning** — before insert, check (date, amount, desc[:30]) already exists for user; surface warning before committing
 4. **UI/UX polish** — mobile responsiveness; loading skeletons consistent across all panels; empty states for InflationPanel/PersonalityCard
 5. **Resend domain verification** — `noreply@mizan.app` must be verified in Resend dashboard; for dev use `onboarding@resend.dev`
 6. **Layer 3 vision LLM** — wire stub in pdf_parser.py; trigger when OCR confidence low; GPT-4o vision with base64 page image
