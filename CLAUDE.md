@@ -212,7 +212,7 @@ When context reaches ~70% capacity:
 
 ## Current Status
 
-**Phases 1–20 complete and tested. Docker running. Alembic head = 0015 (no migrations in Phase 20 — frontend-only). All features working.**
+**Phases 1–21 complete and tested. Docker running. Alembic head = 0018. All features working.**
 
 Full stack: register/login → JWT → upload (rate-limited, busts caches) → 3-layer OCR → LLM extract → OCR cleanup → dedup → zero-amount filter → persist → LLM categorize (13 categories) → insight cache → LLM coach with corrections+notes injected → spending chart + progress page (LineChart 3-month trend + cross-batch-deduped category comparison + LLM one-liners, 24h cached) → PersonalityCard (5 types, cached per batch) → AlertsPanel (3 algorithmic detectors, dismiss persisted) → GoalsPanel (monthly budget vs actual) → ChatPanel (conversational coaching, behavioral profile memory, voice input, chat-based tx entry with confirmation card, sessionStorage prefill from alerts) → weekly email summary (Resend HTML, preferences toggle) → inflation-adjusted analysis (TUFE 2023-2026, real vs nominal per category, ProgressInsight cache).
 
@@ -234,6 +234,9 @@ Full stack: register/login → JWT → upload (rate-limited, busts caches) → 3
 | 0013 | ADD email_weekly_enabled (bool, default true) to users |
 | 0014 | CREATE subscription_flags |
 | 0015 | ADD onboarding_completed (bool, default false) to users |
+| 0016 | CREATE assets |
+| 0017 | CREATE liabilities |
+| 0018 | CREATE receivables |
 
 ### Known Issues (open)
 - **Layer 3 vision LLM**: stub ready in pdf_parser.py, not wired. Needed for banks with fonts <8pt.
@@ -501,14 +504,46 @@ Full stack: register/login → JWT → upload (rate-limited, busts caches) → 3
 
 ---
 
+### Phase 21 — Net Worth Module (2026-06-21)
+
+#### Backend
+- [x] `backend/app/models/asset.py` — Asset: id UUID, user_id FK CASCADE, name String(200), asset_type String(50), currency String(10), current_value Numeric(18,2), notes Text nullable, created_at+updated_at tz-aware; `ASSET_TYPES` set (10 types)
+- [x] `backend/app/models/liability.py` — Liability: id UUID, user_id FK CASCADE, name, liability_type, currency, total_amount, remaining_amount, monthly_payment nullable, due_date Date nullable, interest_rate Numeric(6,2) nullable, notes nullable, created_at; `LIABILITY_TYPES` set (7 types)
+- [x] `backend/app/models/receivable.py` — Receivable: id UUID, user_id FK CASCADE, from_person, amount, currency, expected_date nullable, notes nullable, status ("pending"|"received"|"overdue"), created_at
+- [x] `backend/app/services/currency.py` — `get_exchange_rate(from, to)` + `convert(amount, from, to)`; fetches live rates from open.er-api.com free tier (no API key); 1h in-memory cache; fallback to hardcoded TRY rates on failure; rates stored as TRY-per-unit, inverted from API's TRY-base format
+- [x] `backend/app/api/networth.py` — 13 endpoints: CRUD for assets, liabilities, receivables + `GET /networth/summary`; summary converts all values to display_currency via live rates; `assets_by_type`, `liabilities_by_type`, `currency_breakdown` dicts; Pydantic validators on all inputs; ownership check on all mutations
+- [x] `backend/alembic/versions/0016_create_assets.py` — chains 0015→0016, has downgrade
+- [x] `backend/alembic/versions/0017_create_liabilities.py` — chains 0016→0017, has downgrade
+- [x] `backend/alembic/versions/0018_create_receivables.py` — chains 0017→0018, has downgrade
+- [x] `backend/requirements.txt` — added `httpx==0.27.0` for async HTTP in currency service
+- [x] `backend/app/main.py` — `networth_router` registered; Asset, Liability, Receivable imported for create_all
+- [x] Alembic stamped to 0018 (tables created by `create_all` dev startup before migration ran)
+
+#### Frontend
+- [x] `frontend/src/lib/api.ts` — `AssetItem`, `LiabilityItem`, `ReceivableItem`, `NetWorthSummary` interfaces; full CRUD functions for all three + `getNetWorthSummary(displayCurrency)`
+- [x] `frontend/src/components/ui/Icons.tsx` — added: `TrendingDown`, `DollarSign`, `Home`, `Car`, `Briefcase`, `Wallet`, `Scale`
+- [x] `frontend/src/components/AddAssetModal.tsx` — 10 asset types, 5 currencies, name+value+notes fields; indigo submit
+- [x] `frontend/src/components/AddLiabilityModal.tsx` — 7 liability types; total+remaining+monthly+interest+due_date+notes; red submit; scrollable for mobile
+- [x] `frontend/src/components/AddReceivableModal.tsx` — from_person+amount+currency+expected_date+notes; amber submit
+- [x] `frontend/src/app/networth/page.tsx` — hero: large net worth number (green/red), assets/liabilities/receivables breakdown, currency pill breakdown when multi-currency; VARLIKLAR section: grouped by "Nakit & Banka"/"Yatırımlar"/"Gayrimenkul & Araç"/"Diğer" with icons; BORÇLAR section: progress bar (paid%), high-interest badge (red if >30%), monthly payment + due date; ALACAKLAR section: overdue badge (orange), "Alındı" mark-received button; TRY/USD/EUR currency switcher calls API with display_currency param; loading skeletons; empty states per section with CTA
+- [x] `frontend/src/components/ui/Navbar.tsx` — "Net Değer" link added between İşlemler and İlerleme with `Scale` icon
+
+#### Architectural decisions
+- **`open.er-api.com` free tier**: No API key required, 1500 req/month free, OpenExchangeRates compatible. Fallback ensures app works even if rate limit hit.
+- **summary endpoint converts at request time**: No caching — exchange rates change daily, net worth display always reflects current rates. If this becomes slow (>50 assets), add 5min cache.
+- **Alembic stamp pattern**: Dev `create_all` runs before migrations. Same known issue as behavioral_profiles — stamp head after fresh migration files land on already-seeded DB.
+- **`updated_at` on Asset only**: Assets have current_value that changes (user updates price). Liabilities/receivables changed via PATCH to status or PUT the whole row — no `updated_at` needed.
+
+---
+
 ## Next Session — Start Here
 
-**Phases 1–20 complete and TESTED (docker running, alembic at 0015). Phase 20 = frontend-only, no new migrations.**
+**Phases 1–21 complete and TESTED (docker running, alembic at 0018). Phase 21 = Net Worth module.**
 
 Pre-flight (if docker was restarted):
 ```bash
 docker compose up -d
-docker compose exec backend alembic current   # must say 0015 (head)
+docker compose exec backend alembic current   # must say 0018 (head)
 # If behind: docker compose exec backend alembic upgrade head
 ```
 

@@ -245,3 +245,70 @@ export function ArrowRight({ size, className, strokeWidth }: IconProps) {
     </Icon>
   );
 }
+
+export function TrendingDown({ size, className, strokeWidth }: IconProps) {
+  return (
+    <Icon size={size} className={className} strokeWidth={strokeWidth}>
+      <polyline points="23 18 13.5 8.5 8.5 13.5 1 6" />
+      <polyline points="17 18 23 18 23 12" />
+    </Icon>
+  );
+}
+
+export function DollarSign({ size, className, strokeWidth }: IconProps) {
+  return (
+    <Icon size={size} className={className} strokeWidth={strokeWidth}>
+      <line x1="12" y1="1" x2="12" y2="23" />
+      <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
+    </Icon>
+  );
+}
+
+export function Home({ size, className, strokeWidth }: IconProps) {
+  return (
+    <Icon size={size} className={className} strokeWidth={strokeWidth}>
+      <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+      <polyline points="9 22 9 12 15 12 15 22" />
+    </Icon>
+  );
+}
+
+export function Car({ size, className, strokeWidth }: IconProps) {
+  return (
+    <Icon size={size} className={className} strokeWidth={strokeWidth}>
+      <rect x="1" y="3" width="15" height="13" />
+      <polygon points="16 8 20 8 23 11 23 16 16 16 16 8" />
+      <circle cx="5.5" cy="18.5" r="2.5" />
+      <circle cx="18.5" cy="18.5" r="2.5" />
+    </Icon>
+  );
+}
+
+export function Briefcase({ size, className, strokeWidth }: IconProps) {
+  return (
+    <Icon size={size} className={className} strokeWidth={strokeWidth}>
+      <rect x="2" y="7" width="20" height="14" rx="2" ry="2" />
+      <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16" />
+    </Icon>
+  );
+}
+
+export function Wallet({ size, className, strokeWidth }: IconProps) {
+  return (
+    <Icon size={size} className={className} strokeWidth={strokeWidth}>
+      <path d="M20 12V22H4a2 2 0 0 1-2-2V6a2 2 0 0 0 2 2h16v4z" />
+      <path d="M20 12a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2" />
+      <circle cx="16" cy="17" r="1" />
+    </Icon>
+  );
+}
+
+export function Scale({ size, className, strokeWidth }: IconProps) {
+  return (
+    <Icon size={size} className={className} strokeWidth={strokeWidth}>
+      <line x1="12" y1="3" x2="12" y2="21" />
+      <path d="M3 6l9 6 9-6" />
+      <path d="M6 21H18" />
+    </Icon>
+  );
+}

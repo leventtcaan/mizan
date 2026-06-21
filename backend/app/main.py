@@ -11,6 +11,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.auth import router as auth_router
+from app.api.networth import router as networth_router
 from app.api.installments import router as installments_router
 from app.api.subscriptions import router as subscriptions_router
 from app.api.email import router as email_router
@@ -38,6 +39,9 @@ from app.models.conversation import ConversationMessage  # noqa: F401 — regist
 from app.models.progress_insight import ProgressInsight  # noqa: F401 — registers table in metadata
 from app.models.dismissed_alert import DismissedAlert  # noqa: F401 — registers table in metadata
 from app.models.subscription_flag import SubscriptionFlag  # noqa: F401 — registers table in metadata
+from app.models.asset import Asset  # noqa: F401 — registers table in metadata
+from app.models.liability import Liability  # noqa: F401 — registers table in metadata
+from app.models.receivable import Receivable  # noqa: F401 — registers table in metadata
 
 logging.basicConfig(
     level=logging.INFO,
@@ -100,6 +104,7 @@ app.include_router(email_router)
 app.include_router(inflation_router)
 app.include_router(subscriptions_router)
 app.include_router(installments_router)
+app.include_router(networth_router)
 
 
 @app.get("/health")

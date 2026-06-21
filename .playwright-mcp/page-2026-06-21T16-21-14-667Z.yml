@@ -1,0 +1,135 @@
+- generic [ref=e1]:
+  - navigation [ref=e2]:
+    - generic [ref=e3]:
+      - link "Mizan" [ref=e4] [cursor=pointer]:
+        - /url: /transactions
+      - generic [ref=e5]:
+        - link "İşlemler" [ref=e6] [cursor=pointer]:
+          - /url: /transactions
+          - img [ref=e7]
+          - text: İşlemler
+        - link "Net Değer" [ref=e10] [cursor=pointer]:
+          - /url: /networth
+          - img [ref=e11]
+          - text: Net Değer
+        - link "İlerleme" [ref=e13] [cursor=pointer]:
+          - /url: /progress
+          - img [ref=e14]
+          - text: İlerleme
+        - link "Abonelikler" [ref=e15] [cursor=pointer]:
+          - /url: /subscriptions
+          - img [ref=e16]
+          - text: Abonelikler
+        - link "Taksitler" [ref=e18] [cursor=pointer]:
+          - /url: /installments
+          - img [ref=e19]
+          - text: Taksitler
+      - generic [ref=e23]:
+        - generic [ref=e24]: nw_test@example.com
+        - link "Yükle" [ref=e25] [cursor=pointer]:
+          - /url: /upload
+          - img [ref=e26]
+          - text: Yükle
+        - button "Çıkış" [ref=e29] [cursor=pointer]:
+          - img [ref=e30]
+  - generic [ref=e33]:
+    - generic [ref=e34]:
+      - generic [ref=e35]:
+        - heading "Net Değer" [level=1] [ref=e37]
+        - paragraph [ref=e38]: Varlıklar, borçlar ve alacaklar — tüm tablonuz
+      - generic [ref=e40]:
+        - button "TRY" [ref=e41] [cursor=pointer]
+        - button "USD" [active] [ref=e42] [cursor=pointer]
+        - button "EUR" [ref=e43] [cursor=pointer]
+    - generic [ref=e44]:
+      - paragraph [ref=e45]: Net Değeriniz
+      - paragraph [ref=e46]: $1.817,99
+      - generic [ref=e47]:
+        - generic [ref=e48]:
+          - img [ref=e49]
+          - generic [ref=e52]: Varlıklar
+          - generic [ref=e53]: $2.076,30
+        - generic [ref=e54]: —
+        - generic [ref=e55]:
+          - img [ref=e56]
+          - generic [ref=e59]: Borçlar
+          - generic [ref=e60]: $258,31
+        - generic [ref=e61]: +
+        - generic [ref=e62]:
+          - img [ref=e63]
+          - generic [ref=e65]: Alacaklar
+          - generic [ref=e66]: $107,63
+      - generic [ref=e67]:
+        - generic [ref=e68]: "TRY: ₺50.000"
+        - generic [ref=e69]: "USD: ₺46.455"
+    - generic [ref=e70]:
+      - generic [ref=e71]:
+        - generic [ref=e72]:
+          - img [ref=e73]
+          - heading "Varlıklar" [level=2] [ref=e76]
+          - generic [ref=e77]: $2.076,30
+        - button "Varlık Ekle" [ref=e78] [cursor=pointer]:
+          - img [ref=e79]
+          - text: Varlık Ekle
+      - generic [ref=e80]:
+        - generic [ref=e81]:
+          - generic [ref=e82]:
+            - img [ref=e83]
+            - generic [ref=e87]: Nakit & Banka
+          - generic [ref=e88]:
+            - generic [ref=e89]:
+              - paragraph [ref=e90]: Garanti Vadesiz
+              - paragraph [ref=e91]: Banka Hesabı
+            - generic [ref=e92]:
+              - paragraph [ref=e94]: ₺50.000
+              - button "×" [ref=e95] [cursor=pointer]
+        - generic [ref=e96]:
+          - generic [ref=e97]:
+            - img [ref=e98]
+            - generic [ref=e101]: Yatırımlar
+          - generic [ref=e102]:
+            - generic [ref=e103]:
+              - paragraph [ref=e104]: Interactive Brokers
+              - paragraph [ref=e105]: Hisse Senedi
+            - generic [ref=e106]:
+              - generic [ref=e107]:
+                - paragraph [ref=e108]: $1.000,00
+                - paragraph [ref=e109]: USD
+              - button "×" [ref=e110] [cursor=pointer]
+    - generic [ref=e111]:
+      - generic [ref=e112]:
+        - generic [ref=e113]:
+          - img [ref=e114]
+          - heading "Borçlar" [level=2] [ref=e117]
+          - generic [ref=e118]: $258,31
+        - button "Borç Ekle" [ref=e119] [cursor=pointer]:
+          - img [ref=e120]
+          - text: Borç Ekle
+      - generic [ref=e123]:
+        - generic [ref=e124]:
+          - generic [ref=e125]:
+            - paragraph [ref=e126]: İhtiyaç Kredisi
+            - generic [ref=e127]: İhtiyaç Kredisi
+            - generic [ref=e128]: "%35.00 faiz"
+          - generic [ref=e129]:
+            - generic [ref=e130]: "Kalan: ₺12.000"
+            - generic [ref=e131]: "Aylık: ₺1.500"
+          - paragraph [ref=e134]: 40% ödendi · Toplam ₺20.000
+        - button "×" [ref=e135] [cursor=pointer]
+    - generic [ref=e136]:
+      - generic [ref=e137]:
+        - generic [ref=e138]:
+          - img [ref=e139]
+          - heading "Alacaklar" [level=2] [ref=e141]
+          - generic [ref=e142]: $107,63
+        - button "Alacak Ekle" [ref=e143] [cursor=pointer]:
+          - img [ref=e144]
+          - text: Alacak Ekle
+      - generic [ref=e146]:
+        - generic [ref=e147]:
+          - paragraph [ref=e149]: Ahmet
+          - paragraph [ref=e150]: ₺5.000 · 2026-07-15 · Kira borcu
+        - generic [ref=e151]:
+          - button "Alındı" [ref=e152] [cursor=pointer]
+          - button "×" [ref=e153] [cursor=pointer]
+  - alert [ref=e154]

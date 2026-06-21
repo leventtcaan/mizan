@@ -644,3 +644,194 @@ export async function getInstallmentSummary(): Promise<InstallmentSummary> {
   if (!response.ok) throw new Error(`Failed to fetch installment summary: ${response.status}`);
   return response.json() as Promise<InstallmentSummary>;
 }
+
+// --- Net Worth ---
+
+export interface AssetItem {
+  id: string;
+  name: string;
+  asset_type: string;
+  currency: string;
+  current_value: string;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface LiabilityItem {
+  id: string;
+  name: string;
+  liability_type: string;
+  currency: string;
+  total_amount: string;
+  remaining_amount: string;
+  monthly_payment: string | null;
+  due_date: string | null;
+  interest_rate: string | null;
+  notes: string | null;
+  created_at: string;
+}
+
+export interface ReceivableItem {
+  id: string;
+  from_person: string;
+  amount: string;
+  currency: string;
+  expected_date: string | null;
+  notes: string | null;
+  status: "pending" | "received" | "overdue";
+  created_at: string;
+}
+
+export interface NetWorthSummary {
+  total_assets_try: number;
+  total_liabilities_try: number;
+  net_worth_try: number;
+  assets_by_type: Record<string, number>;
+  liabilities_by_type: Record<string, number>;
+  pending_receivables_try: number;
+  currency_breakdown: Record<string, number>;
+}
+
+export async function getNetWorthSummary(displayCurrency = "TRY"): Promise<NetWorthSummary> {
+  const response = await fetch(
+    `${API_BASE_URL}/networth/summary?display_currency=${displayCurrency}`,
+    { headers: authHeaders() },
+  );
+  if (!response.ok) throw new Error(`Failed to fetch net worth summary: ${response.status}`);
+  return response.json() as Promise<NetWorthSummary>;
+}
+
+export async function getAssets(): Promise<AssetItem[]> {
+  const response = await fetch(`${API_BASE_URL}/networth/assets`, { headers: authHeaders() });
+  if (!response.ok) throw new Error(`Failed to fetch assets: ${response.status}`);
+  return response.json() as Promise<AssetItem[]>;
+}
+
+export async function createAsset(body: {
+  name: string; asset_type: string; currency: string; current_value: string; notes?: string;
+}): Promise<AssetItem> {
+  const response = await fetch(`${API_BASE_URL}/networth/assets`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...authHeaders() },
+    body: JSON.stringify(body),
+  });
+  if (!response.ok) {
+    const err = await response.json().catch(() => null);
+    throw new Error(extractErrorMessage(err, "Varlık eklenemedi"));
+  }
+  return response.json() as Promise<AssetItem>;
+}
+
+export async function updateAsset(id: string, body: {
+  name: string; asset_type: string; currency: string; current_value: string; notes?: string;
+}): Promise<AssetItem> {
+  const response = await fetch(`${API_BASE_URL}/networth/assets/${id}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json", ...authHeaders() },
+    body: JSON.stringify(body),
+  });
+  if (!response.ok) {
+    const err = await response.json().catch(() => null);
+    throw new Error(extractErrorMessage(err, "Varlık güncellenemedi"));
+  }
+  return response.json() as Promise<AssetItem>;
+}
+
+export async function deleteAsset(id: string): Promise<void> {
+  const response = await fetch(`${API_BASE_URL}/networth/assets/${id}`, {
+    method: "DELETE",
+    headers: authHeaders(),
+  });
+  if (!response.ok) throw new Error(`Failed to delete asset: ${response.status}`);
+}
+
+export async function getLiabilities(): Promise<LiabilityItem[]> {
+  const response = await fetch(`${API_BASE_URL}/networth/liabilities`, { headers: authHeaders() });
+  if (!response.ok) throw new Error(`Failed to fetch liabilities: ${response.status}`);
+  return response.json() as Promise<LiabilityItem[]>;
+}
+
+export async function createLiability(body: {
+  name: string; liability_type: string; currency: string;
+  total_amount: string; remaining_amount: string;
+  monthly_payment?: string; due_date?: string; interest_rate?: string; notes?: string;
+}): Promise<LiabilityItem> {
+  const response = await fetch(`${API_BASE_URL}/networth/liabilities`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...authHeaders() },
+    body: JSON.stringify(body),
+  });
+  if (!response.ok) {
+    const err = await response.json().catch(() => null);
+    throw new Error(extractErrorMessage(err, "Borç eklenemedi"));
+  }
+  return response.json() as Promise<LiabilityItem>;
+}
+
+export async function updateLiability(id: string, body: {
+  name: string; liability_type: string; currency: string;
+  total_amount: string; remaining_amount: string;
+  monthly_payment?: string; due_date?: string; interest_rate?: string; notes?: string;
+}): Promise<LiabilityItem> {
+  const response = await fetch(`${API_BASE_URL}/networth/liabilities/${id}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json", ...authHeaders() },
+    body: JSON.stringify(body),
+  });
+  if (!response.ok) {
+    const err = await response.json().catch(() => null);
+    throw new Error(extractErrorMessage(err, "Borç güncellenemedi"));
+  }
+  return response.json() as Promise<LiabilityItem>;
+}
+
+export async function deleteLiability(id: string): Promise<void> {
+  const response = await fetch(`${API_BASE_URL}/networth/liabilities/${id}`, {
+    method: "DELETE",
+    headers: authHeaders(),
+  });
+  if (!response.ok) throw new Error(`Failed to delete liability: ${response.status}`);
+}
+
+export async function getReceivables(): Promise<ReceivableItem[]> {
+  const response = await fetch(`${API_BASE_URL}/networth/receivables`, { headers: authHeaders() });
+  if (!response.ok) throw new Error(`Failed to fetch receivables: ${response.status}`);
+  return response.json() as Promise<ReceivableItem[]>;
+}
+
+export async function createReceivable(body: {
+  from_person: string; amount: string; currency: string; expected_date?: string; notes?: string;
+}): Promise<ReceivableItem> {
+  const response = await fetch(`${API_BASE_URL}/networth/receivables`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...authHeaders() },
+    body: JSON.stringify(body),
+  });
+  if (!response.ok) {
+    const err = await response.json().catch(() => null);
+    throw new Error(extractErrorMessage(err, "Alacak eklenemedi"));
+  }
+  return response.json() as Promise<ReceivableItem>;
+}
+
+export async function updateReceivableStatus(
+  id: string,
+  status: "pending" | "received" | "overdue",
+): Promise<ReceivableItem> {
+  const response = await fetch(`${API_BASE_URL}/networth/receivables/${id}/status`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", ...authHeaders() },
+    body: JSON.stringify({ status }),
+  });
+  if (!response.ok) throw new Error(`Failed to update receivable: ${response.status}`);
+  return response.json() as Promise<ReceivableItem>;
+}
+
+export async function deleteReceivable(id: string): Promise<void> {
+  const response = await fetch(`${API_BASE_URL}/networth/receivables/${id}`, {
+    method: "DELETE",
+    headers: authHeaders(),
+  });
+  if (!response.ok) throw new Error(`Failed to delete receivable: ${response.status}`);
+}
