@@ -101,6 +101,12 @@ export default function ProgressPage() {
               <span className="text-gray-500 text-xs hidden sm:block">{userEmail}</span>
             )}
             <Link
+              href="/installments"
+              className="px-3 py-1.5 rounded-lg bg-gray-800 hover:bg-gray-700 text-sm text-gray-300 transition-colors"
+            >
+              Taksitler
+            </Link>
+            <Link
               href="/subscriptions"
               className="px-3 py-1.5 rounded-lg bg-gray-800 hover:bg-gray-700 text-sm text-gray-300 transition-colors"
             >

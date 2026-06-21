@@ -593,3 +593,54 @@ export async function getSubscriptionSummary(): Promise<SubscriptionSummary> {
   if (!response.ok) throw new Error(`Failed to fetch subscription summary: ${response.status}`);
   return response.json() as Promise<SubscriptionSummary>;
 }
+
+// --- Installments ---
+
+export interface InstallmentPlan {
+  merchant_key: string;
+  merchant: string;
+  monthly_amount: number;
+  months_detected: number;
+  estimated_remaining: number;
+  total_plan_months: number;
+  total_paid: number;
+  estimated_total: number;
+  first_seen: string;
+  last_seen: string;
+  category: string;
+  source: string;
+  total_nominal: number;
+  opportunity_loss: number;
+  real_cost_with_opportunity: number;
+}
+
+export interface InstallmentResponse {
+  plans: InstallmentPlan[];
+  insight: string | null;
+  cached: boolean;
+}
+
+export interface InstallmentSummary {
+  total_monthly_burden: number;
+  active_plan_count: number;
+  months_until_debt_free: number;
+  total_remaining_nominal: number;
+  total_opportunity_loss: number;
+  income_pct: number | null;
+}
+
+export async function getInstallments(): Promise<InstallmentResponse> {
+  const response = await fetch(`${API_BASE_URL}/installments`, {
+    headers: authHeaders(),
+  });
+  if (!response.ok) throw new Error(`Failed to fetch installments: ${response.status}`);
+  return response.json() as Promise<InstallmentResponse>;
+}
+
+export async function getInstallmentSummary(): Promise<InstallmentSummary> {
+  const response = await fetch(`${API_BASE_URL}/installments/summary`, {
+    headers: authHeaders(),
+  });
+  if (!response.ok) throw new Error(`Failed to fetch installment summary: ${response.status}`);
+  return response.json() as Promise<InstallmentSummary>;
+}
