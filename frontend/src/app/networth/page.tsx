@@ -25,6 +25,7 @@ import {
   scanReconciliation,
   updateReconciliationItemStatus,
   deleteBatch,
+  refreshAssetPrices,
   AssetItem,
   LiabilityItem,
   ReceivableItem,
@@ -33,7 +34,7 @@ import {
   FinancialEventItem,
   ReconciliationItem,
 } from "@/lib/api";
-import { Plus, TrendingUp, TrendingDown, DollarSign, Home, Wallet, Briefcase, Scale, Brain, Zap } from "@/components/ui/Icons";
+import { Plus, TrendingUp, TrendingDown, DollarSign, Home, Wallet, Briefcase, Scale, Brain, Zap, RefreshCw } from "@/components/ui/Icons";
 
 const SOURCE_LABELS: Record<string, string> = {
   manual: "Manuel giriş",
@@ -101,6 +102,35 @@ const ASSET_TYPE_GROUPS: { label: string; icon: ReactNode; types: string[] }[] =
     types: ["other_asset"],
   },
 ];
+
+const AUTO_PRICE_TYPES = new Set(["crypto", "gold", "foreign_currency", "commodity", "stock", "fund"]);
+
+function getPriceBadge(asset: AssetItem): { label: string; cls: string } | null {
+  if (!AUTO_PRICE_TYPES.has(asset.asset_type)) return null;
+
+  let detail: Record<string, unknown> = {};
+  try {
+    if (asset.source_detail) detail = JSON.parse(asset.source_detail) as Record<string, unknown>;
+  } catch { /* ignore */ }
+
+  const fetchedAt = detail.price_fetched_at as string | undefined;
+  if (!fetchedAt) {
+    return { label: "Manuel", cls: "text-orange-400 bg-orange-950/30 border-orange-800/30" };
+  }
+
+  const ageMs = Date.now() - new Date(fetchedAt).getTime();
+  const ageMin = Math.floor(ageMs / 60000);
+
+  if (ageMin < 60) {
+    const label = ageMin < 2 ? "Otomatik · az önce" : `Otomatik · ${ageMin} dak önce`;
+    return { label, cls: "text-emerald-400 bg-emerald-950/30 border-emerald-800/30" };
+  }
+  const ageHours = Math.floor(ageMin / 60);
+  if (ageHours < 24) {
+    return { label: `Otomatik · ${ageHours} sa önce`, cls: "text-amber-400 bg-amber-950/30 border-amber-800/30" };
+  }
+  return { label: "Otomatik · eski", cls: "text-orange-400 bg-orange-950/30 border-orange-800/30" };
+}
 
 function fmt(value: number, currency = "TRY"): string {
   try {
@@ -270,6 +300,7 @@ export default function NetWorthPage() {
   const [reconciliationItems, setReconciliationItems] = useState<ReconciliationItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [summaryLoading, setSummaryLoading] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
   const [actionPending, setActionPending] = useState<string | null>(null);
 
@@ -304,6 +335,26 @@ export default function NetWorthPage() {
       setSuggestions(sugg);
       setEvents(eventRows);
       setReconciliationItems(itemRows);
+
+      // Auto-refresh prices for any stale auto-fetchable asset (>1h since last fetch)
+      const needsRefresh = a.some((asset) => {
+        if (!AUTO_PRICE_TYPES.has(asset.asset_type)) return false;
+        try {
+          const d = asset.source_detail ? (JSON.parse(asset.source_detail) as Record<string, unknown>) : {};
+          const fetchedAt = d.price_fetched_at as string | undefined;
+          if (!fetchedAt) return true;
+          return Date.now() - new Date(fetchedAt).getTime() > 3600_000;
+        } catch { return true; }
+      });
+      if (needsRefresh) {
+        refreshAssetPrices()
+          .then((result) => {
+            if (result.updated > 0) {
+              return getAssets().then(setAssets);
+            }
+          })
+          .catch(() => {});
+      }
     } catch {
       // silent — empty state shows
     } finally {
@@ -387,6 +438,28 @@ export default function NetWorthPage() {
   const handleDismissSuggestion = async (id: string) => {
     await dismissSuggestion(id);
     setSuggestions((prev) => prev.filter((s) => s.id !== id));
+  };
+
+  const handleRefreshPrices = async () => {
+    if (refreshing) return;
+    setRefreshing(true);
+    try {
+      const result = await refreshAssetPrices();
+      const updatedAssets = await getAssets();
+      setAssets(updatedAssets);
+      if (result.updated > 0) {
+        void reloadSummary();
+        setToast(`${result.updated} varlık güncellendi${result.failed > 0 ? `, ${result.failed} başarısız` : ""}.`);
+      } else if (result.failed > 0) {
+        setToast(`Fiyat alınamadı (${result.failed} varlık). Tekrar deneyin.`);
+      } else {
+        setToast("Güncel fiyat verisi bulunamadı.");
+      }
+    } catch {
+      setToast("Fiyat güncelleme başarısız.");
+    } finally {
+      setRefreshing(false);
+    }
   };
 
   const handleReconciliationStatus = async (
@@ -495,8 +568,19 @@ export default function NetWorthPage() {
       subtitle="Varlıklar, borçlar ve alacaklar — tüm tablonuz"
       maxWidth="lg"
       action={
-        <div className="w-60">
-          <CurrencySelect value={displayCurrency} onChange={setDisplayCurrency} />
+        <div className="flex items-center gap-2">
+          <button
+            onClick={handleRefreshPrices}
+            disabled={refreshing}
+            title="Kripto, altın, döviz ve hisse fiyatlarını güncelle"
+            className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-[#1A1A1A] border border-[#2A2A2A] text-gray-400 hover:text-gray-200 hover:border-indigo-700 text-xs font-medium transition-colors disabled:opacity-50"
+          >
+            <RefreshCw size={13} className={refreshing ? "animate-spin" : ""} />
+            {refreshing ? "Güncelleniyor…" : "Fiyatları Güncelle"}
+          </button>
+          <div className="w-48">
+            <CurrencySelect value={displayCurrency} onChange={setDisplayCurrency} />
+          </div>
         </div>
       }
     >
@@ -779,6 +863,7 @@ export default function NetWorthPage() {
                   </div>
                   {groupAssets.map((a, idx) => {
                     const detailLabel = sourceDetailLabel(a.source_detail);
+                    const priceBadge = getPriceBadge(a);
                     return (
                       <div
                         key={a.id}
@@ -787,7 +872,14 @@ export default function NetWorthPage() {
                         }`}
                       >
                         <div>
-                          <p className="text-white text-sm font-medium">{a.name}</p>
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <p className="text-white text-sm font-medium">{a.name}</p>
+                            {priceBadge && (
+                              <span className={`text-[10px] px-1.5 py-0.5 rounded-full border ${priceBadge.cls}`}>
+                                {priceBadge.label}
+                              </span>
+                            )}
+                          </div>
                           <p className="text-gray-500 text-xs mt-0.5 flex items-center gap-2 flex-wrap">
                             <span>{ASSET_TYPE_LABELS[a.asset_type] ?? a.asset_type}</span>
                             {detailLabel && (

@@ -766,6 +766,21 @@ export async function deleteAsset(id: string): Promise<void> {
   if (!response.ok) throw new Error(`Failed to delete asset: ${response.status}`);
 }
 
+export interface RefreshPricesResult {
+  updated: number;
+  failed: number;
+  details: { asset_id: string; name: string; asset_type: string; status: "updated" | "failed"; price_usd?: number }[];
+}
+
+export async function refreshAssetPrices(): Promise<RefreshPricesResult> {
+  const response = await fetch(`${API_BASE_URL}/networth/assets/refresh-prices`, {
+    method: "POST",
+    headers: authHeaders(),
+  });
+  if (!response.ok) throw new Error(`Failed to refresh prices: ${response.status}`);
+  return response.json() as Promise<RefreshPricesResult>;
+}
+
 export async function getLiabilities(): Promise<LiabilityItem[]> {
   const response = await fetch(`${API_BASE_URL}/networth/liabilities`, { headers: authHeaders() });
   if (!response.ok) throw new Error(`Failed to fetch liabilities: ${response.status}`);

@@ -535,6 +535,27 @@ async def delete_asset(
     await session.commit()
 
 
+class RefreshPricesResponse(BaseModel):
+    updated: int
+    failed: int
+    details: list[dict]
+
+
+@router.post("/assets/refresh-prices", response_model=RefreshPricesResponse)
+async def refresh_asset_prices(
+    current_user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
+) -> RefreshPricesResponse:
+    """
+    Fetch live prices for all auto-refreshable assets (crypto, gold, FX, commodity, stock, fund).
+    Stores last_price_usd + price_fetched_at in source_detail; updates as_of_date.
+    Does not alter current_value for quantity-based assets (crypto/gold/FX/commodity).
+    """
+    from app.services.asset_prices import fetch_all_for_user
+    result = await fetch_all_for_user(current_user.id, session)
+    return RefreshPricesResponse(**result)
+
+
 # ---------- Liabilities ----------
 
 @router.get("/liabilities", response_model=list[LiabilityResponse])
