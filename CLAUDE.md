@@ -968,7 +968,7 @@ Full stack: register/login → JWT → upload (rate-limited, busts caches) → 3
 
 ## Next Session — Start Here
 
-**Phases 1–32 complete. Phase 32 = Cash Flow Calendar. Alembic head = 0022. No new migrations.**
+**Phases 1–33 complete. Phase 33 = Real-time Asset Prices. Alembic head = 0022. No new migrations.**
 
 Pre-flight (if docker was restarted):
 ```bash
@@ -989,10 +989,10 @@ curl -s http://localhost:8000/currency/list | python3 -c "import sys,json; d=jso
 ```
 
 Next task options (priority order):
-1. **Real-time asset prices** — `services/asset_prices.py` + `GET /networth/assets/{id}/refresh-price`; read subtype JSON from `source_detail`, call CoinGecko/open.er-api per asset type.
-2. **Transactions SpendingChart redesign** — replace weak bar chart with cash-flow panel or area chart.
-3. **Schema cleanup** — split `Asset.current_value` into quantity/value fields; current overload confusing for crypto/FX/gold.
-4. **Cashflow: recurring tx currency** — transactions have no currency column; recurring_income/subscription amounts currently hardcoded to TRY. Needs currency on transaction model or display disclaimer.
+1. **Transactions SpendingChart redesign** — replace weak bar chart with cash-flow panel or area chart.
+2. **Schema cleanup** — split `Asset.current_value` into quantity/value fields; currently overloaded (quantity for crypto/gold/FX, total value for stocks/manual).
+3. **Global market search** — stock ticker search + fund ISIN lookup via chosen providers.
+4. **Cashflow: recurring tx currency** — transactions have no currency column; recurring amounts default TRY. Needs currency column or disclaimer.
 5. **Deployment** — Railway backend + Vercel frontend; alembic head on cold start.
 
 ---

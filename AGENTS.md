@@ -666,9 +666,41 @@ Full stack: register/login → JWT → upload (rate-limited, busts caches) → 3
 
 ---
 
+### Phase 33 — Real-time Asset Prices (2026-06-22)
+
+#### Backend
+- [x] `backend/app/services/asset_prices.py` — new service. `AUTO_FETCHABLE_TYPES = LIVE_VALUE_TYPES | MARKET_VALUE_TYPES`. `LIVE_VALUE_TYPES = {crypto, gold, foreign_currency, commodity}` — stored as quantity × asset_code, value is always live via conversion service. `MARKET_VALUE_TYPES = {stock, fund}` — stored as total value, quantity not tracked.
+- [x] `fetch_crypto_price(symbol)` — uses `_fetch_crypto_rates()` from currency service (shared CoinGecko cache, 15 min TTL).
+- [x] `fetch_gold_price()` — uses `_fetch_commodity_rates()` from currency service (XAU/USD, 1h TTL).
+- [x] `fetch_commodity_price(code)` — uses `_fetch_commodity_rates()`.
+- [x] `fetch_fiat_price(code)` — uses `_fetch_fiat_rates()`.
+- [x] `fetch_stock_price(ticker)` — Yahoo Finance unofficial chart API `/v8/finance/chart/{TICKER}?interval=1d&range=1d`; per-ticker in-memory cache (`_stock_cache`), 1h TTL; stale cache returned on failure; User-Agent header set.
+- [x] `_price_for_asset(asset)` — dispatches to right fetcher based on `asset_type`, reads symbol/code from `source_detail` JSON.
+- [x] `fetch_all_for_user(user_id, session)` — loops auto-fetchable assets, calls `_price_for_asset`, stores `last_price_usd + price_fetched_at` in `source_detail`, updates `as_of_date = today`, commits. Does NOT change `current_value` (quantity stays intact for live-value types). Returns `{updated, failed, details}`.
+- [x] `POST /networth/assets/refresh-prices` — calls `fetch_all_for_user`, returns `RefreshPricesResponse`.
+
+#### Frontend
+- [x] `frontend/src/lib/api.ts` — `RefreshPricesResult` interface; `refreshAssetPrices()`.
+- [x] `frontend/src/app/networth/page.tsx` — imports `RefreshCw` + `refreshAssetPrices`.
+- [x] `AUTO_PRICE_TYPES` set constant.
+- [x] `getPriceBadge(asset)` helper: reads `source_detail.price_fetched_at`; returns `{label, cls}` for freshness badge. <2 min → "az önce" emerald; <60 min → "X dak önce" emerald; <24h → amber; else → orange. No fetchedAt → "Manuel" orange.
+- [x] `refreshing: boolean` state + `handleRefreshPrices()`: calls API, reloads assets, shows toast with updated/failed counts.
+- [x] "Fiyatları Güncelle" button in PageLayout action row alongside CurrencySelect; `RefreshCw` spins while loading.
+- [x] Per-asset freshness badge rendered next to asset name as small pill.
+- [x] Auto-refresh on page load: after `loadAll` detects any auto-fetchable asset with stale price (>1h or no `price_fetched_at`), triggers `refreshAssetPrices()` silently in background, reloads assets on success.
+
+#### Architectural decisions
+- **No new migration**: `source_detail` (String 500, already exists) stores price metadata as JSON. Avoids schema churn before quantity/value split is done.
+- **current_value unchanged for live types**: crypto/gold/FX assets store quantity. Changing current_value to a TRY value would break the conversion math. Price freshness is shown via badge; live value is computed at display time.
+- **Shared currency service caches**: crypto and commodity fetchers reuse the same CoinGecko/ER-API caches already used for currency conversion. No duplicate API calls.
+- **Stock: no quantity stored**: Yahoo Finance gives per-share price. Without quantity, total value can't be recomputed. Refresh stores price in source_detail for display only.
+- **Per-ticker stock cache separate**: `_stock_cache` is independent from `_crypto_cache`. TTL = 1h (daily close data doesn't change intraday).
+
+---
+
 ## Next Session — Start Here
 
-**Phases 1–32 complete. Phase 32 = cash flow calendar. Alembic head = 0022 (unchanged).**
+**Phases 1–33 complete. Phase 33 = real-time asset prices. Alembic head = 0022 (unchanged).**
 
 Pre-flight (if docker was restarted):
 ```bash
@@ -689,9 +721,9 @@ curl -s http://localhost:8000/currency/list | python3 -c "import sys,json; d=jso
 ```
 
 Next task options (priority order):
-1. **Real-time asset prices** — `services/asset_prices.py` + `GET /networth/assets/{id}/refresh-price`; read subtype JSON from `source_detail`, call CoinGecko/open.er-api per asset type.
-2. **Transactions SpendingChart redesign** — replace weak bar chart with cash-flow panel or area chart.
-3. **Schema cleanup** — split `Asset.current_value` into quantity/value fields; current naming confusing for crypto/FX/gold.
+1. **Transactions SpendingChart redesign** — replace weak bar chart with cash-flow panel or area chart.
+2. **Schema cleanup** — split `Asset.current_value` into quantity/value fields; currently overloaded (quantity for crypto/gold/FX, total value for stocks/manual).
+3. **Global market search** — stock ticker + fund ISIN live search via market data provider.
 4. **Cashflow tx currency** — transactions have no currency column; recurring amounts default TRY. Needs fix or disclaimer.
 5. **Deployment** — Railway backend + Vercel frontend; alembic head on cold start.
 
