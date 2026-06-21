@@ -118,12 +118,11 @@ Dependency direction (strict): `api → services → models`. Never reverse.
 
 ## Known Issues (fix next session, priority order)
 
-1. **Currency display switcher** — only TRY/USD/EUR pill buttons on net worth page. Should be searchable dropdown from all 270+ live rates, same CurrencySelect component used in modals.
-2. **Receivable delete cascade** — deleting a receivable that was already "received" (auto-created a cash Asset) leaves orphan Asset. Need: delete of received receivable → warn user + offer to delete linked asset, or store asset_id on receivable for lookup.
-3. **Auto-archive stale items** — dismissed alerts, received receivables, accepted suggestions clutter UI after 30 days. Need: filter by created_at < now-30d OR add `archived_at` column.
-4. **"Turkish personal finance" in system prompts** — coach.py, behavioral_coach.py, weekly_summary.py still say "Turkish". Replace with locale-aware: use user's language preference or `lang` param.
-5. **Onboarding bank list** — onboarding/page.tsx hardcodes Ziraat/Vakıfbank/Yapı Kredi/Garanti/Diğer. Make generic: "Your bank" + any bank name input, or detect from uploaded PDF.
-6. **Transactions SpendingChart** — basic bar chart, needs redesign (pie + trend combo, or area chart).
+1. **Receivable delete cascade** — deleting a receivable that was already "received" (auto-created a cash Asset) leaves orphan Asset. Need: delete of received receivable → warn user + offer to delete linked asset, or store asset_id on receivable for lookup.
+2. **Auto-archive stale items** — dismissed alerts, received receivables, accepted suggestions clutter UI after 30 days. Need: filter by created_at < now-30d OR add `archived_at` column.
+3. **"Turkish personal finance" in system prompts** — coach.py, behavioral_coach.py, weekly_summary.py still say "Turkish". Replace with locale-aware: use user's language preference or `lang` param.
+4. **Onboarding bank list** — onboarding/page.tsx hardcodes Ziraat/Vakıfbank/Yapı Kredi/Garanti/Diğer. Make generic: "Your bank" + any bank name input, or detect from uploaded PDF.
+5. **Transactions SpendingChart** — basic bar chart, needs redesign (pie + trend combo, or area chart).
 
 ---
 
@@ -262,9 +261,9 @@ When context reaches ~70% capacity:
 
 ## Current Status
 
-**Phases 1–23 complete. Docker not changed this session. Alembic head still = 0020.**
+**Phases 1–24 complete. Docker not changed this session. Alembic head still = 0020.**
 
-Full stack: register/login → JWT → upload (rate-limited, busts caches) → 3-layer OCR → LLM extract → OCR cleanup → dedup → zero-amount filter → persist → LLM categorize (13 categories) → insight cache → LLM coach with corrections+notes injected → spending chart + progress page (LineChart 3-month trend + cross-batch-deduped category comparison + LLM one-liners, 24h cached) → PersonalityCard (5 types, cached per batch) → AlertsPanel (3 algorithmic detectors, dismiss persisted) → GoalsPanel (monthly budget vs actual) → ChatPanel (conversational coaching, behavioral profile memory, voice input, chat-based tx entry with confirmation card, sessionStorage prefill from alerts) → weekly email summary (Resend HTML, preferences toggle) → inflation-adjusted analysis (TUFE 2023-2026, real vs nominal per category, ProgressInsight cache) → net worth asset subtype capture (crypto/fiat/commodity live picker, gold unit picker, stock/fund code fields, stored in `Asset.source_detail` JSON).
+Full stack: register/login → JWT → upload (rate-limited, busts caches) → 3-layer OCR → LLM extract → OCR cleanup → dedup → zero-amount filter → persist → LLM categorize (13 categories) → insight cache → LLM coach with corrections+notes injected → spending chart + progress page (LineChart 3-month trend + cross-batch-deduped category comparison + LLM one-liners, 24h cached) → PersonalityCard (5 types, cached per batch) → AlertsPanel (3 algorithmic detectors, dismiss persisted) → GoalsPanel (monthly budget vs actual) → ChatPanel (conversational coaching, behavioral profile memory, voice input, chat-based tx entry with confirmation card, sessionStorage prefill from alerts) → weekly email summary (Resend HTML, preferences toggle) → inflation-adjusted analysis (TUFE 2023-2026, real vs nominal per category, ProgressInsight cache) → net worth asset subtype capture (all asset types have specific fields; crypto/fiat/commodity live picker; gold unit picker; stock/fund code fields; manual categories store structured metadata in `Asset.source_detail` JSON) → net worth display currency searchable via live `CurrencySelect`.
 
 ### Migrations (head = 0015)
 | Migration | What |
@@ -652,11 +651,43 @@ Full stack: register/login → JWT → upload (rate-limited, busts caches) → 3
 - **Gold unit list is local constant for now**: physical gold units are product units, not live currencies. Needs later price multiplier logic. Alternative was external gold product API; no free global reliable source chosen yet.
 - **Stock/fund are structured input now, not full provider search yet**: enough to stop generic free-text asset creation and prepare backend price refresh. Full search belongs with real-time asset prices task.
 
+### Phase 24 — Net Worth Flow Repair: DOGE Crash + Full Currency Switcher + Specific Asset Forms (2026-06-21)
+
+#### Frontend fixes
+- [x] `frontend/src/app/networth/page.tsx` — fixed `RangeError: Invalid currency code: DOGE`. Root cause: `Intl.NumberFormat(... currency: "DOGE")` only accepts ISO fiat currency codes. Crypto/commodity/custom units now render with fallback format: number + code. No crash for DOGE/BTC/XAU/BRENT/etc.
+- [x] `frontend/src/app/networth/page.tsx` — removed hardcoded TRY/USD/EUR display buttons. Net worth display currency now uses `CurrencySelect`, same live searchable selector used in modals. User can select any live fiat/crypto/commodity supported by `/currency/list`.
+- [x] `frontend/src/components/AddAssetModal.tsx` — all asset types now have specific data fields. No category is just naked generic name/value anymore.
+- [x] Cash: storage/location fields.
+- [x] Bank account: institution/account type/account label fields.
+- [x] Real estate: property type, country/city, address/deed note fields.
+- [x] Vehicle: make, model/year, plate/VIN/note fields.
+- [x] Pension/BES/life insurance: provider, plan/policy fields.
+- [x] Bond: issuer, ISIN/code, maturity fields.
+- [x] Startup/business ownership: company/business, ownership %, country/sector/note fields.
+- [x] Art/collectible/jewelry: item/material/certificate fields.
+- [x] Other asset remains allowed as manual catch-all. If we cannot support a specific flow later, move it there or keep only manual structured detail.
+- [x] Crypto/foreign currency/commodity/gold quantity/value label fixed: field shows `Miktar / Adet` for unit-priced assets. Bank/cash/manual assets still show `Güncel Değer`.
+- [x] Removed Turkish-specific bank placeholder from asset name field. No more `Garanti` example.
+- [x] Manual subtype metadata stored as structured JSON in `Asset.source_detail`: `{subtype, primary, secondary, tertiary}`.
+- [x] Net worth asset row display now reads manual subtype metadata too, not only crypto/gold/stock/fund.
+
+#### Checks
+- [x] `npm run build` passed. Next compiled. Type check passed. 12 static pages generated.
+- [x] No backend migration needed.
+- [!] `npm run lint` still blocked by missing ESLint config from previous note.
+
+#### Architectural decisions
+- **Do not treat every asset code as fiat**: display must survive non-ISO units. Formatting now catches invalid `Intl` currency codes and falls back to `number CODE`.
+- **One live selector for display currency**: net worth display currency now uses `CurrencySelect`; no page-local hardcoded list.
+- **Specific category means specific fields**: if an asset type exists as first-class category, the form must ask category-relevant details. Otherwise category is fake and should be collapsed into `other_asset`.
+- **Still no real stock/fund search provider**: current flow captures structured symbol/ISIN manually. True live search needs provider decision and backend endpoint.
+- **Data model still overloaded**: `Asset.current_value` means quantity for unit-priced assets (crypto, FX, commodity, gold) and value for normal manual assets. This works with current conversion, but naming is bad. Long-term better schema: `quantity`, `unit_code`, `valuation_currency`, `manual_value`.
+
 ---
 
 ## Next Session — Start Here
 
-**Phases 1–23 complete. Phase 23 = asset subtype UX. Next fix Known Issue 1 from current list: net worth display currency switcher.**
+**Phases 1–24 complete. Phase 24 = net worth flow repair: DOGE crash fixed, display currency dropdown fixed, all asset types got specific fields. Next fix Known Issue 1 from current list: receivable delete cascade.**
 
 Pre-flight (if docker was restarted):
 ```bash
@@ -679,19 +710,19 @@ curl -s http://localhost:8000/currency/list | python3 -c "import sys,json; d=jso
 ```
 
 Next task options (priority order — fix known issues first):
-1. **Currency display switcher** — replace TRY/USD/EUR pills on net worth page with searchable live `CurrencySelect`; no display currency limit.
-2. **Receivable delete cascade** — deleting received receivable must delete/warn linked auto-created asset. Better fix: add `asset_id` to receivables or source_detail lookup fallback.
-3. **Auto-archive stale items** — clean old dismissed alerts, received receivables, accepted suggestions after 30 days or add `archived_at`.
-4. **System prompt globalization** — remove "Turkish personal finance" from coach.py, behavioral_coach.py, weekly_summary.py; use user locale/lang.
-5. **Onboarding bank list** — remove Turkish bank names; generic bank name input or PDF detection.
-6. **Transactions SpendingChart redesign** — better chart mix; current bar chart too weak.
-7. **Real-time asset prices** — `services/asset_prices.py` + `/networth/assets/{id}/refresh-price`; read subtype JSON from `source_detail`.
+1. **Receivable delete cascade** — deleting received receivable must delete/warn linked auto-created asset. Better fix: add `asset_id` to receivables or source_detail lookup fallback.
+2. **Auto-archive stale items** — clean old dismissed alerts, received receivables, accepted suggestions after 30 days or add `archived_at`.
+3. **System prompt globalization** — remove "Turkish personal finance" from coach.py, behavioral_coach.py, weekly_summary.py; use user locale/lang.
+4. **Onboarding bank list** — remove Turkish bank names; generic bank name input or PDF detection.
+5. **Transactions SpendingChart redesign** — better chart mix; current bar chart too weak.
+6. **Real-time asset prices** — `services/asset_prices.py` + `/networth/assets/{id}/refresh-price`; read subtype JSON from `source_detail`.
+7. **Schema cleanup** — split `Asset.current_value` into quantity/value fields before production if possible.
 
 ---
 
 ## Backlog (priority order)
 
-1. **Fix known issues** (6 items listed in Known Issues section) — do before new features
+1. **Fix known issues** (5 items listed in Known Issues section) — do before new features
 2. **Real-time price refresh** — `GET /networth/assets/{id}/refresh-price` → calls asset_prices.py per type
 3. **Global market search** — stock ticker search + fund ISIN lookup via chosen providers; current Phase 23 stores structured fields but does not fetch full global search results yet.
 4. **Cash flow calendar** — monthly timeline: liability payments due + receivables expected + goal deadlines

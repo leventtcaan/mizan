@@ -42,6 +42,22 @@ const GOLD_UNITS: { code: string; label: string }[] = [
   { code: "FULL_COIN", label: "Full coin" },
 ];
 
+const MANUAL_DETAIL_CONFIG: Record<string, { primary: string; secondary?: string; tertiary?: string; required?: boolean }> = {
+  cash: { primary: "Saklama Yeri", secondary: "Kasa / cüzdan etiketi", required: true },
+  bank_account: { primary: "Kurum / Banka", secondary: "Hesap tipi", tertiary: "Son 4 hane / etiket", required: true },
+  real_estate: { primary: "Mülk Tipi", secondary: "Ülke / şehir", tertiary: "Adres / tapu notu", required: true },
+  vehicle: { primary: "Marka", secondary: "Model / yıl", tertiary: "Plaka / VIN / not", required: true },
+  bes: { primary: "Sağlayıcı", secondary: "Plan / sözleşme no", required: true },
+  bond: { primary: "İhraççı", secondary: "ISIN / kod", tertiary: "Vade tarihi", required: true },
+  startup_equity: { primary: "Şirket", secondary: "Sahiplik oranı", tertiary: "Tur / sözleşme notu", required: true },
+  art_collectible: { primary: "Eser / koleksiyon adı", secondary: "Sanatçı / üretici", tertiary: "Sertifika / provenans", required: true },
+  jewelry: { primary: "Parça tipi", secondary: "Metal / taş", tertiary: "Ayar / sertifika", required: true },
+  life_insurance: { primary: "Sigorta şirketi", secondary: "Poliçe no", tertiary: "Lehtar / not", required: true },
+  pension: { primary: "Sağlayıcı", secondary: "Plan / hesap no", required: true },
+  business_ownership: { primary: "İşletme adı", secondary: "Sahiplik oranı", tertiary: "Ülke / sektör", required: true },
+  other_asset: { primary: "Açıklama", secondary: "Referans / not", required: false },
+};
+
 function todayISO(): string {
   return new Date().toISOString().slice(0, 10);
 }
@@ -55,7 +71,10 @@ function filterEntries(entries: CurrencyEntry[], query: string): CurrencyEntry[]
 }
 
 function stringifySourceDetail(detail: Record<string, string>): string {
-  return JSON.stringify(detail);
+  const cleaned = Object.fromEntries(
+    Object.entries(detail).filter(([, value]) => value.trim().length > 0),
+  );
+  return JSON.stringify(cleaned);
 }
 
 interface Props {
@@ -76,6 +95,9 @@ export default function AddAssetModal({ onClose, onAdded }: Props) {
   const [marketSymbol, setMarketSymbol] = useState("");
   const [marketName, setMarketName] = useState("");
   const [marketVenue, setMarketVenue] = useState("");
+  const [manualPrimary, setManualPrimary] = useState("");
+  const [manualSecondary, setManualSecondary] = useState("");
+  const [manualTertiary, setManualTertiary] = useState("");
   const [value, setValue] = useState("");
   const [notes, setNotes] = useState("");
   const [asOfDate, setAsOfDate] = useState(todayISO());
@@ -111,6 +133,9 @@ export default function AddAssetModal({ onClose, onAdded }: Props) {
     setMarketSymbol("");
     setMarketName("");
     setMarketVenue("");
+    setManualPrimary("");
+    setManualSecondary("");
+    setManualTertiary("");
   }
 
   function setNameIfEmpty(nextName: string) {
@@ -163,14 +188,26 @@ export default function AddAssetModal({ onClose, onAdded }: Props) {
         venue: marketVenue.trim(),
       });
     }
+    const config = MANUAL_DETAIL_CONFIG[assetType];
+    if (config) {
+      return stringifySourceDetail({
+        subtype: assetType,
+        primary: manualPrimary.trim(),
+        secondary: manualSecondary.trim(),
+        tertiary: manualTertiary.trim(),
+      });
+    }
     return undefined;
   }
 
+  const manualConfig = MANUAL_DETAIL_CONFIG[assetType];
+  const usesQuantityInput = ["crypto", "foreign_currency", "commodity", "gold"].includes(assetType);
   const subtypeRequiredMissing =
     (assetType === "crypto" && !selectedCrypto) ||
     (assetType === "foreign_currency" && !selectedFiat) ||
     (assetType === "commodity" && !selectedCommodity) ||
-    ((assetType === "stock" || assetType === "fund") && !marketSymbol.trim());
+    ((assetType === "stock" || assetType === "fund") && !marketSymbol.trim()) ||
+    Boolean(manualConfig?.required && !manualPrimary.trim());
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -217,7 +254,7 @@ export default function AddAssetModal({ onClose, onAdded }: Props) {
             <input
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="örn. Garanti vadesiz hesabı"
+              placeholder="örn. Main checking account"
               required
               className="w-full bg-[#0F0F0F] border border-[#2A2A2A] rounded-lg px-3 py-2 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-indigo-600"
             />
@@ -397,13 +434,53 @@ export default function AddAssetModal({ onClose, onAdded }: Props) {
             </div>
           )}
 
+          {manualConfig && (
+            <div className="grid grid-cols-1 gap-3">
+              <div>
+                <label className="block text-xs text-gray-400 mb-1">{manualConfig.primary}</label>
+                <input
+                  value={manualPrimary}
+                  onChange={(e) => {
+                    setManualPrimary(e.target.value);
+                    setNameIfEmpty(e.target.value);
+                  }}
+                  required={manualConfig.required}
+                  placeholder={manualConfig.primary}
+                  className="w-full bg-[#0F0F0F] border border-[#2A2A2A] rounded-lg px-3 py-2 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-indigo-600"
+                />
+              </div>
+              {(manualConfig.secondary || manualConfig.tertiary) && (
+                <div className="grid grid-cols-2 gap-3">
+                  {manualConfig.secondary && (
+                    <input
+                      value={manualSecondary}
+                      onChange={(e) => setManualSecondary(e.target.value)}
+                      placeholder={manualConfig.secondary}
+                      className="w-full bg-[#0F0F0F] border border-[#2A2A2A] rounded-lg px-3 py-2 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-indigo-600"
+                    />
+                  )}
+                  {manualConfig.tertiary && (
+                    <input
+                      value={manualTertiary}
+                      onChange={(e) => setManualTertiary(e.target.value)}
+                      placeholder={manualConfig.tertiary}
+                      className="w-full bg-[#0F0F0F] border border-[#2A2A2A] rounded-lg px-3 py-2 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-indigo-600"
+                    />
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+
           <div>
             <label className="block text-xs text-gray-400 mb-1">Para Birimi</label>
             <CurrencySelect value={currency} onChange={setCurrency} />
           </div>
 
           <div>
-            <label className="block text-xs text-gray-400 mb-1">Güncel Değer</label>
+            <label className="block text-xs text-gray-400 mb-1">
+              {usesQuantityInput ? "Miktar / Adet" : "Güncel Değer"}
+            </label>
             <input
               type="number"
               min="0"

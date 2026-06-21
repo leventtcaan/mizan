@@ -6,6 +6,7 @@ import PageLayout from "@/components/ui/PageLayout";
 import AddAssetModal from "@/components/AddAssetModal";
 import AddLiabilityModal from "@/components/AddLiabilityModal";
 import AddReceivableModal from "@/components/AddReceivableModal";
+import CurrencySelect from "@/components/CurrencySelect";
 import {
   getToken,
   getNetWorthSummary,
@@ -26,8 +27,6 @@ import {
   SuggestionItem,
 } from "@/lib/api";
 import { Plus, TrendingUp, TrendingDown, DollarSign, Home, Wallet, Briefcase, Scale, Brain, Zap } from "@/components/ui/Icons";
-
-const CURRENCIES = ["TRY", "USD", "EUR"];
 
 const SOURCE_LABELS: Record<string, string> = {
   manual: "Manuel giriş",
@@ -97,18 +96,22 @@ const ASSET_TYPE_GROUPS: { label: string; icon: ReactNode; types: string[] }[] =
 ];
 
 function fmt(value: number, currency = "TRY"): string {
-  if (currency === "TRY") {
+  try {
+    if (currency === "TRY") {
+      return new Intl.NumberFormat("tr-TR", {
+        style: "currency",
+        currency: "TRY",
+        maximumFractionDigits: 0,
+      }).format(value);
+    }
     return new Intl.NumberFormat("tr-TR", {
       style: "currency",
-      currency: "TRY",
-      maximumFractionDigits: 0,
+      currency,
+      maximumFractionDigits: 2,
     }).format(value);
+  } catch {
+    return `${new Intl.NumberFormat("tr-TR", { maximumFractionDigits: 8 }).format(value)} ${currency}`;
   }
-  return new Intl.NumberFormat("tr-TR", {
-    style: "currency",
-    currency,
-    maximumFractionDigits: 2,
-  }).format(value);
 }
 
 function fmtItem(value: string, currency: string): string {
@@ -128,6 +131,9 @@ function sourceDetailLabel(raw: string | null): string | null {
       label?: string;
       name?: string;
       venue?: string;
+      primary?: string;
+      secondary?: string;
+      tertiary?: string;
     };
     if (data.subtype === "crypto" && data.symbol) {
       return [data.symbol, data.name].filter(Boolean).join(" · ");
@@ -146,6 +152,9 @@ function sourceDetailLabel(raw: string | null): string | null {
     }
     if (data.subtype === "fund" && data.code) {
       return [data.code, data.name, data.venue].filter(Boolean).join(" · ");
+    }
+    if (data.primary || data.secondary || data.tertiary) {
+      return [data.primary, data.secondary, data.tertiary].filter(Boolean).join(" · ");
     }
   } catch {
     return raw;
@@ -324,20 +333,8 @@ export default function NetWorthPage() {
       subtitle="Varlıklar, borçlar ve alacaklar — tüm tablonuz"
       maxWidth="lg"
       action={
-        <div className="flex items-center gap-2">
-          {CURRENCIES.map((c) => (
-            <button
-              key={c}
-              onClick={() => setDisplayCurrency(c)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
-                displayCurrency === c
-                  ? "bg-indigo-600 text-white"
-                  : "bg-[#1A1A1A] border border-[#2A2A2A] text-gray-400 hover:text-gray-200"
-              }`}
-            >
-              {c}
-            </button>
-          ))}
+        <div className="w-60">
+          <CurrencySelect value={displayCurrency} onChange={setDisplayCurrency} />
         </div>
       }
     >
