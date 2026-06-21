@@ -20,11 +20,16 @@ import {
   getNetWorthSuggestions,
   acceptSuggestion,
   dismissSuggestion,
+  getFinancialEvents,
+  getReconciliationItems,
+  updateReconciliationItemStatus,
   AssetItem,
   LiabilityItem,
   ReceivableItem,
   NetWorthSummary,
   SuggestionItem,
+  FinancialEventItem,
+  ReconciliationItem,
 } from "@/lib/api";
 import { Plus, TrendingUp, TrendingDown, DollarSign, Home, Wallet, Briefcase, Scale, Brain, Zap } from "@/components/ui/Icons";
 
@@ -162,6 +167,30 @@ function sourceDetailLabel(raw: string | null): string | null {
   return raw;
 }
 
+function eventLabel(eventType: string): string {
+  const labels: Record<string, string> = {
+    receivable_collected: "Receivable collected",
+    receivable_collection_reversed: "Collection reversed",
+    receivable_written_off: "Receivable written off",
+    asset_created: "Asset created",
+    asset_updated: "Asset updated",
+    liability_created: "Liability created",
+    statement_uploaded: "Statement uploaded",
+  };
+  return labels[eventType] ?? eventType.replaceAll("_", " ");
+}
+
+function eventDetail(detail: FinancialEventItem["source_detail"]): string | null {
+  if (!detail) return null;
+  if (typeof detail === "string") return detail;
+  const parts = [
+    typeof detail.from_person === "string" ? detail.from_person : null,
+    typeof detail.asset_id === "string" ? `asset ${detail.asset_id.slice(0, 8)}` : null,
+    typeof detail.removed_asset_id === "string" ? `removed asset ${detail.removed_asset_id.slice(0, 8)}` : null,
+  ].filter(Boolean);
+  return parts.length > 0 ? parts.join(" · ") : null;
+}
+
 function SectionHeader({
   label,
   icon,
@@ -230,6 +259,8 @@ export default function NetWorthPage() {
   const [liabilities, setLiabilities] = useState<LiabilityItem[]>([]);
   const [receivables, setReceivables] = useState<ReceivableItem[]>([]);
   const [suggestions, setSuggestions] = useState<SuggestionItem[]>([]);
+  const [events, setEvents] = useState<FinancialEventItem[]>([]);
+  const [reconciliationItems, setReconciliationItems] = useState<ReconciliationItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [summaryLoading, setSummaryLoading] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
@@ -249,18 +280,22 @@ export default function NetWorthPage() {
   const loadAll = async () => {
     setLoading(true);
     try {
-      const [s, a, l, r, sugg] = await Promise.all([
+      const [s, a, l, r, sugg, eventRows, itemRows] = await Promise.all([
         getNetWorthSummary(displayCurrency),
         getAssets(),
         getLiabilities(),
         getReceivables(),
         getNetWorthSuggestions().catch(() => [] as SuggestionItem[]),
+        getFinancialEvents(8).catch(() => [] as FinancialEventItem[]),
+        getReconciliationItems("open").catch(() => [] as ReconciliationItem[]),
       ]);
       setSummary(s);
       setAssets(a);
       setLiabilities(l);
       setReceivables(r);
       setSuggestions(sugg);
+      setEvents(eventRows);
+      setReconciliationItems(itemRows);
     } catch {
       // silent — empty state shows
     } finally {
@@ -277,6 +312,15 @@ export default function NetWorthPage() {
       setSummaryLoading(false);
     }
   }, [displayCurrency]);
+
+  const reloadReconciliation = useCallback(async () => {
+    const [eventRows, itemRows] = await Promise.all([
+      getFinancialEvents(8).catch(() => [] as FinancialEventItem[]),
+      getReconciliationItems("open").catch(() => [] as ReconciliationItem[]),
+    ]);
+    setEvents(eventRows);
+    setReconciliationItems(itemRows);
+  }, []);
 
   useEffect(() => {
     if (!loading) reloadSummary();
@@ -309,6 +353,7 @@ export default function NetWorthPage() {
       setAssets((prev) => prev.filter((a) => a.id !== receivable.linked_asset_id));
     }
     void reloadSummary();
+    void reloadReconciliation();
   };
 
   const handleMarkReceived = async (id: string) => {
@@ -321,6 +366,7 @@ export default function NetWorthPage() {
       setToast(result.toast_message);
     }
     void reloadSummary();
+    void reloadReconciliation();
   };
 
   const handleAcceptSuggestion = async (id: string) => {
@@ -333,6 +379,15 @@ export default function NetWorthPage() {
   const handleDismissSuggestion = async (id: string) => {
     await dismissSuggestion(id);
     setSuggestions((prev) => prev.filter((s) => s.id !== id));
+  };
+
+  const handleReconciliationStatus = async (
+    id: string,
+    status: "resolved" | "dismissed",
+  ) => {
+    const updated = await updateReconciliationItemStatus(id, status);
+    setReconciliationItems((prev) => prev.filter((item) => item.id !== updated.id));
+    setToast(status === "resolved" ? "Review item resolved." : "Review item dismissed.");
   };
 
   const netPositive = (summary?.net_worth_try ?? 0) >= 0;
@@ -439,6 +494,90 @@ export default function NetWorthPage() {
             </div>
           ))}
         </div>
+      )}
+
+      {(reconciliationItems.length > 0 || events.length > 0) && (
+        <section className="mb-8">
+          <div className="flex items-center gap-2 mb-4">
+            <Zap size={18} className="text-cyan-400" />
+            <h2 className="text-white font-semibold">Action Queue</h2>
+            {reconciliationItems.length > 0 && (
+              <span className="px-2 py-0.5 rounded-full bg-cyan-950/50 border border-cyan-800/40 text-cyan-300 text-xs font-medium">
+                {reconciliationItems.length} open
+              </span>
+            )}
+          </div>
+
+          {reconciliationItems.length > 0 && (
+            <div className="space-y-3 mb-3">
+              {reconciliationItems.map((item) => (
+                <div
+                  key={item.id}
+                  className="bg-[#1A1A1A] border border-cyan-900/30 rounded-xl p-4 flex items-start justify-between gap-3"
+                >
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <p className="text-gray-100 text-sm font-medium">{item.title}</p>
+                      <span className="px-2 py-0.5 rounded-full bg-[#2A2A2A] text-gray-400 text-xs">
+                        {item.severity}
+                      </span>
+                    </div>
+                    <p className="text-gray-400 text-xs leading-relaxed mt-1">{item.description}</p>
+                    {typeof item.proposed_action === "string" && (
+                      <p className="text-cyan-300 text-xs mt-2">{item.proposed_action}</p>
+                    )}
+                  </div>
+                  <div className="flex gap-2 shrink-0">
+                    <button
+                      onClick={() => handleReconciliationStatus(item.id, "resolved")}
+                      className="px-3 py-1.5 rounded-lg bg-emerald-600/20 text-emerald-400 border border-emerald-800/40 hover:bg-emerald-600/30 text-xs font-medium transition-colors"
+                    >
+                      Resolved
+                    </button>
+                    <button
+                      onClick={() => handleReconciliationStatus(item.id, "dismissed")}
+                      className="px-3 py-1.5 rounded-lg bg-[#2A2A2A] text-gray-400 hover:text-gray-200 text-xs font-medium transition-colors"
+                    >
+                      Dismiss
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {events.length > 0 && (
+            <div className="bg-[#1A1A1A] border border-[#2A2A2A] rounded-xl overflow-hidden">
+              <div className="px-4 py-2.5 border-b border-[#2A2A2A] bg-[#111]">
+                <span className="text-xs text-gray-400 font-medium">Recent Events</span>
+              </div>
+              {events.map((event, idx) => {
+                const detail = eventDetail(event.source_detail);
+                return (
+                  <div
+                    key={event.id}
+                    className={`flex items-center justify-between gap-3 px-4 py-3 ${
+                      idx < events.length - 1 ? "border-b border-[#2A2A2A]" : ""
+                    }`}
+                  >
+                    <div className="min-w-0">
+                      <p className="text-gray-200 text-sm">{eventLabel(event.event_type)}</p>
+                      <p className="text-gray-500 text-xs mt-0.5">
+                        {event.event_date} · {event.entity_type}
+                        {detail ? ` · ${detail}` : ""}
+                      </p>
+                    </div>
+                    {event.amount && event.currency && (
+                      <p className="text-gray-300 text-sm font-semibold tabular-nums shrink-0">
+                        {fmtItem(event.amount, event.currency)}
+                      </p>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </section>
       )}
 
       {/* VARLIKLAR */}

@@ -257,9 +257,9 @@ When context reaches ~70% capacity:
 
 ## Current Status
 
-**Phases 1–28 complete. Docker not changed this session. Alembic head = 0022.**
+**Phases 1–29 complete. Docker not changed this session. Alembic head = 0022.**
 
-Full stack: register/login → JWT → upload (rate-limited, busts caches) → 3-layer OCR → LLM extract → OCR cleanup → dedup → zero-amount filter → persist → LLM categorize (13 categories) → insight cache → globalized LLM coach with corrections+notes injected → spending chart + progress page (LineChart 3-month trend + cross-batch-deduped category comparison + LLM one-liners, 24h cached) → PersonalityCard (5 types, cached per batch) → AlertsPanel (3 algorithmic detectors, dismiss persisted, stale dismissals auto-cleaned) → GoalsPanel (monthly budget vs actual) → ChatPanel (globalized conversational coaching, behavioral profile memory, voice input, chat-based tx entry with confirmation card, sessionStorage prefill from alerts) → weekly email summary (Resend HTML, preferences toggle) → inflation-adjusted analysis (TUFE 2023-2026, real vs nominal per category, ProgressInsight cache) → net worth asset subtype capture (all asset types have specific fields; crypto/fiat/commodity live picker; gold unit picker; stock/fund code fields; manual categories store structured metadata in `Asset.source_detail` JSON) → net worth display currency searchable via live `CurrencySelect` → receivable collection creates linked cash asset, repeated collection is idempotent, delete/write-off removes linked asset → stale received receivables and processed suggestions are hidden/cleaned after 30 days → onboarding accepts any institution/export source instead of hardcoded Turkish banks → financial event log + reconciliation item backend skeleton exists.
+Full stack: register/login → JWT → upload (rate-limited, busts caches) → 3-layer OCR → LLM extract → OCR cleanup → dedup → zero-amount filter → persist → LLM categorize (13 categories) → insight cache → globalized LLM coach with corrections+notes injected → spending chart + progress page (LineChart 3-month trend + cross-batch-deduped category comparison + LLM one-liners, 24h cached) → PersonalityCard (5 types, cached per batch) → AlertsPanel (3 algorithmic detectors, dismiss persisted, stale dismissals auto-cleaned) → GoalsPanel (monthly budget vs actual) → ChatPanel (globalized conversational coaching, behavioral profile memory, voice input, chat-based tx entry with confirmation card, sessionStorage prefill from alerts) → weekly email summary (Resend HTML, preferences toggle) → inflation-adjusted analysis (TUFE 2023-2026, real vs nominal per category, ProgressInsight cache) → net worth asset subtype capture (all asset types have specific fields; crypto/fiat/commodity live picker; gold unit picker; stock/fund code fields; manual categories store structured metadata in `Asset.source_detail` JSON) → net worth display currency searchable via live `CurrencySelect` → receivable collection creates linked cash asset, repeated collection is idempotent, delete/write-off removes linked asset → stale received receivables and processed suggestions are hidden/cleaned after 30 days → onboarding accepts any institution/export source instead of hardcoded Turkish banks → financial event log + reconciliation item backend skeleton exists → net worth page shows Action Queue with open reconciliation items and recent financial events.
 
 ### Migrations (head = 0022)
 | Migration | What |
@@ -291,7 +291,7 @@ Full stack: register/login → JWT → upload (rate-limited, busts caches) → 3
 - **Layer 3 vision LLM**: stub ready in pdf_parser.py, not wired. Needed for banks with fonts <8pt.
 - **Rate limiter in-memory**: resets on backend restart. Redis needed for prod multi-process deploy.
 - **Resend domain**: `noreply@mizan.app` hardcoded in api/email.py — must be a verified Resend domain in prod.
-- **Migration drift in dev**: `create_all` adds base schema but not Alembic migrations. Must run `alembic upgrade head` then `alembic stamp HEAD` after fresh DB. behavioral_profiles.personality_cache + personality_batch_id had to be manually ALTER TABLE'd in current dev DB (same issue will recur on fresh DB — 0011 migration runs correctly on clean install).
+- **Migration drift in dev**: `create_all` adds base schema before Alembic can stamp revisions. 0022 is now idempotent because current dev DB had `financial_events` already created by app startup before migration ran. Still must run `alembic upgrade head`; if drift blocks again, inspect exact table/column then make migration safe or stamp only after schema matches.
 - **TUFE rates 2025-2026**: approximate (TCMB trajectory estimates). Users see disclaimer. Real rates available from TÜİK monthly.
 - **Subscription flag toggle**: UI supports toggle-off optimistically but backend has no "unflag" endpoint — only upsert. Visually works but flag is never deleted; workaround: flag to different value.
 - **Frontend lint missing config**: `npm run lint` opens Next ESLint setup wizard. Build still runs type check. Add ESLint config later.
@@ -831,17 +831,52 @@ Full stack: register/login → JWT → upload (rate-limited, busts caches) → 3
 - **Source detail remains JSON text**: fast schema now, flexible proposals. Later can move to JSONB.
 - **Receivable flow proves the pattern**: existing net worth mutation now writes events. Next: upload suggestions, manual asset edits, liability payments.
 
+### Phase 29 — Reconciliation UI + Idempotent 0022 Migration (2026-06-21)
+
+#### Problem found
+- [x] User ran `docker compose exec backend alembic upgrade head`.
+- [x] 0022 failed with `DuplicateTableError: relation "financial_events" already exists`.
+- [x] Cause: dev backend `create_all` created tables before Alembic migration stamped 0022. Same old dev drift class, new table.
+
+#### Migration fix
+- [x] `backend/alembic/versions/0022_create_financial_events_and_reconciliation.py` — upgrade now inspects DB first.
+- [x] If `financial_events` already exists, migration skips create.
+- [x] If `reconciliation_items` already exists, migration skips create.
+- [x] Clean DB still creates both tables and indexes.
+- [x] Current drifted DB can now rerun `docker compose exec backend alembic upgrade head` and stamp 0022 if schema already exists.
+
+#### Net worth UI
+- [x] `frontend/src/app/networth/page.tsx` — loads recent financial events from `/reconciliation/events`.
+- [x] `frontend/src/app/networth/page.tsx` — loads open reconciliation items from `/reconciliation/items?status=open`.
+- [x] `frontend/src/app/networth/page.tsx` — new Action Queue block on net worth page.
+- [x] Action Queue shows open review items first: title, severity, description, proposed action text if present.
+- [x] User can mark review item `resolved` or `dismissed`; UI removes it from open queue.
+- [x] Recent Events list shows latest ledger events with event date, entity type, detail, and amount/currency.
+- [x] Receivable collected/deleted flows refresh events after action.
+
+#### Checks
+- [x] `python3 -m py_compile backend/alembic/versions/0022_create_financial_events_and_reconciliation.py` passed.
+- [x] `npm run build` passed.
+- [x] `git diff --check` clean.
+- [!] Docker/alembic runtime not run by Codex because user runs Docker commands manually.
+
+#### Architectural decisions
+- **Idempotent migration only for dev drift**: this protects current local DB. Production should not rely on `create_all`; migrations remain source of truth.
+- **Action Queue before chart redesign**: user needs system actions, not more graphs. This is first visible step from passive dashboard to workflow app.
+- **Events are read-only in UI for now**: events are audit trail. User actions happen through reconciliation items.
+- **Open items only by default**: stale/resolved/dismissed work should not clutter main net worth page.
+
 ---
 
 ## Next Session — Start Here
 
-**Phases 1–28 complete. Phase 28 = event/reconciliation backend skeleton. Next: run migration 0022, then build first reconciliation UI/action queue or replace transactions SpendingChart with action/reconciliation panel.**
+**Phases 1–29 complete. Phase 29 = Action Queue on net worth page + 0022 migration drift fix. Next: user must rerun migration, then build actual reconciliation producers.**
 
 Pre-flight (if docker was restarted):
 ```bash
 docker compose up -d
+docker compose exec backend alembic upgrade head
 docker compose exec backend alembic current   # must say 0022 (head)
-# If behind: docker compose exec backend alembic upgrade head
 ```
 
 Quick smoke-test:
@@ -857,9 +892,9 @@ curl -s http://localhost:8000/currency/list | python3 -c "import sys,json; d=jso
 # PATCH /networth/receivables/{id}/status {"status":"received"} → {receivable, created_asset, toast_message}
 ```
 
-Next task options (priority order — fix known issues first):
-1. **Run migration** — `docker compose exec backend alembic upgrade head`; head must be 0022.
-2. **Reconciliation UI/action queue** — show open reconciliation items + recent events on net worth page.
+Next task options (priority order):
+1. **Run migration** — `docker compose exec backend alembic upgrade head`; head must be 0022 after idempotent fix.
+2. **Create reconciliation producers** — detect duplicate manual/statement entries, stale receivables, asset balance drift, missing linked events, suspicious cash movements; write `reconciliation_items`.
 3. **Transactions SpendingChart redesign** — replace weak chart with action/reconciliation panel or cash-flow chart.
 4. **Real-time asset prices** — `services/asset_prices.py` + `/networth/assets/{id}/refresh-price`; read subtype JSON from `source_detail`.
 5. **Schema cleanup** — split `Asset.current_value` into quantity/value fields before production if possible.
