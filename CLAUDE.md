@@ -1,14 +1,31 @@
 # Mizan — Project Brain
 
 ## What Is This
-Turkish personal finance behavioral coaching app. Users upload bank statements (PDF/CSV).
-AI extracts transactions, categorizes them, finds behavioral patterns, coaches users on
-WHY they overspend — not just what they spent. "Mizan" = balance/equilibrium in Turkish.
+**Global** personal + SME financial assistant. "Mizan" = balance/equilibrium (Arabic/Turkish).
+Users upload bank statements (PDF/CSV/image) or enter data manually.
+AI extracts transactions, tracks net worth, finds behavioral patterns, coaches on WHY.
+Complete financial picture: assets, liabilities, cash flow, receivables, investments.
 
 ## Target User
-Turkish individual. Has a bank account. Uploads PDF statements. Wants to understand
-spending psychology, not just see pie charts. Probably frustrated that every finance app
-just shows graphs without insight.
+**Anyone worldwide** — individual or small business — who wants to manage their complete
+financial life in one place. TR/EN first, fully expandable to any language/currency/bank.
+NOT Turkish-specific. No hardcoded Turkish bank names, Turkish-only categories, or
+Turkey-specific assumptions in any future code.
+
+## Language + Localization
+- UI: Turkish + English (toggle). Backend: locale-aware responses (lang param on AI calls).
+- Currency: user's choice, any of 270+ fiat + 100 crypto + commodities. No defaults forced.
+- Banks: any bank worldwide — PDF/CSV/image parsing, not bank-specific regex.
+- Dates/numbers: locale-aware formatting.
+
+## CRITICAL — No Turkish Hardcoding
+Future code MUST NOT assume:
+- User is Turkish
+- Currency is TRY
+- Bank is Ziraat/Garanti/Vakıfbank/etc.
+- Language is Turkish
+System prompts: use user's language preference. Categories: use locale-aware labels.
+The only TR-specific legacy allowed: existing migration data, existing category slugs (no rename until migration plan ready).
 
 ---
 
@@ -96,6 +113,40 @@ Dependency direction (strict): `api → services → models`. Never reverse.
 4. **.env never committed** — `.env.example` with empty values is the committed template
 5. **CORS**: explicit `allow_origins=[settings.FRONTEND_URL]` — never wildcard `*` in prod
 6. **Input validation**: Pydantic models on all API endpoints — reject malformed requests early
+
+---
+
+## Known Issues (fix next session, priority order)
+
+1. **Asset type UX missing subtype selectors** — when user picks "crypto" → show CoinGecko top-100 coin picker as unit; "stock" → searchable ticker (Yahoo Finance symbol); "gold" → gram/quarter/half/full coin picker; "fund" → ISIN/fund code search. Each asset type needs own unit/subtype UX, not just free-text name.
+2. **Currency display switcher** — only TRY/USD/EUR pill buttons on net worth page. Should be searchable dropdown from all 270+ live rates, same CurrencySelect component used in modals.
+3. **Receivable delete cascade** — deleting a receivable that was already "received" (auto-created a cash Asset) leaves orphan Asset. Need: delete of received receivable → warn user + offer to delete linked asset, or store asset_id on receivable for lookup.
+4. **Auto-archive stale items** — dismissed alerts, received receivables, accepted suggestions clutter UI after 30 days. Need: filter by created_at < now-30d OR add `archived_at` column.
+5. **"Turkish personal finance" in system prompts** — coach.py, behavioral_coach.py, weekly_summary.py still say "Turkish". Replace with locale-aware: use user's language preference or `lang` param.
+6. **Onboarding bank list** — onboarding/page.tsx hardcodes Ziraat/Vakıfbank/Yapı Kredi/Garanti/Diğer. Make generic: "Your bank" + any bank name input, or detect from uploaded PDF.
+7. **Transactions SpendingChart** — basic bar chart, needs redesign (pie + trend combo, or area chart).
+
+---
+
+## Asset Type Data Architecture (next major backend work)
+
+Each asset type needs a dedicated price fetcher. No API = manual only.
+
+| Asset Type | Price Source | Frequency | API |
+|---|---|---|---|
+| crypto | CoinGecko /simple/price | real-time (on demand) | free, no key |
+| stock | Yahoo Finance yfinance or Alpha Vantage | daily close | free tier |
+| gold / XAU | open.er-api.com (already cached) | 1h | free |
+| fund | fund provider APIs (country-specific) | daily NAV | complex |
+| real_estate | manual only | user-triggered | none |
+| vehicle | manual only (or KBB/Carfax for US) | user-triggered | none |
+| bes | manual only (Turkish pensions) | user-triggered | none |
+| bond | manual + TCMB/Bloomberg | daily | complex |
+| foreign_currency | open.er-api (already cached) | 1h | free |
+| commodity (non-gold) | open.er-api XAG/OIL | 1h | free |
+| startup_equity / art / jewelry | manual only | user-triggered | none |
+
+Implementation plan: `services/asset_prices.py` — `get_live_price(asset_type, symbol, currency) → float | None`. Called on `/networth/assets/{id}/refresh-price`. Cached per-asset in Asset.updated_at field.
 
 ---
 
@@ -598,23 +649,32 @@ curl -s http://localhost:8000/currency/list | python3 -c "import sys,json; d=jso
 # PATCH /networth/receivables/{id}/status {"status":"received"} → {receivable, created_asset, toast_message}
 ```
 
-Next task options (priority order):
-1. **Deployment** — Vercel (frontend) + fly.io/Railway (backend + Postgres); secrets via platform env; `alembic upgrade head` on first deploy
-2. **Mobile responsiveness** — Navbar hamburger already built; remaining: TransactionTable horizontal scroll on small screens, progress chart responsive height, GoalsPanel form layout on mobile
-3. **Loading skeletons consistency** — progress/subscriptions/installments pages have no skeletons; transactions page has inline skeleton; standardize across all
+Next task options (priority order — fix known issues first):
+1. **Known Issues** — see Known Issues section above (7 items, fix before new features)
+2. **Asset subtype UX** — crypto coin picker, stock ticker search, gold unit picker (see Asset Type Data Architecture)
+3. **Real-time asset prices** — `services/asset_prices.py` + `/networth/assets/{id}/refresh-price` endpoint
+4. **Cash flow calendar** — upcoming liability payments + receivables on a timeline view
+5. **Deployment** — Railway (backend + Postgres) + Vercel (frontend); `alembic upgrade head` on first deploy
+6. **Multi-language i18n** — i18next or next-intl; TR/EN toggle in settings; locale-aware LLM prompts
 
 ---
 
-## Backlog (post-MVP, priority order)
+## Backlog (priority order)
 
-1. **Deployment** — Vercel (frontend, NEXT_PUBLIC_API_URL → prod); fly.io or Railway (backend + Postgres); RESEND_API_KEY + SECRET_KEY via platform secrets; alembic upgrade head on first deploy
-2. **Multi-statement overlap warning** — before insert, check (date, amount, desc[:30]) already exists for user; surface warning before committing
-3. **Mobile responsiveness** — TransactionTable horizontal scroll on small screens; progress chart responsive height; GoalsPanel form layout; Navbar hamburger already done (Phase 20)
-4. **Loading skeletons** — progress/subscriptions/installments pages missing; transactions page has inline skeleton; standardize
-5. **Empty states** — InflationPanel/PersonalityCard silently empty; add friendly empty state with upload CTA
-6. **Resend domain verification** — `noreply@mizan.app` must be verified in Resend dashboard; for dev use `onboarding@resend.dev`
-7. **Layer 3 vision LLM** — wire stub in pdf_parser.py; trigger when OCR confidence low; GPT-4o vision with base64 page image
-8. **Redis rate limiter** — replace in-memory RateLimiter (resets on restart) with Redis; needed for multi-process prod
+1. **Fix known issues** (7 items listed in Known Issues section) — do before new features
+2. **Asset subtype UX** — per-type unit picker: crypto→CoinGecko, stock→ticker, gold→gram/coin
+3. **Real-time price refresh** — `GET /networth/assets/{id}/refresh-price` → calls asset_prices.py per type
+4. **Cash flow calendar** — monthly timeline: liability payments due + receivables expected + goal deadlines
+5. **Multi-language** — i18n setup, TR/EN toggle, locale stored in user profile, AI prompts use user locale
+6. **Deployment** — Railway backend + Vercel frontend; RESEND_API_KEY + SECRET_KEY via platform env; alembic head on cold start
+7. **Smart duplicate detection** — manual entry + statement overlap: check (date, amount, desc[:30]) before insert
+8. **Mobile responsive overhaul** — TransactionTable horizontal scroll, progress chart height, GoalsPanel form layout
+9. **SME/KOBİ mode** — multi-account, team members, invoice tracking, accounts payable/receivable
+10. **Notification system** — budget alerts, upcoming payments, goal milestones via email (Resend) + push
+11. **Redis rate limiter** — replace in-memory RateLimiter (resets on restart) with Redis; needed for multi-process
+12. **Layer 3 vision LLM** — wire PDF parser stub; GPT-4o vision for low-confidence OCR pages
+13. **Multi-statement overlap warning** — surface before committing duplicate transactions from re-upload
+14. **Resend domain** — verify `noreply@mizan.app` in Resend; use `onboarding@resend.dev` for dev
 
 ---
 
