@@ -13,6 +13,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_session
+from app.core.dependencies import get_current_user
 from app.core.security import create_access_token, hash_password, verify_password
 from app.models.user import User
 
@@ -36,6 +37,7 @@ class TokenResponse(BaseModel):
     token_type: str = "bearer"
     user_id: str
     email: str
+    onboarding_completed: bool = False
 
 
 @router.post("/register", response_model=TokenResponse, status_code=status.HTTP_201_CREATED)
@@ -69,7 +71,12 @@ async def register(
     logger.info("New user registered — id=%s email=%s", user.id, user.email)
 
     token = create_access_token(str(user.id))
-    return TokenResponse(access_token=token, user_id=str(user.id), email=user.email)
+    return TokenResponse(
+        access_token=token,
+        user_id=str(user.id),
+        email=user.email,
+        onboarding_completed=user.onboarding_completed,
+    )
 
 
 @router.post("/login", response_model=TokenResponse)
@@ -101,4 +108,21 @@ async def login(
     logger.info("User logged in — id=%s", user.id)
 
     token = create_access_token(str(user.id))
-    return TokenResponse(access_token=token, user_id=str(user.id), email=user.email)
+    return TokenResponse(
+        access_token=token,
+        user_id=str(user.id),
+        email=user.email,
+        onboarding_completed=user.onboarding_completed,
+    )
+
+
+@router.post("/complete-onboarding", status_code=200)
+async def complete_onboarding(
+    current_user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
+) -> dict:
+    current_user.onboarding_completed = True
+    session.add(current_user)
+    await session.commit()
+    logger.info("Onboarding completed — user=%s", current_user.id)
+    return {"onboarding_completed": True}

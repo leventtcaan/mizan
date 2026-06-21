@@ -26,6 +26,7 @@ export function clearToken(): void {
 export interface StoredUser {
   id: string;
   email: string;
+  onboarding_completed: boolean;
 }
 
 export function getStoredUser(): StoredUser | null {
@@ -77,6 +78,7 @@ export interface TokenResponse {
   token_type: string;
   user_id: string;
   email: string;
+  onboarding_completed: boolean;
 }
 
 export interface UploadResponse {
@@ -190,6 +192,14 @@ export async function login(email: string, password: string): Promise<TokenRespo
     throw new Error(extractErrorMessage(body, "Giriş başarısız oldu"));
   }
   return response.json() as Promise<TokenResponse>;
+}
+
+export async function completeOnboarding(): Promise<void> {
+  const response = await fetch(`${API_BASE_URL}/auth/complete-onboarding`, {
+    method: "POST",
+    headers: authHeaders(),
+  });
+  if (!response.ok) throw new Error("Failed to complete onboarding");
 }
 
 export async function uploadStatement(file: File): Promise<UploadResponse> {

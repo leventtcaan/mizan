@@ -33,8 +33,12 @@ export default function LoginPage() {
         : await register(email, password);
 
       setToken(result.access_token);
-      setStoredUser({ id: result.user_id, email: result.email });
-      router.push("/transactions");
+      setStoredUser({ id: result.user_id, email: result.email, onboarding_completed: result.onboarding_completed });
+      if (mode === "register" || !result.onboarding_completed) {
+        router.push("/onboarding");
+      } else {
+        router.push("/transactions");
+      }
     } catch (err) {
       setErrorMsg(err instanceof Error ? err.message : "Bir hata oluştu.");
       setState("error");
