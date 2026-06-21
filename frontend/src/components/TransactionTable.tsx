@@ -41,53 +41,52 @@ interface RowState {
   error: string | null;
 }
 
+function ChevronIcon({ open }: { open: boolean }) {
+  return (
+    <svg
+      width="14"
+      height="14"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={`transition-transform duration-200 ${open ? "rotate-180" : "rotate-0"}`}
+    >
+      <polyline points="6 9 12 15 18 9" />
+    </svg>
+  );
+}
+
 export default function TransactionTable({ transactions, onCategoryCorrection }: TransactionTableProps) {
   const [rows, setRows] = useState<Record<string, RowState>>(() => {
     const init: Record<string, RowState> = {};
     for (const t of transactions) {
-      init[t.id] = {
-        category: t.category,
-        notes: [],
-        notesLoaded: false,
-        expanded: false,
-        saving: false,
-        error: null,
-      };
+      init[t.id] = { category: t.category, notes: [], notesLoaded: false, expanded: false, saving: false, error: null };
     }
     return init;
   });
 
   if (transactions.length === 0) {
     return (
-      <p className="text-center text-gray-500 py-16">
-        Henüz işlem yok. Bir banka ekstresi yükleyin.
-      </p>
+      <div className="text-center py-16 bg-[#1A1A1A] border border-[#2A2A2A] rounded-xl">
+        <p className="text-gray-500 text-sm">Henüz işlem yok.</p>
+        <p className="text-gray-700 text-xs mt-1">Bir banka ekstresi yükleyin.</p>
+      </div>
     );
   }
 
   const toggleExpand = async (id: string) => {
     const row = rows[id] ?? { expanded: false, notes: [], notesLoaded: false, category: null, saving: false, error: null };
     const nowExpanding = !row.expanded;
-
-    setRows((prev) => ({
-      ...prev,
-      [id]: { ...prev[id], expanded: nowExpanding },
-    }));
-
-    // Fetch notes from DB on first expand only
+    setRows((prev) => ({ ...prev, [id]: { ...(prev[id] ?? row), expanded: nowExpanding } }));
     if (nowExpanding && !row.notesLoaded) {
       try {
         const notes = await getNotes(id);
-        setRows((prev) => ({
-          ...prev,
-          [id]: { ...prev[id], notes, notesLoaded: true },
-        }));
+        setRows((prev) => ({ ...prev, [id]: { ...prev[id], notes, notesLoaded: true } }));
       } catch {
-        // Silent — notes panel still renders, just empty
-        setRows((prev) => ({
-          ...prev,
-          [id]: { ...prev[id], notesLoaded: true },
-        }));
+        setRows((prev) => ({ ...prev, [id]: { ...prev[id], notesLoaded: true } }));
       }
     }
   };
@@ -101,108 +100,135 @@ export default function TransactionTable({ transactions, onCategoryCorrection }:
     } catch (err) {
       setRows((prev) => ({
         ...prev,
-        [id]: {
-          ...prev[id],
-          saving: false,
-          error: err instanceof Error ? err.message : "Kaydedilemedi",
-        },
+        [id]: { ...prev[id], saving: false, error: err instanceof Error ? err.message : "Kaydedilemedi" },
       }));
     }
   };
 
   const handleNoteAdded = (txId: string, note: NoteResponse) => {
-    setRows((prev) => ({
-      ...prev,
-      [txId]: { ...prev[txId], notes: [...prev[txId].notes, note] },
-    }));
+    setRows((prev) => ({ ...prev, [txId]: { ...prev[txId], notes: [...prev[txId].notes, note] } }));
   };
 
   return (
     <div className="rounded-xl border border-[#2A2A2A] overflow-hidden">
-      <table className="w-full text-sm text-left">
-        <thead className="bg-[#1A1A1A] text-gray-500 uppercase text-xs tracking-wide">
-          <tr>
-            <th className="px-4 py-3">Tarih</th>
-            <th className="px-4 py-3">Açıklama</th>
-            <th className="px-4 py-3 text-right">Tutar (₺)</th>
-            <th className="px-4 py-3">Kategori</th>
-            <th className="px-4 py-3 w-8"></th>
+      <table className="w-full text-sm">
+        <thead>
+          <tr className="bg-[#1A1A1A] border-b border-[#2A2A2A]">
+            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wide w-28">Tarih</th>
+            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wide">Açıklama</th>
+            <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wide w-36">Tutar</th>
+            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wide w-36">Kategori</th>
+            <th className="px-4 py-3 w-8" />
           </tr>
         </thead>
-        <tbody className="divide-y divide-[#2A2A2A]">
-          {transactions.map((t) => {
+        <tbody>
+          {transactions.map((t, i) => {
             const row = rows[t.id] ?? {
-              category: t.category,
-              notes: [],
-              notesLoaded: false,
-              expanded: false,
-              saving: false,
-              error: null,
+              category: t.category, notes: [], notesLoaded: false, expanded: false, saving: false, error: null,
             };
+            const isOdd = i % 2 !== 0;
+            const rowBg = isOdd ? "bg-[#111]" : "bg-[#0F0F0F]";
+
             return (
               <Fragment key={t.id}>
+                {/* Main row */}
                 <tr
-                  className="bg-[#0F0F0F] hover:bg-[#1A1A1A] transition-colors cursor-pointer"
+                  className={`${rowBg} hover:bg-[#1A1A1A] transition-colors duration-100 cursor-pointer group border-b border-[#2A2A2A] last:border-0`}
                   onClick={() => void toggleExpand(t.id)}
                 >
-                  <td className="px-4 py-3 text-gray-400 whitespace-nowrap">
-                    {formatDate(t.transaction_date)}
+                  {/* Date */}
+                  <td className="px-4 py-3.5 whitespace-nowrap">
+                    <span className="text-xs text-gray-500">{formatDate(t.transaction_date)}</span>
                   </td>
-                  <td className="px-4 py-3 text-gray-200 max-w-xs truncate">
-                    {t.description}
+
+                  {/* Description */}
+                  <td className="px-4 py-3.5 max-w-0">
+                    <p
+                      className="text-gray-200 text-sm truncate"
+                      title={t.description}
+                    >
+                      {t.description}
+                    </p>
                   </td>
-                  <td
-                    className={`px-4 py-3 text-right font-mono whitespace-nowrap font-medium ${
-                      t.transaction_type === "credit" ? "text-emerald-400" : "text-red-400"
-                    }`}
-                  >
-                    {formatAmount(t.amount, t.transaction_type)}
+
+                  {/* Amount */}
+                  <td className="px-4 py-3.5 text-right whitespace-nowrap">
+                    <span
+                      className={`text-sm font-semibold tabular-nums ${
+                        t.transaction_type === "credit" ? "text-emerald-400" : "text-red-400"
+                      }`}
+                    >
+                      {formatAmount(t.amount, t.transaction_type)}
+                    </span>
                   </td>
-                  <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
+
+                  {/* Category badge */}
+                  <td className="px-4 py-3.5" onClick={(e) => e.stopPropagation()}>
                     <CategoryBadge category={row.category} />
                   </td>
-                  <td className="px-4 py-3 text-gray-600 text-xs select-none">
-                    {row.expanded ? "▲" : "▼"}
+
+                  {/* Expand chevron */}
+                  <td className="px-3 py-3.5">
+                    <span className={`flex items-center justify-center transition-colors ${row.expanded ? "text-indigo-400" : "text-gray-600 group-hover:text-gray-400"}`}>
+                      <ChevronIcon open={row.expanded} />
+                    </span>
                   </td>
                 </tr>
+
+                {/* Expanded detail panel */}
                 {row.expanded && (
-                  <tr key={`${t.id}-detail`} className="bg-[#1A1A1A]">
-                    <td colSpan={5} className="px-4 py-3">
-                      <div className="space-y-3">
+                  <tr key={`${t.id}-detail`} className="bg-[#1A1A1A] border-b border-[#2A2A2A]">
+                    <td colSpan={5} className="px-5 py-4">
+                      {/* Panel header */}
+                      <div className="flex items-start justify-between mb-4 pb-3 border-b border-[#2A2A2A]">
                         <div>
-                          <label className="text-xs text-gray-500 uppercase tracking-wide block mb-1">
-                            Kategoriyi Düzelt
-                          </label>
-                          <div className="flex flex-wrap gap-1">
-                            {CATEGORIES.map((cat) => (
+                          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-0.5">İşlem Detayı</p>
+                          <p className="text-sm text-gray-300 leading-relaxed">{t.description}</p>
+                        </div>
+                        <div className="text-right shrink-0 ml-4">
+                          <p className={`text-base font-bold tabular-nums ${t.transaction_type === "credit" ? "text-emerald-400" : "text-red-400"}`}>
+                            {formatAmount(t.amount, t.transaction_type)} ₺
+                          </p>
+                          <p className="text-xs text-gray-600 mt-0.5">{formatDate(t.transaction_date)}</p>
+                        </div>
+                      </div>
+
+                      {/* Category correction */}
+                      <div className="mb-5">
+                        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
+                          Kategoriyi Düzelt
+                          {row.saving && <span className="ml-2 text-indigo-400 normal-case font-normal">kaydediliyor…</span>}
+                        </p>
+                        <div className="flex gap-1.5 overflow-x-auto pb-1 -mx-1 px-1">
+                          {CATEGORIES.map((cat) => {
+                            const isActive = row.category === cat;
+                            return (
                               <button
                                 key={cat}
                                 disabled={row.saving}
                                 onClick={() => void handleCategoryChange(t.id, cat)}
-                                className={`px-2 py-0.5 rounded text-xs transition-colors ${
-                                  row.category === cat
+                                className={`shrink-0 px-3 py-1 rounded-full text-xs font-medium transition-colors disabled:opacity-40 ${
+                                  isActive
                                     ? "bg-indigo-600 text-white"
-                                    : "bg-[#2A2A2A] text-gray-400 hover:bg-[#333]"
-                                } disabled:opacity-40`}
+                                    : "bg-[#2A2A2A] text-gray-400 hover:bg-[#333] hover:text-gray-200"
+                                }`}
                               >
                                 {CATEGORY_LABELS[cat] ?? cat}
                               </button>
-                            ))}
-                          </div>
-                          {row.error && (
-                            <p className="text-xs text-red-400 mt-1">{row.error}</p>
-                          )}
+                            );
+                          })}
                         </div>
-                        <div>
-                          <label className="text-xs text-gray-500 uppercase tracking-wide block mb-1">
-                            Notlar
-                          </label>
-                          <NoteInput
-                            transactionId={t.id}
-                            existingNotes={row.notes}
-                            onNoteAdded={(note) => handleNoteAdded(t.id, note)}
-                          />
-                        </div>
+                        {row.error && <p className="text-xs text-red-400 mt-2">{row.error}</p>}
+                      </div>
+
+                      {/* Notes */}
+                      <div>
+                        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Notlar</p>
+                        <NoteInput
+                          transactionId={t.id}
+                          existingNotes={row.notes}
+                          onNoteAdded={(note) => handleNoteAdded(t.id, note)}
+                        />
                       </div>
                     </td>
                   </tr>

@@ -212,7 +212,7 @@ When context reaches ~70% capacity:
 
 ## Current Status
 
-**Phases 1–19 complete and tested. Docker running. Alembic head = 0015 (no new migration in Phase 19). All features working.**
+**Phases 1–20 complete and tested. Docker running. Alembic head = 0015 (no migrations in Phase 20 — frontend-only). All features working.**
 
 Full stack: register/login → JWT → upload (rate-limited, busts caches) → 3-layer OCR → LLM extract → OCR cleanup → dedup → zero-amount filter → persist → LLM categorize (13 categories) → insight cache → LLM coach with corrections+notes injected → spending chart + progress page (LineChart 3-month trend + cross-batch-deduped category comparison + LLM one-liners, 24h cached) → PersonalityCard (5 types, cached per batch) → AlertsPanel (3 algorithmic detectors, dismiss persisted) → GoalsPanel (monthly budget vs actual) → ChatPanel (conversational coaching, behavioral profile memory, voice input, chat-based tx entry with confirmation card, sessionStorage prefill from alerts) → weekly email summary (Resend HTML, preferences toggle) → inflation-adjusted analysis (TUFE 2023-2026, real vs nominal per category, ProgressInsight cache).
 
@@ -341,6 +341,60 @@ Full stack: register/login → JWT → upload (rate-limited, busts caches) → 3
 
 ---
 
+### Phase 20 — UI/UX Design System Overhaul (2026-06-21)
+
+#### Design system foundation
+- [x] `frontend/src/lib/design.ts` — token constants: `card`, `cardSm`, `btnPrimary`, `btnSecondary` Tailwind class strings; `#0F0F0F` page bg / `#1A1A1A` cards / `#2A2A2A` borders / `#6366F1` accent
+- [x] `frontend/src/components/ui/Icons.tsx` — inline SVG icon library (no new dependency); exports: BarChart2, CreditCard, Layers, Upload, LogOut, Brain, Target, RefreshCw, TrendingUp, ShieldCheck, FileText, MessageSquare, Menu, X, ChevronDown, ChevronUp, Bell, Mail, Plus, Mic, Send, Zap, PieChart, ArrowRight; each accepts `size`, `className`, `strokeWidth` props
+- [x] `frontend/src/app/globals.css` — `body { background-color: #0F0F0F; color: #fff }` + custom thin scrollbar
+- [x] `frontend/src/app/layout.tsx` — Navbar imported + rendered once at root; no wrapper div (PageLayout handles `mt-14` offset per-page)
+
+#### Global Navbar
+- [x] `frontend/src/components/ui/Navbar.tsx` — fixed top (`fixed top-0 z-50 bg-[#0A0A0A]/95 backdrop-blur-md border-b border-[#2A2A2A]`); logo "Mizan" → /transactions; nav links: İşlemler/İlerleme/Abonelikler/Taksitler with Icons; right: email chip + "Yükle" button + LogOut button; mobile: hamburger (Menu/X toggle) with dropdown overlay; hidden when `pathname ∈ ["/login", "/onboarding"]` OR `!userEmail`; re-reads localStorage on every pathname change (hydration safe)
+- [x] `frontend/src/components/ui/PageLayout.tsx` — wrapper: max-width centering + `mt-14` for navbar offset; props: `title`, `titleBadge` (React.ReactNode inline next to h1 in flex row), `subtitle`, `action`, `maxWidth` (sm/md/lg/xl); all app pages converted to use this
+
+#### Landing page rewrite (`frontend/src/app/page.tsx`)
+- [x] Full marketing page: auth-aware nav, hero with gradient headline (`bg-clip-text text-transparent`), smooth-scroll "Nasıl Çalışır" 3-step grid with SVG icons + numbered badge, feature cards with `hover:border-indigo-800/60`, bank logos section (Ziraat/VakıfBank/Yapı Kredi/Garanti), bottom CTA with indigo glow overlay, footer; health check call removed (unnecessary on marketing page)
+
+#### All app pages — design token migration
+- [x] `frontend/src/app/transactions/page.tsx` — PageLayout; `titleBadge` = transaction count pill (`bg-[#2A2A2A] text-gray-400 rounded-full`); "+ Ekle" renamed "Manuel Ekle", outlined style (`border border-[#2A2A2A]`); email toggle card (see below); batch selector polished (see below); all old scattered nav links removed
+- [x] `frontend/src/app/progress/page.tsx` — PageLayout; chart `CartesianGrid stroke="#2A2A2A"`, tooltip `backgroundColor:"#1A1A1A" border:"1px solid #2A2A2A"`; all cards `bg-[#1A1A1A] border border-[#2A2A2A] rounded-xl p-6`
+- [x] `frontend/src/app/subscriptions/page.tsx` — PageLayout; `FLAG_ACTIVE`/`FLAG_IDLE` record maps for per-state colors; hero + active + review + cancelled sections
+- [x] `frontend/src/app/installments/page.tsx` — PageLayout; ChevronDown/Up for early-payoff collapsible; progress bar track `bg-[#2A2A2A]`
+- [x] `frontend/src/app/upload/page.tsx` — PageLayout `maxWidth="sm"`; FileText icon in drop zone; ArrowRight in success link
+- [x] `frontend/src/app/onboarding/page.tsx` — full-screen standalone (no Navbar/PageLayout); progress bar `h-0.5 bg-[#2A2A2A]` + indigo fill; FileText icon in upload zone
+- [x] `frontend/src/app/login/page.tsx` — `bg-[#0F0F0F]`, inputs `bg-[#1A1A1A] border-[#2A2A2A]`, spinner on loading
+
+#### Component rewrites — design tokens
+- [x] `frontend/src/components/CategoryBadge.tsx` — `rounded-full` pill with colored dot (`w-1.5 h-1.5 rounded-full`); `inline-flex items-center gap-1.5 pl-1.5 pr-2.5 py-0.5`; all 13 category color schemes updated to dark-950 bg + 300 text + 400 dot
+- [x] `frontend/src/components/NoteInput.tsx` — `MAX_CHARS=300`; remaining counter (`text-amber-500` when <50); note list `bg-[#0F0F0F] border border-[#2A2A2A]`; `timeAgo()` helper; textarea `focus:border-indigo-600`
+- [x] `frontend/src/components/AlertsPanel.tsx` — `border-l-2` accent per alert type; `bg-[#1A1A1A] border border-[#2A2A2A]` cards
+- [x] `frontend/src/components/PersonalityCard.tsx` — left-border accent; type-specific emoji + colored dot badge
+- [x] `frontend/src/components/InflationPanel.tsx` — `bg-[#1A1A1A] border border-[#2A2A2A] rounded-xl`; table `border-b border-[#2A2A2A]`, alternating `bg-[#0F0F0F]/40`
+- [x] `frontend/src/components/GoalsPanel.tsx` — progress bar track `bg-[#2A2A2A]`; form inputs `bg-[#0F0F0F] border border-[#2A2A2A]`
+- [x] `frontend/src/components/AddTransactionModal.tsx` — modal `bg-[#1A1A1A] border border-[#2A2A2A] rounded-2xl`; backdrop `bg-black/70 backdrop-blur-sm`; X icon from Icons.tsx
+- [x] `frontend/src/components/SpendingChart.tsx` — tooltip `backgroundColor:"#1A1A1A" border:"1px solid #2A2A2A"`
+
+#### TransactionTable polish
+- [x] `frontend/src/components/TransactionTable.tsx` — full rewrite: inline `ChevronIcon` SVG with `rotate-180` animate; alternating rows (`bg-[#111]`/`bg-[#0F0F0F]` by index); `title={t.description}` hover tooltip + `max-w-0` truncate; amount `text-sm font-semibold tabular-nums`; date `text-xs text-gray-500`; chevron indigo when expanded; expanded panel: "İşlem Detayı" header + full desc + right-aligned amount; category chips horizontal-scroll `overflow-x-auto`, `rounded-full`, `shrink-0`; NoteInput with character count
+
+#### Email toggle card (`frontend/src/app/transactions/page.tsx`)
+- [x] `EmailToggle` component inline in page: replaces icon-only 📧 button; label "Haftalık Özet E-postası" + subtitle "Her Pazartesi gelen kutunuza"; sliding toggle switch (`w-10 h-5 rounded-full`, thumb translates `translate-x-5`); "Açık" indigo / "Kapalı" gray text; loads only after `getEmailPreferences()` resolves (no flash)
+
+#### Batch selector polish (`frontend/src/app/transactions/page.tsx`)
+- [x] Pill toggle group: `rounded-full overflow-hidden border border-[#2A2A2A]`; "Son Ekstre"/"Tüm Ekstreler" segments with indigo active; calendar SVG icon on info side; "Geçmiş" rounded-pill button; batch history rows with "Son" indigo badge; all in `bg-[#1A1A1A] border border-[#2A2A2A] rounded-xl` card
+
+#### ChatPanel improvements (`frontend/src/components/ChatPanel.tsx`)
+- [x] Header: "KOÇ" → "Finansal Koç" with inline brain SVG icon in indigo-400
+- [x] Message timestamps: `Message` interface gains `sentAt?: string` (ISO); history messages use `created_at` from API; new messages use `new Date().toISOString()`; renders `HH:MM` in `text-[10px] text-gray-700` below each bubble
+- [x] Bubble layout: `flex-col gap-0.5 items-end/items-start` so timestamp aligns under bubble
+
+#### Architectural note — no lucide-react dependency
+- User asked for Lucide icons but lucide-react was not installed in Docker node_modules + constraint "no new dependencies". Solution: `Icons.tsx` with hand-written inline SVG components matching Lucide's visual style. API identical: `<Upload size={16} className="..." />`.
+
+#### Bug fix — navbar offset
+- `pt-14` wrapper div in layout.tsx broke full-screen landing/login/onboarding pages. Fixed: removed wrapper, `mt-14` lives inside PageLayout only → full-screen pages manage their own top offset.
+
 ### Phase 19 — Installment (Taksit) Analysis (2026-06-21)
 - [x] `backend/app/services/installment.py` — `detect_installments(transactions)`: two detection paths. **Path A (explicit)**: `_TAKSIT_RE` regex catches "TAKSİT X/Y", "X/Y TAKSİT", bare "3/12" in description; `_merchant_key_for_explicit()` strips the installment number before keying so "APPLE STORE TAKSİT 1/12" + "2/12" + "3/12" all merge to one plan; tracks current_installment from most recent tx, remaining = total − current. **Path B (implicit)**: same merchant (desc[:30].lower()), ±2% amount variance (tighter than subscriptions), consecutive months with no gap >1, ≥3 months → estimated_remaining = 12 − months_detected. Explicit keys excluded from implicit scan. `calculate_real_cost(monthly, remaining)`: FV annuity formula at 40% annual / 12 monthly (TCMB 2024 era); returns nominal, opportunity_loss, real_cost_with_opportunity. `analyze_user_installments(user_id, session)`: fetches all_batches tx → detect_installments → log count.
 - [x] `backend/app/api/installments.py` — `GET /installments`: same 24h cache pattern as inflation.py; reuses `ProgressInsight` table with `data_type="installments"` (no new migration); single LLM call for one-liner insight (silent on failure); returns `InstallmentResponse(plans, insight, cached)`. `GET /installments/summary`: total_monthly_burden, active_plan_count, months_until_debt_free (max remaining across plans), total_remaining_nominal, total_opportunity_loss, income_pct (estimated from last 90d credit txs / 3, None if no credits).
@@ -449,7 +503,7 @@ Full stack: register/login → JWT → upload (rate-limited, busts caches) → 3
 
 ## Next Session — Start Here
 
-**Phases 1–19 complete and TESTED (docker running, alembic at 0015). Ready for deployment or next feature.**
+**Phases 1–20 complete and TESTED (docker running, alembic at 0015). Phase 20 = frontend-only, no new migrations.**
 
 Pre-flight (if docker was restarted):
 ```bash
@@ -469,16 +523,23 @@ curl -s -X POST http://localhost:8000/auth/register -H "Content-Type: applicatio
 # POST /chat {"message":"merhaba"} → {"response":"...","profile_updated":false,"pending_transaction":null}
 ```
 
+Next task options (priority order):
+1. **Deployment** — Vercel (frontend) + fly.io/Railway (backend + Postgres); secrets via platform env; `alembic upgrade head` on first deploy
+2. **Mobile responsiveness** — Navbar hamburger already built; remaining: TransactionTable horizontal scroll on small screens, progress chart responsive height, GoalsPanel form layout on mobile
+3. **Loading skeletons consistency** — progress/subscriptions/installments pages have no skeletons; transactions page has inline skeleton; standardize across all
+
 ---
 
 ## Backlog (post-MVP, priority order)
 
 1. **Deployment** — Vercel (frontend, NEXT_PUBLIC_API_URL → prod); fly.io or Railway (backend + Postgres); RESEND_API_KEY + SECRET_KEY via platform secrets; alembic upgrade head on first deploy
 2. **Multi-statement overlap warning** — before insert, check (date, amount, desc[:30]) already exists for user; surface warning before committing
-4. **UI/UX polish** — mobile responsiveness; loading skeletons consistent across all panels; empty states for InflationPanel/PersonalityCard
-5. **Resend domain verification** — `noreply@mizan.app` must be verified in Resend dashboard; for dev use `onboarding@resend.dev`
-6. **Layer 3 vision LLM** — wire stub in pdf_parser.py; trigger when OCR confidence low; GPT-4o vision with base64 page image
-7. **Redis rate limiter** — replace in-memory RateLimiter (resets on restart) with Redis; needed for multi-process prod
+3. **Mobile responsiveness** — TransactionTable horizontal scroll on small screens; progress chart responsive height; GoalsPanel form layout; Navbar hamburger already done (Phase 20)
+4. **Loading skeletons** — progress/subscriptions/installments pages missing; transactions page has inline skeleton; standardize
+5. **Empty states** — InflationPanel/PersonalityCard silently empty; add friendly empty state with upload CTA
+6. **Resend domain verification** — `noreply@mizan.app` must be verified in Resend dashboard; for dev use `onboarding@resend.dev`
+7. **Layer 3 vision LLM** — wire stub in pdf_parser.py; trigger when OCR confidence low; GPT-4o vision with base64 page image
+8. **Redis rate limiter** — replace in-memory RateLimiter (resets on restart) with Redis; needed for multi-process prod
 
 ---
 

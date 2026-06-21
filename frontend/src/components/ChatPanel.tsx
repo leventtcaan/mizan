@@ -33,6 +33,7 @@ interface Message {
   id: string;
   role: "user" | "assistant";
   content: string;
+  sentAt?: string; // ISO string
 }
 
 interface Props {
@@ -73,14 +74,14 @@ export default function ChatPanel({ initialInsight }: Props) {
     getChatHistory()
       .then((history) => {
         if (history.length === 0 && initialInsight) {
-          setMessages([{ id: "__initial__", role: "assistant", content: initialInsight }]);
+          setMessages([{ id: "__initial__", role: "assistant", content: initialInsight, sentAt: new Date().toISOString() }]);
         } else {
-          setMessages(history.map((m) => ({ id: m.id, role: m.role, content: m.content })));
+          setMessages(history.map((m) => ({ id: m.id, role: m.role, content: m.content, sentAt: m.created_at })));
         }
       })
       .catch(() => {
         if (initialInsight) {
-          setMessages([{ id: "__initial__", role: "assistant", content: initialInsight }]);
+          setMessages([{ id: "__initial__", role: "assistant", content: initialInsight, sentAt: new Date().toISOString() }]);
         }
       })
       .finally(() => {
@@ -117,21 +118,22 @@ export default function ChatPanel({ initialInsight }: Props) {
     setPendingTx(null);
     setTxError(null);
 
-    setMessages((prev) => [...prev, { id: `u-${Date.now()}`, role: "user", content: text }]);
+    const now = new Date().toISOString();
+    setMessages((prev) => [...prev, { id: `u-${Date.now()}`, role: "user", content: text, sentAt: now }]);
     setSending(true);
 
     try {
       const result = await sendChatMessage(text);
       setMessages((prev) => [
         ...prev,
-        { id: `a-${Date.now()}`, role: "assistant", content: result.response },
+        { id: `a-${Date.now()}`, role: "assistant", content: result.response, sentAt: new Date().toISOString() },
       ]);
       if (result.profile_updated) showToast("Profilin güncellendi");
       if (result.pending_transaction) setPendingTx(result.pending_transaction);
     } catch {
       setMessages((prev) => [
         ...prev,
-        { id: `e-${Date.now()}`, role: "assistant", content: "Bir hata oluştu. Tekrar deneyin." },
+        { id: `e-${Date.now()}`, role: "assistant", content: "Bir hata oluştu. Tekrar deneyin.", sentAt: new Date().toISOString() },
       ]);
     } finally {
       setSending(false);
@@ -212,6 +214,7 @@ export default function ChatPanel({ initialInsight }: Props) {
           id: `tx-${Date.now()}`,
           role: "assistant",
           content: `✓ İşlem eklendi: ₺${formatAmount(pendingTx.amount)} — ${label}`,
+          sentAt: new Date().toISOString(),
         },
       ]);
       setPendingTx(null);
@@ -239,7 +242,14 @@ export default function ChatPanel({ initialInsight }: Props) {
       <div className="rounded-xl bg-[#1A1A1A] border border-[#2A2A2A] flex flex-col mb-8" style={{ height: 420 }}>
         {/* Header */}
         <div className="px-4 py-3 border-b border-[#2A2A2A] flex items-center justify-between shrink-0">
-          <p className="text-xs text-gray-500 uppercase tracking-wide font-semibold">Koç</p>
+          <div className="flex items-center gap-2">
+            {/* Brain/sparkle icon */}
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" className="text-indigo-400">
+              <path d="M12 2a4 4 0 0 1 4 4c0 1.1-.45 2.1-1.17 2.83A4 4 0 0 1 16 12a4 4 0 0 1-1.17 3.17A4 4 0 0 1 12 18a4 4 0 0 1-2.83-1.17A4 4 0 0 1 8 13.5V12a4 4 0 0 1 1.17-2.83A4 4 0 0 1 8 6a4 4 0 0 1 4-4z" />
+              <path d="M12 2v20M8 6H4m4 6H4m4 6H4m8-12h4m-4 6h4m-4 6h4" />
+            </svg>
+            <p className="text-xs text-gray-300 font-semibold tracking-wide">Finansal Koç</p>
+          </div>
           {toast && (
             <span className="text-xs text-emerald-400 font-medium animate-pulse">{toast}</span>
           )}
@@ -254,19 +264,27 @@ export default function ChatPanel({ initialInsight }: Props) {
             <p className="text-gray-600 text-sm text-center py-6">Koçunuza bir şey sorun.</p>
           )}
 
-          {messages.map((msg) => (
-            <div key={msg.id} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
-              <div
-                className={`max-w-[82%] px-3.5 py-2.5 rounded-2xl text-sm leading-relaxed whitespace-pre-wrap ${
-                  msg.role === "user"
-                    ? "bg-indigo-600 text-white rounded-br-sm"
-                    : "bg-[#2A2A2A] text-gray-200 rounded-bl-sm"
-                }`}
-              >
-                {msg.content}
+          {messages.map((msg) => {
+            const timeStr = msg.sentAt
+              ? new Date(msg.sentAt).toLocaleTimeString("tr-TR", { hour: "2-digit", minute: "2-digit" })
+              : null;
+            return (
+              <div key={msg.id} className={`flex flex-col gap-0.5 ${msg.role === "user" ? "items-end" : "items-start"}`}>
+                <div
+                  className={`max-w-[82%] px-3.5 py-2.5 rounded-2xl text-sm leading-relaxed whitespace-pre-wrap ${
+                    msg.role === "user"
+                      ? "bg-indigo-600 text-white rounded-br-sm"
+                      : "bg-[#2A2A2A] text-gray-200 rounded-bl-sm"
+                  }`}
+                >
+                  {msg.content}
+                </div>
+                {timeStr && (
+                  <span className="text-[10px] text-gray-700 px-1">{timeStr}</span>
+                )}
               </div>
-            </div>
-          ))}
+            );
+          })}
 
           {/* Typing indicator */}
           {sending && (
