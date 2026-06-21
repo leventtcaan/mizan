@@ -118,10 +118,9 @@ Dependency direction (strict): `api → services → models`. Never reverse.
 
 ## Known Issues (fix next session, priority order)
 
-1. **Auto-archive stale items** — dismissed alerts, received receivables, accepted suggestions clutter UI after 30 days. Need: filter by created_at < now-30d OR add `archived_at` column.
-2. **"Turkish personal finance" in system prompts** — coach.py, behavioral_coach.py, weekly_summary.py still say "Turkish". Replace with locale-aware: use user's language preference or `lang` param.
-3. **Onboarding bank list** — onboarding/page.tsx hardcodes Ziraat/Vakıfbank/Yapı Kredi/Garanti/Diğer. Make generic: "Your bank" + any bank name input, or detect from uploaded PDF.
-4. **Transactions SpendingChart** — basic bar chart, needs redesign (pie + trend combo, or area chart).
+1. **"Turkish personal finance" in system prompts** — coach.py, behavioral_coach.py, weekly_summary.py still say "Turkish". Replace with locale-aware: use user's language preference or `lang` param.
+2. **Onboarding bank list** — onboarding/page.tsx hardcodes Ziraat/Vakıfbank/Yapı Kredi/Garanti/Diğer. Make generic: "Your bank" + any bank name input, or detect from uploaded PDF.
+3. **Transactions SpendingChart** — basic bar chart, needs redesign (pie + trend combo, or area chart).
 
 ---
 
@@ -260,9 +259,9 @@ When context reaches ~70% capacity:
 
 ## Current Status
 
-**Phases 1–25 complete. Docker not changed this session. Alembic head now = 0021.**
+**Phases 1–26 complete. Docker not changed this session. Alembic head = 0021.**
 
-Full stack: register/login → JWT → upload (rate-limited, busts caches) → 3-layer OCR → LLM extract → OCR cleanup → dedup → zero-amount filter → persist → LLM categorize (13 categories) → insight cache → LLM coach with corrections+notes injected → spending chart + progress page (LineChart 3-month trend + cross-batch-deduped category comparison + LLM one-liners, 24h cached) → PersonalityCard (5 types, cached per batch) → AlertsPanel (3 algorithmic detectors, dismiss persisted) → GoalsPanel (monthly budget vs actual) → ChatPanel (conversational coaching, behavioral profile memory, voice input, chat-based tx entry with confirmation card, sessionStorage prefill from alerts) → weekly email summary (Resend HTML, preferences toggle) → inflation-adjusted analysis (TUFE 2023-2026, real vs nominal per category, ProgressInsight cache) → net worth asset subtype capture (all asset types have specific fields; crypto/fiat/commodity live picker; gold unit picker; stock/fund code fields; manual categories store structured metadata in `Asset.source_detail` JSON) → net worth display currency searchable via live `CurrencySelect` → receivable collection creates linked cash asset, repeated collection is idempotent, delete/write-off removes linked asset.
+Full stack: register/login → JWT → upload (rate-limited, busts caches) → 3-layer OCR → LLM extract → OCR cleanup → dedup → zero-amount filter → persist → LLM categorize (13 categories) → insight cache → LLM coach with corrections+notes injected → spending chart + progress page (LineChart 3-month trend + cross-batch-deduped category comparison + LLM one-liners, 24h cached) → PersonalityCard (5 types, cached per batch) → AlertsPanel (3 algorithmic detectors, dismiss persisted, stale dismissals auto-cleaned) → GoalsPanel (monthly budget vs actual) → ChatPanel (conversational coaching, behavioral profile memory, voice input, chat-based tx entry with confirmation card, sessionStorage prefill from alerts) → weekly email summary (Resend HTML, preferences toggle) → inflation-adjusted analysis (TUFE 2023-2026, real vs nominal per category, ProgressInsight cache) → net worth asset subtype capture (all asset types have specific fields; crypto/fiat/commodity live picker; gold unit picker; stock/fund code fields; manual categories store structured metadata in `Asset.source_detail` JSON) → net worth display currency searchable via live `CurrencySelect` → receivable collection creates linked cash asset, repeated collection is idempotent, delete/write-off removes linked asset → stale received receivables and processed suggestions are hidden/cleaned after 30 days.
 
 ### Migrations (head = 0021)
 | Migration | What |
@@ -740,11 +739,33 @@ Full stack: register/login → JWT → upload (rate-limited, busts caches) → 3
 - Need dated snapshots: net worth at date X, not only current mutable values.
 - Need confidence states: manual, imported, inferred, confirmed, disputed.
 
+### Phase 26 — Auto-Archive Stale Items (2026-06-21)
+
+#### Backend
+- [x] `backend/app/api/networth.py` — `_ARCHIVE_AFTER_DAYS=30`.
+- [x] `backend/app/api/networth.py` — received receivables older than 30 days are hidden from active `GET /networth/receivables` list.
+- [x] `backend/app/api/networth.py` — `written_off` receivables stay hidden from active list. DB audit row stays.
+- [x] `backend/app/api/networth.py` — net worth summary ignores `written_off` and old received receivables for active warnings/context.
+- [x] `backend/app/api/networth.py` — processed suggestions (`accepted`, `dismissed`) older than 30 days are deleted opportunistically when suggestions endpoint loads.
+- [x] `backend/app/api/patterns.py` — dismissed alerts older than 30 days are deleted opportunistically when alerts endpoint loads. If alert is still relevant, detector can show it again.
+
+#### Checks
+- [x] `npm run build` passed.
+- [x] `python3 -m py_compile backend/app/api/networth.py backend/app/api/patterns.py` passed.
+- [x] `git diff --check` clean.
+- [x] No migration needed.
+
+#### Architectural decisions
+- **No `archived_at` column yet**: stale cleanup is simple filter/delete by existing timestamps. Low risk, no schema churn.
+- **Receivables keep audit**: received old rows are hidden, not deleted. Written-off rows are hidden, not deleted.
+- **Dismissed alerts expire**: if a user dismissed something 30+ days ago and it is still detected, it can return. That is correct for recurring risk.
+- **Processed suggestions can be deleted**: accepted/dismissed suggestions are UI workflow artifacts, not source-of-truth ledger rows.
+
 ---
 
 ## Next Session — Start Here
 
-**Phases 1–25 complete. Phase 25 = receivable write-off + linked asset integrity. Next fix Known Issue 1 from current list: auto-archive stale items.**
+**Phases 1–26 complete. Phase 26 = auto-archive stale items. Next fix Known Issue 1 from current list: globalization cleanup.**
 
 Pre-flight (if docker was restarted):
 ```bash
@@ -767,19 +788,18 @@ curl -s http://localhost:8000/currency/list | python3 -c "import sys,json; d=jso
 ```
 
 Next task options (priority order — fix known issues first):
-1. **Auto-archive stale items** — clean old dismissed alerts, received receivables, accepted suggestions after 30 days or add `archived_at`.
-2. **System prompt globalization** — remove "Turkish personal finance" from coach.py, behavioral_coach.py, weekly_summary.py; use user locale/lang.
-3. **Onboarding bank list** — remove Turkish bank names; generic bank name input or PDF detection.
-4. **Transactions SpendingChart redesign** — better chart mix; current bar chart too weak.
-5. **Real-time asset prices** — `services/asset_prices.py` + `/networth/assets/{id}/refresh-price`; read subtype JSON from `source_detail`.
-6. **Schema cleanup** — split `Asset.current_value` into quantity/value fields before production if possible.
-7. **Net worth product reset** — start event/reconciliation design. See Product Direction Reset section.
+1. **System prompt globalization** — remove "Turkish personal finance" from coach.py, behavioral_coach.py, weekly_summary.py; use user locale/lang.
+2. **Onboarding bank list** — remove Turkish bank names; generic bank name input or PDF detection.
+3. **Transactions SpendingChart redesign** — better chart mix; current bar chart too weak.
+4. **Real-time asset prices** — `services/asset_prices.py` + `/networth/assets/{id}/refresh-price`; read subtype JSON from `source_detail`.
+5. **Schema cleanup** — split `Asset.current_value` into quantity/value fields before production if possible.
+6. **Net worth product reset** — start event/reconciliation design. See Product Direction Reset section.
 
 ---
 
 ## Backlog (priority order)
 
-1. **Fix known issues** (4 items listed in Known Issues section) — do before new features
+1. **Fix known issues** (3 items listed in Known Issues section) — do before new features
 2. **Real-time price refresh** — `GET /networth/assets/{id}/refresh-price` → calls asset_prices.py per type
 3. **Global market search** — stock ticker search + fund ISIN lookup via chosen providers; current Phase 23 stores structured fields but does not fetch full global search results yet.
 4. **Cash flow calendar** — monthly timeline: liability payments due + receivables expected + goal deadlines

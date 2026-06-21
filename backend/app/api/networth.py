@@ -29,6 +29,7 @@ router = APIRouter(prefix="/networth", tags=["networth"])
 
 _INSIGHT_DATA_TYPE = "networth_insight"
 _CACHE_TTL_HOURS = 24
+_ARCHIVE_AFTER_DAYS = 30
 
 # ---------- Pydantic models ----------
 
@@ -281,6 +282,25 @@ def _suggestion_resp(s: NetworthSuggestion) -> SuggestionResponse:
 def _parse_as_of_date(as_of_date_str: str | None) -> date:
     if not as_of_date_str:
         return date.today()
+
+
+def _archive_cutoff() -> datetime:
+    return datetime.now(timezone.utc) - timedelta(days=_ARCHIVE_AFTER_DAYS)
+
+
+async def _cleanup_processed_suggestions(
+    user_id: uuid.UUID,
+    session: AsyncSession,
+) -> None:
+    result = await session.execute(
+        delete(NetworthSuggestion).where(
+            NetworthSuggestion.user_id == user_id,
+            NetworthSuggestion.status.in_(("accepted", "dismissed")),
+            NetworthSuggestion.created_at < _archive_cutoff(),
+        )
+    )
+    if result.rowcount:
+        logger.info("Archived processed networth suggestions — user=%s count=%s", user_id, result.rowcount)
 
 
 async def _find_receivable_asset(
@@ -598,11 +618,16 @@ async def list_receivables(
     current_user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
 ) -> list[ReceivableResponse]:
+    cutoff = _archive_cutoff()
     result = await session.execute(
         select(Receivable)
         .where(
             Receivable.user_id == current_user.id,
             Receivable.status != "written_off",
+            ~(
+                (Receivable.status == "received")
+                & (Receivable.created_at < cutoff)
+            ),
         )
         .order_by(Receivable.created_at)
     )
@@ -757,6 +782,8 @@ async def list_suggestions(
     current_user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
 ) -> list[SuggestionResponse]:
+    await _cleanup_processed_suggestions(current_user.id, session)
+    await session.commit()
     result = await session.execute(
         select(NetworthSuggestion).where(
             NetworthSuggestion.user_id == current_user.id,
@@ -962,7 +989,12 @@ async def get_summary(
     receivables_result = await session.execute(
         select(Receivable).where(Receivable.user_id == current_user.id)
     )
-    all_receivables = receivables_result.scalars().all()
+    receivable_archive_cutoff = _archive_cutoff()
+    all_receivables = [
+        r for r in receivables_result.scalars().all()
+        if r.status != "written_off"
+        and not (r.status == "received" and r.created_at < receivable_archive_cutoff)
+    ]
     pending_receivables = [r for r in all_receivables if r.status == "pending"]
 
     total_assets = 0.0

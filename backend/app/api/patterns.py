@@ -1,9 +1,10 @@
 import logging
 import uuid
+from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -17,6 +18,8 @@ from app.services.transaction_service import get_transactions_for_user
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/patterns", tags=["patterns"])
+
+_ARCHIVE_AFTER_DAYS = 30
 
 
 class AlertResponse(BaseModel):
@@ -51,6 +54,17 @@ async def get_alerts(
 
     if not all_alerts:
         return []
+
+    cleanup = await session.execute(
+        delete(DismissedAlert).where(
+            DismissedAlert.user_id == current_user.id,
+            DismissedAlert.dismissed_at
+            < datetime.now(timezone.utc) - timedelta(days=_ARCHIVE_AFTER_DAYS),
+        )
+    )
+    if cleanup.rowcount:
+        logger.info("Archived dismissed alerts — user=%s count=%s", current_user.id, cleanup.rowcount)
+        await session.commit()
 
     # Load user's dismissed keys
     dismissed_result = await session.execute(
