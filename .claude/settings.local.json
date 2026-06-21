@@ -30,7 +30,9 @@
       "Bash(npm run *)",
       "Bash(python3 -m py_compile /Users/leventcanceylan/Projects/mizan/backend/app/api/reconciliation.py /Users/leventcanceylan/Projects/mizan/backend/app/services/reconciliation_producers.py /Users/leventcanceylan/Projects/mizan/backend/app/api/networth.py)",
       "Bash(git add *)",
-      "Bash(git commit *)"
+      "Bash(git commit *)",
+      "Bash(python3 -m py_compile /Users/leventcanceylan/Projects/mizan/backend/app/api/cashflow.py /Users/leventcanceylan/Projects/mizan/backend/app/main.py)",
+      "Bash(python3 -m py_compile backend/app/services/asset_prices.py backend/app/api/networth.py)"
     ]
   }
 }
