@@ -33,6 +33,7 @@ from app.api.wealth_alerts import router as wealth_alerts_router
 from app.api.notifications import router as notifications_router
 from app.api.assistant import router as assistant_router
 from app.api.recurring import router as recurring_router
+from app.api.accounts import router as accounts_router
 from app.core.config import settings
 from app.core.database import engine
 from app.models.user import Base
@@ -46,6 +47,7 @@ from app.models.conversation import ConversationMessage  # noqa: F401 — regist
 from app.models.progress_insight import ProgressInsight  # noqa: F401 — registers table in metadata
 from app.models.dismissed_alert import DismissedAlert  # noqa: F401 — registers table in metadata
 from app.models.subscription_flag import SubscriptionFlag  # noqa: F401 — registers table in metadata
+from app.models.account import Account  # noqa: F401 — registers table in metadata
 from app.models.asset import Asset  # noqa: F401 — registers table in metadata
 from app.models.liability import Liability  # noqa: F401 — registers table in metadata
 from app.models.receivable import Receivable  # noqa: F401 — registers table in metadata
@@ -132,6 +134,7 @@ app.include_router(wealth_alerts_router)
 app.include_router(notifications_router)
 app.include_router(assistant_router)
 app.include_router(recurring_router)
+app.include_router(accounts_router)
 
 
 @app.get("/health")

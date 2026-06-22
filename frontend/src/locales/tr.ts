@@ -251,6 +251,11 @@ export const tr = {
     recentEvents: "Son Olaylar",
     actionQueue: "İşlem Kuyruğu",
     allClear: "Tüm kalemler temiz",
+    account: "Hesap",
+    noAccount: "Hesap yok",
+    newAccountPlaceholder: "veya yeni hesap adı yaz…",
+    staleHint: "Bu varlık 90+ gündür güncellenmedi. Değeri elle güncelleyin.",
+    fxExposure: "Para Birimi Dağılımı",
     empty: {
       title: "Nereden başlayalım?",
       subtitle: "Bir varlık ekleyerek net değerini görmeye başla.",

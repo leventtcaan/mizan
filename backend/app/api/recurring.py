@@ -7,7 +7,7 @@ Flagging reuses the existing POST /subscriptions/flag.
 import logging
 from decimal import Decimal
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -16,6 +16,7 @@ from app.core.database import get_session
 from app.core.dependencies import get_current_user
 from app.models.subscription_flag import SubscriptionFlag
 from app.models.user import User
+from app.services.currency import convert
 from app.services.recurring import analyze_recurring
 
 logger = logging.getLogger(__name__)
@@ -27,6 +28,7 @@ class SubscriptionItem(BaseModel):
     merchant_key: str
     merchant: str
     avg_amount: str
+    currency: str
     frequency: str
     last_seen: str
     total_paid_all_time: str
@@ -38,6 +40,7 @@ class SubscriptionItem(BaseModel):
 class InstallmentItem(BaseModel):
     merchant_key: str
     merchant: str
+    currency: str
     monthly_amount: float
     months_detected: int
     estimated_remaining: int
@@ -76,10 +79,26 @@ def _monthly(avg: Decimal, frequency: str) -> Decimal:
 
 @router.get("", response_model=RecurringResponse)
 async def get_recurring(
+    display_currency: str = Query(default="TRY"),
     current_user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
 ) -> RecurringResponse:
     subs, installments = await analyze_recurring(current_user.id, session)
+    cur = display_currency.upper()
+
+    # Cache conversion factors so we don't re-resolve the same pair repeatedly.
+    _factors: dict[str, float] = {}
+
+    async def factor(from_cur: str) -> float:
+        fc = (from_cur or "TRY").upper()
+        if fc == cur:
+            return 1.0
+        if fc not in _factors:
+            try:
+                _factors[fc] = float(await convert(1.0, fc, cur))
+            except Exception:
+                _factors[fc] = 1.0
+        return _factors[fc]
 
     flags_result = await session.execute(
         select(SubscriptionFlag.merchant_key, SubscriptionFlag.flag).where(
@@ -88,8 +107,43 @@ async def get_recurring(
     )
     flag_map: dict[str, str] = {row.merchant_key: row.flag for row in flags_result}
 
-    sub_items = [SubscriptionItem(**s, flag=flag_map.get(s["merchant_key"])) for s in subs]
-    inst_items = [InstallmentItem(**p) for p in installments]
+    sub_items = []
+    for s in subs:
+        f = await factor(s.get("currency", "TRY"))
+        sub_items.append(SubscriptionItem(
+            merchant_key=s["merchant_key"],
+            merchant=s["merchant"],
+            avg_amount=str(round(float(s["avg_amount"]) * f, 2)),
+            currency=cur,
+            frequency=s["frequency"],
+            last_seen=s["last_seen"],
+            total_paid_all_time=str(round(float(s["total_paid_all_time"]) * f, 2)),
+            months_active=s["months_active"],
+            category=s["category"],
+            flag=flag_map.get(s["merchant_key"]),
+        ))
+
+    inst_items = []
+    for p in installments:
+        f = await factor(p.get("currency", "TRY"))
+        inst_items.append(InstallmentItem(
+            merchant_key=p["merchant_key"],
+            merchant=p["merchant"],
+            currency=cur,
+            monthly_amount=round(p["monthly_amount"] * f, 2),
+            months_detected=p["months_detected"],
+            estimated_remaining=p["estimated_remaining"],
+            total_plan_months=p["total_plan_months"],
+            total_paid=round(p["total_paid"] * f, 2),
+            estimated_total=round(p["estimated_total"] * f, 2),
+            first_seen=p["first_seen"],
+            last_seen=p["last_seen"],
+            category=p["category"],
+            source=p["source"],
+            total_nominal=round(p["total_nominal"] * f, 2),
+            opportunity_loss=round(p["opportunity_loss"] * f, 2),
+            real_cost_with_opportunity=round(p["real_cost_with_opportunity"] * f, 2),
+        ))
 
     # --- summary (cancelled subscriptions excluded) ---
     active_subs = [s for s in sub_items if s.flag != "cancelled"]

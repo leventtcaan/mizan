@@ -251,6 +251,11 @@ export const en = {
     recentEvents: "Recent Events",
     actionQueue: "Action Queue",
     allClear: "All items are clear",
+    account: "Account",
+    noAccount: "No account",
+    newAccountPlaceholder: "or type a new account name…",
+    staleHint: "This asset hasn't been updated in 90+ days. Update its value manually.",
+    fxExposure: "Currency Exposure",
     empty: {
       title: "Where shall we start?",
       subtitle: "Add an asset to start seeing your net worth.",

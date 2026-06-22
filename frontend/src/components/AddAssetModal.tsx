@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { createAsset, updateAsset, AssetItem } from "@/lib/api";
+import { createAsset, updateAsset, getAccounts, createAccount, AssetItem, type Account } from "@/lib/api";
 import { X } from "@/components/ui/Icons";
 import { useLanguage } from "@/lib/i18n";
 import { AssetDraft } from "@/components/asset-forms/shared";
@@ -51,6 +51,27 @@ export default function AddAssetModal({ onClose, onAdded, onUpdated, displayCurr
   const [asOfDate, setAsOfDate] = useState(editData?.as_of_date ?? todayISO());
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [accounts, setAccounts] = useState<Account[]>([]);
+  const [accountId, setAccountId] = useState<string>(editData?.account_id ?? "");
+  const [newAccountName, setNewAccountName] = useState("");
+
+  useEffect(() => { getAccounts().then(setAccounts).catch(() => setAccounts([])); }, []);
+
+  // Account linking is only meaningful for cash/bank/FX holdings.
+  const accountRelevant = ["cash", "bank_account", "foreign_currency"].includes(assetType ?? "");
+
+  async function ensureAccount(): Promise<string> {
+    // Create-on-the-fly when the user typed a new account name.
+    if (!accountRelevant) return "";
+    if (accountId) return accountId;
+    if (newAccountName.trim()) {
+      try {
+        const acc = await createAccount({ name: newAccountName.trim(), account_type: "bank", currency: draft?.currency || displayCurrency });
+        return acc.id;
+      } catch { return ""; }
+    }
+    return "";
+  }
 
   // When editing, provide a pre-built draft from existing data so form shows values
   useEffect(() => {
@@ -89,6 +110,7 @@ export default function AddAssetModal({ onClose, onAdded, onUpdated, displayCurr
     setError(null);
     setLoading(true);
     try {
+      const resolvedAccount = await ensureAccount();
       if (isEdit && editData) {
         const updated = await updateAsset(editData.id, {
           name: draft.name,
@@ -98,6 +120,9 @@ export default function AddAssetModal({ onClose, onAdded, onUpdated, displayCurr
           notes: notes || undefined,
           source_detail: draft.source_detail,
           as_of_date: asOfDate || undefined,
+          quantity: draft.quantity,
+          unit_code: draft.unit_code,
+          account_id: resolvedAccount || undefined,
         });
         onUpdated?.(updated);
       } else {
@@ -110,6 +135,9 @@ export default function AddAssetModal({ onClose, onAdded, onUpdated, displayCurr
           source: "manual",
           source_detail: draft.source_detail,
           as_of_date: asOfDate || undefined,
+          quantity: draft.quantity,
+          unit_code: draft.unit_code,
+          account_id: resolvedAccount || undefined,
         });
         onAdded(asset);
       }
@@ -168,6 +196,23 @@ export default function AddAssetModal({ onClose, onAdded, onUpdated, displayCurr
             {routeForm(assetType, setDraft, displayCurrency)}
 
             <div className="pt-1 border-t border-[#2A2A2A] space-y-4">
+              {accountRelevant && (
+                <div>
+                  <label className="block text-xs text-gray-400 mb-1.5">{t("nw.account")} ({t("common.optional")})</label>
+                  <select value={accountId} onChange={(e) => setAccountId(e.target.value)} className={inputClass}>
+                    <option value="">{t("nw.noAccount")}</option>
+                    {accounts.map((a) => <option key={a.id} value={a.id}>{a.name}{a.institution ? ` · ${a.institution}` : ""}</option>)}
+                  </select>
+                  {!accountId && (
+                    <input
+                      value={newAccountName}
+                      onChange={(e) => setNewAccountName(e.target.value)}
+                      placeholder={t("nw.newAccountPlaceholder")}
+                      className={`${inputClass} mt-2`}
+                    />
+                  )}
+                </div>
+              )}
               <div>
                 <label className="block text-xs text-gray-400 mb-1.5">{t("common.date")}</label>
                 <input type="date" value={asOfDate} onChange={(e) => setAsOfDate(e.target.value)} className={inputClass} />

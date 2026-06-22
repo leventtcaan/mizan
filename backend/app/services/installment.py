@@ -7,7 +7,7 @@ WHY: Installment purchases are common in many markets. Some card statements show
 
 import logging
 import re
-from collections import defaultdict
+from collections import Counter, defaultdict
 from datetime import date
 from decimal import Decimal
 
@@ -186,9 +186,13 @@ def detect_installments(transactions) -> list[dict]:
     # Merge: explicit takes priority
     all_plans = list(explicit_plans.values()) + implicit_plans
     total_paid_map: dict[str, Decimal] = {}
+    currency_votes: dict[str, Counter] = defaultdict(Counter)
     for t in debits:
-        key = _normalize_key(t.description)
-        total_paid_map[key] = total_paid_map.get(key, Decimal("0")) + t.amount
+        norm = _normalize_key(t.description)
+        total_paid_map[norm] = total_paid_map.get(norm, Decimal("0")) + t.amount
+        cur = getattr(t, "currency", None) or "TRY"
+        currency_votes[norm][cur] += 1
+        currency_votes[_merchant_key_for_explicit(t.description)][cur] += 1
 
     results = []
     for plan in all_plans:
@@ -202,9 +206,12 @@ def detect_installments(transactions) -> list[dict]:
         # Real cost calculation
         real_cost = calculate_real_cost(monthly, remaining)
 
+        votes = currency_votes.get(key)
+        currency = votes.most_common(1)[0][0] if votes else "TRY"
         results.append({
             "merchant_key": key,
             "merchant": plan["merchant"],
+            "currency": currency,
             "monthly_amount": float(monthly),
             "months_detected": plan["current_installment"],
             "estimated_remaining": remaining,

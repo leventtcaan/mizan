@@ -43,6 +43,9 @@ class AssetRequest(BaseModel):
     source: str = "manual"
     source_detail: str | None = None
     as_of_date: str | None = None  # ISO date YYYY-MM-DD
+    quantity: str | None = None     # share/unit count for repriceable holdings
+    unit_code: str | None = None    # ticker/symbol for repricing
+    account_id: str | None = None   # optional Account this asset belongs to
 
     @field_validator("asset_type")
     @classmethod
@@ -85,6 +88,9 @@ class AssetResponse(BaseModel):
     source: str
     source_detail: str | None
     as_of_date: str
+    quantity: str | None
+    unit_code: str | None
+    account_id: str | None
     created_at: datetime
     updated_at: datetime
 
@@ -231,6 +237,9 @@ def _asset_resp(a: Asset) -> AssetResponse:
         source=a.source,
         source_detail=a.source_detail,
         as_of_date=a.as_of_date.isoformat() if a.as_of_date else date.today().isoformat(),
+        quantity=str(a.quantity) if a.quantity is not None else None,
+        unit_code=a.unit_code,
+        account_id=str(a.account_id) if a.account_id else None,
         created_at=a.created_at,
         updated_at=a.updated_at,
     )
@@ -283,6 +292,29 @@ def _suggestion_resp(s: NetworthSuggestion) -> SuggestionResponse:
 def _parse_as_of_date(as_of_date_str: str | None) -> date:
     if not as_of_date_str:
         return date.today()
+    try:
+        return date.fromisoformat(as_of_date_str)
+    except ValueError:
+        return date.today()
+
+
+def _parse_quantity(raw: str | None) -> Decimal | None:
+    if raw is None or str(raw).strip() == "":
+        return None
+    try:
+        q = Decimal(str(raw).replace(",", "."))
+        return q if q > 0 else None
+    except Exception:
+        return None
+
+
+def _parse_account_id(raw: str | None) -> uuid.UUID | None:
+    if not raw:
+        return None
+    try:
+        return uuid.UUID(raw)
+    except (ValueError, TypeError):
+        return None
 
 
 def _archive_cutoff() -> datetime:
@@ -470,6 +502,9 @@ async def create_asset(
         source=body.source,
         source_detail=body.source_detail,
         as_of_date=_parse_as_of_date(body.as_of_date),
+        quantity=_parse_quantity(body.quantity),
+        unit_code=(body.unit_code.strip().upper()[:20] if body.unit_code else None),
+        account_id=_parse_account_id(body.account_id),
         created_at=now,
         updated_at=now,
     )
@@ -508,6 +543,9 @@ async def update_asset(
     asset.source = body.source
     asset.source_detail = body.source_detail
     asset.as_of_date = _parse_as_of_date(body.as_of_date)
+    asset.quantity = _parse_quantity(body.quantity)
+    asset.unit_code = body.unit_code.strip().upper()[:20] if body.unit_code else None
+    asset.account_id = _parse_account_id(body.account_id)
     asset.updated_at = datetime.now(timezone.utc)
     await bust_networth_insight_cache(current_user.id, session)
     await session.commit()

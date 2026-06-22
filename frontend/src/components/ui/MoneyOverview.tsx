@@ -39,7 +39,7 @@ export default function MoneyOverview() {
     setLoading(true);
     Promise.all([
       getCashFlowSummary(30, ccy).catch(() => null),
-      getRecurring().then((r) => r.summary).catch(() => null),
+      getRecurring(ccy).then((r) => r.summary).catch(() => null),
     ]).then(([cf, rec]) => {
       if (!active) return;
       setCashflow(cf);

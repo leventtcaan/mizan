@@ -702,6 +702,7 @@ export interface RecurringSubscription {
   merchant_key: string;
   merchant: string;
   avg_amount: string;
+  currency: string;
   frequency: string;
   last_seen: string;
   total_paid_all_time: string;
@@ -713,6 +714,7 @@ export interface RecurringSubscription {
 export interface RecurringInstallment {
   merchant_key: string;
   merchant: string;
+  currency: string;
   monthly_amount: number;
   months_detected: number;
   estimated_remaining: number;
@@ -745,8 +747,8 @@ export interface RecurringResponse {
   summary: RecurringSummary;
 }
 
-export async function getRecurring(): Promise<RecurringResponse> {
-  const response = await fetch(`${API_BASE_URL}/recurring`, { headers: authHeaders() });
+export async function getRecurring(displayCurrency = "TRY"): Promise<RecurringResponse> {
+  const response = await fetch(`${API_BASE_URL}/recurring?display_currency=${displayCurrency}`, { headers: authHeaders() });
   if (!response.ok) throw new Error(`Failed to fetch recurring: ${response.status}`);
   return response.json() as Promise<RecurringResponse>;
 }
@@ -779,8 +781,47 @@ export interface AssetItem {
   source: string;
   source_detail: string | null;
   as_of_date: string;
+  quantity: string | null;
+  unit_code: string | null;
+  account_id: string | null;
   created_at: string;
   updated_at: string;
+}
+
+// --- Accounts (where money lives) ---
+
+export interface Account {
+  id: string;
+  name: string;
+  account_type: string;
+  currency: string;
+  institution: string | null;
+}
+
+export async function getAccounts(): Promise<Account[]> {
+  const response = await fetch(`${API_BASE_URL}/accounts`, { headers: authHeaders() });
+  if (!response.ok) throw new Error(`Failed to fetch accounts: ${response.status}`);
+  return response.json() as Promise<Account[]>;
+}
+
+export async function createAccount(body: {
+  name: string; account_type?: string; currency?: string; institution?: string;
+}): Promise<Account> {
+  const response = await fetch(`${API_BASE_URL}/accounts`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...authHeaders() },
+    body: JSON.stringify(body),
+  });
+  if (!response.ok) {
+    const err = await response.json().catch(() => null);
+    throw new Error(extractErrorMessage(err, "Account could not be created"));
+  }
+  return response.json() as Promise<Account>;
+}
+
+export async function deleteAccount(id: string): Promise<void> {
+  const response = await fetch(`${API_BASE_URL}/accounts/${id}`, { method: "DELETE", headers: authHeaders() });
+  if (!response.ok) throw new Error(`Failed to delete account: ${response.status}`);
 }
 
 export interface LiabilityItem {
@@ -839,6 +880,7 @@ export async function getAssets(): Promise<AssetItem[]> {
 export async function createAsset(body: {
   name: string; asset_type: string; currency: string; current_value: string;
   notes?: string; source?: string; source_detail?: string; as_of_date?: string;
+  quantity?: string; unit_code?: string; account_id?: string;
 }): Promise<AssetItem> {
   const response = await fetch(`${API_BASE_URL}/networth/assets`, {
     method: "POST",
@@ -854,6 +896,7 @@ export async function createAsset(body: {
 
 export async function updateAsset(id: string, body: {
   name: string; asset_type: string; currency: string; current_value: string; notes?: string; source_detail?: string; as_of_date?: string;
+  quantity?: string; unit_code?: string; account_id?: string;
 }): Promise<AssetItem> {
   const response = await fetch(`${API_BASE_URL}/networth/assets/${id}`, {
     method: "PUT",

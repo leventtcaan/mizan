@@ -38,6 +38,7 @@ import {
   getNetWorthAttribution,
   getDefaultCurrency,
   CURRENCY_CHANGE_EVENT,
+  getAccounts,
   type NetWorthAttribution,
   AssetItem,
   LiabilityItem,
@@ -200,6 +201,7 @@ export default function NetWorthPage() {
   const router = useRouter();
   const [displayCurrency, setDisplayCurrency] = useState("TRY");
   const [attribution, setAttribution] = useState<NetWorthAttribution | null>(null);
+  const [accountsMap, setAccountsMap] = useState<Record<string, string>>({});
 
   const [summary, setSummary] = useState<NetWorthSummary | null>(null);
   const [assets, setAssets] = useState<AssetItem[]>([]);
@@ -302,6 +304,19 @@ export default function NetWorthPage() {
     window.addEventListener(CURRENCY_CHANGE_EVENT, handler);
     return () => window.removeEventListener(CURRENCY_CHANGE_EVENT, handler);
   }, []);
+
+  useEffect(() => {
+    getAccounts().then((accs) => {
+      setAccountsMap(Object.fromEntries(accs.map((a) => [a.id, a.name])));
+    }).catch(() => setAccountsMap({}));
+  }, []);
+
+  // Manual assets go stale: flag those not refreshed in 90+ days so the number isn't trusted blindly.
+  const staleDays = (asOf: string): number | null => {
+    if (!asOf) return null;
+    const d = Math.floor((Date.now() - new Date(`${asOf}T00:00:00`).getTime()) / 86400000);
+    return d;
+  };
 
   const loadAll = async () => {
     setLoading(true);
@@ -891,6 +906,33 @@ export default function NetWorthPage() {
         </div>
       )}
 
+      {/* FX exposure — wealth by currency */}
+      {summary && Object.keys(summary.currency_breakdown).length > 1 && (() => {
+        const entries = Object.entries(summary.currency_breakdown).sort(([, a], [, b]) => b - a);
+        const total = entries.reduce((s, [, v]) => s + Math.abs(v), 0) || 1;
+        const PALETTE = ["#6366F1", "#10B981", "#F59E0B", "#EC4899", "#06B6D4", "#A78BFA", "#F87171", "#94A3B8"];
+        return (
+          <section className="mb-8 bg-[#1A1A1A] border border-[#2A2A2A] rounded-2xl p-5">
+            <p className="text-xs text-gray-500 uppercase tracking-wide font-semibold mb-4">{t("nw.fxExposure")}</p>
+            <div className="flex h-2.5 rounded-full overflow-hidden mb-4">
+              {entries.map(([cur, v], i) => (
+                <div key={cur} title={`${cur} ${((Math.abs(v) / total) * 100).toFixed(0)}%`}
+                  style={{ width: `${(Math.abs(v) / total) * 100}%`, backgroundColor: PALETTE[i % PALETTE.length] }} />
+              ))}
+            </div>
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+              {entries.map(([cur, v], i) => (
+                <div key={cur} className="flex items-center gap-2 text-xs">
+                  <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: PALETTE[i % PALETTE.length] }} />
+                  <span className="text-gray-300 font-medium">{cur}</span>
+                  <span className="text-gray-600 tabular-nums">{((Math.abs(v) / total) * 100).toFixed(0)}%</span>
+                </div>
+              ))}
+            </div>
+          </section>
+        );
+      })()}
+
       {/* Assets */}
       <section className="mb-8">
         <SectionHeader
@@ -940,9 +982,20 @@ export default function NetWorthPage() {
                                   : "bg-[#1A1A1A] border-[#2A2A2A] text-gray-400"
                               }`}>{maturity.label}</span>
                             )}
+                            {!AUTO_PRICE_TYPES.has(a.asset_type) && !priceBadge && (() => {
+                              const d = staleDays(a.as_of_date);
+                              return d !== null && d >= 90 ? (
+                                <span className="text-[10px] px-1.5 py-0.5 rounded-full border bg-orange-950/30 border-orange-800/30 text-orange-400" title={t("nw.staleHint")}>
+                                  {t("nw.stale")}
+                                </span>
+                              ) : null;
+                            })()}
                           </div>
                           <p className="text-gray-500 text-xs mt-0.5 flex items-center gap-2 flex-wrap">
                             <span>{getAssetTypeLabel(a.asset_type)}</span>
+                            {a.account_id && accountsMap[a.account_id] && (
+                              <span className="text-indigo-400">· {accountsMap[a.account_id]}</span>
+                            )}
                             {detailLabel && <span className="text-gray-400">· {detailLabel}</span>}
                             {a.notes && <span>· {a.notes}</span>}
                             <span className="text-gray-600">· {SOURCE_LABELS[a.source] ?? a.source}</span>

@@ -81,7 +81,7 @@ export default function MarketAssetForm({ assetType, onDraftChange, displayCurre
         shares, last_price_usd: priceInUsd,
         quote_currency: quoteCurrency, quote_price: quotePrice ?? undefined,
       });
-      onDraftChange({ name: name.trim() || quoteName || sym, asset_type: assetType, currency: "USD", current_value: totalUsd.toFixed(2), source_detail: sd });
+      onDraftChange({ name: name.trim() || quoteName || sym, asset_type: assetType, currency: "USD", current_value: totalUsd.toFixed(2), source_detail: sd, quantity: shares, unit_code: sym });
     } else if (quoteFailed && manualN > 0 && sym) {
       const sd = buildSourceDetail({ subtype: assetType, symbol: sym, code: sym, name: name.trim(), venue: venue.trim() || exchange });
       onDraftChange({ name: name.trim() || sym, asset_type: assetType, currency: "USD", current_value: manualValue, source_detail: sd });

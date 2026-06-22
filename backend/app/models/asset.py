@@ -36,8 +36,19 @@ class Asset(Base):
     name: Mapped[str] = mapped_column(String(200), nullable=False)
     asset_type: Mapped[str] = mapped_column(String(50), nullable=False)
     currency: Mapped[str] = mapped_column(String(10), nullable=False, default="TRY")
-    current_value: Mapped[Decimal] = mapped_column(Numeric(18, 2), nullable=False)
+    # Numeric(28,8): high precision so fractional crypto/gold quantities (e.g. 0.00012345 BTC)
+    # survive. For unit-priced types current_value holds the QUANTITY; otherwise the VALUE.
+    current_value: Mapped[Decimal] = mapped_column(Numeric(28, 8), nullable=False)
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    # Valuation model (P1): for repriceable holdings (stocks/funds), quantity + unit_code let
+    # the price service recompute value live. unit_code = ticker/symbol (e.g. "AAPL").
+    quantity: Mapped[Decimal | None] = mapped_column(Numeric(28, 8), nullable=True)
+    unit_code: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    # Optional link to an Account (P2). Nullable — most assets aren't account-scoped.
+    account_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("accounts.id", ondelete="SET NULL"), nullable=True, index=True
+    )
 
     source: Mapped[str] = mapped_column(String(50), nullable=False, default="manual")
     source_detail: Mapped[str | None] = mapped_column(String(500), nullable=True)

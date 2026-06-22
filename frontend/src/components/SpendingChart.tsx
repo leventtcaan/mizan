@@ -1,6 +1,7 @@
 "use client";
 
-import type { Transaction } from "@/lib/api";
+import { useEffect, useState } from "react";
+import { getCurrencyRates, getDefaultCurrency, CURRENCY_CHANGE_EVENT, type Transaction } from "@/lib/api";
 import { CATEGORY_COLORS, DEFAULT_CATEGORY_COLOR } from "@/lib/categories";
 import { useLanguage } from "@/lib/i18n";
 
@@ -10,17 +11,36 @@ interface Props {
 
 export default function SpendingChart({ transactions }: Props) {
   const { t } = useLanguage();
+  const [currency, setCurrency] = useState("TRY");
+  // rates[code] = units of code per 1 display currency → convert amt in code: amt / rates[code]
+  const [rates, setRates] = useState<Record<string, number> | null>(null);
+
+  useEffect(() => {
+    const apply = (code: string) => {
+      setCurrency(code);
+      getCurrencyRates(code).then(setRates).catch(() => setRates(null));
+    };
+    apply(getDefaultCurrency());
+    const h = (e: Event) => apply((e as CustomEvent<string>).detail);
+    window.addEventListener(CURRENCY_CHANGE_EVENT, h);
+    return () => window.removeEventListener(CURRENCY_CHANGE_EVENT, h);
+  }, []);
+
+  const toDisplay = (amt: number, cur: string): number => {
+    const c = (cur || "TRY").toUpperCase();
+    if (c === currency.toUpperCase()) return amt;
+    const r = rates?.[c];
+    return r && r > 0 ? amt / r : amt; // fall back to raw if rate unknown
+  };
 
   const totals: Record<string, number> = {};
-  const currencyCount: Record<string, number> = {};
   let totalSpend = 0;
   for (const tx of transactions) {
     if (tx.transaction_type !== "debit") continue;
     const cat = tx.category ?? "diger";
-    const amt = parseFloat(tx.amount) || 0;
+    const amt = toDisplay(parseFloat(tx.amount) || 0, tx.currency || "TRY");
     totals[cat] = (totals[cat] ?? 0) + amt;
     totalSpend += amt;
-    currencyCount[tx.currency || "TRY"] = (currencyCount[tx.currency || "TRY"] ?? 0) + 1;
   }
 
   const rows = Object.entries(totals)
@@ -33,9 +53,7 @@ export default function SpendingChart({ transactions }: Props) {
 
   if (rows.length === 0 || totalSpend === 0) return null;
 
-  // Dominant currency for the symbol (most data is single-currency).
-  const currency = Object.entries(currencyCount).sort((a, b) => b[1] - a[1])[0]?.[0] ?? "TRY";
-  const mixed = Object.keys(currencyCount).length > 1;
+  const mixed = false;
   const fmt = (v: number) => {
     try {
       return new Intl.NumberFormat(undefined, { style: "currency", currency, maximumFractionDigits: 0 }).format(v);

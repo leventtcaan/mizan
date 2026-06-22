@@ -4,7 +4,7 @@ unified recurring engine. Groups recurring debits whose monthly totals are
 within ±10% of the median across ≥2 distinct months.
 """
 
-from collections import defaultdict
+from collections import Counter, defaultdict
 from decimal import Decimal
 
 _MIN_AMOUNT = Decimal("10")
@@ -62,10 +62,12 @@ def detect_subscriptions(transactions) -> list[dict]:
             frequency = "monthly"
 
         latest_tx = max(group, key=lambda t: t.transaction_date)
+        currency = Counter(getattr(t, "currency", None) or "TRY" for t in group).most_common(1)[0][0]
         results.append({
             "merchant_key": key,
             "merchant": clean_merchant_name(group[0].description),
             "avg_amount": str(median),
+            "currency": currency,
             "frequency": frequency,
             "last_seen": all_dates[-1].isoformat(),
             "total_paid_all_time": str(sum(t.amount for t in group)),

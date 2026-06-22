@@ -20,6 +20,7 @@ import logging
 import time
 import uuid
 from datetime import date, datetime, timezone
+from decimal import Decimal
 
 import httpx
 from sqlalchemy import select
@@ -299,6 +300,20 @@ async def fetch_all_for_user(
         asset.source_detail = json.dumps(sd)
         asset.as_of_date = date.today()
         # updated_at triggers automatically via SQLAlchemy onupdate
+
+        # Stocks/funds store a VALUE (not a quantity), so recompute it live from
+        # shares × price when we know the share count. Crypto/gold/FX/commodity keep
+        # their quantity in current_value (price applies at display time).
+        if asset.asset_type in MARKET_VALUE_TYPES and asset.quantity and asset.quantity > 0:
+            from app.services.currency import convert
+            try:
+                value_usd = float(asset.quantity) * price_usd
+                value_ccy = await convert(value_usd, "USD", asset.currency)
+                asset.current_value = Decimal(str(round(value_ccy, 2)))
+                sd["last_shares"] = float(asset.quantity)
+                asset.source_detail = json.dumps(sd)
+            except Exception:
+                pass
 
         updated += 1
         details.append({

@@ -19,6 +19,8 @@ export interface AssetDraft {
   currency: string;
   current_value: string; // numeric string
   source_detail?: string; // JSON string
+  quantity?: string;      // share/unit count → enables live repricing (stocks/funds)
+  unit_code?: string;     // ticker/symbol for repricing
 }
 
 export interface AssetFormProps {

@@ -38,11 +38,11 @@ export default function RecurringPage() {
   }, []);
 
   const load = useCallback(() => {
-    getRecurring()
+    getRecurring(ccy)
       .then((r) => { setSubs(r.subscriptions); setInstallments(r.installments); setSummary(r.summary); })
       .catch(() => {})
       .finally(() => setLoading(false));
-  }, []);
+  }, [ccy]);
 
   useEffect(() => {
     if (!getToken()) { router.push("/login"); return; }
