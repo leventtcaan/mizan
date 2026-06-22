@@ -1076,42 +1076,34 @@ Full stack: register/login → JWT → upload (rate-limited, busts caches) → 3
 
 ## Next Session — Start Here
 
-**Phases 1–42 complete. Alembic head = 0022. No migrations since Phase 32.**
+**Phases 1–43 complete. Alembic head = 0025. Last migrations: 0024 (networth_snapshots), 0025 (wealth_alerts).**
 
-### Immediate fixes (do first, in order):
-1. **USD subtitle cosmetic bug** — asset cards always show `{a.currency}` subtitle even when already displaying in that currency. Fix: hide subtitle when `a.currency === displayCurrency`.
-2. **Duplicate detection false positives** — `possible_duplicate_transaction` producer flags transactions within the same upload batch as duplicates. Fix: group by batch_id first, only flag cross-batch duplicates.
-3. **Remove large_transaction producer** — too many false positives (salary inflows, rent, one-time payments all trigger). Remove from `reconciliation_producers.py`. Keep overdue_receivable + received_receivable_missing_asset + possible_duplicate_transaction.
+### Verified working (do NOT re-investigate):
+- **"Fiyatları Güncelle" button** — confirmed working end-to-end: calls POST /networth/assets/refresh-prices (200 OK), fetches live prices, then GET /networth/assets reloads state. CLAUDE.md known-issue was stale.
 
-### Next feature after fixes:
-**Proactive threshold alerts** — user sets a threshold per asset (e.g. "alert me if BTC drops below $50k" or "alert me if net worth drops below X"). On each price refresh, evaluate all thresholds, write to `reconciliation_items` as `threshold_breach` issue_type. No new migration needed (existing table). Frontend: threshold setter on each auto-priced asset card in networth page.
+### Open known issues (priority order):
+1. **History chart needs 2+ snapshots** — NetworthSnapshot only populates on page load. Renders placeholder until user visits twice on different days. Will self-populate. No code fix needed; UX explanation only.
+2. **Donut chart placement** — asset allocation donut floats above AI insight. Consider moving to collapsible sidebar or secondary tab.
+3. **Wealth alert bell needs refresh-prices run first** — `last_price_usd` only exists in `source_detail` after at least one price refresh. Alert check skips assets with no price data. Fix: hint on alert creation UI if asset has no price data yet.
+4. **Proactive scheduled alerts** — wealth alerts only evaluate on page load. Need Redis + Celery or cron for true push notifications.
+
+### Next features (priority order):
+1. **Dashboard/overview page** — single landing page after login. Shows: net worth hero number + sparkline, top spending categories, upcoming cash flow (next 7 days), active alerts count, recent events. Consolidates best pieces of transactions/networth/cashflow pages.
+2. **Proactive scheduled alerts** — background job evaluates wealth alerts on schedule (every 6h). Celery + Redis or simple cron. Sends email via Resend on trigger.
+3. **Transactions SpendingChart redesign** — replace bar chart with area or cash-flow panel.
 
 Pre-flight (if docker was restarted):
 ```bash
 docker compose up -d
 docker compose exec backend alembic upgrade head
-docker compose exec backend alembic current   # must say 0022 (head)
+docker compose exec backend alembic current   # must say 0025 (head)
 ```
 
 Quick smoke-test:
 ```bash
-# Currency list (public, no auth)
 curl -s http://localhost:8000/currency/list | python3 -c "import sys,json; d=json.load(sys.stdin); print(len(d['fiat']), 'fiat,', len(d['crypto']), 'crypto')"
-# → should print "166 fiat, 100 crypto"
-
-# Price refresh (auth required)
-# POST /networth/assets/refresh-prices → {updated, failed, details}
+# → 166 fiat, 100 crypto
 ```
-
-Next task options (priority order):
-1. **[IMMEDIATE] Fix USD subtitle + duplicate detection + remove large_transaction producer** — 3 small targeted fixes, no new tables.
-2. **Proactive threshold alerts** — user sets price/value threshold per asset; evaluated on price refresh; writes to reconciliation_items as `threshold_breach`. No new migration.
-3. **Net worth historical chart** — dated snapshots; area chart showing net worth over time. Needs `networth_snapshots` table or event-log derivation.
-4. **Asset allocation pie** — distribution by type/currency on networth page. Frontend only, no backend.
-5. **Transactions SpendingChart redesign** — replace bar chart with area or cash-flow panel.
-6. **i18n coverage audit** — remaining hardcoded TR strings.
-7. **Schema cleanup** — split `Asset.current_value` into quantity/value fields.
-8. **Deployment** — Railway + Vercel; alembic on cold start.
 
 ---
 

@@ -1,0 +1,21 @@
+- generic [ref=e1]:
+  - main [ref=e2]:
+    - generic [ref=e3]:
+      - generic [ref=e5]:
+        - button "TR" [ref=e6] [cursor=pointer]
+        - button "EN" [ref=e7] [cursor=pointer]
+      - generic [ref=e8]:
+        - link "← Mizan" [ref=e9] [cursor=pointer]:
+          - /url: /
+        - heading "Hesap oluştur" [level=1] [ref=e26]
+      - generic [ref=e11]:
+        - generic [ref=e12]:
+          - generic [ref=e13]: E-posta
+          - textbox "example@email.com" [ref=e14]: admin@mizan.com
+        - generic [ref=e15]:
+          - generic [ref=e16]: Şifre
+          - textbox "••••••••" [ref=e17]: "123456"
+        - button "Kayıt Ol" [ref=e27] [cursor=pointer]
+      - paragraph [ref=e19]:
+        - button "Zaten hesabın var mı? Giriş yap" [active] [ref=e28] [cursor=pointer]
+  - alert [ref=e21]

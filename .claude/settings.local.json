@@ -38,7 +38,8 @@
       "Bash(git push *)",
       "Bash(python3 -m py_compile /Users/leventcanceylan/Projects/mizan/backend/app/services/reconciliation_producers.py)",
       "Bash(python3 -m py_compile backend/app/api/currency.py backend/app/models/asset.py)",
-      "Bash(python3 *)"
+      "Bash(python3 *)",
+      "mcp__playwright__browser_network_requests"
     ]
   }
 }

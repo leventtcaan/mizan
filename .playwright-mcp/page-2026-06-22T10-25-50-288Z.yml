@@ -1,0 +1,120 @@
+- generic [active] [ref=e1]:
+  - navigation [ref=e2]:
+    - generic [ref=e3]:
+      - link "Mizan" [ref=e4] [cursor=pointer]:
+        - /url: /transactions
+      - generic [ref=e5]:
+        - link "İşlemler" [ref=e6] [cursor=pointer]:
+          - /url: /transactions
+          - img [ref=e7]
+          - text: İşlemler
+        - link "Net Değer" [ref=e10] [cursor=pointer]:
+          - /url: /networth
+          - img [ref=e11]
+          - text: Net Değer
+        - link "İlerleme" [ref=e13] [cursor=pointer]:
+          - /url: /progress
+          - img [ref=e14]
+          - text: İlerleme
+        - link "Takvim" [ref=e15] [cursor=pointer]:
+          - /url: /cashflow
+          - img [ref=e16]
+          - text: Takvim
+        - link "Abonelikler" [ref=e18] [cursor=pointer]:
+          - /url: /subscriptions
+          - img [ref=e19]
+          - text: Abonelikler
+        - link "Taksitler" [ref=e21] [cursor=pointer]:
+          - /url: /installments
+          - img [ref=e22]
+          - text: Taksitler
+      - generic [ref=e26]:
+        - generic [ref=e27]:
+          - button "TR" [ref=e28] [cursor=pointer]
+          - button "EN" [ref=e29] [cursor=pointer]
+        - generic [ref=e30]: test@test.com
+        - link "Yükle" [ref=e31] [cursor=pointer]:
+          - /url: /upload
+          - img [ref=e32]
+          - text: Yükle
+        - button "Çıkış" [ref=e35] [cursor=pointer]:
+          - img [ref=e36]
+  - generic [ref=e39]:
+    - generic [ref=e40]:
+      - generic [ref=e41]:
+        - heading "Net Değer" [level=1] [ref=e43]
+        - paragraph [ref=e44]: Varlıklar, borçlar ve alacaklar — tüm tablonuz
+      - generic [ref=e46]:
+        - button "Fiyatları Güncelle" [ref=e47] [cursor=pointer]:
+          - img [ref=e48]
+          - text: Fiyatları Güncelle
+        - button "TRY— Türk Lirası" [ref=e54] [cursor=pointer]:
+          - generic [ref=e55]:
+            - text: TRY
+            - generic [ref=e56]: — Türk Lirası
+          - img [ref=e57]
+    - generic [ref=e144]: No updated price data found.
+    - generic [ref=e99]:
+      - heading "Net Değer Geçmişi" [level=3] [ref=e100]
+      - paragraph [ref=e101]: Henüz yeterli veri yok — birkaç gün sonra net değer grafiği burada görünecek.
+    - generic [ref=e59]:
+      - paragraph [ref=e102]: Net Değeriniz
+      - paragraph [ref=e103]: TRY 0
+      - generic [ref=e104]:
+        - generic [ref=e105]:
+          - img [ref=e106]
+          - generic [ref=e109]: Varlıklar
+          - generic [ref=e110]: TRY 0
+        - generic [ref=e111]: —
+        - generic [ref=e112]:
+          - img [ref=e113]
+          - generic [ref=e116]: Borçlar
+          - generic [ref=e117]: TRY 0
+    - generic [ref=e118]:
+      - img [ref=e119]
+      - paragraph [ref=e122]: "**Güçlü yönün:** Sıfır borçla başlıyorsun; bu, finansal özgürlüğe giden yolda temiz bir sayfa açmak demek. **Geliştirilecek nokta:** Henüz birikimin yok, bu yüzden ilk hedefin acil durum fonu oluşturmak olabilir. **Motivasyon:** Bugün başlayacağın küçük bir adım, yarın büyük bir fark yaratır."
+    - generic [ref=e124]:
+      - generic [ref=e125]: ⚠
+      - paragraph [ref=e126]: Likit varlık yok. Acil nakit ihtiyacında risk var.
+    - generic [ref=e63]:
+      - generic [ref=e64]:
+        - generic [ref=e65]:
+          - img [ref=e66]
+          - heading "Varlıklar" [level=2] [ref=e69]
+          - generic [ref=e127]: TRY 0
+        - button "Varlık Ekle" [ref=e70] [cursor=pointer]:
+          - img [ref=e71]
+          - text: Varlık Ekle
+      - generic [ref=e72]:
+        - paragraph [ref=e128]: Henüz varlık eklenmedi
+        - button "+ İlk varlığını ekle" [ref=e129] [cursor=pointer]
+    - generic [ref=e76]:
+      - generic [ref=e77]:
+        - generic [ref=e78]:
+          - img [ref=e79]
+          - heading "Borçlar" [level=2] [ref=e82]
+          - generic [ref=e130]: TRY 0
+        - button "Borç Ekle" [ref=e83] [cursor=pointer]:
+          - img [ref=e84]
+          - text: Borç Ekle
+      - generic [ref=e85]:
+        - paragraph [ref=e131]: Borç kaydı yok
+        - button "+ Borç ekle" [ref=e132] [cursor=pointer]
+    - generic [ref=e88]:
+      - generic [ref=e89]:
+        - generic [ref=e90]:
+          - img [ref=e91]
+          - heading "Alacaklar" [level=2] [ref=e93]
+          - generic [ref=e133]: TRY 0
+        - button "Alacak Ekle" [ref=e94] [cursor=pointer]:
+          - img [ref=e95]
+          - text: Alacak Ekle
+      - generic [ref=e96]:
+        - paragraph [ref=e134]: Alacak kaydı yok
+        - button "+ Alacak ekle" [ref=e135] [cursor=pointer]
+    - button "İşlem Kuyruğu 0" [ref=e137] [cursor=pointer]:
+      - img [ref=e138]
+      - heading "İşlem Kuyruğu" [level=2] [ref=e140]
+      - generic [ref=e141]: "0"
+      - img [ref=e142]
+  - alert [ref=e98]

@@ -1,0 +1,143 @@
+- generic [active] [ref=e1]:
+  - navigation [ref=e2]:
+    - generic [ref=e3]:
+      - link "Mizan" [ref=e4] [cursor=pointer]:
+        - /url: /transactions
+      - generic [ref=e5]:
+        - link "İşlemler" [ref=e6] [cursor=pointer]:
+          - /url: /transactions
+          - img [ref=e7]
+          - text: İşlemler
+        - link "Net Değer" [ref=e10] [cursor=pointer]:
+          - /url: /networth
+          - img [ref=e11]
+          - text: Net Değer
+        - link "İlerleme" [ref=e13] [cursor=pointer]:
+          - /url: /progress
+          - img [ref=e14]
+          - text: İlerleme
+        - link "Takvim" [ref=e15] [cursor=pointer]:
+          - /url: /cashflow
+          - img [ref=e16]
+          - text: Takvim
+        - link "Abonelikler" [ref=e18] [cursor=pointer]:
+          - /url: /subscriptions
+          - img [ref=e19]
+          - text: Abonelikler
+        - link "Taksitler" [ref=e21] [cursor=pointer]:
+          - /url: /installments
+          - img [ref=e22]
+          - text: Taksitler
+      - generic [ref=e26]:
+        - generic [ref=e27]:
+          - button "TR" [ref=e28] [cursor=pointer]
+          - button "EN" [ref=e29] [cursor=pointer]
+        - generic [ref=e30]: test@test.com
+        - link "Yükle" [ref=e31] [cursor=pointer]:
+          - /url: /upload
+          - img [ref=e32]
+          - text: Yükle
+        - button "Çıkış" [ref=e35] [cursor=pointer]:
+          - img [ref=e36]
+  - generic [ref=e39]:
+    - generic [ref=e40]:
+      - generic [ref=e41]:
+        - heading "Net Değer" [level=1] [ref=e43]
+        - paragraph [ref=e44]: Varlıklar, borçlar ve alacaklar — tüm tablonuz
+      - generic [ref=e46]:
+        - button "Fiyatları Güncelle" [ref=e47] [cursor=pointer]:
+          - img [ref=e48]
+          - text: Fiyatları Güncelle
+        - button "TRY— Türk Lirası" [ref=e54] [cursor=pointer]:
+          - generic [ref=e55]:
+            - text: TRY
+            - generic [ref=e56]: — Türk Lirası
+          - img [ref=e57]
+    - generic [ref=e99]: 1 assets updated.
+    - generic [ref=e100]:
+      - heading "Net Değer Geçmişi" [level=3] [ref=e101]
+      - paragraph [ref=e102]: Henüz yeterli veri yok — birkaç gün sonra net değer grafiği burada görünecek.
+    - generic [ref=e59]:
+      - paragraph [ref=e103]: Net Değeriniz
+      - paragraph [ref=e104]: TRY 1,488,276
+      - generic [ref=e105]:
+        - generic [ref=e106]:
+          - img [ref=e107]
+          - generic [ref=e110]: Varlıklar
+          - generic [ref=e111]: TRY 1,488,276
+        - generic [ref=e112]: —
+        - generic [ref=e113]:
+          - img [ref=e114]
+          - generic [ref=e117]: Borçlar
+          - generic [ref=e118]: TRY 0
+    - generic [ref=e119]:
+      - heading "Varlık Dağılımı" [level=3] [ref=e120]
+      - generic [ref=e121]:
+        - img [ref=e123]:
+          - img [ref=e126] [cursor=pointer]
+        - button "Yatırımlar TRY 1,487,985" [ref=e128] [cursor=pointer]:
+          - generic [ref=e130]: Yatırımlar
+          - generic [ref=e131]: TRY 1,487,985
+    - generic [ref=e132]:
+      - img [ref=e133]
+      - paragraph [ref=e136]: "**Güçlü yön:** Sıfır borçla çalışmak, finansal özgürlüğün temel taşıdır – bu disiplini takdir ediyorum. **Gelişim alanı:** Tüm varlıklarınızı tek bir varlık sınıfında (kripto) tutmak, piyasa dalgalanmalarına karşı yüksek risk taşır. **Öneri:** Net değerinizin %10-20'sini düşük riskli araçlara (mevduat, tahvil gibi) kaydırarak portföyünüzü çeşitlendirmeyi düşünün. Bu, birikiminizi korurken büyüme potansiyelinizi de sürdürmenizi sağlar."
+    - generic [ref=e138]:
+      - generic [ref=e139]: ⚠
+      - paragraph [ref=e140]: Likit varlık yok. Acil nakit ihtiyacında risk var.
+    - generic [ref=e63]:
+      - generic [ref=e64]:
+        - generic [ref=e65]:
+          - img [ref=e66]
+          - heading "Varlıklar" [level=2] [ref=e69]
+          - generic [ref=e141]: TRY 1,488,276
+        - button "Varlık Ekle" [ref=e70] [cursor=pointer]:
+          - img [ref=e71]
+          - text: Varlık Ekle
+      - generic [ref=e142]:
+        - generic [ref=e143]:
+          - img [ref=e144]
+          - generic [ref=e147]: Yatırımlar
+        - generic [ref=e148]:
+          - generic [ref=e149]:
+            - generic [ref=e150]:
+              - paragraph [ref=e151]: Bitcoin
+              - generic [ref=e152]: Otomatik · az önce
+            - paragraph [ref=e153]:
+              - generic [ref=e154]: Kripto Para
+              - generic [ref=e155]: · BTC · Bitcoin
+              - generic [ref=e156]: · Manuel giriş
+              - generic [ref=e157]: · 2026-06-22
+          - generic [ref=e158]:
+            - paragraph [ref=e160]: TRY 1,487,985
+            - button "🔔" [ref=e161] [cursor=pointer]
+            - button "×" [ref=e162] [cursor=pointer]
+    - generic [ref=e76]:
+      - generic [ref=e77]:
+        - generic [ref=e78]:
+          - img [ref=e79]
+          - heading "Borçlar" [level=2] [ref=e82]
+          - generic [ref=e163]: TRY 0
+        - button "Borç Ekle" [ref=e83] [cursor=pointer]:
+          - img [ref=e84]
+          - text: Borç Ekle
+      - generic [ref=e85]:
+        - paragraph [ref=e164]: Borç kaydı yok
+        - button "+ Borç ekle" [ref=e165] [cursor=pointer]
+    - generic [ref=e88]:
+      - generic [ref=e89]:
+        - generic [ref=e90]:
+          - img [ref=e91]
+          - heading "Alacaklar" [level=2] [ref=e93]
+          - generic [ref=e166]: TRY 0
+        - button "Alacak Ekle" [ref=e94] [cursor=pointer]:
+          - img [ref=e95]
+          - text: Alacak Ekle
+      - generic [ref=e96]:
+        - paragraph [ref=e167]: Alacak kaydı yok
+        - button "+ Alacak ekle" [ref=e168] [cursor=pointer]
+    - button "İşlem Kuyruğu 0" [ref=e170] [cursor=pointer]:
+      - img [ref=e171]
+      - heading "İşlem Kuyruğu" [level=2] [ref=e173]
+      - generic [ref=e174]: "0"
+      - img [ref=e175]
+  - alert [ref=e98]

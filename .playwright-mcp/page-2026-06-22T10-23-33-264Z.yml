@@ -1,0 +1,22 @@
+- generic [active] [ref=e1]:
+  - main [ref=e2]:
+    - generic [ref=e3]:
+      - generic [ref=e5]:
+        - button "TR" [ref=e6] [cursor=pointer]
+        - button "EN" [ref=e7] [cursor=pointer]
+      - generic [ref=e8]:
+        - link "← Mizan" [ref=e9] [cursor=pointer]:
+          - /url: /
+        - heading "Tekrar hoş geldiniz" [level=1] [ref=e10]
+      - generic [ref=e11]:
+        - generic [ref=e12]:
+          - generic [ref=e13]: E-posta
+          - textbox "example@email.com" [ref=e14]: leventcanceylan1@gmail.com
+        - generic [ref=e15]:
+          - generic [ref=e16]: Şifre
+          - textbox "••••••••" [ref=e17]: "123456"
+        - paragraph [ref=e23]: Invalid email or password.
+        - button "Giriş Yap" [ref=e18] [cursor=pointer]
+      - paragraph [ref=e19]:
+        - button "Hesabın yok mu? Kayıt ol" [ref=e20] [cursor=pointer]
+  - alert [ref=e21]
