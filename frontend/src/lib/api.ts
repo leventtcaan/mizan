@@ -1113,3 +1113,88 @@ export async function getCashFlowSummary(days = 30, displayCurrency = "TRY"): Pr
   if (!response.ok) throw new Error(`Failed to fetch cashflow summary: ${response.status}`);
   return response.json() as Promise<CashFlowSummary>;
 }
+
+// --- Net Worth Snapshots ---
+
+export interface NetworthSnapshot {
+  id: string;
+  net_worth_usd: string;
+  assets_usd: string;
+  liabilities_usd: string;
+  recorded_at: string;
+}
+
+export async function createNetWorthSnapshot(): Promise<NetworthSnapshot> {
+  const response = await fetch(`${API_BASE_URL}/networth/snapshot`, {
+    method: "POST",
+    headers: authHeaders(),
+  });
+  if (!response.ok) throw new Error(`Failed to create snapshot: ${response.status}`);
+  return response.json() as Promise<NetworthSnapshot>;
+}
+
+export async function getNetWorthHistory(days = 90): Promise<NetworthSnapshot[]> {
+  const response = await fetch(`${API_BASE_URL}/networth/history?days=${days}`, {
+    headers: authHeaders(),
+  });
+  if (!response.ok) throw new Error(`Failed to fetch net worth history: ${response.status}`);
+  return response.json() as Promise<NetworthSnapshot[]>;
+}
+
+// --- Wealth Alerts ---
+
+export interface WealthAlertItem {
+  id: string;
+  alert_type: string;
+  condition_json: string;
+  message_template: string;
+  is_active: boolean;
+  triggered_at: string | null;
+  created_at: string;
+  asset_id: string | null;
+  threshold_usd: number | null;
+}
+
+export interface TriggeredWealthAlert {
+  alert: WealthAlertItem;
+  triggered_reason: string;
+  current_value: number | null;
+}
+
+export async function createWealthAlert(body: {
+  alert_type: string;
+  asset_id?: string;
+  threshold_usd?: number;
+  message: string;
+}): Promise<WealthAlertItem> {
+  const response = await fetch(`${API_BASE_URL}/alerts/wealth`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...authHeaders() },
+    body: JSON.stringify(body),
+  });
+  if (!response.ok) {
+    const err = await response.json().catch(() => null);
+    throw new Error(extractErrorMessage(err, "Failed to create alert"));
+  }
+  return response.json() as Promise<WealthAlertItem>;
+}
+
+export async function getWealthAlerts(): Promise<WealthAlertItem[]> {
+  const response = await fetch(`${API_BASE_URL}/alerts/wealth`, { headers: authHeaders() });
+  if (!response.ok) throw new Error(`Failed to fetch wealth alerts: ${response.status}`);
+  return response.json() as Promise<WealthAlertItem[]>;
+}
+
+export async function checkWealthAlerts(): Promise<TriggeredWealthAlert[]> {
+  const response = await fetch(`${API_BASE_URL}/alerts/wealth/check`, { headers: authHeaders() });
+  if (!response.ok) throw new Error(`Failed to check wealth alerts: ${response.status}`);
+  return response.json() as Promise<TriggeredWealthAlert[]>;
+}
+
+export async function deleteWealthAlert(id: string): Promise<void> {
+  const response = await fetch(`${API_BASE_URL}/alerts/wealth/${id}`, {
+    method: "DELETE",
+    headers: authHeaders(),
+  });
+  if (!response.ok) throw new Error(`Failed to delete wealth alert: ${response.status}`);
+}

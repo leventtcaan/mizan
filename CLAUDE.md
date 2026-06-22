@@ -292,15 +292,20 @@ Full stack: register/login → JWT → upload (rate-limited, busts caches) → 3
 | 0022 | CREATE financial_events + reconciliation_items |
 
 ### Known Issues (open)
+- **USD subtitle cosmetic bug**: asset cards always show `{a.currency}` subtitle even when display currency matches. Fix: `a.currency !== displayCurrency` guard. **Fix next session.**
+- **Duplicate detection false positives**: `possible_duplicate_transaction` producer flags same-batch transactions. Fix: only flag cross-batch duplicates. **Fix next session.**
+- **large_transaction producer**: too many false positives (salary, rent, one-time payments). Remove from producers entirely. **Fix next session.**
+- **Net worth historical chart**: no dated snapshots. Assets only store current value. Need `networth_snapshots` table or computed from event log.
+- **Asset allocation pie chart**: missing. Would show distribution by type/currency on networth page.
 - **Layer 3 vision LLM**: stub ready in pdf_parser.py, not wired. Needed for banks with fonts <8pt.
 - **Rate limiter in-memory**: resets on backend restart. Redis needed for prod multi-process deploy.
-- **Resend domain**: `noreply@mizan.app` hardcoded in api/email.py — must be a verified Resend domain in prod.
-- **Migration drift in dev**: `create_all` adds base schema before Alembic can stamp revisions. 0022 is now idempotent because current dev DB had `financial_events` already created by app startup before migration ran. Still must run `alembic upgrade head`; if drift blocks again, inspect exact table/column then make migration safe or stamp only after schema matches.
-- **TUFE rates 2025-2026**: approximate (TCMB trajectory estimates). Users see disclaimer. Real rates available from TÜİK monthly.
-- **Subscription flag toggle**: UI supports toggle-off optimistically but backend has no "unflag" endpoint — only upsert. Visually works but flag is never deleted; workaround: flag to different value.
-- **Frontend lint missing config**: `npm run lint` opens Next ESLint setup wizard. Build still runs type check. Add ESLint config later.
-- **Dependency risk**: `npm ci` warns Next 14.2.0 has security issue; Recharts 2.x deprecated; npm audit shows 1 moderate + 1 critical vulnerability. Upgrade needed soon.
-- **i18n coverage incomplete**: Phase 34 added locale files + useLanguage hook + navbar toggle, but some components may still have hardcoded TR strings not yet wired to translation keys.
+- **Resend domain**: `noreply@mizan.app` hardcoded in api/email.py — must be verified Resend domain in prod.
+- **Migration drift in dev**: `create_all` adds base schema before Alembic can stamp. 0022 idempotent. Run `alembic upgrade head` after any new migration.
+- **TUFE rates 2025-2026**: approximate. Users see disclaimer.
+- **Subscription flag toggle**: no "unflag" endpoint — only upsert. Visually works.
+- **Frontend lint missing config**: `npm run lint` opens ESLint wizard. Build type-checks fine.
+- **Dependency risk**: Next 14.2.0 security issue; Recharts deprecated; npm audit 1 moderate + 1 critical.
+- **i18n coverage incomplete**: some components still have hardcoded TR strings.
 
 ### Phase 7 — Chat Interface + Behavioral Vector (2026-06-18)
 - [x] `backend/app/models/transaction_note.py` — TransactionNote table: id UUID, transaction_id FK CASCADE, user_id FK CASCADE, note_text Text, created_at tz-aware
@@ -971,6 +976,17 @@ Full stack: register/login → JWT → upload (rate-limited, busts caches) → 3
 
 ---
 
+### Phase 42 — Asset Card Currency Conversion (2026-06-22)
+- [x] `frontend/src/app/networth/page.tsx` — asset card values now display in page display currency. Added `convertAmount(amount, from, to, rates)` using USD pivot. `getCurrencyRates("USD")` fetched once on `loadAll()`. Converted value shown in green; native currency always shown as subtitle.
+- [x] No backend changes. No migration.
+
+### Phase 41 — Asset Form Global Types + Live Prices + Crypto Top-10 (2026-06-22)
+- [x] `ManualAssetForm.tsx` — RE_TYPES globalized: `konut/isyeri/arsa` → `residential/commercial/land/other`. Real estate adds optional size m² field; auto price-per-m² shown when both filled. Generic hint (no website names). Vehicle gets dedicated `VehicleForm`: Brand + Model + Year + Currency + Value + depreciation note. Bond: removed ISIN field, added free-text Note field. Life insurance: removed policy number. Business: removed country/sector. Art/jewelry: removed provenance/material and certificate/purity entirely.
+- [x] `CurrencyAssetForm.tsx` — commodity chips now show live USD price per unit via `usdPriceOf()`. Works for XAU, XAG, XPT, XPD, BRENT.
+- [x] `CryptoAssetForm.tsx` — top-10 chips use `coins.slice(0, 10)` from CoinGecko market-cap-sorted list (was hardcoded 8-symbol array). Each chip shows live USD price. 5-column grid layout.
+- [x] `en.ts` + `tr.ts` — added `assetForm.re.*`, `assetForm.vehicle.*`, `assetForm.bond.note`. Removed `policyNo`, `provenance`, `country` keys.
+- [x] No backend changes. No migration. Build: 13 pages, clean.
+
 ### Phase 40 — Asset Form Completions (2026-06-22)
 
 #### Changes
@@ -1055,7 +1071,15 @@ Full stack: register/login → JWT → upload (rate-limited, busts caches) → 3
 
 ## Next Session — Start Here
 
-**Phases 1–40 complete. Phase 40 = asset form improvements (bond/life/business/art/jewelry/commodity). Alembic head = 0022. No new migrations.**
+**Phases 1–42 complete. Alembic head = 0022. No migrations since Phase 32.**
+
+### Immediate fixes (do first, in order):
+1. **USD subtitle cosmetic bug** — asset cards always show `{a.currency}` subtitle even when already displaying in that currency. Fix: hide subtitle when `a.currency === displayCurrency`.
+2. **Duplicate detection false positives** — `possible_duplicate_transaction` producer flags transactions within the same upload batch as duplicates. Fix: group by batch_id first, only flag cross-batch duplicates.
+3. **Remove large_transaction producer** — too many false positives (salary inflows, rent, one-time payments all trigger). Remove from `reconciliation_producers.py`. Keep overdue_receivable + received_receivable_missing_asset + possible_duplicate_transaction.
+
+### Next feature after fixes:
+**Proactive threshold alerts** — user sets a threshold per asset (e.g. "alert me if BTC drops below $50k" or "alert me if net worth drops below X"). On each price refresh, evaluate all thresholds, write to `reconciliation_items` as `threshold_breach` issue_type. No new migration needed (existing table). Frontend: threshold setter on each auto-priced asset card in networth page.
 
 Pre-flight (if docker was restarted):
 ```bash
@@ -1075,12 +1099,14 @@ curl -s http://localhost:8000/currency/list | python3 -c "import sys,json; d=jso
 ```
 
 Next task options (priority order):
-1. **Proactive net worth alerts** — "BTC drops 20% → net worth drops X" style threshold alerts. User sets thresholds per asset type, system evaluates on price refresh.
-2. **Transactions SpendingChart redesign** — replace weak bar chart with cash-flow panel or area chart.
-3. **i18n coverage audit** — check all components for remaining hardcoded TR strings; wire to translation keys.
-4. **Schema cleanup** — split `Asset.current_value` into quantity/value fields; currently overloaded (quantity for crypto/gold/FX, total value for stocks/manual).
-5. **Global market search** — stock ticker search + fund ISIN lookup via chosen providers.
-6. **Deployment** — Railway backend + Vercel frontend; alembic head on cold start.
+1. **[IMMEDIATE] Fix USD subtitle + duplicate detection + remove large_transaction producer** — 3 small targeted fixes, no new tables.
+2. **Proactive threshold alerts** — user sets price/value threshold per asset; evaluated on price refresh; writes to reconciliation_items as `threshold_breach`. No new migration.
+3. **Net worth historical chart** — dated snapshots; area chart showing net worth over time. Needs `networth_snapshots` table or event-log derivation.
+4. **Asset allocation pie** — distribution by type/currency on networth page. Frontend only, no backend.
+5. **Transactions SpendingChart redesign** — replace bar chart with area or cash-flow panel.
+6. **i18n coverage audit** — remaining hardcoded TR strings.
+7. **Schema cleanup** — split `Asset.current_value` into quantity/value fields.
+8. **Deployment** — Railway + Vercel; alembic on cold start.
 
 ---
 

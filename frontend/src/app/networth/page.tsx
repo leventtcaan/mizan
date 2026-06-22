@@ -27,6 +27,12 @@ import {
   updateReconciliationItemStatus,
   deleteBatch,
   refreshAssetPrices,
+  createNetWorthSnapshot,
+  getNetWorthHistory,
+  getWealthAlerts,
+  checkWealthAlerts,
+  createWealthAlert,
+  deleteWealthAlert,
   AssetItem,
   LiabilityItem,
   ReceivableItem,
@@ -34,7 +40,14 @@ import {
   SuggestionItem,
   FinancialEventItem,
   ReconciliationItem,
+  NetworthSnapshot,
+  WealthAlertItem,
+  TriggeredWealthAlert,
 } from "@/lib/api";
+import {
+  AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip,
+  PieChart, Pie, Cell, Tooltip as PieTooltip,
+} from "recharts";
 import { Plus, TrendingUp, TrendingDown, DollarSign, Home, Wallet, Briefcase, Scale, Brain, Zap, RefreshCw } from "@/components/ui/Icons";
 import { useLanguage } from "@/lib/i18n";
 
@@ -197,6 +210,15 @@ export default function NetWorthPage() {
   const [actionPending, setActionPending] = useState<string | null>(null);
   const [usdRates, setUsdRates] = useState<Record<string, number> | null>(null);
 
+  const [snapshots, setSnapshots] = useState<NetworthSnapshot[]>([]);
+  const [wealthAlerts, setWealthAlerts] = useState<WealthAlertItem[]>([]);
+  const [triggeredAlerts, setTriggeredAlerts] = useState<TriggeredWealthAlert[]>([]);
+  const [highlightedGroup, setHighlightedGroup] = useState<string | null>(null);
+  const [alertModalAsset, setAlertModalAsset] = useState<AssetItem | null>(null);
+  const [alertThreshold, setAlertThreshold] = useState("");
+  const [alertMessage, setAlertMessage] = useState("");
+  const [alertSaving, setAlertSaving] = useState(false);
+
   const [showAddAsset, setShowAddAsset] = useState(false);
   const [showAddLiability, setShowAddLiability] = useState(false);
   const [showAddReceivable, setShowAddReceivable] = useState(false);
@@ -255,6 +277,10 @@ export default function NetWorthPage() {
   const loadAll = async () => {
     setLoading(true);
     getCurrencyRates("USD").then(setUsdRates).catch(() => null);
+    // Fire-and-forget: snapshot + alerts don't block page load
+    createNetWorthSnapshot().then(() => getNetWorthHistory(90)).then(setSnapshots).catch(() => null);
+    getWealthAlerts().then(setWealthAlerts).catch(() => null);
+    checkWealthAlerts().then(setTriggeredAlerts).catch(() => null);
     try {
       const [s, a, l, r, sugg, eventRows, itemRows] = await Promise.all([
         getNetWorthSummary(displayCurrency),
@@ -380,6 +406,34 @@ export default function NetWorthPage() {
     }
   };
 
+  const handleSaveAlert = async () => {
+    if (!alertModalAsset || !alertThreshold || !alertMessage) return;
+    setAlertSaving(true);
+    try {
+      const newAlert = await createWealthAlert({
+        alert_type: "asset_price_drop",
+        asset_id: alertModalAsset.id,
+        threshold_usd: parseFloat(alertThreshold),
+        message: alertMessage,
+      });
+      setWealthAlerts((prev) => [newAlert, ...prev]);
+      setAlertModalAsset(null);
+      setAlertThreshold("");
+      setAlertMessage("");
+      setToast("Alert created.");
+    } catch {
+      setToast("Could not save alert — check threshold.");
+    } finally {
+      setAlertSaving(false);
+    }
+  };
+
+  const handleDeleteAlert = async (id: string) => {
+    await deleteWealthAlert(id).catch(() => null);
+    setWealthAlerts((prev) => prev.filter((a) => a.id !== id));
+    setToast(t("nw.alertDeleted"));
+  };
+
   const handleReconciliationAction = async (item: ReconciliationItem, action: string) => {
     const key = `${item.id}:${action}`;
     if (actionPending === key) return;
@@ -470,6 +524,30 @@ export default function NetWorthPage() {
   const netPositive = (summary?.net_worth_try ?? 0) >= 0;
   const pendingSuggestions = suggestions.filter((s) => s.status === "pending");
 
+  // History chart data: convert USD snapshots → displayCurrency
+  const historyChartData = snapshots.map((s) => {
+    const nwUsd = parseFloat(s.net_worth_usd);
+    const converted = convertAmount(nwUsd, "USD", displayCurrency, usdRates) ?? nwUsd;
+    const d = new Date(s.recorded_at);
+    return {
+      date: `${d.toLocaleString(undefined, { month: "short" })} ${d.getDate()}`,
+      value: Math.round(converted),
+    };
+  });
+
+  // Donut chart data: sum asset values per group
+  const DONUT_COLORS = ["#10b981", "#6366f1", "#f59e0b", "#a855f7", "#6b7280"];
+  const donutData = ASSET_TYPE_GROUPS.map((group, idx) => {
+    const total = assets
+      .filter((a) => group.types.includes(a.asset_type))
+      .reduce((sum, a) => {
+        const raw = parseFloat(a.current_value);
+        const cv = convertAmount(raw, a.currency, displayCurrency, usdRates) ?? raw;
+        return sum + cv;
+      }, 0);
+    return { name: group.label, value: Math.max(0, Math.round(total)), color: DONUT_COLORS[idx] };
+  }).filter((d) => d.value > 0);
+
   return (
     <PageLayout
       title={t("nw.title")}
@@ -493,6 +571,72 @@ export default function NetWorthPage() {
       }
     >
       {toast && <Toast message={toast} onDismiss={() => setToast(null)} />}
+
+      {/* Alert modal */}
+      {alertModalAsset && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm" onClick={() => setAlertModalAsset(null)}>
+          <div className="bg-[#1A1A1A] border border-[#2A2A2A] rounded-2xl p-6 w-full max-w-sm mx-4 space-y-4" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-white font-semibold">{t("nw.addAlert")} — {alertModalAsset.name}</h3>
+            <div>
+              <label className="block text-xs text-gray-400 mb-1.5">{t("nw.alertThreshold")}</label>
+              <input
+                type="number" min="0" step="any" value={alertThreshold}
+                onChange={(e) => setAlertThreshold(e.target.value)}
+                placeholder="e.g. 50000"
+                className="w-full bg-[#0F0F0F] border border-[#2A2A2A] text-white text-sm rounded-lg px-3 py-2.5 focus:outline-none focus:border-indigo-600"
+              />
+            </div>
+            <div>
+              <label className="block text-xs text-gray-400 mb-1.5">{t("nw.alertMessage")}</label>
+              <input
+                type="text" value={alertMessage}
+                onChange={(e) => setAlertMessage(e.target.value)}
+                placeholder={`${alertModalAsset.name} dropped below threshold`}
+                className="w-full bg-[#0F0F0F] border border-[#2A2A2A] text-white text-sm rounded-lg px-3 py-2.5 focus:outline-none focus:border-indigo-600"
+              />
+            </div>
+            <div className="flex gap-2">
+              <button
+                onClick={handleSaveAlert}
+                disabled={alertSaving || !alertThreshold || !alertMessage}
+                className="flex-1 bg-indigo-600 text-white rounded-lg py-2.5 text-sm font-medium hover:bg-indigo-500 transition-colors disabled:opacity-40"
+              >
+                {alertSaving ? "Saving…" : t("nw.alertSave")}
+              </button>
+              <button onClick={() => setAlertModalAsset(null)} className="px-4 py-2.5 rounded-lg bg-[#2A2A2A] text-gray-400 hover:text-gray-200 text-sm transition-colors">
+                {t("common.cancel")}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Net worth history chart */}
+      {!loading && (
+        <div className="bg-[#1A1A1A] border border-[#2A2A2A] rounded-2xl p-5 mb-4">
+          <h3 className="text-xs text-gray-400 font-medium mb-3">{t("nw.historyTitle")}</h3>
+          {historyChartData.length < 2 ? (
+            <p className="text-gray-600 text-xs">{t("nw.historyNoData")}</p>
+          ) : (
+            <AreaChart width={600} height={120} data={historyChartData} style={{ width: "100%", maxWidth: "100%" }}>
+              <defs>
+                <linearGradient id="nwGrad" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor="#10b981" stopOpacity={0.25} />
+                  <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
+                </linearGradient>
+              </defs>
+              <CartesianGrid strokeDasharray="3 3" stroke="#2A2A2A" />
+              <XAxis dataKey="date" tick={{ fontSize: 10, fill: "#6b7280" }} axisLine={false} tickLine={false} />
+              <YAxis hide />
+              <RechartsTooltip
+                contentStyle={{ backgroundColor: "#1A1A1A", border: "1px solid #2A2A2A", borderRadius: 8, fontSize: 12 }}
+                formatter={(v: number) => [fmt(v, displayCurrency), ""]}
+              />
+              <Area type="monotone" dataKey="value" stroke="#10b981" strokeWidth={2} fill="url(#nwGrad)" dot={false} />
+            </AreaChart>
+          )}
+        </div>
+      )}
 
       {/* Hero */}
       <div className="bg-[#1A1A1A] border border-[#2A2A2A] rounded-2xl p-8 mb-6 text-center">
@@ -541,10 +685,70 @@ export default function NetWorthPage() {
         )}
       </div>
 
+      {/* Asset allocation donut */}
+      {!loading && donutData.length > 0 && (
+        <div className="bg-[#1A1A1A] border border-[#2A2A2A] rounded-2xl p-5 mb-4">
+          <h3 className="text-xs text-gray-400 font-medium mb-3">{t("nw.allocationTitle")}</h3>
+          <div className="flex items-center gap-6">
+            <PieChart width={140} height={140}>
+              <Pie
+                data={donutData}
+                cx={65} cy={65}
+                innerRadius={42} outerRadius={65}
+                dataKey="value"
+                onClick={(d) => setHighlightedGroup(highlightedGroup === d.name ? null : d.name as string)}
+                style={{ cursor: "pointer" }}
+              >
+                {donutData.map((entry) => (
+                  <Cell key={entry.name} fill={entry.color} opacity={highlightedGroup && highlightedGroup !== entry.name ? 0.35 : 1} />
+                ))}
+              </Pie>
+              <PieTooltip
+                contentStyle={{ backgroundColor: "#1A1A1A", border: "1px solid #2A2A2A", borderRadius: 8, fontSize: 11 }}
+                formatter={(v: number) => [fmt(v, displayCurrency), ""]}
+              />
+            </PieChart>
+            <div className="flex flex-col gap-1.5 text-xs">
+              {donutData.map((d) => (
+                <button
+                  key={d.name}
+                  onClick={() => setHighlightedGroup(highlightedGroup === d.name ? null : d.name)}
+                  className={`flex items-center gap-2 text-left transition-opacity ${highlightedGroup && highlightedGroup !== d.name ? "opacity-40" : ""}`}
+                >
+                  <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: d.color }} />
+                  <span className="text-gray-300">{d.name}</span>
+                  <span className="text-gray-500 tabular-nums ml-auto">{fmt(d.value, displayCurrency)}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+          {highlightedGroup && (
+            <button onClick={() => setHighlightedGroup(null)} className="mt-2 text-xs text-indigo-400 hover:text-indigo-300">
+              ✕ Clear filter
+            </button>
+          )}
+        </div>
+      )}
+
       {summary?.ai_insight && (
         <div className="mb-4 bg-[#1A1A1A] border border-indigo-900/30 rounded-xl p-4 flex gap-3">
           <Brain size={16} className="text-indigo-400 shrink-0 mt-0.5" />
           <p className="text-gray-300 text-sm leading-relaxed">{summary.ai_insight}</p>
+        </div>
+      )}
+
+      {/* Triggered wealth alerts */}
+      {triggeredAlerts.length > 0 && (
+        <div className="mb-4 flex flex-col gap-2">
+          {triggeredAlerts.map((ta) => (
+            <div key={ta.alert.id} className="flex items-start gap-2 bg-red-950/30 border border-red-800/40 rounded-xl px-4 py-3">
+              <span className="text-red-400 shrink-0">🔔</span>
+              <div className="flex-1 min-w-0">
+                <p className="text-red-200 text-sm font-medium">{ta.alert.message_template}</p>
+                <p className="text-red-400/70 text-xs mt-0.5">{ta.triggered_reason}</p>
+              </div>
+            </div>
+          ))}
         </div>
       )}
 
@@ -582,8 +786,9 @@ export default function NetWorthPage() {
             {ASSET_TYPE_GROUPS.map((group) => {
               const groupAssets = assets.filter((a) => group.types.includes(a.asset_type));
               if (groupAssets.length === 0) return null;
+              const isHighlighted = !highlightedGroup || highlightedGroup === group.label;
               return (
-                <div key={group.label} className="bg-[#1A1A1A] border border-[#2A2A2A] rounded-xl overflow-hidden">
+                <div key={group.label} className={`bg-[#1A1A1A] border border-[#2A2A2A] rounded-xl overflow-hidden transition-opacity ${isHighlighted ? "" : "opacity-30"}`}>
                   <div className="flex items-center gap-2 px-4 py-2.5 border-b border-[#2A2A2A] bg-[#111]">
                     {group.icon}
                     <span className="text-xs text-gray-400 font-medium">{group.label}</span>
@@ -622,16 +827,26 @@ export default function NetWorthPage() {
                               const raw = parseFloat(a.current_value);
                               const converted = convertAmount(raw, a.currency, displayCurrency, usdRates);
                               const showConverted = converted !== null && a.currency.toUpperCase() !== displayCurrency.toUpperCase();
+                              const nativeHint = showConverted ? fmtItem(a.current_value, a.currency) : undefined;
                               return (
-                                <>
-                                  <p className="text-emerald-400 text-sm font-semibold tabular-nums">
-                                    {showConverted ? fmt(converted!, displayCurrency) : fmtItem(a.current_value, a.currency)}
-                                  </p>
-                                  <p className="text-gray-600 text-xs">{a.currency}</p>
-                                </>
+                                <p
+                                  title={nativeHint}
+                                  className={`text-emerald-400 text-sm font-semibold tabular-nums${nativeHint ? " cursor-help" : ""}`}
+                                >
+                                  {showConverted ? fmt(converted!, displayCurrency) : fmtItem(a.current_value, a.currency)}
+                                </p>
                               );
                             })()}
                           </div>
+                          {AUTO_PRICE_TYPES.has(a.asset_type) && (
+                            <button
+                              onClick={() => { setAlertModalAsset(a); setAlertThreshold(""); setAlertMessage(`${a.name} price alert`); }}
+                              title={t("nw.addAlert")}
+                              className="text-gray-700 hover:text-amber-400 transition-colors text-xs px-1"
+                            >
+                              🔔
+                            </button>
+                          )}
                           <button onClick={() => handleDeleteAsset(a.id)} className="text-gray-700 hover:text-red-400 transition-colors text-xs px-2">×</button>
                         </div>
                       </div>
@@ -959,6 +1174,31 @@ export default function NetWorthPage() {
               })}
             </div>
           )}
+        </section>
+      )}
+
+      {/* Wealth alerts list */}
+      {!loading && wealthAlerts.length > 0 && (
+        <section className="mb-8">
+          <div className="flex items-center gap-2 mb-3">
+            <span className="text-amber-400 text-base">🔔</span>
+            <h2 className="text-white font-semibold text-sm">{t("nw.wealthAlerts")}</h2>
+            <span className="px-2 py-0.5 rounded-full bg-amber-950/40 border border-amber-800/30 text-amber-400 text-xs">{wealthAlerts.length}</span>
+          </div>
+          <div className="space-y-2">
+            {wealthAlerts.map((a) => (
+              <div key={a.id} className="bg-[#1A1A1A] border border-[#2A2A2A] rounded-xl px-4 py-3 flex items-center justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="text-gray-200 text-sm truncate">{a.message_template}</p>
+                  <p className="text-gray-600 text-xs mt-0.5">
+                    {t(`nw.alertTypes.${a.alert_type}` as Parameters<typeof t>[0]) || a.alert_type}
+                    {a.threshold_usd !== null && ` · $${a.threshold_usd.toLocaleString()}`}
+                  </p>
+                </div>
+                <button onClick={() => handleDeleteAlert(a.id)} className="text-gray-700 hover:text-red-400 transition-colors text-xs px-1 shrink-0">×</button>
+              </div>
+            ))}
+          </div>
         </section>
       )}
 

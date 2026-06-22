@@ -2,7 +2,6 @@ import json
 import uuid
 from collections import defaultdict
 from datetime import date, datetime, timezone
-from decimal import Decimal
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -174,31 +173,32 @@ async def _produce_duplicate_transaction_items(user_id: uuid.UUID, session: Asyn
     for rows in groups.values():
         if len(rows) < 2:
             continue
+
+        # Only flag cross-batch duplicates. Same-batch repeats are expected
+        # (e.g. two similar transactions in one upload are not errors).
+        batch_ids = {row.upload_batch_id for row in rows if row.upload_batch_id}
+        if len(batch_ids) < 2:
+            continue
+
         id_set = frozenset(str(row.id) for row in rows)
         if id_set in seen_id_sets:
             continue
         seen_id_sets.add(id_set)
 
-        # Derive a deterministic UUID from the sorted set of transaction IDs.
-        # uuid5 is a pure hash — identical input always produces identical output
-        # regardless of query order, Python UUID type, or ORM session state.
-        # This is the stable unique key _ensure_item uses for deduplication.
         sorted_ids = ",".join(sorted(id_set))
         dedup_uuid = uuid.uuid5(uuid.NAMESPACE_OID, sorted_ids)
 
         first = rows[0]
-        batch_ids = {row.upload_batch_id for row in rows if row.upload_batch_id}
-        severity = "high" if len(batch_ids) > 1 else "medium"
         created += int(
             await _ensure_item(
                 session,
                 user_id=user_id,
                 issue_type="possible_duplicate_transaction",
-                severity=severity,
+                severity="high",
                 title="Possible duplicate transaction",
                 description=(
                     f"{len(rows)} matching transactions found on {first.transaction_date.isoformat()} "
-                    f"for amount {first.amount}. Review before these rows affect insights twice."
+                    f"for amount {first.amount} across {len(batch_ids)} different uploads."
                 ),
                 related_entity_type="transaction",
                 related_entity_id=dedup_uuid,
@@ -213,53 +213,8 @@ async def _produce_duplicate_transaction_items(user_id: uuid.UUID, session: Asyn
     return created
 
 
-async def _produce_large_transaction_items(user_id: uuid.UUID, session: AsyncSession) -> int:
-    # Only flag uncategorised (diger / None) transactions above 20 000 TRY.
-    # If a transaction is already categorised it is a known operation and
-    # needs no review regardless of size.
-    result = await session.execute(
-        select(Transaction)
-        .where(Transaction.user_id == user_id)
-        .order_by(Transaction.transaction_date.desc())
-        .limit(180)
-    )
-    transactions = result.scalars().all()
-
-    created = 0
-    for txn in transactions:
-        if abs(txn.amount) < Decimal("20000"):
-            continue
-        if txn.category not in (None, "diger"):
-            continue
-        created += int(
-            await _ensure_item(
-                session,
-                user_id=user_id,
-                issue_type="large_transaction_review",
-                severity="medium",
-                title="Large transaction needs review",
-                description=(
-                    f"{txn.transaction_date.isoformat()} transaction is much larger than recent median. "
-                    "Confirm category, source, and whether it should update assets or liabilities."
-                ),
-                related_entity_type="transaction",
-                related_entity_id=txn.id,
-                proposed_action={
-                    "actions": ["confirm_category", "link_to_asset", "link_to_liability", "ignore"],
-                    "amount": str(txn.amount),
-                    "transaction_type": txn.transaction_type,
-                    "description": txn.description,
-                },
-            )
-        )
-        if created >= 10:
-            break
-    return created
-
-
 async def run_reconciliation_producers(user_id: uuid.UUID, session: AsyncSession) -> int:
     created = 0
     created += await _produce_receivable_items(user_id, session)
     created += await _produce_duplicate_transaction_items(user_id, session)
-    created += await _produce_large_transaction_items(user_id, session)
     return created

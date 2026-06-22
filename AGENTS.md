@@ -118,9 +118,11 @@ Dependency direction (strict): `api → services → models`. Never reverse.
 
 ## Known Issues (fix next session, priority order)
 
-1. **Asset type UX missing subtype selectors** — when user picks "crypto" → show CoinGecko top-100 coin picker as unit; "stock" → searchable ticker (Yahoo Finance symbol); "gold" → gram/quarter/half/full coin picker; "fund" → ISIN/fund code search. Each asset type needs own unit/subtype UX, not just free-text name.
-2. **Currency display switcher** — only TRY/USD/EUR pill buttons on net worth page. Should be searchable dropdown from all 270+ live rates, same CurrencySelect component used in modals.
-3. **Receivable delete cascade** — deleting a receivable that was already "received" (auto-created a cash Asset) leaves orphan Asset. Need: delete of received receivable → warn user + offer to delete linked asset, or store asset_id on receivable for lookup.
+1. **USD subtitle cosmetic bug** — asset cards always show `{a.currency}` subtitle even when display currency matches. Fix: guard with `a.currency !== displayCurrency`.
+2. **Duplicate detection false positives** — `possible_duplicate_transaction` producer flags same-batch transactions. Fix: only flag cross-batch.
+3. **large_transaction producer** — too many false positives. Remove entirely from producers.
+4. **Net worth historical chart** — no dated snapshots; assets only have current value.
+5. **Asset allocation pie** — missing from networth page.
 4. **Auto-archive stale items** — dismissed alerts, received receivables, accepted suggestions clutter UI after 30 days. Need: filter by created_at < now-30d OR add `archived_at` column.
 5. **"Turkish personal finance" in system prompts** — coach.py, behavioral_coach.py, weekly_summary.py still say "Turkish". Replace with locale-aware: use user's language preference or `lang` param.
 6. **Onboarding bank list** — onboarding/page.tsx hardcodes Ziraat/Vakıfbank/Yapı Kredi/Garanti/Diğer. Make generic: "Your bank" + any bank name input, or detect from uploaded PDF.
@@ -715,7 +717,7 @@ Full stack: register/login → JWT → upload (rate-limited, busts caches) → 3
 
 ## Next Session — Start Here
 
-**Phases 1–34 complete. Phase 34 = i18n TR/EN + LLM language-aware. Alembic head = 0022 (unchanged).**
+**Phases 1–42 complete. Alembic head = 0022. No migrations since Phase 32.**
 
 Pre-flight (if docker was restarted):
 ```bash
@@ -724,35 +726,27 @@ docker compose exec backend alembic upgrade head
 docker compose exec backend alembic current   # must say 0022 (head)
 ```
 
-Quick smoke-test:
-```bash
-# Currency list (public, no auth)
-curl -s http://localhost:8000/currency/list | python3 -c "import sys,json; d=json.load(sys.stdin); print(len(d['fiat']), 'fiat,', len(d['crypto']), 'crypto')"
-# → should print "166 fiat, 100 crypto"
+### Immediate fixes (do first, in order):
+1. **USD subtitle bug** — asset cards always show `{a.currency}` subtitle. Fix: show only when `a.currency !== displayCurrency`. One-line frontend change.
+2. **Duplicate detection false positives** — producer flags same-batch transactions. Fix: only flag cross-batch duplicates. Change in `reconciliation_producers.py`.
+3. **Remove large_transaction producer** — too many false positives. Remove from `reconciliation_producers.py`. Keep: overdue_receivable, received_receivable_missing_asset, possible_duplicate_transaction.
 
-# Price refresh (auth required)
-# POST /networth/assets/refresh-prices → {updated, failed, details}
-```
-
-Next task options (priority order):
-1. **Verify i18n coverage** — audit all components for hardcoded TR strings; wire remaining ones to translation keys.
-2. **Transactions SpendingChart redesign** — replace weak bar chart with cash-flow panel or area chart.
-3. **Schema cleanup** — split `Asset.current_value` into quantity/value fields; currently overloaded (quantity for crypto/gold/FX, total value for stocks/manual).
-4. **Global market search** — stock ticker + fund ISIN live search via market data provider.
-5. **Deployment** — Railway backend + Vercel frontend; alembic head on cold start.
+### Next feature after fixes:
+Proactive threshold alerts — user sets price/value threshold per asset on networth page. On price refresh, evaluate all thresholds, write `threshold_breach` to `reconciliation_items`. No new migration.
 
 ---
 
 ## Backlog (priority order)
 
-1. **Fix known issues** (7 items listed in Known Issues section) — do before new features
-2. **Asset subtype UX** — per-type unit picker: crypto→CoinGecko, stock→ticker, gold→gram/coin
-3. **Real-time price refresh** — `GET /networth/assets/{id}/refresh-price` → calls asset_prices.py per type
-4. **Cash flow calendar** — monthly timeline: liability payments due + receivables expected + goal deadlines
-5. **Multi-language** — i18n setup, TR/EN toggle, locale stored in user profile, AI prompts use user locale
-6. **Deployment** — Railway backend + Vercel frontend; RESEND_API_KEY + SECRET_KEY via platform env; alembic head on cold start
-7. **Smart duplicate detection** — manual entry + statement overlap: check (date, amount, desc[:30]) before insert
-8. **Mobile responsive overhaul** — TransactionTable horizontal scroll, progress chart height, GoalsPanel form layout
+1. **Immediate fixes** — USD subtitle, duplicate detection, remove large_transaction producer
+2. **Proactive threshold alerts** — per-asset price thresholds → reconciliation_items on breach
+3. **Net worth historical chart** — dated snapshots; area chart. Needs new table or event-log derivation.
+4. **Asset allocation pie** — frontend only; distribution by type/currency on networth page.
+5. **Transactions SpendingChart redesign** — replace bar chart with area or cash-flow panel.
+6. **i18n coverage audit** — remaining hardcoded TR strings.
+7. **Schema cleanup** — split `Asset.current_value` into quantity/value fields.
+8. **Global market search** — stock ticker + fund ISIN live search.
+9. **Deployment** — Railway + Vercel; alembic on cold start.
 9. **SME/KOBİ mode** — multi-account, team members, invoice tracking, accounts payable/receivable
 10. **Notification system** — budget alerts, upcoming payments, goal milestones via email (Resend) + push
 11. **Redis rate limiter** — replace in-memory RateLimiter (resets on restart) with Redis; needed for multi-process

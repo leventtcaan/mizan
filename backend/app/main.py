@@ -29,6 +29,7 @@ from app.api.progress import router as progress_router
 from app.api.reconciliation import router as reconciliation_router
 from app.api.transactions import router as transactions_router
 from app.api.upload import router as upload_router
+from app.api.wealth_alerts import router as wealth_alerts_router
 from app.core.config import settings
 from app.core.database import engine
 from app.models.user import Base
@@ -48,6 +49,8 @@ from app.models.receivable import Receivable  # noqa: F401 — registers table i
 from app.models.networth_suggestion import NetworthSuggestion  # noqa: F401 — registers table in metadata
 from app.models.financial_event import FinancialEvent  # noqa: F401 — registers table in metadata
 from app.models.reconciliation_item import ReconciliationItem  # noqa: F401 — registers table in metadata
+from app.models.networth_snapshot import NetworthSnapshot  # noqa: F401 — registers table in metadata
+from app.models.wealth_alert import WealthAlert  # noqa: F401 — registers table in metadata
 
 logging.basicConfig(
     level=logging.INFO,
@@ -114,6 +117,7 @@ app.include_router(currency_router)
 app.include_router(networth_router)
 app.include_router(reconciliation_router)
 app.include_router(cashflow_router)
+app.include_router(wealth_alerts_router)
 
 
 @app.get("/health")

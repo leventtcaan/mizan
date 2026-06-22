@@ -1064,6 +1064,114 @@ async def _generate_ai_insight(
         return None
 
 
+# ---------- Snapshots ----------
+
+class SnapshotResponse(BaseModel):
+    id: str
+    net_worth_usd: str
+    assets_usd: str
+    liabilities_usd: str
+    recorded_at: str
+
+
+@router.post("/snapshot", response_model=SnapshotResponse, status_code=status.HTTP_201_CREATED)
+async def create_snapshot(
+    current_user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
+) -> SnapshotResponse:
+    """Upserts today's net-worth snapshot in USD (one per day)."""
+    from app.models.networth_snapshot import NetworthSnapshot
+
+    assets_result = await session.execute(select(Asset).where(Asset.user_id == current_user.id))
+    assets = assets_result.scalars().all()
+    liabilities_result = await session.execute(select(Liability).where(Liability.user_id == current_user.id))
+    liabilities = liabilities_result.scalars().all()
+
+    assets_usd = Decimal("0")
+    for a in assets:
+        try:
+            assets_usd += Decimal(str(await convert(float(a.current_value), a.currency, "USD")))
+        except Exception:
+            pass
+
+    liabilities_usd = Decimal("0")
+    for l in liabilities:
+        try:
+            liabilities_usd += Decimal(str(await convert(float(l.remaining_amount), l.currency, "USD")))
+        except Exception:
+            pass
+
+    net_worth_usd = assets_usd - liabilities_usd
+    now = datetime.now(timezone.utc)
+    today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+    tomorrow_start = today_start + timedelta(days=1)
+
+    existing = await session.execute(
+        select(NetworthSnapshot).where(
+            NetworthSnapshot.user_id == current_user.id,
+            NetworthSnapshot.recorded_at >= today_start,
+            NetworthSnapshot.recorded_at < tomorrow_start,
+        )
+    )
+    snap = existing.scalar_one_or_none()
+
+    if snap:
+        snap.net_worth_usd = net_worth_usd
+        snap.assets_usd = assets_usd
+        snap.liabilities_usd = liabilities_usd
+        snap.recorded_at = now
+    else:
+        snap = NetworthSnapshot(
+            user_id=current_user.id,
+            net_worth_usd=net_worth_usd,
+            assets_usd=assets_usd,
+            liabilities_usd=liabilities_usd,
+            recorded_at=now,
+        )
+        session.add(snap)
+
+    await session.commit()
+    await session.refresh(snap)
+    return SnapshotResponse(
+        id=str(snap.id),
+        net_worth_usd=str(snap.net_worth_usd),
+        assets_usd=str(snap.assets_usd),
+        liabilities_usd=str(snap.liabilities_usd),
+        recorded_at=snap.recorded_at.isoformat(),
+    )
+
+
+@router.get("/history", response_model=list[SnapshotResponse])
+async def get_history(
+    days: int = 90,
+    current_user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
+) -> list[SnapshotResponse]:
+    from app.models.networth_snapshot import NetworthSnapshot
+
+    cutoff = datetime.now(timezone.utc) - timedelta(days=days)
+    result = await session.execute(
+        select(NetworthSnapshot)
+        .where(
+            NetworthSnapshot.user_id == current_user.id,
+            NetworthSnapshot.recorded_at >= cutoff,
+        )
+        .order_by(NetworthSnapshot.recorded_at.asc())
+    )
+    return [
+        SnapshotResponse(
+            id=str(s.id),
+            net_worth_usd=str(s.net_worth_usd),
+            assets_usd=str(s.assets_usd),
+            liabilities_usd=str(s.liabilities_usd),
+            recorded_at=s.recorded_at.isoformat(),
+        )
+        for s in result.scalars().all()
+    ]
+
+
+# ---------- Summary ----------
+
 @router.get("/summary", response_model=NetWorthSummary)
 async def get_summary(
     display_currency: str = "TRY",
