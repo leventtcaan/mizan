@@ -6,9 +6,9 @@ import { useLanguage } from "@/lib/i18n";
 import { AssetFormProps, buildSourceDetail, previewLine, sharedInputClass, useUsdRates } from "./shared";
 
 /** Handles foreign_currency and commodity — both are "quantity of a unit" assets. */
-export default function CurrencyAssetForm({ assetType, onDraftChange }: AssetFormProps) {
+export default function CurrencyAssetForm({ assetType, onDraftChange, displayCurrency }: AssetFormProps) {
   const { t } = useLanguage();
-  const { usdPriceOf, tryPerUsd } = useUsdRates();
+  const { usdPriceOf, rates } = useUsdRates();
   const isCommodity = assetType === "commodity";
   const [entries, setEntries] = useState<CurrencyEntry[]>([]);
   const [query, setQuery] = useState("");
@@ -49,7 +49,7 @@ export default function CurrencyAssetForm({ assetType, onDraftChange }: AssetFor
   }, [selected, qty, assetType]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const unitUsd = selected ? usdPriceOf(selected.code) : null;
-  const preview = selected && qty ? previewLine((unitUsd ?? 0) * parseFloat(qty || "0"), tryPerUsd) : null;
+  const preview = selected && qty ? previewLine((unitUsd ?? 0) * parseFloat(qty || "0"), displayCurrency, rates) : null;
 
   return (
     <div className="space-y-4">

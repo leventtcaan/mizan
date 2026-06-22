@@ -6,19 +6,15 @@ import { useLanguage } from "@/lib/i18n";
 import { AssetFormProps, buildSourceDetail, previewLine, sharedInputClass, useUsdRates } from "./shared";
 
 const EXCHANGES = [
-  { value: "AUTO",  labelKey: "assetForm.exchange.auto" },
-  { value: "BIST",  labelKey: "assetForm.exchange.bist" },
-  { value: "NASDAQ",labelKey: "assetForm.exchange.nasdaq" },
-  { value: "NYSE",  labelKey: "assetForm.exchange.nyse" },
-  { value: "LSE",   labelKey: "assetForm.exchange.lse" },
-  { value: "XETRA", labelKey: "assetForm.exchange.xetra" },
-  { value: "OTHER", labelKey: "assetForm.exchange.other" },
+  { value: "AUTO",   labelKey: "assetForm.exchange.auto" },
+  { value: "BIST",   labelKey: "assetForm.exchange.bist" },
+  { value: "NASDAQ", labelKey: "assetForm.exchange.nasdaq" },
+  { value: "NYSE",   labelKey: "assetForm.exchange.nyse" },
 ] as const;
 
-/** Handles stock and fund. Live quote via Yahoo Finance; BIST (.IS) suffix handled automatically. */
-export default function MarketAssetForm({ assetType, onDraftChange }: AssetFormProps) {
+export default function MarketAssetForm({ assetType, onDraftChange, displayCurrency }: AssetFormProps) {
   const { t } = useLanguage();
-  const { tryPerUsd, usdPriceOf } = useUsdRates();
+  const { usdPriceOf, rates } = useUsdRates();
   const isFund = assetType === "fund";
 
   const [exchange, setExchange] = useState("AUTO");
@@ -64,7 +60,7 @@ export default function MarketAssetForm({ assetType, onDraftChange }: AssetFormP
     }
   }
 
-  // Compute USD value of the quoted price for storage + preview
+  // USD equivalent of the quoted price
   const priceInUsd = (() => {
     if (quotePrice === null) return null;
     if (quoteCurrency.toUpperCase() === "USD") return quotePrice;
@@ -80,48 +76,30 @@ export default function MarketAssetForm({ assetType, onDraftChange }: AssetFormP
     if (hasQuote && sharesN > 0 && priceInUsd !== null) {
       const totalUsd = priceInUsd * sharesN;
       const sd = buildSourceDetail({
-        subtype: assetType,
-        symbol: sym,
-        code: sym,
-        name: name.trim() || quoteName,
-        venue: venue.trim() || exchange,
-        shares,
-        last_price_usd: priceInUsd,
-        quote_currency: quoteCurrency,
-        quote_price: quotePrice ?? undefined,
+        subtype: assetType, symbol: sym, code: sym,
+        name: name.trim() || quoteName, venue: venue.trim() || exchange,
+        shares, last_price_usd: priceInUsd,
+        quote_currency: quoteCurrency, quote_price: quotePrice ?? undefined,
       });
-      onDraftChange({
-        name: name.trim() || quoteName || sym,
-        asset_type: assetType,
-        currency: "USD",
-        current_value: totalUsd.toFixed(2),
-        source_detail: sd,
-      });
+      onDraftChange({ name: name.trim() || quoteName || sym, asset_type: assetType, currency: "USD", current_value: totalUsd.toFixed(2), source_detail: sd });
     } else if (quoteFailed && manualN > 0 && sym) {
       const sd = buildSourceDetail({ subtype: assetType, symbol: sym, code: sym, name: name.trim(), venue: venue.trim() || exchange });
-      onDraftChange({
-        name: name.trim() || sym,
-        asset_type: assetType,
-        currency: "USD",
-        current_value: manualValue,
-        source_detail: sd,
-      });
+      onDraftChange({ name: name.trim() || sym, asset_type: assetType, currency: "USD", current_value: manualValue, source_detail: sd });
     } else {
       onDraftChange(null);
     }
   }, [symbol, name, venue, exchange, quotePrice, quoteCurrency, yahooSymbol, shares, manualValue, quoteFailed]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Preview: convert native price to TRY equivalent if we have exchange rates
   const totalUsd = hasQuote && priceInUsd !== null && shares ? priceInUsd * parseFloat(shares || "0") : null;
-  const preview = totalUsd !== null ? previewLine(totalUsd, tryPerUsd) : null;
+  const preview = totalUsd !== null ? previewLine(totalUsd, displayCurrency, rates) : null;
 
-  // Show native price if it isn't already USD
   const nativePriceStr = (() => {
     if (quotePrice === null) return null;
-    if (quoteCurrency.toUpperCase() === "USD") {
-      return `$${new Intl.NumberFormat("en-US", { maximumFractionDigits: 4 }).format(quotePrice)}`;
+    try {
+      return new Intl.NumberFormat(undefined, { style: "currency", currency: quoteCurrency, maximumFractionDigits: 4 }).format(quotePrice);
+    } catch {
+      return `${quotePrice} ${quoteCurrency}`;
     }
-    return `${new Intl.NumberFormat("en-US", { maximumFractionDigits: 4 }).format(quotePrice)} ${quoteCurrency}`;
   })();
 
   return (
@@ -145,12 +123,11 @@ export default function MarketAssetForm({ assetType, onDraftChange }: AssetFormP
             );
           })}
         </div>
-        {exchange === "BIST" && (
-          <p className="text-[11px] text-gray-600 mt-1.5">{t("assetForm.bistHint")}</p>
-        )}
+        {exchange === "BIST" && <p className="text-[11px] text-gray-600 mt-1.5">{t("assetForm.bistHint")}</p>}
+        {exchange === "AUTO" && <p className="text-[11px] text-gray-600 mt-1.5">{t("assetForm.otherExchangeHint")}</p>}
       </div>
 
-      {/* Ticker / symbol + lookup */}
+      {/* Ticker + lookup */}
       <div>
         <label className="block text-xs text-gray-400 mb-1.5">
           {isFund ? t("assetForm.fundCodeLabel") : t("assetForm.tickerLabel")}
@@ -159,13 +136,7 @@ export default function MarketAssetForm({ assetType, onDraftChange }: AssetFormP
           <input value={symbol}
             onChange={(e) => { setSymbol(e.target.value.toUpperCase()); resetQuote(); }}
             onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); void lookup(); } }}
-            placeholder={
-              exchange === "BIST"
-                ? t("assetForm.bistTickerHint")
-                : isFund
-                  ? t("assetForm.fundCodeHint")
-                  : t("assetForm.tickerHint")
-            }
+            placeholder={exchange === "BIST" ? t("assetForm.bistTickerHint") : isFund ? t("assetForm.fundCodeHint") : t("assetForm.tickerHint")}
             className={sharedInputClass + " uppercase"} />
           <button type="button" onClick={() => void lookup()} disabled={!symbol.trim() || quoting}
             className="shrink-0 px-3 py-2 rounded-lg bg-indigo-600/20 text-indigo-300 border border-indigo-800/40 hover:bg-indigo-600/30 disabled:opacity-40 text-xs font-medium transition-colors">
@@ -196,7 +167,7 @@ export default function MarketAssetForm({ assetType, onDraftChange }: AssetFormP
         </>
       )}
 
-      {/* Manual fallback */}
+      {/* Manual fallback — shown immediately on failure, no retry loop */}
       {quoteFailed && (
         <div>
           <p className="text-amber-400/80 text-xs mb-2">{t("assetForm.marketManualNote")}</p>

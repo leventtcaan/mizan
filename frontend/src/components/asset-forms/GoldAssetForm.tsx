@@ -6,9 +6,9 @@ import {
   AssetFormProps, buildSourceDetail, GOLD_UNITS, previewLine, sharedInputClass, useUsdRates,
 } from "./shared";
 
-export default function GoldAssetForm({ onDraftChange }: AssetFormProps) {
+export default function GoldAssetForm({ onDraftChange, displayCurrency }: AssetFormProps) {
   const { t } = useLanguage();
-  const { usdPriceOf, tryPerUsd } = useUsdRates();
+  const { usdPriceOf, rates } = useUsdRates();
   const [unitCode, setUnitCode] = useState(GOLD_UNITS[0].code);
   const [qty, setQty] = useState("");
 
@@ -35,7 +35,7 @@ export default function GoldAssetForm({ onDraftChange }: AssetFormProps) {
   }, [unitCode, qty]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const goldUsd = usdPriceOf("XAU"); // USD per troy oz
-  const preview = qty ? previewLine((goldUsd ?? 0) * pureOz, tryPerUsd) : null;
+  const preview = qty ? previewLine((goldUsd ?? 0) * pureOz, displayCurrency, rates) : null;
 
   return (
     <div className="space-y-4">

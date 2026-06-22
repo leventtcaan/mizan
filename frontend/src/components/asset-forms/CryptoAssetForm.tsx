@@ -7,9 +7,9 @@ import {
   AssetFormProps, buildSourceDetail, previewLine, sharedInputClass, TOP_CRYPTO, useUsdRates,
 } from "./shared";
 
-export default function CryptoAssetForm({ onDraftChange }: AssetFormProps) {
+export default function CryptoAssetForm({ onDraftChange, displayCurrency }: AssetFormProps) {
   const { t } = useLanguage();
-  const { usdPriceOf, tryPerUsd } = useUsdRates();
+  const { usdPriceOf, rates } = useUsdRates();
   const [coins, setCoins] = useState<CurrencyEntry[]>([]);
   const [query, setQuery] = useState("");
   const [selected, setSelected] = useState<CurrencyEntry | null>(null);
@@ -48,7 +48,7 @@ export default function CryptoAssetForm({ onDraftChange }: AssetFormProps) {
   }, [selected, qty]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const unitUsd = selected ? usdPriceOf(selected.code) : null;
-  const preview = selected && qty ? previewLine((unitUsd ?? 0) * parseFloat(qty || "0"), tryPerUsd) : null;
+  const preview = selected && qty ? previewLine((unitUsd ?? 0) * parseFloat(qty || "0"), displayCurrency, rates) : null;
 
   function pick(entry: CurrencyEntry) {
     setSelected(entry);

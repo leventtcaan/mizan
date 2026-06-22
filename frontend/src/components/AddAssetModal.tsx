@@ -24,22 +24,22 @@ function todayISO(): string {
   return new Date().toISOString().slice(0, 10);
 }
 
-function routeForm(assetType: string, onDraftChange: (d: AssetDraft | null) => void) {
-  if (assetType === "crypto") return <CryptoAssetForm assetType={assetType} onDraftChange={onDraftChange} />;
-  if (assetType === "gold") return <GoldAssetForm assetType={assetType} onDraftChange={onDraftChange} />;
-  if (assetType === "foreign_currency" || assetType === "commodity")
-    return <CurrencyAssetForm assetType={assetType} onDraftChange={onDraftChange} />;
-  if (assetType === "stock" || assetType === "fund")
-    return <MarketAssetForm assetType={assetType} onDraftChange={onDraftChange} />;
-  return <ManualAssetForm assetType={assetType} onDraftChange={onDraftChange} />;
+function routeForm(assetType: string, onDraftChange: (d: AssetDraft | null) => void, displayCurrency: string) {
+  const p = { assetType, onDraftChange, displayCurrency };
+  if (assetType === "crypto") return <CryptoAssetForm {...p} />;
+  if (assetType === "gold") return <GoldAssetForm {...p} />;
+  if (assetType === "foreign_currency" || assetType === "commodity") return <CurrencyAssetForm {...p} />;
+  if (assetType === "stock" || assetType === "fund") return <MarketAssetForm {...p} />;
+  return <ManualAssetForm {...p} />;
 }
 
 interface Props {
   onClose: () => void;
   onAdded: (asset: AssetItem) => void;
+  displayCurrency: string;
 }
 
-export default function AddAssetModal({ onClose, onAdded }: Props) {
+export default function AddAssetModal({ onClose, onAdded, displayCurrency }: Props) {
   const { t } = useLanguage();
   const [assetType, setAssetType] = useState<string | null>(null);
   const [draft, setDraft] = useState<AssetDraft | null>(null);
@@ -134,7 +134,7 @@ export default function AddAssetModal({ onClose, onAdded }: Props) {
         {/* Step 2 — per-type form + shared footer */}
         {assetType && (
           <form onSubmit={submit} className="space-y-4">
-            {routeForm(assetType, setDraft)}
+            {routeForm(assetType, setDraft, displayCurrency)}
 
             <div className="pt-1 border-t border-[#2A2A2A] space-y-4">
               <div>

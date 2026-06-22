@@ -78,6 +78,18 @@ function sourceDetailLabel(raw: string | null): string | null {
   return raw;
 }
 
+function maturityCountdown(raw: string | null): { days: number; label: string } | null {
+  if (!raw) return null;
+  try {
+    const d = JSON.parse(raw) as { maturity_date?: string };
+    if (!d.maturity_date) return null;
+    const days = Math.ceil((new Date(d.maturity_date).getTime() - Date.now()) / 86400000);
+    if (days > 0) return { days, label: `Vadeye ${days} gün kaldı` };
+    if (days === 0) return { days, label: "Bugün vade bitiyor" };
+    return { days, label: "Vade doldu" };
+  } catch { return null; }
+}
+
 function eventLabel(eventType: string): string {
   const labels: Record<string, string> = {
     receivable_collected: "Receivable collected",
@@ -558,6 +570,7 @@ export default function NetWorthPage() {
                   {groupAssets.map((a, idx) => {
                     const detailLabel = sourceDetailLabel(a.source_detail);
                     const priceBadge = getPriceBadge(a);
+                    const maturity = a.asset_type === "bank_account" ? maturityCountdown(a.source_detail ?? null) : null;
                     return (
                       <div key={a.id} className={`flex items-center justify-between px-4 py-3 ${idx < groupAssets.length - 1 ? "border-b border-[#2A2A2A]" : ""}`}>
                         <div>
@@ -565,6 +578,13 @@ export default function NetWorthPage() {
                             <p className="text-white text-sm font-medium">{a.name}</p>
                             {priceBadge && (
                               <span className={`text-[10px] px-1.5 py-0.5 rounded-full border ${priceBadge.cls}`}>{priceBadge.label}</span>
+                            )}
+                            {maturity && (
+                              <span className={`text-[10px] px-1.5 py-0.5 rounded-full border ${
+                                maturity.days <= 0 ? "bg-amber-950/40 border-amber-700/40 text-amber-400"
+                                  : maturity.days <= 7 ? "bg-orange-950/40 border-orange-700/40 text-orange-400"
+                                  : "bg-[#1A1A1A] border-[#2A2A2A] text-gray-400"
+                              }`}>{maturity.label}</span>
                             )}
                           </div>
                           <p className="text-gray-500 text-xs mt-0.5 flex items-center gap-2 flex-wrap">
@@ -911,7 +931,7 @@ export default function NetWorthPage() {
       )}
 
       {showAddAsset && (
-        <AddAssetModal onClose={() => setShowAddAsset(false)} onAdded={(asset) => { setAssets((prev) => [...prev, asset]); setShowAddAsset(false); void reloadSummary(); }} />
+        <AddAssetModal displayCurrency={displayCurrency} onClose={() => setShowAddAsset(false)} onAdded={(asset) => { setAssets((prev) => [...prev, asset]); setShowAddAsset(false); void reloadSummary(); }} />
       )}
       {showAddLiability && (
         <AddLiabilityModal onClose={() => setShowAddLiability(false)} onAdded={(liability) => { setLiabilities((prev) => [...prev, liability]); setShowAddLiability(false); void reloadSummary(); }} />

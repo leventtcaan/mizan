@@ -24,6 +24,7 @@ export interface AssetDraft {
 export interface AssetFormProps {
   assetType: string;
   onDraftChange: (draft: AssetDraft | null) => void;
+  displayCurrency: string;
 }
 
 export const sharedInputClass =
@@ -105,20 +106,40 @@ export function useUsdRates() {
 
   return {
     ready: rates !== null,
+    rates,
     usdPriceOf,
-    tryPerUsd: rates?.["TRY"] ?? null,
   };
 }
 
-const usdFmt = new Intl.NumberFormat("en-US", { maximumFractionDigits: 2 });
+/**
+ * Single-currency preview: "≈ 12,345 TRY" or "≈ $9.82".
+ * usdValue — the value expressed in USD.
+ * displayCurrency — the currency to show (page-level selector).
+ * rates — from useUsdRates() (units of code per 1 USD).
+ */
+export function previewLine(
+  usdValue: number | null,
+  displayCurrency: string,
+  rates: Record<string, number> | null,
+): string | null {
+  if (usdValue === null || !isFinite(usdValue) || usdValue <= 0) return null;
 
-/** "≈ 12,345 ₺ · $410" — a dual TRY/USD preview line. Returns null if no USD value. */
-export function previewLine(usdValue: number | null, tryPerUsd: number | null): string | null {
-  if (usdValue === null || !isFinite(usdValue)) return null;
-  const usd = `$${usdFmt.format(usdValue)}`;
-  if (tryPerUsd) {
-    const tryVal = new Intl.NumberFormat("en-US", { maximumFractionDigits: 0 }).format(usdValue * tryPerUsd);
-    return `≈ ${tryVal} ₺ · ${usd}`;
+  const dc = displayCurrency.toUpperCase();
+  let amount = usdValue;
+
+  if (dc !== "USD" && rates) {
+    const r = rates[dc];
+    if (r && r > 0) amount = usdValue * r;
   }
-  return `≈ ${usd}`;
+
+  try {
+    const s = new Intl.NumberFormat(undefined, {
+      style: "currency",
+      currency: dc,
+      maximumFractionDigits: dc === "USD" || dc === "EUR" || dc === "GBP" ? 2 : 0,
+    }).format(amount);
+    return `≈ ${s}`;
+  } catch {
+    return `≈ ${new Intl.NumberFormat(undefined, { maximumFractionDigits: 2 }).format(amount)} ${dc}`;
+  }
 }
