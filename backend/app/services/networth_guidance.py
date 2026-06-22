@@ -116,7 +116,10 @@ async def build_guidance(
     cutoff = (datetime.now(timezone.utc) - timedelta(days=90)).date()
     spent_90 = sum(float(t.amount) for t in txns
                    if t.transaction_type == "debit" and t.transaction_date >= cutoff)
+    income_90 = sum(float(t.amount) for t in txns
+                    if t.transaction_type == "credit" and t.transaction_date >= cutoff)
     monthly_expenses = await _to(spent_90 / 3.0, "TRY", cur) if spent_90 > 0 else 0.0
+    monthly_income = await _to(income_90 / 3.0, "TRY", cur) if income_90 > 0 else 0.0
 
     # Scorecard context (pillars, score, milestones)
     try:
@@ -168,14 +171,14 @@ async def build_guidance(
                     f"Your debt is {pct}% of your assets.",
                     f"Borcunuz varlıklarınızın %{pct}'i kadar."),
                 "context": _tpl(lang,
-                    "That's high — a common comfort zone is under ~40%.",
-                    "Bu yüksek — yaygın bir rahatlık bölgesi ~%40'ın altıdır."),
+                    "That's on the high side — most people feel comfortable keeping it under about 40%.",
+                    "Bu biraz yüksek — çoğu kişi bunu yaklaşık %40'ın altında tutunca rahat eder."),
                 "why": _tpl(lang,
-                    f"High leverage leaves less cushion if income or asset values dip.{pillar_note}",
-                    f"Yüksek kaldıraç, gelir veya varlık değeri düşerse daha az tampon bırakır.{pillar_note}"),
+                    f"When debt is this big a share, there's less cushion if your income or your assets dip.{pillar_note}",
+                    f"Borç bu kadar büyük bir pay olunca, geliriniz ya da varlıklarınız düşerse daha az tamponunuz olur.{pillar_note}"),
                 "move": _tpl(lang,
-                    "Prioritizing debt paydown over new spending is the fastest lever — let's plan it.",
-                    "Yeni harcama yerine borç ödemeye öncelik vermek en hızlı kaldıraçtır — planlayalım."),
+                    "Leaning into debt before new spending for a while is the quickest way down — want to map it out?",
+                    "Bir süre yeni harcama yerine borca yüklenmek en hızlı çıkış yolu — birlikte planlayalım mı?"),
             })
 
     # ── PLAY: high-interest debt ────────────────────────────────────────────────
@@ -193,14 +196,14 @@ async def build_guidance(
                 f"\"{worst.name}\" carries a {apr:.0f}% interest rate.",
                 f"\"{worst.name}\" %{apr:.0f} faiz taşıyor."),
             "context": _tpl(lang,
-                f"Anything above ~{_HIGH_APR:.0f}% is expensive debt that compounds against you.",
-                f"~%{_HIGH_APR:.0f} üzeri, aleyhinize işleyen pahalı borçtur."),
+                f"Borrowing above ~{_HIGH_APR:.0f}% is the expensive kind that quietly works against you.",
+                f"~%{_HIGH_APR:.0f} üzeri borç, sessizce aleyhinize çalışan pahalı türden."),
             "why": _tpl(lang,
-                f"At {apr:.0f}%, this costs roughly {_fmt(annual_interest, cur)} a year in interest alone.",
-                f"%{apr:.0f} ile bu, yılda yalnızca faiz olarak yaklaşık {_fmt(annual_interest, cur)} maliyet demek."),
+                f"At {apr:.0f}%, just the interest runs about {_fmt(annual_interest, cur)} a year — money that buys you nothing.",
+                f"%{apr:.0f} ile yalnızca faizi yılda yaklaşık {_fmt(annual_interest, cur)} — hiçbir şey almayan para."),
             "move": _tpl(lang,
-                "Clearing this before lower-rate debt usually saves the most — let's build a payoff plan.",
-                "Bunu düşük faizli borçtan önce kapatmak genelde en çok tasarrufu sağlar — bir ödeme planı kuralım."),
+                "Knocking this out before your cheaper debts usually saves the most — want to build a payoff plan?",
+                "Bunu daha ucuz borçlarınızdan önce kapatmak genelde en çok kazandırır — bir ödeme planı kuralım mı?"),
         })
 
     # ── PLAY: thin emergency fund ───────────────────────────────────────────────
@@ -208,21 +211,39 @@ async def build_guidance(
         months = liquid / monthly_expenses
         if months < _EMERGENCY_MONTHS_MIN:
             sev = "high" if months < 1 else "medium"
+            if liquid <= 0:
+                obs = _tpl(lang,
+                    "You don't have any cash set aside right now.",
+                    "Şu an kenara ayrılmış nakdiniz yok.")
+                why = _tpl(lang,
+                    f"You're spending around {_fmt(monthly_expenses, cur)} a month, so a single surprise bill could push you into debt.",
+                    f"Ayda yaklaşık {_fmt(monthly_expenses, cur)} harcıyorsunuz; tek bir beklenmedik masraf sizi borca sürükleyebilir.")
+            elif months < 1:
+                obs = _tpl(lang,
+                    "Your cash wouldn't cover even a full month of spending.",
+                    "Nakitiniz bir aylık giderinizi bile karşılamaz.")
+                why = _tpl(lang,
+                    f"At roughly {_fmt(monthly_expenses, cur)} a month, there's almost no room for a surprise.",
+                    f"Ayda yaklaşık {_fmt(monthly_expenses, cur)} ile sürpriz bir gidere neredeyse hiç alan yok.")
+            else:
+                n = round(months)
+                obs = _tpl(lang,
+                    f"Your cash would last about {n} month{'s' if n != 1 else ''} if income stopped.",
+                    f"Geliriniz dursa nakitiniz yaklaşık {n} ay idare eder.")
+                why = _tpl(lang,
+                    f"That's a start, but a longer runway means a rough patch won't turn into debt.",
+                    f"Bu bir başlangıç, ama daha uzun bir tampon zor bir dönemin borca dönüşmesini önler.")
             findings.append({
                 "id": "emergency_fund", "play": "emergency_fund", "severity": sev,
                 "action": {"type": "discuss", "params": {"topic": "emergency_fund"}},
-                "observation": _tpl(lang,
-                    f"Your cash covers about {months:.1f} months of spending.",
-                    f"Nakitiniz yaklaşık {months:.1f} aylık harcamayı karşılıyor."),
+                "observation": obs,
                 "context": _tpl(lang,
-                    f"A common rule of thumb is {_EMERGENCY_MONTHS_MIN}–6 months of expenses set aside.",
-                    f"Yaygın bir kural, {_EMERGENCY_MONTHS_MIN}–6 aylık masrafı bir kenara ayırmaktır."),
-                "why": _tpl(lang,
-                    f"With monthly spending near {_fmt(monthly_expenses, cur)}, a thin buffer means a surprise bill could force new debt.",
-                    f"Aylık harcama {_fmt(monthly_expenses, cur)} civarındayken ince bir tampon, beklenmedik bir masrafın yeni borca yol açabileceği anlamına gelir."),
+                    f"Most people aim to keep {_EMERGENCY_MONTHS_MIN}–6 months of expenses within easy reach.",
+                    f"Çoğu kişi {_EMERGENCY_MONTHS_MIN}–6 aylık gideri kolay erişilebilir tutmayı hedefler."),
+                "why": why,
                 "move": _tpl(lang,
-                    "Setting a small monthly savings target rebuilds this fastest — let's set one.",
-                    "Küçük bir aylık tasarruf hedefi bunu en hızlı toparlar — bir tane belirleyelim."),
+                    "Even a small, steady amount set aside each month builds this back — want to start a target?",
+                    "Her ay kenara ayrılan küçük ama düzenli bir tutar bile bunu toparlar — bir hedef başlatalım mı?"),
             })
 
     # ── PLAY: single-asset concentration ────────────────────────────────────────
@@ -278,21 +299,46 @@ async def build_guidance(
     if sav_pillar and sav_pillar.get("status") == "ok":
         rate = float(sav_pillar.get("value", 0)) / 100.0
         if rate < _SAVINGS_RATE_LOW:
+            overspend = monthly_expenses - monthly_income
+            if rate < 0:
+                # Spending exceeds income — never show a negative percent.
+                if overspend > 0:
+                    obs = _tpl(lang,
+                        "Lately you're spending more than you bring in.",
+                        "Son dönemde kazandığınızdan fazlasını harcıyorsunuz.")
+                    why = _tpl(lang,
+                        f"You're running roughly {_fmt(overspend, cur)} short each month, which slowly eats into your net worth.",
+                        f"Her ay yaklaşık {_fmt(overspend, cur)} açık veriyorsunuz; bu net değerinizi yavaşça eritiyor.")
+                else:
+                    obs = _tpl(lang,
+                        "Your spending is outpacing your income.",
+                        "Harcamanız gelirinizin önüne geçmiş durumda.")
+                    why = _tpl(lang,
+                        "When more goes out than comes in, net worth drifts down month after month.",
+                        "Girenden fazlası çıkınca net değer her ay biraz daha aşağı kayar.")
+                context = _tpl(lang,
+                    "The goal isn't perfection — just getting back to spending a little less than you earn.",
+                    "Amaç kusursuzluk değil — yalnızca kazandığınızdan biraz azını harcamaya dönmek.")
+            else:
+                pct = round(rate * 100)
+                obs = _tpl(lang,
+                    f"You're holding on to only about {pct}% of what you earn.",
+                    f"Kazandığınızın yalnızca yaklaşık %{pct}'ini elinizde tutuyorsunuz.")
+                context = _tpl(lang,
+                    "Building wealth gets hard when there's little left at the end of the month.",
+                    "Ay sonunda geriye az şey kalınca servet biriktirmek zorlaşır.")
+                why = _tpl(lang,
+                    "How much you keep each month is the single biggest lever on your net worth over time.",
+                    "Her ay ne kadar elinizde tuttuğunuz, zamanla net değerinizdeki en büyük kaldıraçtır.")
             findings.append({
                 "id": "savings_rate", "play": "savings_rate", "severity": "medium",
                 "action": {"type": "set_goal", "params": {}},
-                "observation": _tpl(lang,
-                    f"You're keeping about {rate * 100:.0f}% of your income.",
-                    f"Gelirinizin yaklaşık %{rate * 100:.0f}'ini elinizde tutuyorsunuz."),
-                "context": _tpl(lang,
-                    "Building wealth gets hard when little is left over each month.",
-                    "Her ay geriye az şey kalınca servet biriktirmek zorlaşır."),
-                "why": _tpl(lang,
-                    "A higher savings rate is the single biggest driver of net-worth growth over time.",
-                    "Daha yüksek tasarruf oranı, zamanla net değer büyümesinin en büyük itici gücüdür."),
+                "observation": obs,
+                "context": context,
+                "why": why,
                 "move": _tpl(lang,
-                    "Capping one or two spending categories frees up room — set a budget goal.",
-                    "Bir-iki harcama kategorisine sınır koymak alan açar — bir bütçe hedefi belirleyin."),
+                    "Putting a cap on a category or two is the easiest place to start — want to set one?",
+                    "Bir-iki kategoriye sınır koymak başlamak için en kolay yer — bir tane belirleyelim mi?"),
             })
 
     # ── PLAY: stale prices on auto-priced assets ────────────────────────────────
@@ -353,11 +399,20 @@ async def _narrate(findings: list[dict], lang: str) -> None:
         ]
         lang_name = "Turkish" if lang == "tr" else "English"
         system = (
-            "You are Mizan, a global personal finance coach. You receive pre-computed "
-            "financial findings. Rewrite each finding's four fields (observation, context, "
-            "why, move) to be warm, natural, and concise. STRICT RULES: keep every number "
-            "exactly as given; do NOT add new recommendations; do NOT give investment or "
-            "securities advice (never say buy, sell, or predict prices); never invent facts. "
+            "You are Mizan — a sharp, warm friend who happens to know personal finance. "
+            "You receive pre-computed findings. Rewrite each one's four fields (observation, "
+            "context, why, move) so they sound like one short, natural spoken thought — NOT a "
+            "report, NOT a calculator reading itself out loud.\n"
+            "TONE: talk to the person, not at them. Plain, kind, a little direct. No jargon, "
+            "no bullet-point voice, no robotic phrasing. The four fields should flow together "
+            "like something a friend would actually say.\n"
+            "NUMBERS: keep amounts accurate but human — round to clean figures, never show a "
+            "negative percentage, and never print mechanical values like '0.0 months' or "
+            "'%-59'. If someone is spending more than they earn, say so in words (and the "
+            "shortfall amount), don't show a negative rate. Drop decimals that add no meaning.\n"
+            "HARD RULES: do NOT invent facts or numbers that aren't in the input; do NOT add "
+            "new recommendations; do NOT give investment or securities advice (never say buy, "
+            "sell, or predict prices).\n"
             f"Write in {lang_name}. Return ONLY a JSON object mapping each id to "
             '{"observation","context","why","move"}.'
         )

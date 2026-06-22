@@ -42,7 +42,9 @@
       "mcp__playwright__browser_network_requests",
       "Bash(perl -i -pe 's/\\\\bCCY\\\\b/currency/g' src/app/onboarding/page.tsx)",
       "Bash(grep -rn \"ChatPanel\\\\|analyzeNetWorth\\\\|getSubscriptions\\\\b\\\\|getSubscriptionSummary\\\\|getInstallments\\\\|getInstallmentSummary\\\\|SubscriptionSummary\\\\|InstallmentPlan\\\\|InstallmentResponse\" frontend/src/)",
-      "Bash(grep -rn \"app.api.installments\\\\|installments_router\\\\|import installments\" backend/app/)"
+      "Bash(grep -rn \"app.api.installments\\\\|installments_router\\\\|import installments\" backend/app/)",
+      "Bash(grep -n \"range\\\\${\" src/app/progress/page.tsx)",
+      "Bash(node -e ' *)"
     ]
   }
 }
