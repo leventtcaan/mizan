@@ -129,6 +129,7 @@ export const tr = {
     aiInsight: "AI Değerlendirmesi",
     recentEvents: "Son Olaylar",
     actionQueue: "İşlem Kuyruğu",
+    allClear: "Tüm kalemler temiz",
     sourceManual: "Manuel giriş",
     sourceStatement: "Ekstre",
     sourceReceivable: "Alacak tahsilatı",

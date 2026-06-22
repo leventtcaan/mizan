@@ -129,6 +129,7 @@ export const en = {
     aiInsight: "AI Insight",
     recentEvents: "Recent Events",
     actionQueue: "Action Queue",
+    allClear: "All items are clear",
     sourceManual: "Manual entry",
     sourceStatement: "Statement",
     sourceReceivable: "Receivable collection",

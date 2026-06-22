@@ -257,7 +257,7 @@ When context reaches ~70% capacity:
 
 ## Current Status
 
-**Phases 1–34 complete. Alembic head = 0022. No new migrations since Phase 32.**
+**Phases 1–35 complete. Alembic head = 0022. No new migrations since Phase 32.**
 
 Full stack: register/login → JWT → upload (rate-limited, busts caches) → 3-layer OCR → LLM extract → OCR cleanup → dedup → zero-amount filter → persist → LLM categorize (13 categories) → insight cache → globalized LLM coach with corrections+notes injected → spending chart + progress page (LineChart 3-month trend + cross-batch-deduped category comparison + LLM one-liners, 24h cached) → PersonalityCard (5 types, cached per batch) → AlertsPanel (3 algorithmic detectors, dismiss persisted, stale dismissals auto-cleaned) → GoalsPanel (monthly budget vs actual) → ChatPanel (globalized conversational coaching, behavioral profile memory, voice input, chat-based tx entry with confirmation card, sessionStorage prefill from alerts) → weekly email summary (Resend HTML, preferences toggle) → inflation-adjusted analysis (TUFE 2023-2026, real vs nominal per category, ProgressInsight cache) → net worth asset subtype capture (all asset types have specific fields; crypto/fiat/commodity live picker; gold unit picker; stock/fund code fields; manual categories store structured metadata in `Asset.source_detail` JSON) → net worth display currency searchable via live `CurrencySelect` → receivable collection creates linked cash asset, repeated collection is idempotent, delete/write-off removes linked asset → stale received receivables and processed suggestions are hidden/cleaned after 30 days → onboarding accepts any institution/export source instead of hardcoded Turkish banks → financial event log + reconciliation item backend skeleton exists → net worth page shows Action Queue with open reconciliation items and recent financial events → reconciliation producers create queue items from overdue receivables, missing receivable assets, possible duplicate transactions, and large transaction review → Action Queue now has real action handlers per issue_type (mark received / write off / recreate asset / delete duplicate batch / confirm large tx).
 
@@ -296,8 +296,6 @@ Full stack: register/login → JWT → upload (rate-limited, busts caches) → 3
 - **Subscription flag toggle**: UI supports toggle-off optimistically but backend has no "unflag" endpoint — only upsert. Visually works but flag is never deleted; workaround: flag to different value.
 - **Frontend lint missing config**: `npm run lint` opens Next ESLint setup wizard. Build still runs type check. Add ESLint config later.
 - **Dependency risk**: `npm ci` warns Next 14.2.0 has security issue; Recharts 2.x deprecated; npm audit shows 1 moderate + 1 critical vulnerability. Upgrade needed soon.
-- **"Fiyatları Güncelle" button UX**: updates current_value for auto-fetchable assets (crypto, gold, stocks) but user may not understand scope. Needs tooltip explaining which asset types auto-refresh vs manual.
-- **Reconciliation Action Queue**: Phase 31 action handlers (mark received, write off, delete duplicate batch) need live verification that items close and disappear correctly after action.
 - **i18n coverage incomplete**: Phase 34 added locale files + useLanguage hook + navbar toggle, but some components may still have hardcoded TR strings not yet wired to translation keys.
 
 ### Phase 7 — Chat Interface + Behavioral Vector (2026-06-18)
@@ -969,6 +967,16 @@ Full stack: register/login → JWT → upload (rate-limited, busts caches) → 3
 
 ---
 
+### Phase 35 — Reconciliation Queue Audit & UI Fixes (2026-06-22)
+- [x] `frontend/src/app/networth/page.tsx` — **Bug fix**: `overdue_receivable` and `possible_duplicate_transaction` handlers were always calling `updateReconciliationItemStatus(item.id, "resolved")` even when action was "dismiss". Fixed: `const recStatus = action === "dismiss" ? "dismissed" : "resolved"` before the status call.
+- [x] `frontend/src/app/networth/page.tsx` — Action Queue section now **always renders** after loading (replaced `{reconciliationItems.length > 0 || events.length > 0}` gate with `{!loading}`).
+- [x] `frontend/src/app/networth/page.tsx` — **Empty state**: when 0 items, shows inline checkmark SVG + `t("nw.allClear")` in a card instead of empty space.
+- [x] `frontend/src/app/networth/page.tsx` — **Count badge always shown** on Action Queue header: cyan when > 0, gray `text-gray-500` when 0; confirms scan ran.
+- [x] `frontend/src/app/networth/page.tsx` — **Tooltip** on "Fiyatları Güncelle" button: `title` attribute explains which asset types auto-refresh (crypto, gold, FX, commodity, stock) vs manual.
+- [x] `frontend/src/locales/tr.ts` — added `nw.allClear: "Tüm kalemler temiz"`.
+- [x] `frontend/src/locales/en.ts` — added `nw.allClear: "All items are clear"`.
+- **No backend changes. No migration needed.**
+
 ### Phase 34 — i18n TR/EN (2026-06-22)
 - [x] `frontend/src/lib/i18n/` — locale JSON files for TR and EN; all UI strings keyed; translation lookup function.
 - [x] `frontend/src/hooks/useLanguage.ts` — hook reads/writes language preference to localStorage; returns `{ lang, setLang, t }` where `t(key)` returns translated string for current lang.
@@ -994,7 +1002,7 @@ Full stack: register/login → JWT → upload (rate-limited, busts caches) → 3
 
 ## Next Session — Start Here
 
-**Phases 1–34 complete. Phase 34 = i18n TR/EN + LLM language-aware. Alembic head = 0022. No new migrations.**
+**Phases 1–35 complete. Phase 35 = reconciliation queue audit + UI fixes. Alembic head = 0022. No new migrations.**
 
 Pre-flight (if docker was restarted):
 ```bash
@@ -1014,8 +1022,8 @@ curl -s http://localhost:8000/currency/list | python3 -c "import sys,json; d=jso
 ```
 
 Next task options (priority order):
-1. **Verify i18n coverage** — audit all components for hardcoded TR strings; wire remaining ones to translation keys.
-2. **Transactions SpendingChart redesign** — replace weak bar chart with cash-flow panel or area chart.
+1. **Transactions SpendingChart redesign** — replace weak bar chart with cash-flow panel or area chart.
+2. **i18n coverage audit** — check all components for remaining hardcoded TR strings; wire to translation keys.
 3. **Schema cleanup** — split `Asset.current_value` into quantity/value fields; currently overloaded (quantity for crypto/gold/FX, total value for stocks/manual).
 4. **Global market search** — stock ticker search + fund ISIN lookup via chosen providers.
 5. **Deployment** — Railway backend + Vercel frontend; alembic head on cold start.

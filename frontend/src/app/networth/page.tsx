@@ -367,7 +367,8 @@ export default function NetWorthPage() {
           setReceivables((prev) => prev.filter((r) => r.id !== entityId));
           setToast("Receivable written off.");
         }
-        await updateReconciliationItemStatus(item.id, "resolved");
+        const recStatus = action === "dismiss" ? "dismissed" : "resolved";
+        await updateReconciliationItemStatus(item.id, recStatus);
         setReconciliationItems((prev) => prev.filter((i) => i.id !== item.id));
         void reloadSummary();
         return;
@@ -408,7 +409,8 @@ export default function NetWorthPage() {
             setToast(`Removed ${batchIds.length - 1} duplicate batch(es).`);
           }
         }
-        await updateReconciliationItemStatus(item.id, "resolved");
+        const dupStatus = action === "dismiss" ? "dismissed" : "resolved";
+        await updateReconciliationItemStatus(item.id, dupStatus);
         setReconciliationItems((prev) => prev.filter((i) => i.id !== item.id));
         return;
       }
@@ -444,6 +446,7 @@ export default function NetWorthPage() {
           <button
             onClick={handleRefreshPrices}
             disabled={refreshing}
+            title="Fetches live prices for crypto, gold, foreign currency, commodity, and stock assets. Manual assets (real estate, vehicle, etc.) are not updated."
             className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-[#1A1A1A] border border-[#2A2A2A] text-gray-400 hover:text-gray-200 hover:border-indigo-700 text-xs font-medium transition-colors disabled:opacity-50"
           >
             <RefreshCw size={13} className={refreshing ? "animate-spin" : ""} />
@@ -522,17 +525,26 @@ export default function NetWorthPage() {
         </div>
       )}
 
-      {(reconciliationItems.length > 0 || events.length > 0) && (
+      {!loading && (
         <section className="mb-8">
           <div className="flex items-center gap-2 mb-4">
             <Zap size={18} className="text-cyan-400" />
             <h2 className="text-white font-semibold">{t("nw.actionQueue")}</h2>
-            {reconciliationItems.length > 0 && (
-              <span className="px-2 py-0.5 rounded-full bg-cyan-950/50 border border-cyan-800/40 text-cyan-300 text-xs font-medium">
-                {reconciliationItems.length}
-              </span>
-            )}
+            <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
+              reconciliationItems.length > 0
+                ? "bg-cyan-950/50 border border-cyan-800/40 text-cyan-300"
+                : "bg-[#2A2A2A] text-gray-500"
+            }`}>
+              {reconciliationItems.length}
+            </span>
           </div>
+
+          {reconciliationItems.length === 0 && (
+            <div className="bg-[#1A1A1A] border border-[#2A2A2A] rounded-xl p-6 flex items-center gap-3 mb-3 text-gray-400">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-emerald-500 shrink-0"><polyline points="20 6 9 17 4 12" /></svg>
+              <span className="text-sm">{t("nw.allClear")}</span>
+            </div>
+          )}
 
           {reconciliationItems.length > 0 && (
             <div className="space-y-3 mb-3">
