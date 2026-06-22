@@ -499,8 +499,14 @@ export default function NetWorthPage() {
     setReconciliationItems(itemRows);
   }, []);
 
+  // Refetch the (server-converted) summary whenever the display currency changes.
+  // The first render is skipped because loadAll() already fetches it on mount; the
+  // OLD `if (!loading)` guard wrongly skipped the TRY→USD flip that getDefaultCurrency()
+  // fires DURING the initial load, leaving the hero showing TRY values labelled USD.
+  const didInitCcyRef = useRef(false);
   useEffect(() => {
-    if (!loading) reloadSummary();
+    if (!didInitCcyRef.current) { didInitCcyRef.current = true; return; }
+    void reloadSummary();
   }, [displayCurrency]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleDeleteAsset = async (id: string) => {
@@ -820,22 +826,14 @@ export default function NetWorthPage() {
       maxWidth="lg"
       action={
         <div className="flex items-center gap-2">
-          <div className="flex flex-col items-end gap-0.5">
-            <button
-              onClick={handleRefreshPrices}
-              disabled={refreshing}
-              title={t("nw.refreshPricesTooltip")}
-              className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-[#1A1A1A] border border-[#2A2A2A] text-gray-400 hover:text-gray-200 hover:border-indigo-700 text-xs font-medium transition-colors disabled:opacity-50"
-            >
-              <RefreshCw size={13} className={refreshing ? "animate-spin" : ""} />
-              {refreshing ? t("nw.refreshing") : t("nw.refreshPrices")}
-            </button>
-            {lastRefreshAt && !refreshing && (
-              <span className="text-[10px] text-gray-600">
-                {Math.floor((Date.now() - lastRefreshAt) / 60000)}m {t("nw.minAgo")}
-              </span>
-            )}
-          </div>
+          {/* Prices are refreshed automatically by the 12h scheduler — no button,
+              just an honest "as of" time so the user knows these aren't live. */}
+          {lastRefreshAt && (
+            <span className="hidden sm:flex items-center gap-1.5 text-[11px] text-gray-500" title={t("nw.pricesUpdatedHint")}>
+              <RefreshCw size={11} className="text-gray-600" />
+              {t("nw.pricesUpdatedPre")} {new Date(lastRefreshAt).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" })}{t("nw.pricesUpdatedPost")}
+            </span>
+          )}
           <div className="w-48">
             <CurrencySelect value={displayCurrency} onChange={setDisplayCurrency} />
           </div>
@@ -1132,6 +1130,19 @@ export default function NetWorthPage() {
                             <span className="text-gray-600">· {SOURCE_LABELS[a.source] ?? a.source}</span>
                             {a.as_of_date && <span className="text-gray-600">· {a.as_of_date}</span>}
                           </p>
+                          {/* Honest last-price line: the per-unit price the value is
+                              built from, clearly marked as not real-time. Only for
+                              types where a per-unit price is meaningful (FX = $1, skip). */}
+                          {PRICED_ALERT_TYPES.has(a.asset_type) && (() => {
+                            const lp = assetLastPriceUsd(a);
+                            if (!lp) return null;
+                            return (
+                              <p className="text-[11px] text-gray-600 mt-0.5">
+                                {t("nw.lastPrice")}: ${lp.toLocaleString(undefined, { maximumFractionDigits: lp < 10 ? 2 : 0 })}
+                                <span className="text-gray-700"> · {t("nw.priceDelayed")}</span>
+                              </p>
+                            );
+                          })()}
                         </div>
                         <div className="flex items-center gap-3">
                           <div className="text-right">
