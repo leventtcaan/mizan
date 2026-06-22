@@ -7,6 +7,7 @@ import { getToken, getStoredUser, clearToken, getNetWorthSuggestions, updatePref
 import { BarChart2, Upload, LogOut, Menu, X, Scale, Home, Settings } from "@/components/ui/Icons";
 import { useLanguage, type Lang } from "@/lib/i18n";
 import NotificationDropdown from "@/components/NotificationDropdown";
+import CurrencyMenu from "@/components/ui/CurrencyMenu";
 
 const HIDDEN_PATHS = ["/login", "/onboarding"];
 
@@ -122,6 +123,7 @@ export default function Navbar() {
               </button>
             </div>
 
+            <CurrencyMenu />
             <NotificationDropdown />
             <Link
               href="/settings"

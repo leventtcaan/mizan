@@ -95,6 +95,12 @@ export default function HomePage() {
     f.description.startsWith("Receivable: ")
       ? `${t("home.receivable")}: ${f.description.slice("Receivable: ".length)}`
       : f.description;
+  // Route each cash-flow item to the page where it's actually managed.
+  const hrefForFlow = (f: CashFlowItem) =>
+    f.source === "liability" ? "/networth"
+      : f.source === "receivable" ? "/networth"
+      : f.source === "subscription" ? "/subscriptions"
+      : "/cashflow";
 
   // Snapshot (net worth + ratios + health)
   const [summary, setSummary] = useState<NetWorthSummary | null>(null);
@@ -151,7 +157,7 @@ export default function HomePage() {
         setReconItems(items);
         setNotifications(notifs.filter((n) => !n.is_read));
         setOverdueReceivables(receivables.filter((r) => r.status === "overdue"));
-        setUrgentFlows(flows.filter((f) => f.urgent || daysUntil(f.date) <= 3));
+        setUrgentFlows(flows.filter((f) => f.urgent || f.overdue));
       })
       .finally(() => setActionsLoading(false));
 
@@ -220,15 +226,27 @@ export default function HomePage() {
   } as const;
 
   // --- derived: month pulse ---
+  // TRY→display factor derived from the backend's own converted month expense total,
+  // so transaction-derived figures (categories) show in the chosen currency too.
+  const ccyFactor = (() => {
+    if (!progress || !cashflow || progress.months.length === 0) return 1;
+    const rawExpense = parseFloat(progress.months[progress.months.length - 1].total_spent) || 0;
+    const convExpense = parseFloat(cashflow.month_expenses_actual) || 0;
+    return rawExpense > 0 && convExpense > 0 ? convExpense / rawExpense : 1;
+  })();
+
   const monthLine = (() => {
     if (!progress || progress.months.length === 0) return null;
     const m = progress.months[progress.months.length - 1];
     const prevM = progress.months.length >= 2 ? progress.months[progress.months.length - 2] : null;
-    const income = parseFloat(m.total_income) || 0;
-    const expense = parseFloat(m.total_spent) || 0;
-    const prevNet = prevM ? (parseFloat(prevM.total_income) || 0) - (parseFloat(prevM.total_spent) || 0) : null;
+    // Prefer the backend's converted actuals; fall back to raw progress while cashflow loads.
+    const income = cashflow ? parseFloat(cashflow.month_income_actual) || 0 : parseFloat(m.total_income) || 0;
+    const expense = cashflow ? parseFloat(cashflow.month_expenses_actual) || 0 : parseFloat(m.total_spent) || 0;
     const net = income - expense;
-    const trend = prevNet != null && prevNet !== 0 ? ((net - prevNet) / Math.abs(prevNet)) * 100 : null;
+    // Trend is a percentage → currency-agnostic, computed from raw progress.
+    const prevNet = prevM ? (parseFloat(prevM.total_income) || 0) - (parseFloat(prevM.total_spent) || 0) : null;
+    const curNetRaw = (parseFloat(m.total_income) || 0) - (parseFloat(m.total_spent) || 0);
+    const trend = prevNet != null && prevNet !== 0 ? ((curNetRaw - prevNet) / Math.abs(prevNet)) * 100 : null;
     const savingsRate = income > 0 ? (net / income) * 100 : null;
     return { income, expense, net, trend, savingsRate, byCategory: m.by_category };
   })();
@@ -236,7 +254,7 @@ export default function HomePage() {
   const topCategories = (() => {
     if (!monthLine) return [];
     const entries = Object.entries(monthLine.byCategory)
-      .map(([k, v]) => [k, parseFloat(v) || 0] as [string, number])
+      .map(([k, v]) => [k, (parseFloat(v) || 0) * ccyFactor] as [string, number])
       .filter(([, v]) => v > 0)
       .sort((a, b) => b[1] - a[1])
       .slice(0, 3);
@@ -244,9 +262,10 @@ export default function HomePage() {
     return entries.map(([cat, val]) => ({ cat, val, width: Math.max(6, (val / max) * 100) }));
   })();
 
+  // Month-anchored projection: liquid + (expected income − expected payments) for rest of month.
   const projectedMonthEnd = (() => {
     if (!cashflow) return null;
-    return parseFloat(cashflow.liquid_assets) + parseFloat(cashflow.projected_net);
+    return parseFloat(cashflow.projected_month_end);
   })();
 
   // --- derived: net worth shrank driver (top expense category) ---
@@ -271,13 +290,15 @@ export default function HomePage() {
     if (dismissed.has(k)) return;
     const isPayment = f.type === "liability_payment" || f.type === "subscription";
     const du = daysUntil(f.date);
+    // Only receivables can be genuinely overdue; payments are recurring (never overdue).
+    const detail = f.overdue ? t("home.overdue") : du <= 0 ? t("home.dueToday") : dayLabel(du);
     actionItems.push({
-      key: k, urgency: du <= 0 ? "today" : "week",
+      key: k, urgency: (f.overdue || du <= 0) ? "today" : "week",
       icon: isPayment ? <CreditCard size={16} /> : <Wallet size={16} />,
-      accent: du <= 0 ? "text-red-400" : "text-amber-400",
+      accent: f.overdue ? "text-red-400" : "text-amber-400",
       title: `${flowLabel(f)} · ${fmt(parseFloat(f.amount), f.currency)}`,
-      detail: du <= 0 ? t("home.overdue") : dayLabel(du),
-      href: "/cashflow", onDismiss: () => setDismissed((s) => new Set(s).add(k)),
+      detail,
+      href: hrefForFlow(f), onDismiss: () => setDismissed((s) => new Set(s).add(k)),
     });
   });
   reconItems.forEach((item) => {
@@ -599,7 +620,7 @@ export default function HomePage() {
                 const inflow = f.type === "income" || f.type === "recurring_income";
                 return (
                   <li key={`${f.date}-${f.description}-${i}`} className="flex items-center gap-3 py-1.5">
-                    <span className={`shrink-0 ${inflow ? "text-emerald-400" : du <= 0 ? "text-red-400" : "text-gray-500"}`}>
+                    <span className={`shrink-0 ${inflow ? "text-emerald-400" : f.overdue ? "text-red-400" : "text-gray-500"}`}>
                       {inflow ? <Wallet size={15} /> : <Calendar size={15} />}
                     </span>
                     <div className="flex-1 min-w-0">
@@ -609,8 +630,8 @@ export default function HomePage() {
                       <p className={`text-sm font-medium tabular-nums ${inflow ? "text-emerald-400" : "text-gray-200"}`}>
                         {inflow ? "+" : "−"}{fmt(parseFloat(f.amount), f.currency)}
                       </p>
-                      <p className={`text-[10px] ${du <= 0 ? "text-red-400 font-medium" : "text-gray-600"}`}>
-                        {du <= 0 ? t("home.overdue") : dayLabel(du)}
+                      <p className={`text-[10px] ${f.overdue ? "text-red-400 font-medium" : "text-gray-600"}`}>
+                        {f.overdue ? t("home.overdue") : du <= 0 ? t("home.dueToday") : dayLabel(du)}
                       </p>
                     </div>
                   </li>

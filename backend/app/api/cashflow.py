@@ -37,6 +37,7 @@ class CashFlowItem(BaseModel):
     description: str
     source: str  # "liability" | "receivable" | "subscription" | "recurring_income"
     urgent: bool
+    overdue: bool = False  # only true for receivables past their expected_date
 
 
 class CashFlowSummary(BaseModel):
@@ -48,6 +49,12 @@ class CashFlowSummary(BaseModel):
     liquid_to_payments_ratio: float | None
     warning: str | None
     days: int
+    # Month-anchored figures (current calendar month), all in display_currency.
+    month_income_actual: str        # credited transactions so far this month
+    month_expenses_actual: str      # debited transactions so far this month
+    expected_income_rest: str       # expected income from today → month end
+    expected_payments_rest: str     # expected payments from today → month end
+    projected_month_end: str        # liquid + (expected_income_rest - expected_payments_rest)
 
 
 def _next_monthly(base_day: int, today: date) -> date:
@@ -67,11 +74,14 @@ async def _liability_items(
     result = await session.execute(select(Liability).where(Liability.user_id == user_id))
     items = []
     for li in result.scalars().all():
+        # No payment info → not a cash-flow event at all.
         if not li.monthly_payment or li.monthly_payment <= 0:
             continue
         if li.remaining_amount <= 0:
             continue
-        base_day = li.due_date.day if li.due_date else today.day
+        # Recurring monthly payment → always project the NEXT occurrence (never overdue).
+        has_due = li.due_date is not None
+        base_day = li.due_date.day if has_due else today.day
         pay_date = _next_monthly(base_day, today)
         if pay_date <= end:
             items.append(CashFlowItem(
@@ -81,7 +91,9 @@ async def _liability_items(
                 currency=li.currency,
                 description=li.name,
                 source="liability",
-                urgent=(pay_date - today).days <= _URGENT_DAYS,
+                # Only flag urgent when we actually know the due day and it's near.
+                urgent=has_due and (pay_date - today).days <= _URGENT_DAYS,
+                overdue=False,
             ))
     return items
 
@@ -99,7 +111,8 @@ async def _receivable_items(
     for r in result.scalars().all():
         if not r.expected_date:
             continue
-        display_date = today if r.expected_date < today else r.expected_date
+        overdue = r.expected_date < today
+        display_date = today if overdue else r.expected_date
         if display_date > end:
             continue
         items.append(CashFlowItem(
@@ -109,7 +122,8 @@ async def _receivable_items(
             currency=r.currency,
             description=f"Receivable: {r.from_person}",
             source="receivable",
-            urgent=(display_date - today).days <= _URGENT_DAYS,
+            urgent=overdue or (display_date - today).days <= _URGENT_DAYS,
+            overdue=overdue,
         ))
     return items
 
@@ -211,26 +225,58 @@ async def cashflow_summary(
     end = today + timedelta(days=days)
     cur = display_currency.upper()
 
+    month_start = today.replace(day=1)
+    month_end = date(today.year, today.month, calendar.monthrange(today.year, today.month)[1])
+    # Project items far enough to cover BOTH the rolling `days` window and month end.
+    horizon = max(end, month_end)
+
     transactions = await get_transactions_for_user(current_user.id, session, all_batches=True)
-    l_items = await _liability_items(current_user.id, session, today, end)
-    r_items = await _receivable_items(current_user.id, session, today, end)
-    rec_items = _recurring_items(transactions, today, end)
+    l_items = await _liability_items(current_user.id, session, today, horizon)
+    r_items = await _receivable_items(current_user.id, session, today, horizon)
+    rec_items = _recurring_items(transactions, today, horizon)
+    all_items = l_items + r_items + rec_items
 
     income_types = {"income", "recurring_income"}
     payment_types = {"liability_payment", "subscription"}
 
+    async def _conv(amount: Decimal, currency: str) -> Decimal:
+        try:
+            return Decimal(str(await convert(float(amount), currency, cur)))
+        except Exception:
+            return amount
+
+    # Rolling `days`-window totals (used by the calendar page).
     total_income = Decimal("0")
     total_payments = Decimal("0")
+    # Rest-of-current-month expectations (used by the Home projection).
+    expected_income_rest = Decimal("0")
+    expected_payments_rest = Decimal("0")
 
-    for item in l_items + r_items + rec_items:
-        try:
-            converted = await convert(Decimal(item.amount), item.currency, cur)
-        except Exception:
-            converted = Decimal(item.amount)
-        if item.type in income_types:
-            total_income += converted
-        elif item.type in payment_types:
-            total_payments += converted
+    for item in all_items:
+        item_date = date.fromisoformat(item.date)
+        converted = await _conv(Decimal(item.amount), item.currency)
+        if item_date <= end:
+            if item.type in income_types:
+                total_income += converted
+            elif item.type in payment_types:
+                total_payments += converted
+        if item_date <= month_end:
+            if item.type in income_types:
+                expected_income_rest += converted
+            elif item.type in payment_types:
+                expected_payments_rest += converted
+
+    # Actual credited / debited transactions so far THIS calendar month.
+    month_income_actual = Decimal("0")
+    month_expenses_actual = Decimal("0")
+    for t in transactions:
+        if month_start <= t.transaction_date <= today:
+            # Statement transactions carry no currency → treated as the legacy TRY base.
+            amt = await _conv(Decimal(str(t.amount)), "TRY")
+            if t.transaction_type == "credit":
+                month_income_actual += amt
+            elif t.transaction_type == "debit":
+                month_expenses_actual += amt
 
     asset_result = await session.execute(
         select(Asset).where(
@@ -240,12 +286,10 @@ async def cashflow_summary(
     )
     liquid = Decimal("0")
     for asset in asset_result.scalars().all():
-        try:
-            liquid += await convert(Decimal(str(asset.current_value)), asset.currency, cur)
-        except Exception:
-            liquid += Decimal(str(asset.current_value))
+        liquid += await _conv(Decimal(str(asset.current_value)), asset.currency)
 
     projected_net = total_income - total_payments
+    projected_month_end = liquid + (expected_income_rest - expected_payments_rest)
     ratio = float(liquid / total_payments) if total_payments > 0 else None
     warning: str | None = None
     if total_payments > 0 and liquid < total_payments:
@@ -254,13 +298,19 @@ async def cashflow_summary(
             f"payments ({cur} {total_payments:,.0f}) over the next {days} days."
         )
 
+    q = Decimal("0.01")
     return CashFlowSummary(
-        total_expected_income=str(total_income.quantize(Decimal("0.01"))),
-        total_expected_payments=str(total_payments.quantize(Decimal("0.01"))),
-        projected_net=str(projected_net.quantize(Decimal("0.01"))),
-        liquid_assets=str(liquid.quantize(Decimal("0.01"))),
+        total_expected_income=str(total_income.quantize(q)),
+        total_expected_payments=str(total_payments.quantize(q)),
+        projected_net=str(projected_net.quantize(q)),
+        liquid_assets=str(liquid.quantize(q)),
         display_currency=cur,
         liquid_to_payments_ratio=ratio,
         warning=warning,
         days=days,
+        month_income_actual=str(month_income_actual.quantize(q)),
+        month_expenses_actual=str(month_expenses_actual.quantize(q)),
+        expected_income_rest=str(expected_income_rest.quantize(q)),
+        expected_payments_rest=str(expected_payments_rest.quantize(q)),
+        projected_month_end=str(projected_month_end.quantize(q)),
     )

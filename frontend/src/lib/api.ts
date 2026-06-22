@@ -1104,6 +1104,7 @@ export interface CashFlowItem {
   description: string;
   source: "liability" | "receivable" | "subscription" | "recurring_income";
   urgent: boolean;
+  overdue: boolean;
 }
 
 export interface CashFlowSummary {
@@ -1115,6 +1116,11 @@ export interface CashFlowSummary {
   liquid_to_payments_ratio: number | null;
   warning: string | null;
   days: number;
+  month_income_actual: string;
+  month_expenses_actual: string;
+  expected_income_rest: string;
+  expected_payments_rest: string;
+  projected_month_end: string;
 }
 
 export async function getCashFlowUpcoming(days = 30): Promise<CashFlowItem[]> {
