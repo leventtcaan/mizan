@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import Link from "next/link";
 import { getToken, getStoredUser, clearToken, getNetWorthSuggestions, updatePreferences } from "@/lib/api";
-import { BarChart2, Calendar, CreditCard, Layers, Upload, LogOut, Menu, X, Scale } from "@/components/ui/Icons";
+import { BarChart2, Calendar, CreditCard, Layers, Upload, LogOut, Menu, X, Scale, Home } from "@/components/ui/Icons";
 import { useLanguage, type Lang } from "@/lib/i18n";
 import NotificationDropdown from "@/components/NotificationDropdown";
 
@@ -28,6 +28,7 @@ export default function Navbar() {
   const [suggestionCount, setSuggestionCount] = useState(0);
 
   const NAV_LINKS = [
+    { href: "/home", label: t("nav.home"), icon: <Home size={16} /> },
     { href: "/transactions", label: t("nav.transactions"), icon: <PieChartMini /> },
     { href: "/networth", label: t("nav.networth"), icon: <Scale size={16} /> },
     { href: "/progress", label: t("nav.progress"), icon: <BarChart2 size={16} /> },
@@ -72,7 +73,7 @@ export default function Navbar() {
       <nav className="fixed top-0 left-0 right-0 z-50 bg-[#0A0A0A]/95 backdrop-blur-md border-b border-[#2A2A2A]">
         <div className="max-w-5xl mx-auto px-4 h-14 flex items-center justify-between gap-4">
           {/* Logo */}
-          <Link href="/transactions" className="text-white font-bold text-lg tracking-tight shrink-0">
+          <Link href="/home" className="text-white font-bold text-lg tracking-tight shrink-0">
             Mizan
           </Link>
 

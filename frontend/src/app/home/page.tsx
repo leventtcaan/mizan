@@ -5,227 +5,274 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import PageLayout from "@/components/ui/PageLayout";
 import AddTransactionModal from "@/components/AddTransactionModal";
-import { ArrowRight, Zap, Bell, DollarSign, Brain, Upload, Plus, Scale, CheckCircle } from "@/components/ui/Icons";
+import {
+  ArrowRight, Zap, Bell, DollarSign, Brain, Upload, Plus, Scale, CheckCircle,
+  TrendingUp, TrendingDown, Calendar, X as XIcon, CreditCard, Wallet,
+} from "@/components/ui/Icons";
 import { useLanguage } from "@/lib/i18n";
 import { card, cardSm, sectionHeading } from "@/lib/design";
 import {
-  getToken,
-  getStoredUser,
-  getNetWorthSummary,
-  getNetWorthHistory,
-  getReconciliationItems,
-  scanReconciliation,
-  getNotifications,
-  getReceivables,
-  getProgress,
-  getInsights,
-  generateDailyNotifications,
-  markNotificationRead,
-  type NetWorthSummary,
-  type NetworthSnapshot,
-  type ReconciliationItem,
-  type AppNotification,
-  type ReceivableItem,
-  type ProgressResponse,
+  getToken, getStoredUser,
+  getNetWorthSummary, getNetWorthHistory, getCashFlowSummary, getCashFlowUpcoming,
+  getReconciliationItems, scanReconciliation, getNotifications, getReceivables,
+  getProgress, getInsights, generateDailyNotifications,
+  markNotificationRead, updateReconciliationItemStatus,
+  type NetWorthSummary, type NetworthSnapshot, type CashFlowSummary, type CashFlowItem,
+  type ReconciliationItem, type AppNotification, type ReceivableItem, type ProgressResponse,
 } from "@/lib/api";
 
-const DISPLAY_CURRENCY = "TRY";
+const CCY = "TRY";
 
-function fmt(value: number, currency = DISPLAY_CURRENCY): string {
+function fmt(value: number, currency = CCY): string {
   try {
     return new Intl.NumberFormat(undefined, {
-      style: "currency",
-      currency,
-      maximumFractionDigits: currency === "TRY" ? 0 : 2,
+      style: "currency", currency, maximumFractionDigits: currency === "TRY" ? 0 : 2,
     }).format(value);
   } catch {
     return `${new Intl.NumberFormat(undefined, { maximumFractionDigits: 2 }).format(value)} ${currency}`;
   }
 }
 
+function pct(n: number): string {
+  return `${n >= 0 ? "" : "−"}${Math.abs(n).toFixed(0)}%`;
+}
+
+function daysUntil(dateStr: string): number {
+  const d = new Date(dateStr);
+  const now = new Date();
+  d.setHours(0, 0, 0, 0); now.setHours(0, 0, 0, 0);
+  return Math.round((d.getTime() - now.getTime()) / 86400000);
+}
+
 function truncateSentences(text: string, count: number): string {
   const parts = text.split(/(?<=[.!?])\s+/).filter(Boolean);
-  if (parts.length <= count) return text.trim();
-  return parts.slice(0, count).join(" ").trim();
+  return parts.length <= count ? text.trim() : parts.slice(0, count).join(" ").trim();
 }
 
 function Skeleton({ className = "" }: { className?: string }) {
   return <div className={`bg-[#2A2A2A] rounded-lg animate-pulse ${className}`} />;
 }
 
+type Urgency = "today" | "week" | "whenever";
 type ActionItem = {
-  key: string;
-  icon: React.ReactNode;
-  accent: string;
-  title: string;
-  detail: string;
-  onAction?: () => void;
-  actionLabel: string;
-  href?: string;
+  key: string; urgency: Urgency; icon: React.ReactNode; accent: string;
+  title: string; detail: string; href?: string; onDismiss?: () => void;
 };
+
+const URGENCY_ORDER: Urgency[] = ["today", "week", "whenever"];
 
 export default function HomePage() {
   const router = useRouter();
   const { lang, t } = useLanguage();
 
-  // Section 1 — headline
+  // Snapshot (net worth + ratios + health)
   const [summary, setSummary] = useState<NetWorthSummary | null>(null);
   const [snapshots, setSnapshots] = useState<NetworthSnapshot[] | null>(null);
-  const [headlineLoading, setHeadlineLoading] = useState(true);
+  const [cashflow, setCashflow] = useState<CashFlowSummary | null>(null);
+  const [snapshotLoading, setSnapshotLoading] = useState(true);
 
-  // Section 2 — action items
+  // Action center
   const [reconItems, setReconItems] = useState<ReconciliationItem[]>([]);
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const [overdueReceivables, setOverdueReceivables] = useState<ReceivableItem[]>([]);
+  const [urgentFlows, setUrgentFlows] = useState<CashFlowItem[]>([]);
+  const [dismissed, setDismissed] = useState<Set<string>>(new Set());
   const [actionsLoading, setActionsLoading] = useState(true);
 
-  // Section 3 — this month
+  // Cash flow pulse
   const [progress, setProgress] = useState<ProgressResponse | null>(null);
-  const [progressLoading, setProgressLoading] = useState(true);
+  const [pulseLoading, setPulseLoading] = useState(true);
 
-  // Section 4 — AI observation
+  // Upcoming obligations
+  const [upcoming, setUpcoming] = useState<CashFlowItem[]>([]);
+  const [upcomingLoading, setUpcomingLoading] = useState(true);
+
+  // Insight
   const [insight, setInsight] = useState<string | null>(null);
   const [insightLoading, setInsightLoading] = useState(true);
 
-  // Quick action modal
   const [txModalOpen, setTxModalOpen] = useState(false);
 
   useEffect(() => {
-    if (!getToken() || !getStoredUser()) {
-      router.replace("/login");
-      return;
-    }
+    if (!getToken() || !getStoredUser()) { router.replace("/login"); return; }
 
-    // Section 1 — net worth + history
     Promise.all([
-      getNetWorthSummary(DISPLAY_CURRENCY).catch(() => null),
+      getNetWorthSummary(CCY).catch(() => null),
       getNetWorthHistory(90).catch(() => null),
-    ])
-      .then(([s, h]) => {
-        setSummary(s);
-        setSnapshots(h);
-      })
-      .finally(() => setHeadlineLoading(false));
+      getCashFlowSummary(30, CCY).catch(() => null),
+    ]).then(([s, h, cf]) => { setSummary(s); setSnapshots(h); setCashflow(cf); })
+      .finally(() => setSnapshotLoading(false));
 
-    // Section 2 — action items (scan first, then read)
-    scanReconciliation()
-      .catch(() => null)
+    scanReconciliation().catch(() => null)
       .then(() => generateDailyNotifications(lang).catch(() => null))
-      .then(() =>
-        Promise.all([
-          getReconciliationItems("open").catch(() => []),
-          getNotifications().catch(() => []),
-          getReceivables().catch(() => []),
-        ]),
-      )
-      .then(([items, notifs, receivables]) => {
-        setReconItems(items.slice(0, 5));
-        setNotifications(notifs.filter((n) => !n.is_read).slice(0, 3));
-        setOverdueReceivables(receivables.filter((r) => r.status === "overdue").slice(0, 3));
+      .then(() => Promise.all([
+        getReconciliationItems("open").catch(() => []),
+        getNotifications().catch(() => []),
+        getReceivables().catch(() => []),
+        getCashFlowUpcoming(30).catch(() => []),
+      ]))
+      .then(([items, notifs, receivables, flows]) => {
+        setReconItems(items);
+        setNotifications(notifs.filter((n) => !n.is_read));
+        setOverdueReceivables(receivables.filter((r) => r.status === "overdue"));
+        setUrgentFlows(flows.filter((f) => f.urgent || daysUntil(f.date) <= 3));
       })
       .finally(() => setActionsLoading(false));
 
-    // Section 3 — this month
-    getProgress()
-      .then(setProgress)
-      .catch(() => null)
-      .finally(() => setProgressLoading(false));
+    getProgress().then(setProgress).catch(() => null).finally(() => setPulseLoading(false));
 
-    // Section 4 — AI observation
-    getInsights()
-      .then((res) => setInsight(res.insight?.trim() || null))
-      .catch(() => null)
-      .finally(() => setInsightLoading(false));
+    getCashFlowUpcoming(30).then((f) => setUpcoming(f)).catch(() => null).finally(() => setUpcomingLoading(false));
+
+    getInsights().then((r) => setInsight(r.insight?.trim() || null)).catch(() => null).finally(() => setInsightLoading(false));
   }, [router, lang]);
 
-  // Net worth delta from last 2 snapshots (computed in USD %, applied to display value)
-  const nwDelta: { value: number; pct: number; positive: boolean } | null = (() => {
+  const hasAssets = summary != null && (summary.total_assets_try > 0 || summary.total_liabilities_try > 0);
+
+  // --- derived: net worth delta ---
+  const nwDelta = (() => {
     if (!snapshots || snapshots.length < 2 || !summary) return null;
     const prev = parseFloat(snapshots[snapshots.length - 2].net_worth_usd);
     const curr = parseFloat(snapshots[snapshots.length - 1].net_worth_usd);
     if (!prev || isNaN(prev) || isNaN(curr)) return null;
-    const pct = ((curr - prev) / Math.abs(prev)) * 100;
-    const value = summary.net_worth_try * (pct / 100);
-    return { value, pct, positive: curr - prev >= 0 };
+    const p = ((curr - prev) / Math.abs(prev)) * 100;
+    return { value: summary.net_worth_try * (p / 100), pct: p, positive: curr - prev >= 0 };
   })();
 
-  const hasAssets = summary != null && (summary.total_assets_try > 0 || summary.total_liabilities_try > 0);
+  // --- derived: ratios ---
+  const liquidityRatio = (() => {
+    if (!summary || !cashflow || summary.total_assets_try <= 0) return null;
+    return Math.max(0, Math.min(1, parseFloat(cashflow.liquid_assets) / summary.total_assets_try));
+  })();
+  const debtRatio = (() => {
+    if (!summary || summary.total_assets_try <= 0) return null;
+    return Math.max(0, summary.total_liabilities_try / summary.total_assets_try);
+  })();
+  const health: "healthy" | "warning" | "critical" | null = (() => {
+    if (debtRatio == null && liquidityRatio == null) return null;
+    const d = debtRatio ?? 0;
+    const l = liquidityRatio ?? 1;
+    if (d > 0.7 || l < 0.05) return "critical";
+    if (d > 0.4 || l < 0.15) return "warning";
+    return "healthy";
+  })();
+  const HEALTH_STYLE = {
+    healthy: { dot: "bg-emerald-400", text: "text-emerald-400", bg: "bg-emerald-950/40 border-emerald-800/40" },
+    warning: { dot: "bg-amber-400", text: "text-amber-400", bg: "bg-amber-950/40 border-amber-800/40" },
+    critical: { dot: "bg-red-400", text: "text-red-400", bg: "bg-red-950/40 border-red-800/40" },
+  } as const;
 
-  // Build unified action list
-  const actionItems: ActionItem[] = [];
-  reconItems.forEach((item) => {
-    actionItems.push({
-      key: `recon-${item.id}`,
-      icon: <Zap size={16} />,
-      accent: item.severity === "high" ? "text-red-400" : item.severity === "medium" ? "text-amber-400" : "text-gray-400",
-      title: item.title,
-      detail: item.description,
-      actionLabel: t("home.review"),
-      href: "/networth",
-    });
-  });
-  overdueReceivables.forEach((r) => {
-    actionItems.push({
-      key: `recv-${r.id}`,
-      icon: <DollarSign size={16} />,
-      accent: "text-orange-400",
-      title: `${r.from_person} · ${fmt(parseFloat(r.amount), r.currency)}`,
-      detail: t("home.overdue"),
-      actionLabel: t("home.review"),
-      href: "/networth",
-    });
-  });
-  notifications.forEach((n) => {
-    actionItems.push({
-      key: `notif-${n.id}`,
-      icon: <Bell size={16} />,
-      accent: n.type === "alert" ? "text-red-400" : n.type === "warning" ? "text-amber-400" : "text-indigo-400",
-      title: n.title,
-      detail: n.message,
-      actionLabel: t("home.continue"),
-      onAction: () => {
-        markNotificationRead(n.id).catch(() => null);
-        setNotifications((prev) => prev.filter((x) => x.id !== n.id));
-      },
-    });
-  });
-
-  // This month line
+  // --- derived: month pulse ---
   const monthLine = (() => {
     if (!progress || progress.months.length === 0) return null;
     const m = progress.months[progress.months.length - 1];
+    const prevM = progress.months.length >= 2 ? progress.months[progress.months.length - 2] : null;
     const income = parseFloat(m.total_income) || 0;
     const expense = parseFloat(m.total_spent) || 0;
-    return { income, expense, net: income - expense };
+    const prevNet = prevM ? (parseFloat(prevM.total_income) || 0) - (parseFloat(prevM.total_spent) || 0) : null;
+    const net = income - expense;
+    const trend = prevNet != null && prevNet !== 0 ? ((net - prevNet) / Math.abs(prevNet)) * 100 : null;
+    const savingsRate = income > 0 ? (net / income) * 100 : null;
+    return { income, expense, net, trend, savingsRate, byCategory: m.by_category };
   })();
 
-  // Sparkline points from monthly net (last 4)
-  const sparkPoints = (() => {
-    if (!progress || progress.months.length < 2) return null;
-    const nets = progress.months.slice(-4).map((m) => (parseFloat(m.total_income) || 0) - (parseFloat(m.total_spent) || 0));
-    const min = Math.min(...nets);
-    const max = Math.max(...nets);
-    const range = max - min || 1;
-    const w = 80;
-    const h = 24;
-    return nets
-      .map((v, i) => {
-        const x = (i / (nets.length - 1)) * w;
-        const y = h - ((v - min) / range) * h;
-        return `${x.toFixed(1)},${y.toFixed(1)}`;
-      })
-      .join(" ");
+  const topCategories = (() => {
+    if (!monthLine) return [];
+    const entries = Object.entries(monthLine.byCategory)
+      .map(([k, v]) => [k, parseFloat(v) || 0] as [string, number])
+      .filter(([, v]) => v > 0)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 3);
+    const max = entries.length ? entries[0][1] : 1;
+    return entries.map(([cat, val]) => ({ cat, val, width: Math.max(6, (val / max) * 100) }));
   })();
+
+  const projectedMonthEnd = (() => {
+    if (!cashflow) return null;
+    return parseFloat(cashflow.liquid_assets) + parseFloat(cashflow.projected_net);
+  })();
+
+  // --- derived: net worth shrank driver (top expense category) ---
+  const shrankDriver = (() => {
+    if (!nwDelta || nwDelta.positive || topCategories.length === 0) return null;
+    return topCategories[0].cat;
+  })();
+
+  // --- build action center ---
+  const actionItems: ActionItem[] = [];
+  overdueReceivables.forEach((r) => {
+    const k = `recv-${r.id}`;
+    if (dismissed.has(k)) return;
+    actionItems.push({
+      key: k, urgency: "today", icon: <DollarSign size={16} />, accent: "text-orange-400",
+      title: `${r.from_person} · ${fmt(parseFloat(r.amount), r.currency)}`, detail: t("home.overdue"),
+      href: "/networth", onDismiss: () => setDismissed((s) => new Set(s).add(k)),
+    });
+  });
+  urgentFlows.forEach((f, i) => {
+    const k = `flow-${i}-${f.date}-${f.description}`;
+    if (dismissed.has(k)) return;
+    const isPayment = f.type === "liability_payment" || f.type === "subscription";
+    const du = daysUntil(f.date);
+    actionItems.push({
+      key: k, urgency: du <= 0 ? "today" : "week",
+      icon: isPayment ? <CreditCard size={16} /> : <Wallet size={16} />,
+      accent: du <= 0 ? "text-red-400" : "text-amber-400",
+      title: `${f.description} · ${fmt(parseFloat(f.amount), f.currency)}`,
+      detail: du <= 0 ? t("home.overdue") : `${du}g`,
+      href: "/cashflow", onDismiss: () => setDismissed((s) => new Set(s).add(k)),
+    });
+  });
+  reconItems.forEach((item) => {
+    const k = `recon-${item.id}`;
+    if (dismissed.has(k)) return;
+    actionItems.push({
+      key: k, urgency: item.severity === "high" ? "today" : item.severity === "medium" ? "week" : "whenever",
+      icon: <Zap size={16} />,
+      accent: item.severity === "high" ? "text-red-400" : item.severity === "medium" ? "text-amber-400" : "text-gray-400",
+      title: item.title, detail: item.description, href: "/networth",
+      onDismiss: () => {
+        setDismissed((s) => new Set(s).add(k));
+        updateReconciliationItemStatus(item.id, "dismissed").catch(() => null);
+      },
+    });
+  });
+  notifications.forEach((n) => {
+    const k = `notif-${n.id}`;
+    if (dismissed.has(k)) return;
+    actionItems.push({
+      key: k, urgency: n.type === "alert" ? "today" : n.type === "warning" ? "week" : "whenever",
+      icon: <Bell size={16} />,
+      accent: n.type === "alert" ? "text-red-400" : n.type === "warning" ? "text-amber-400" : "text-indigo-400",
+      title: n.title, detail: n.message,
+      onDismiss: () => {
+        setDismissed((s) => new Set(s).add(k));
+        markNotificationRead(n.id).catch(() => null);
+      },
+    });
+  });
+  const sortedActions = actionItems
+    .sort((a, b) => URGENCY_ORDER.indexOf(a.urgency) - URGENCY_ORDER.indexOf(b.urgency))
+    .slice(0, 5);
+  const groupedActions: Record<Urgency, ActionItem[]> = { today: [], week: [], whenever: [] };
+  sortedActions.forEach((a) => groupedActions[a.urgency].push(a));
+  const URGENCY_LABEL: Record<Urgency, string> = {
+    today: t("home.today"), week: t("home.thisWeekGroup"), whenever: t("home.whenever"),
+  };
+
+  // upcoming obligations (compact, 30d, top 5 by date)
+  const sortedUpcoming = [...upcoming].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()).slice(0, 5);
 
   return (
     <PageLayout maxWidth="md">
       <div className="space-y-4 mt-2">
-        {/* 1 — HEADLINE */}
+
+        {/* 1 — FINANCIAL SNAPSHOT */}
         <section className={card}>
-          {headlineLoading ? (
+          {snapshotLoading ? (
             <div className="space-y-3">
               <Skeleton className="h-3 w-24" />
               <Skeleton className="h-10 w-56" />
+              <Skeleton className="h-12 w-full" />
             </div>
           ) : !hasAssets ? (
             <Link href="/networth" className="flex items-center justify-between group">
@@ -240,29 +287,69 @@ export default function HomePage() {
             </Link>
           ) : (
             <div>
-              <p className={sectionHeading}>{t("home.netWorth")}</p>
-              <div className="flex items-end flex-wrap gap-3 mt-2">
-                <span className={`text-4xl font-bold tabular-nums ${summary!.net_worth_try >= 0 ? "text-white" : "text-red-400"}`}>
-                  {fmt(summary!.net_worth_try)}
-                </span>
-                {nwDelta && (
-                  <span
-                    className={`text-sm font-semibold tabular-nums px-2 py-1 rounded-lg mb-1 ${
-                      nwDelta.positive ? "bg-emerald-950/50 text-emerald-400" : "bg-red-950/50 text-red-400"
-                    }`}
-                  >
-                    {nwDelta.positive ? "▲ +" : "▼ "}
-                    {fmt(nwDelta.value)}
-                    <span className="text-xs ml-1 opacity-70">({nwDelta.pct >= 0 ? "+" : ""}{nwDelta.pct.toFixed(1)}%)</span>
-                  </span>
+              {/* headline */}
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className={sectionHeading}>{t("home.netWorth")}</p>
+                  <div className="flex items-end flex-wrap gap-3 mt-2">
+                    <span className={`text-4xl font-bold tabular-nums ${summary!.net_worth_try >= 0 ? "text-white" : "text-red-400"}`}>
+                      {fmt(summary!.net_worth_try)}
+                    </span>
+                    {nwDelta && (
+                      <span className={`text-sm font-semibold tabular-nums px-2 py-1 rounded-lg mb-1 ${nwDelta.positive ? "bg-emerald-950/50 text-emerald-400" : "bg-red-950/50 text-red-400"}`}>
+                        {nwDelta.positive ? "▲ +" : "▼ "}{fmt(nwDelta.value)}
+                        <span className="text-xs ml-1 opacity-70">({nwDelta.pct >= 0 ? "+" : ""}{nwDelta.pct.toFixed(1)}%)</span>
+                      </span>
+                    )}
+                  </div>
+                  {nwDelta && (
+                    <p className="text-gray-500 text-xs mt-1.5 flex items-center gap-1">
+                      {nwDelta.positive
+                        ? <><TrendingUp size={12} className="text-emerald-400" /> {t("home.grew")}</>
+                        : <><TrendingDown size={12} className="text-red-400" /> {t("home.shrank")}{shrankDriver && <> · {t("home.driver")}: {t(`category.${shrankDriver}`)}</>}</>}
+                    </p>
+                  )}
+                </div>
+                {/* health signal */}
+                {health && (
+                  <div className={`shrink-0 flex items-center gap-1.5 px-2.5 py-1 rounded-full border ${HEALTH_STYLE[health].bg}`}>
+                    <span className={`w-1.5 h-1.5 rounded-full ${HEALTH_STYLE[health].dot}`} />
+                    <span className={`text-xs font-semibold ${HEALTH_STYLE[health].text}`}>{t(`home.${health}`)}</span>
+                  </div>
                 )}
               </div>
-              {nwDelta && <p className="text-gray-500 text-xs mt-1.5">{t("home.thisWeek")}</p>}
+
+              {/* ratios */}
+              <div className="grid grid-cols-2 gap-3 mt-4">
+                <div className="bg-[#0F0F0F] border border-[#2A2A2A] rounded-lg p-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-gray-500 text-xs">{t("home.liquidity")}</span>
+                    <span className="text-white text-sm font-semibold tabular-nums">{liquidityRatio != null ? pct(liquidityRatio * 100) : "—"}</span>
+                  </div>
+                  <div className="mt-2 h-1.5 rounded-full bg-[#2A2A2A] overflow-hidden">
+                    <div className="h-full rounded-full bg-sky-400" style={{ width: `${(liquidityRatio ?? 0) * 100}%` }} />
+                  </div>
+                  <p className="text-gray-600 text-[10px] mt-1">{t("home.liquidityHint")}</p>
+                </div>
+                <div className="bg-[#0F0F0F] border border-[#2A2A2A] rounded-lg p-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-gray-500 text-xs">{t("home.debtRatio")}</span>
+                    <span className="text-white text-sm font-semibold tabular-nums">{debtRatio != null ? pct(debtRatio * 100) : "—"}</span>
+                  </div>
+                  <div className="mt-2 h-1.5 rounded-full bg-[#2A2A2A] overflow-hidden">
+                    <div
+                      className={`h-full rounded-full ${(debtRatio ?? 0) > 0.7 ? "bg-red-400" : (debtRatio ?? 0) > 0.4 ? "bg-amber-400" : "bg-emerald-400"}`}
+                      style={{ width: `${Math.min(100, (debtRatio ?? 0) * 100)}%` }}
+                    />
+                  </div>
+                  <p className="text-gray-600 text-[10px] mt-1">&nbsp;</p>
+                </div>
+              </div>
             </div>
           )}
         </section>
 
-        {/* 2 — ACTION ITEMS */}
+        {/* 2 — ACTION CENTER */}
         <section className={card}>
           <div className="flex items-center justify-between mb-3">
             <p className={sectionHeading}>{t("home.needsAttention")}</p>
@@ -272,39 +359,147 @@ export default function HomePage() {
           </div>
 
           {actionsLoading ? (
-            <div className="space-y-2">
-              {[1, 2, 3].map((i) => <Skeleton key={i} className="h-14 w-full" />)}
-            </div>
-          ) : actionItems.length === 0 ? (
+            <div className="space-y-2">{[1, 2, 3].map((i) => <Skeleton key={i} className="h-14 w-full" />)}</div>
+          ) : sortedActions.length === 0 ? (
             <div className="flex items-center gap-3 py-3">
               <CheckCircle size={20} className="text-emerald-400 shrink-0" />
-              <div>
-                <p className="text-white text-sm font-medium">{t("home.allClear")}</p>
-                <p className="text-gray-500 text-xs">{t("home.allClearSub")}</p>
-              </div>
+              <p className="text-white text-sm font-medium">{t("home.allClear")}</p>
             </div>
           ) : (
-            <ul className="space-y-2">
-              {actionItems.map((item) => {
-                const Inner = (
-                  <div className="flex items-center gap-3 p-3 rounded-lg bg-[#0F0F0F] border border-[#2A2A2A] hover:border-[#3A3A3A] transition-colors">
-                    <span className={`shrink-0 ${item.accent}`}>{item.icon}</span>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-white text-sm font-medium truncate">{item.title}</p>
-                      <p className="text-gray-500 text-xs truncate">{item.detail}</p>
-                    </div>
-                    <span className="text-indigo-400 text-xs font-medium shrink-0 flex items-center gap-1">
-                      {item.actionLabel} <ArrowRight size={12} />
-                    </span>
+            <div className="space-y-3">
+              {URGENCY_ORDER.filter((u) => groupedActions[u].length > 0).map((u) => (
+                <div key={u}>
+                  <p className="text-[10px] font-bold tracking-wider text-gray-600 mb-1.5">{URGENCY_LABEL[u]}</p>
+                  <ul className="space-y-2">
+                    {groupedActions[u].map((item) => (
+                      <li key={item.key} className="flex items-center gap-2.5 p-3 rounded-lg bg-[#0F0F0F] border border-[#2A2A2A]">
+                        <span className={`shrink-0 ${item.accent}`}>{item.icon}</span>
+                        {item.href ? (
+                          <Link href={item.href} className="flex-1 min-w-0 group">
+                            <p className="text-white text-sm font-medium truncate group-hover:text-indigo-300 transition-colors">{item.title}</p>
+                            <p className="text-gray-500 text-xs truncate">{item.detail}</p>
+                          </Link>
+                        ) : (
+                          <div className="flex-1 min-w-0">
+                            <p className="text-white text-sm font-medium truncate">{item.title}</p>
+                            <p className="text-gray-500 text-xs truncate">{item.detail}</p>
+                          </div>
+                        )}
+                        {item.onDismiss && (
+                          <button onClick={item.onDismiss} title={t("home.dismiss")} className="shrink-0 text-gray-600 hover:text-gray-300 transition-colors p-1">
+                            <XIcon size={14} />
+                          </button>
+                        )}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
+
+        {/* 3 — CASH FLOW PULSE */}
+        <section className={card}>
+          <div className="flex items-center justify-between mb-3">
+            <p className={sectionHeading}>{t("home.cashflowPulse")}</p>
+            <Link href="/transactions" className="text-indigo-400 text-xs hover:text-indigo-300 transition-colors flex items-center gap-1">
+              {t("home.viewTransactions")} <ArrowRight size={12} />
+            </Link>
+          </div>
+
+          {pulseLoading ? (
+            <div className="space-y-3"><Skeleton className="h-8 w-full" /><Skeleton className="h-16 w-full" /></div>
+          ) : !monthLine ? (
+            <p className="text-gray-500 text-sm">{t("home.noMonthData")}</p>
+          ) : (
+            <div className="space-y-4">
+              {/* income / expense / net + trend */}
+              <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1 text-sm">
+                <span className="text-emerald-400 font-semibold tabular-nums">+{fmt(monthLine.income)} <span className="text-gray-500 font-normal text-xs">{t("home.income")}</span></span>
+                <span className="text-red-400 font-semibold tabular-nums">-{fmt(monthLine.expense)} <span className="text-gray-500 font-normal text-xs">{t("home.expense")}</span></span>
+                <span className={`font-semibold tabular-nums ${monthLine.net >= 0 ? "text-white" : "text-orange-400"}`}>
+                  {monthLine.net >= 0 ? "" : "−"}{fmt(Math.abs(monthLine.net))} <span className="text-gray-500 font-normal text-xs">{t("home.net")}</span>
+                </span>
+                {monthLine.trend != null && (
+                  <span className={`text-xs flex items-center gap-0.5 ${monthLine.trend >= 0 ? "text-emerald-400" : "text-red-400"}`}>
+                    {monthLine.trend >= 0 ? <TrendingUp size={12} /> : <TrendingDown size={12} />}
+                    {pct(monthLine.trend)} <span className="text-gray-600">{t("home.vsLastMonth")}</span>
+                  </span>
+                )}
+              </div>
+
+              {/* projected month-end + savings rate */}
+              <div className="grid grid-cols-2 gap-3">
+                <div className="bg-[#0F0F0F] border border-[#2A2A2A] rounded-lg p-3">
+                  <p className="text-gray-500 text-xs">{t("home.projectedMonthEnd")}</p>
+                  <p className={`text-base font-semibold tabular-nums mt-1 ${projectedMonthEnd != null && projectedMonthEnd < 0 ? "text-red-400" : "text-white"}`}>
+                    {projectedMonthEnd != null ? fmt(projectedMonthEnd) : "—"}
+                  </p>
+                </div>
+                <div className="bg-[#0F0F0F] border border-[#2A2A2A] rounded-lg p-3">
+                  <p className="text-gray-500 text-xs">{t("home.savingsRate")}</p>
+                  <p className={`text-base font-semibold tabular-nums mt-1 ${monthLine.savingsRate != null && monthLine.savingsRate < 0 ? "text-orange-400" : "text-emerald-400"}`}>
+                    {monthLine.savingsRate != null ? pct(monthLine.savingsRate) : "—"}
+                  </p>
+                </div>
+              </div>
+
+              {/* top categories — CSS bars */}
+              {topCategories.length > 0 && (
+                <div>
+                  <p className="text-gray-500 text-xs mb-2">{t("home.topSpending")}</p>
+                  <div className="space-y-2">
+                    {topCategories.map((c) => (
+                      <div key={c.cat} className="flex items-center gap-3">
+                        <span className="text-gray-400 text-xs w-20 shrink-0 truncate">{t(`category.${c.cat}`)}</span>
+                        <div className="flex-1 h-2 rounded-full bg-[#2A2A2A] overflow-hidden">
+                          <div className="h-full rounded-full bg-indigo-500" style={{ width: `${c.width}%` }} />
+                        </div>
+                        <span className="text-gray-300 text-xs tabular-nums w-20 text-right shrink-0">{fmt(c.val)}</span>
+                      </div>
+                    ))}
                   </div>
-                );
+                </div>
+              )}
+            </div>
+          )}
+        </section>
+
+        {/* 4 — UPCOMING OBLIGATIONS */}
+        <section className={card}>
+          <div className="flex items-center justify-between mb-3">
+            <p className={sectionHeading}>{t("home.upcoming")}</p>
+            <Link href="/cashflow" className="text-indigo-400 text-xs hover:text-indigo-300 transition-colors flex items-center gap-1">
+              {t("home.viewCalendar")} <ArrowRight size={12} />
+            </Link>
+          </div>
+
+          {upcomingLoading ? (
+            <div className="space-y-2">{[1, 2].map((i) => <Skeleton key={i} className="h-10 w-full" />)}</div>
+          ) : sortedUpcoming.length === 0 ? (
+            <p className="text-gray-500 text-sm">{t("home.noUpcoming")}</p>
+          ) : (
+            <ul className="space-y-1.5">
+              {sortedUpcoming.map((f, i) => {
+                const du = daysUntil(f.date);
+                const inflow = f.type === "income" || f.type === "recurring_income";
                 return (
-                  <li key={item.key}>
-                    {item.href ? (
-                      <Link href={item.href}>{Inner}</Link>
-                    ) : (
-                      <button onClick={item.onAction} className="w-full text-left">{Inner}</button>
-                    )}
+                  <li key={`${f.date}-${f.description}-${i}`} className="flex items-center gap-3 py-1.5">
+                    <span className={`shrink-0 ${inflow ? "text-emerald-400" : du <= 0 ? "text-red-400" : "text-gray-500"}`}>
+                      {inflow ? <Wallet size={15} /> : <Calendar size={15} />}
+                    </span>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-white text-sm truncate">{f.description}</p>
+                    </div>
+                    <div className="text-right shrink-0">
+                      <p className={`text-sm font-medium tabular-nums ${inflow ? "text-emerald-400" : "text-gray-200"}`}>
+                        {inflow ? "+" : "−"}{fmt(parseFloat(f.amount), f.currency)}
+                      </p>
+                      <p className={`text-[10px] ${du <= 0 ? "text-red-400 font-medium" : "text-gray-600"}`}>
+                        {du <= 0 ? t("home.overdue") : `${du}g`}
+                      </p>
+                    </div>
                   </li>
                 );
               })}
@@ -312,72 +507,27 @@ export default function HomePage() {
           )}
         </section>
 
-        {/* 3 — THIS MONTH */}
+        {/* 5 — ONE SMART INSIGHT */}
         <section className={card}>
-          <div className="flex items-center justify-between mb-3">
-            <p className={sectionHeading}>{t("home.thisMonth")}</p>
-            <Link href="/transactions" className="text-indigo-400 text-xs hover:text-indigo-300 transition-colors flex items-center gap-1">
-              {t("home.viewTransactions")} <ArrowRight size={12} />
-            </Link>
+          <div className="flex items-center gap-2 mb-2">
+            <Brain size={15} className="text-indigo-400" />
+            <p className={sectionHeading}>{t("home.aiTitle")}</p>
           </div>
-
-          {progressLoading ? (
-            <Skeleton className="h-8 w-full" />
-          ) : !monthLine ? (
-            <p className="text-gray-500 text-sm">{t("home.noMonthData")}</p>
-          ) : (
-            <div className="flex items-center justify-between gap-4">
-              <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1 text-sm">
-                <span className="text-emerald-400 font-semibold tabular-nums">
-                  +{fmt(monthLine.income)} <span className="text-gray-500 font-normal text-xs">{t("home.income")}</span>
-                </span>
-                <span className="text-red-400 font-semibold tabular-nums">
-                  -{fmt(monthLine.expense)} <span className="text-gray-500 font-normal text-xs">{t("home.expense")}</span>
-                </span>
-                <span className={`font-semibold tabular-nums ${monthLine.net >= 0 ? "text-white" : "text-orange-400"}`}>
-                  {monthLine.net >= 0 ? "" : "−"}{fmt(Math.abs(monthLine.net))} <span className="text-gray-500 font-normal text-xs">{t("home.net")}</span>
-                </span>
-              </div>
-              {sparkPoints && (
-                <svg width="80" height="24" viewBox="0 0 80 24" className="shrink-0 hidden sm:block">
-                  <polyline
-                    points={sparkPoints}
-                    fill="none"
-                    stroke={monthLine.net >= 0 ? "#34d399" : "#fb923c"}
-                    strokeWidth="1.5"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
-                </svg>
-              )}
+          {insightLoading ? (
+            <div className="space-y-2"><Skeleton className="h-3 w-full" /><Skeleton className="h-3 w-2/3" /></div>
+          ) : insight ? (
+            <div>
+              <p className="text-gray-200 text-sm leading-relaxed">{truncateSentences(insight, 2)}</p>
+              <Link href="/transactions" className="text-indigo-400 text-xs hover:text-indigo-300 transition-colors mt-2 inline-flex items-center gap-1">
+                {t("home.continue")} <ArrowRight size={12} />
+              </Link>
             </div>
+          ) : (
+            <p className="text-gray-400 text-sm leading-relaxed">{t("home.welcomeInsight")}</p>
           )}
         </section>
 
-        {/* 4 — AI OBSERVATION (skip silently if none) */}
-        {(insightLoading || insight) && (
-          <section className={card}>
-            <div className="flex items-center gap-2 mb-2">
-              <Brain size={15} className="text-indigo-400" />
-              <p className={sectionHeading}>{t("home.aiTitle")}</p>
-            </div>
-            {insightLoading ? (
-              <div className="space-y-2">
-                <Skeleton className="h-3 w-full" />
-                <Skeleton className="h-3 w-2/3" />
-              </div>
-            ) : (
-              <div>
-                <p className="text-gray-200 text-sm leading-relaxed">{truncateSentences(insight!, 2)}</p>
-                <Link href="/transactions" className="text-indigo-400 text-xs hover:text-indigo-300 transition-colors mt-2 inline-flex items-center gap-1">
-                  {t("home.continue")} <ArrowRight size={12} />
-                </Link>
-              </div>
-            )}
-          </section>
-        )}
-
-        {/* 5 — QUICK ACTIONS */}
+        {/* 6 — QUICK ENTRY */}
         <section>
           <p className={`${sectionHeading} mb-2 px-1`}>{t("home.quickActions")}</p>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
@@ -394,14 +544,19 @@ export default function HomePage() {
               <span className="text-white text-sm font-medium">{t("home.addTransaction")}</span>
             </button>
           </div>
+          <div className="flex gap-3 mt-3">
+            <Link href="/networth" className="flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-lg border border-[#2A2A2A] text-gray-400 hover:text-gray-200 hover:border-[#3A3A3A] text-xs font-medium transition-colors">
+              <CreditCard size={14} /> {t("home.addDebt")}
+            </Link>
+            <Link href="/networth" className="flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-lg border border-[#2A2A2A] text-gray-400 hover:text-gray-200 hover:border-[#3A3A3A] text-xs font-medium transition-colors">
+              <DollarSign size={14} /> {t("home.addReceivable")}
+            </Link>
+          </div>
         </section>
       </div>
 
       {txModalOpen && (
-        <AddTransactionModal
-          onClose={() => setTxModalOpen(false)}
-          onSuccess={() => setTxModalOpen(false)}
-        />
+        <AddTransactionModal onClose={() => setTxModalOpen(false)} onSuccess={() => setTxModalOpen(false)} />
       )}
     </PageLayout>
   );
