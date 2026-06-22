@@ -39,6 +39,7 @@ class TokenResponse(BaseModel):
     email: str
     onboarding_completed: bool = False
     language: str = "tr"
+    display_currency: str = "TRY"
 
 
 class UserResponse(BaseModel):
@@ -46,12 +47,14 @@ class UserResponse(BaseModel):
     email: str
     onboarding_completed: bool
     language: str
+    display_currency: str
     email_weekly_enabled: bool
 
 
 class PreferencesRequest(BaseModel):
     language: str | None = None
     email_weekly_enabled: bool | None = None
+    display_currency: str | None = None
 
 
 @router.post("/register", response_model=TokenResponse, status_code=status.HTTP_201_CREATED)
@@ -90,6 +93,8 @@ async def register(
         user_id=str(user.id),
         email=user.email,
         onboarding_completed=user.onboarding_completed,
+        language=user.language,
+        display_currency=user.display_currency,
     )
 
 
@@ -128,6 +133,7 @@ async def login(
         email=user.email,
         onboarding_completed=user.onboarding_completed,
         language=user.language,
+        display_currency=user.display_currency,
     )
 
 
@@ -140,6 +146,7 @@ async def get_me(
         email=current_user.email,
         onboarding_completed=current_user.onboarding_completed,
         language=current_user.language,
+        display_currency=current_user.display_currency,
         email_weekly_enabled=current_user.email_weekly_enabled,
     )
 
@@ -157,14 +164,24 @@ async def update_preferences(
         current_user.language = body.language
     if body.email_weekly_enabled is not None:
         current_user.email_weekly_enabled = body.email_weekly_enabled
+    if body.display_currency is not None:
+        code = body.display_currency.strip().upper()
+        if not (1 <= len(code) <= 10) or not code.isalnum():
+            from fastapi import HTTPException
+            raise HTTPException(status_code=422, detail="display_currency must be a 1-10 char code")
+        current_user.display_currency = code
     session.add(current_user)
     await session.commit()
-    logger.info("Preferences updated — user=%s language=%s", current_user.id, current_user.language)
+    logger.info(
+        "Preferences updated — user=%s language=%s currency=%s",
+        current_user.id, current_user.language, current_user.display_currency,
+    )
     return UserResponse(
         user_id=str(current_user.id),
         email=current_user.email,
         onboarding_completed=current_user.onboarding_completed,
         language=current_user.language,
+        display_currency=current_user.display_currency,
         email_weekly_enabled=current_user.email_weekly_enabled,
     )
 

@@ -11,6 +11,8 @@ import {
   getCashFlowUpcoming,
   getCashFlowSummary,
   createLiability,
+  getDefaultCurrency,
+  CURRENCY_CHANGE_EVENT,
   CashFlowItem,
   CashFlowSummary,
 } from "@/lib/api";
@@ -217,6 +219,14 @@ export default function CashFlowPage() {
     if (!getToken()) { router.push("/login"); return; }
     loadAll();
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Honor the user's preferred display currency and react to Settings changes.
+  useEffect(() => {
+    setDisplayCurrency(getDefaultCurrency());
+    const handler = (e: Event) => setDisplayCurrency((e as CustomEvent<string>).detail);
+    window.addEventListener(CURRENCY_CHANGE_EVENT, handler);
+    return () => window.removeEventListener(CURRENCY_CHANGE_EVENT, handler);
+  }, []);
 
   useEffect(() => {
     if (!loading) loadAll();

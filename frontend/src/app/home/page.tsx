@@ -16,15 +16,18 @@ import {
   getNetWorthSummary, getNetWorthHistory, getCashFlowSummary, getCashFlowUpcoming,
   getReconciliationItems, scanReconciliation, getNotifications, getReceivables,
   getProgress, getInsights, generateDailyNotifications, getNetWorthAttribution,
+  getDefaultCurrency, CURRENCY_CHANGE_EVENT,
   markNotificationRead, updateReconciliationItemStatus,
   type NetWorthSummary, type NetworthSnapshot, type CashFlowSummary, type CashFlowItem,
   type ReconciliationItem, type AppNotification, type ReceivableItem, type ProgressResponse,
   type NetWorthAttribution,
 } from "@/lib/api";
 
-const CCY = "TRY";
+// Mutable module default kept in sync with the user's preferred currency, so the
+// many fmt(value) calls below format in the right currency without threading a prop.
+let ACTIVE_CCY = "TRY";
 
-function fmt(value: number, currency = CCY): string {
+function fmt(value: number, currency = ACTIVE_CCY): string {
   try {
     return new Intl.NumberFormat(undefined, {
       style: "currency", currency, maximumFractionDigits: currency === "TRY" ? 0 : 2,
@@ -73,6 +76,17 @@ const URGENCY_ORDER: Urgency[] = ["today", "week", "whenever"];
 export default function HomePage() {
   const router = useRouter();
   const { lang, t } = useLanguage();
+  const [ccy, setCcy] = useState("TRY");
+
+  // Sync the user's preferred currency into local state + the module fmt default,
+  // and react live when it's changed from Settings.
+  useEffect(() => {
+    const apply = (code: string) => { ACTIVE_CCY = code; setCcy(code); };
+    apply(getDefaultCurrency());
+    const handler = (e: Event) => apply((e as CustomEvent<string>).detail);
+    window.addEventListener(CURRENCY_CHANGE_EVENT, handler);
+    return () => window.removeEventListener(CURRENCY_CHANGE_EVENT, handler);
+  }, []);
 
   // "1 gün", "3 gün" (non-abbreviated)
   const dayLabel = (n: number) => `${n} ${n === 1 ? t("home.day") : t("home.days")}`;
@@ -113,13 +127,13 @@ export default function HomePage() {
 
   const loadAll = useCallback((scan: boolean) => {
     Promise.all([
-      getNetWorthSummary(CCY).catch(() => null),
+      getNetWorthSummary(ccy).catch(() => null),
       getNetWorthHistory(90).catch(() => null),
-      getCashFlowSummary(30, CCY).catch(() => null),
+      getCashFlowSummary(30, ccy).catch(() => null),
     ]).then(([s, h, cf]) => { setSummary(s); setSnapshots(h); setCashflow(cf); })
       .finally(() => setSnapshotLoading(false));
 
-    getNetWorthAttribution(CCY).then(setAttribution).catch(() => setAttribution(null));
+    getNetWorthAttribution(ccy).then(setAttribution).catch(() => setAttribution(null));
 
     // On event-driven refresh, skip the heavy scan/generate (avoids re-creating items);
     // just re-read the current open items.
@@ -146,7 +160,7 @@ export default function HomePage() {
     getCashFlowUpcoming(30).then((f) => setUpcoming(f)).catch(() => null).finally(() => setUpcomingLoading(false));
 
     getInsights().then((r) => setInsight(r.insight?.trim() || null)).catch(() => null).finally(() => setInsightLoading(false));
-  }, [lang]);
+  }, [lang, ccy]);
 
   useEffect(() => {
     if (!getToken() || !getStoredUser()) { router.replace("/login"); return; }

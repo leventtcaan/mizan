@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import Link from "next/link";
 import { getToken, getStoredUser, clearToken, getNetWorthSuggestions, updatePreferences } from "@/lib/api";
-import { BarChart2, Upload, LogOut, Menu, X, Scale, Home } from "@/components/ui/Icons";
+import { BarChart2, Upload, LogOut, Menu, X, Scale, Home, Settings } from "@/components/ui/Icons";
 import { useLanguage, type Lang } from "@/lib/i18n";
 import NotificationDropdown from "@/components/NotificationDropdown";
 
@@ -123,6 +123,13 @@ export default function Navbar() {
             </div>
 
             <NotificationDropdown />
+            <Link
+              href="/settings"
+              title={t("settings.title")}
+              className={`p-1.5 rounded-lg transition-colors ${pathname === "/settings" ? "text-white bg-[#2A2A2A]" : "text-gray-500 hover:text-gray-300 hover:bg-[#2A2A2A]"}`}
+            >
+              <Settings size={16} />
+            </Link>
             <span className="text-gray-500 text-xs truncate max-w-[140px]">{userEmail}</span>
             <Link
               href="/upload"
@@ -175,6 +182,13 @@ export default function Navbar() {
                 </Link>
               );
             })}
+            <Link
+              href="/settings"
+              className={`flex items-center gap-3 px-3 py-3 rounded-lg text-sm transition-colors ${pathname === "/settings" ? "text-white bg-[#2A2A2A]" : "text-gray-300 hover:text-white hover:bg-[#1A1A1A]"}`}
+            >
+              <Settings size={16} />
+              {t("settings.title")}
+            </Link>
             <div className="pt-3 border-t border-[#2A2A2A] flex items-center justify-between">
               <span className="text-gray-500 text-xs">{userEmail}</span>
               <div className="flex gap-2 items-center">

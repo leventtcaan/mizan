@@ -86,6 +86,14 @@ class User(Base):
         server_default=text("'tr'"),
     )
 
+    # User's preferred display currency — the single source of truth across the app.
+    display_currency: Mapped[str] = mapped_column(
+        String(10),
+        nullable=False,
+        default="TRY",
+        server_default=text("'TRY'"),
+    )
+
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         nullable=False,

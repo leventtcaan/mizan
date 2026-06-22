@@ -29,7 +29,7 @@ export default function LoginPage() {
         ? await login(email, password)
         : await register(email, password);
       setToken(result.access_token);
-      setStoredUser({ id: result.user_id, email: result.email, onboarding_completed: result.onboarding_completed, language: result.language ?? "tr" });
+      setStoredUser({ id: result.user_id, email: result.email, onboarding_completed: result.onboarding_completed, language: result.language ?? "tr", display_currency: result.display_currency ?? "TRY" });
       if (result.language && (result.language === "tr" || result.language === "en")) {
         setLanguage(result.language as Lang);
       }

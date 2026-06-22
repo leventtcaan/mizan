@@ -28,6 +28,7 @@ export interface StoredUser {
   email: string;
   onboarding_completed: boolean;
   language: string;
+  display_currency?: string;
 }
 
 export function getStoredUser(): StoredUser | null {
@@ -43,6 +44,22 @@ export function getStoredUser(): StoredUser | null {
 
 export function setStoredUser(user: StoredUser): void {
   localStorage.setItem("mizan_user", JSON.stringify(user));
+}
+
+export const CURRENCY_CHANGE_EVENT = "mizan-currency-change";
+
+/** The user's preferred display currency — single source of truth across the app. */
+export function getDefaultCurrency(): string {
+  return getStoredUser()?.display_currency || "TRY";
+}
+
+/** Persist locally + broadcast so every open page updates without a reload. */
+export function setDefaultCurrencyLocal(code: string): void {
+  const user = getStoredUser();
+  if (user) setStoredUser({ ...user, display_currency: code });
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(new CustomEvent(CURRENCY_CHANGE_EVENT, { detail: code }));
+  }
 }
 
 // --- Helper: normalize FastAPI error detail (string or Pydantic validation array) ---
@@ -81,6 +98,7 @@ export interface TokenResponse {
   email: string;
   onboarding_completed: boolean;
   language: string;
+  display_currency: string;
 }
 
 export interface UserResponse {
@@ -88,6 +106,7 @@ export interface UserResponse {
   email: string;
   onboarding_completed: boolean;
   language: string;
+  display_currency: string;
   email_weekly_enabled: boolean;
 }
 
@@ -100,6 +119,7 @@ export async function getMe(): Promise<UserResponse> {
 export async function updatePreferences(prefs: {
   language?: string;
   email_weekly_enabled?: boolean;
+  display_currency?: string;
 }): Promise<UserResponse> {
   const response = await fetch(`${API_BASE_URL}/auth/preferences`, {
     method: "POST",
