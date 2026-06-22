@@ -232,9 +232,8 @@ export default function NetWorthPage() {
 
   // Focused analysis chat
 
-  // Refresh cooldown (15 min after last price fetch)
+  // Timestamp of the most recent price fetch (drives the "Xm ago" hint only).
   const [lastRefreshAt, setLastRefreshAt] = useState<number | null>(null);
-  const [cooldownSec, setCooldownSec] = useState(0);
 
   const [showAddAsset, setShowAddAsset] = useState(false);
   const [addAssetInitialType, setAddAssetInitialType] = useState<string | undefined>(undefined);
@@ -467,31 +466,22 @@ export default function NetWorthPage() {
     setSuggestions((prev) => prev.filter((s) => s.id !== id));
   };
 
-  const COOLDOWN_MS = 15 * 60 * 1000; // 15 minutes
-
-  // Cooldown countdown timer
-  useEffect(() => {
-    if (!lastRefreshAt) { setCooldownSec(0); return; }
-    const update = () => {
-      const remaining = Math.max(0, Math.ceil((lastRefreshAt + COOLDOWN_MS - Date.now()) / 1000));
-      setCooldownSec(remaining);
-    };
-    update();
-    const interval = setInterval(update, 1000);
-    return () => clearInterval(interval);
-  }, [lastRefreshAt]); // eslint-disable-line react-hooks/exhaustive-deps
-
   const handleRefreshPrices = async () => {
-    if (refreshing || cooldownSec > 0) return;
+    // Server-side caches (15 min crypto / 1 h fiat+stock) already throttle the
+    // upstream APIs, so the button stays clickable — no client cooldown gating.
+    if (refreshing) return;
     setRefreshing(true);
     try {
       const result = await refreshAssetPrices();
+      // Re-fetch FX/crypto/commodity rates too: live-value assets store a
+      // quantity in current_value and are valued at display time via usdRates,
+      // so without this their displayed value never moves after a refresh.
+      getCurrencyRates("USD").then(setUsdRates).catch(() => null);
       const updatedAssets = await getAssets();
       setAssets(updatedAssets);
-      const now = Date.now();
-      setLastRefreshAt(now);
+      setLastRefreshAt(Date.now());
+      void reloadSummary();
       if (result.updated > 0) {
-        void reloadSummary();
         setToast(`${result.updated} assets updated${result.failed > 0 ? `, ${result.failed} failed` : ""}.`);
       } else if (result.failed > 0) {
         setToast(`Could not fetch prices (${result.failed} assets). Try again.`);
@@ -655,14 +645,14 @@ export default function NetWorthPage() {
           <div className="flex flex-col items-end gap-0.5">
             <button
               onClick={handleRefreshPrices}
-              disabled={refreshing || cooldownSec > 0}
+              disabled={refreshing}
               title={t("nw.refreshPricesTooltip")}
               className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-[#1A1A1A] border border-[#2A2A2A] text-gray-400 hover:text-gray-200 hover:border-indigo-700 text-xs font-medium transition-colors disabled:opacity-50"
             >
               <RefreshCw size={13} className={refreshing ? "animate-spin" : ""} />
-              {refreshing ? t("nw.refreshing") : cooldownSec > 0 ? `${Math.floor(cooldownSec / 60)}:${String(cooldownSec % 60).padStart(2, "0")}` : t("nw.refreshPrices")}
+              {refreshing ? t("nw.refreshing") : t("nw.refreshPrices")}
             </button>
-            {lastRefreshAt && cooldownSec === 0 && (
+            {lastRefreshAt && !refreshing && (
               <span className="text-[10px] text-gray-600">
                 {Math.floor((Date.now() - lastRefreshAt) / 60000)}m {t("nw.minAgo")}
               </span>

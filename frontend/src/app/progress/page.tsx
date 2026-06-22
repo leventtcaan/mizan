@@ -12,7 +12,6 @@ import {
 import GoalsPanel from "@/components/GoalsPanel";
 import PersonalityCard from "@/components/PersonalityCard";
 import AlertsPanel from "@/components/AlertsPanel";
-import InflationPanel from "@/components/InflationPanel";
 import PageLayout from "@/components/ui/PageLayout";
 import { useLanguage } from "@/lib/i18n";
 
@@ -176,8 +175,6 @@ export default function ProgressPage() {
       <div className="mb-6">
         <AlertsPanel />
       </div>
-
-      <InflationPanel />
 
       <GoalsPanel />
 

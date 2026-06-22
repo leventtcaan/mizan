@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import Link from "next/link";
-import { getToken, getStoredUser, clearToken, getNetWorthSuggestions, updatePreferences } from "@/lib/api";
+import { getToken, getStoredUser, clearToken, updatePreferences } from "@/lib/api";
 import { BarChart2, Upload, LogOut, Menu, X, Scale, Home, Settings } from "@/components/ui/Icons";
 import { useLanguage, type Lang } from "@/lib/i18n";
 import NotificationDropdown from "@/components/NotificationDropdown";
@@ -26,7 +26,6 @@ export default function Navbar() {
   const { lang, setLanguage, t } = useLanguage();
   const [userEmail, setUserEmail] = useState<string | null>(null);
   const [mobileOpen, setMobileOpen] = useState(false);
-  const [suggestionCount, setSuggestionCount] = useState(0);
 
   // The four money pages (transactions / cashflow / subscriptions / installments)
   // are unified under one "Money Flow" entry; they share the MoneyTabs sub-nav.
@@ -42,12 +41,8 @@ export default function Navbar() {
     const user = getStoredUser();
     if (user && getToken()) {
       setUserEmail(user.email);
-      getNetWorthSuggestions()
-        .then((suggs) => setSuggestionCount(suggs.filter((s) => s.status === "pending").length))
-        .catch(() => setSuggestionCount(0));
     } else {
       setUserEmail(null);
-      setSuggestionCount(0);
     }
   }, [pathname]);
 
@@ -82,7 +77,6 @@ export default function Navbar() {
           <div className="hidden md:flex items-center gap-1 flex-1 justify-center">
             {NAV_LINKS.map((link) => {
               const isActive = link.match.some((p) => pathname === p || pathname.startsWith(p + "/"));
-              const showBadge = link.href === "/networth" && suggestionCount > 0;
               return (
                 <Link
                   key={link.href}
@@ -95,11 +89,6 @@ export default function Navbar() {
                 >
                   {link.icon}
                   {link.label}
-                  {showBadge && (
-                    <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-red-500 text-white text-[9px] font-bold flex items-center justify-center">
-                      {suggestionCount}
-                    </span>
-                  )}
                 </Link>
               );
             })}

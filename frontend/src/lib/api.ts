@@ -1133,10 +1133,11 @@ export interface CashFlowSummary {
   projected_month_end: string;
 }
 
-export async function getCashFlowUpcoming(days = 30): Promise<CashFlowItem[]> {
-  const response = await fetch(`${API_BASE_URL}/cashflow/upcoming?days=${days}`, {
-    headers: authHeaders(),
-  });
+export async function getCashFlowUpcoming(days = 30, displayCurrency = "TRY"): Promise<CashFlowItem[]> {
+  const response = await fetch(
+    `${API_BASE_URL}/cashflow/upcoming?days=${days}&display_currency=${displayCurrency}`,
+    { headers: authHeaders() },
+  );
   if (!response.ok) throw new Error(`Failed to fetch cashflow: ${response.status}`);
   return response.json() as Promise<CashFlowItem[]>;
 }

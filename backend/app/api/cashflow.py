@@ -198,11 +198,13 @@ def _recurring_items(transactions, today: date, end: date) -> list[CashFlowItem]
 @router.get("/upcoming", response_model=list[CashFlowItem])
 async def upcoming_cashflow(
     days: int = Query(default=30, ge=1, le=365),
+    display_currency: str = Query(default="TRY"),
     current_user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
 ) -> list[CashFlowItem]:
     today = date.today()
     end = today + timedelta(days=days)
+    cur = display_currency.upper()
 
     transactions = await get_transactions_for_user(current_user.id, session, all_batches=True)
     l_items = await _liability_items(current_user.id, session, today, end)
@@ -211,6 +213,32 @@ async def upcoming_cashflow(
 
     all_items = l_items + r_items + rec_items
     all_items.sort(key=lambda x: x.date)
+
+    # Convert every line item into the display currency so the timeline never
+    # shows a converted summary above unconverted native rows. Cache factors per
+    # source currency to avoid re-resolving the same pair repeatedly.
+    factors: dict[str, float] = {}
+
+    async def _factor(from_cur: str) -> float:
+        fc = (from_cur or "TRY").upper()
+        if fc == cur:
+            return 1.0
+        if fc not in factors:
+            try:
+                factors[fc] = float(await convert(1.0, fc, cur))
+            except Exception:
+                factors[fc] = 1.0
+        return factors[fc]
+
+    for item in all_items:
+        f = await _factor(item.currency)
+        if f != 1.0:
+            try:
+                item.amount = f"{float(item.amount) * f:.2f}"
+            except (TypeError, ValueError):
+                pass
+        item.currency = cur
+
     return all_items
 
 

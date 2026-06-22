@@ -151,7 +151,7 @@ export default function HomePage() {
         getReconciliationItems("open").catch(() => []),
         getNotifications().catch(() => []),
         getReceivables().catch(() => []),
-        getCashFlowUpcoming(30).catch(() => []),
+        getCashFlowUpcoming(30, ccy).catch(() => []),
       ]))
       .then(([items, notifs, receivables, flows]) => {
         setReconItems(items);
@@ -163,7 +163,7 @@ export default function HomePage() {
 
     getProgress().then(setProgress).catch(() => null).finally(() => setPulseLoading(false));
 
-    getCashFlowUpcoming(30).then((f) => setUpcoming(f)).catch(() => null).finally(() => setUpcomingLoading(false));
+    getCashFlowUpcoming(30, ccy).then((f) => setUpcoming(f)).catch(() => null).finally(() => setUpcomingLoading(false));
 
     getInsights().then((r) => setInsight(r.insight?.trim() || null)).catch(() => null).finally(() => setInsightLoading(false));
   }, [lang, ccy]);

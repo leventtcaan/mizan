@@ -236,7 +236,7 @@ export default function CashFlowPage() {
     setLoading(true);
     try {
       const [it, sum] = await Promise.all([
-        getCashFlowUpcoming(days),
+        getCashFlowUpcoming(days, displayCurrency),
         getCashFlowSummary(days, displayCurrency),
       ]);
       setItems(it);
