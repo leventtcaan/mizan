@@ -4,7 +4,10 @@ Backed by the currency service cache (1h TTL).
 """
 
 import logging
+import time
+from datetime import date, timedelta
 
+import httpx
 from fastapi import APIRouter
 
 from app.services.asset_prices import fetch_stock_quote
@@ -18,6 +21,10 @@ from app.services.currency import (
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/currency", tags=["currency"])
+
+# TEFAS fund cache: {UPPERCASE_CODE: (nav, name, fetched_at)}
+_tefas_cache: dict[str, tuple[float, str, float]] = {}
+_TEFAS_TTL = 3600  # 1 hour
 
 
 @router.get("/list")
@@ -67,6 +74,56 @@ async def currency_rates(base: str = "TRY") -> dict:
             pass
 
     return {"rates": rates}
+
+
+@router.get("/fund")
+async def tefas_fund(code: str) -> dict:
+    """
+    Fetch latest NAV (birim pay değeri) and fund name from TEFAS for a Turkish fund code.
+    No auth required. Returns {"code", "nav", "name", "currency"} or nav=null on failure.
+    """
+    fc = code.strip().upper()
+    if not fc:
+        return {"code": "", "nav": None, "name": None, "currency": "TRY"}
+
+    cached = _tefas_cache.get(fc)
+    if cached and (time.time() - cached[2]) < _TEFAS_TTL:
+        return {"code": fc, "nav": cached[0], "name": cached[1], "currency": "TRY"}
+
+    try:
+        today = date.today()
+        start = (today - timedelta(days=7)).strftime("%d.%m.%Y")
+        end = today.strftime("%d.%m.%Y")
+        async with httpx.AsyncClient(
+            timeout=10.0,
+            headers={"User-Agent": "Mozilla/5.0 (compatible; Mizan/1.0)", "Referer": "https://www.tefas.gov.tr/"},
+            follow_redirects=True,
+        ) as client:
+            resp = await client.get(
+                "https://www.tefas.gov.tr/api/DB/BindHistoryInfo",
+                params={"fontip": "YAT", "bastarih": start, "bittarih": end, "fonkod": fc},
+            )
+            if resp.status_code == 200:
+                data = resp.json()
+                rows = data.get("data") or []
+                if rows:
+                    # Latest row first or last — take max date
+                    latest = max(rows, key=lambda r: r.get("TARIH", ""))
+                    nav = latest.get("BIRIM_PAY_DEGERI") or latest.get("birim_pay_degeri")
+                    name = latest.get("FONUNVAN") or latest.get("fonunvan") or fc
+                    if nav is not None:
+                        nav_f = float(nav)
+                        _tefas_cache[fc] = (nav_f, str(name), time.time())
+                        return {"code": fc, "nav": nav_f, "name": str(name), "currency": "TRY"}
+    except Exception as exc:
+        logger.warning("TEFAS fetch failed (%s): %s", fc, exc)
+
+    # Stale cache fallback
+    if fc in _tefas_cache:
+        cached = _tefas_cache[fc]
+        return {"code": fc, "nav": cached[0], "name": cached[1], "currency": "TRY"}
+
+    return {"code": fc, "nav": None, "name": None, "currency": "TRY"}
 
 
 @router.get("/quote")

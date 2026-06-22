@@ -1,3 +1,7 @@
+## AUTO-LOAD INSTRUCTION
+This file is automatically loaded each session. 
+Do NOT re-read unless explicitly asked.
+Start immediately from "Next Session — Start Here" section.
 # Mizan — Project Brain
 
 ## What Is This

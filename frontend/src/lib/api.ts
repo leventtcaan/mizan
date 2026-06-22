@@ -975,6 +975,20 @@ export interface MarketQuote {
  * exchange: AUTO | BIST | LSE | XETRA | TSX | ASX
  * Returns price = null on any lookup failure; caller falls back to manual entry.
  */
+export interface TefasFund {
+  code: string;
+  nav: number | null;
+  name: string | null;
+  currency: string;
+}
+
+export async function getTefasFund(code: string): Promise<TefasFund> {
+  const url = `${API_BASE_URL}/currency/fund?code=${encodeURIComponent(code)}`;
+  const response = await fetch(url);
+  if (!response.ok) throw new Error(`TEFAS fetch failed: ${response.status}`);
+  return response.json() as Promise<TefasFund>;
+}
+
 export async function getMarketQuote(symbol: string, exchange = "AUTO"): Promise<MarketQuote> {
   const url = `${API_BASE_URL}/currency/quote?symbol=${encodeURIComponent(symbol)}&exchange=${encodeURIComponent(exchange)}`;
   const response = await fetch(url);
