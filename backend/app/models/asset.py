@@ -11,7 +11,7 @@ from app.models.user import Base
 ASSET_TYPES = {
     "cash", "bank_account", "stock", "fund", "crypto",
     "real_estate", "vehicle", "bes", "gold", "foreign_currency",
-    "bond", "commodity", "startup_equity", "art_collectible",
+    "bond", "commodity", "art_collectible",
     "jewelry", "life_insurance", "pension", "business_ownership",
     "other_asset",
 }

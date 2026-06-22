@@ -257,7 +257,7 @@ When context reaches ~70% capacity:
 
 ## Current Status
 
-**Phases 1–35 complete. Alembic head = 0022. No new migrations since Phase 32.**
+**Phases 1–36 complete. Alembic head = 0022. No new migrations since Phase 32.**
 
 Full stack: register/login → JWT → upload (rate-limited, busts caches) → 3-layer OCR → LLM extract → OCR cleanup → dedup → zero-amount filter → persist → LLM categorize (13 categories) → insight cache → globalized LLM coach with corrections+notes injected → spending chart + progress page (LineChart 3-month trend + cross-batch-deduped category comparison + LLM one-liners, 24h cached) → PersonalityCard (5 types, cached per batch) → AlertsPanel (3 algorithmic detectors, dismiss persisted, stale dismissals auto-cleaned) → GoalsPanel (monthly budget vs actual) → ChatPanel (globalized conversational coaching, behavioral profile memory, voice input, chat-based tx entry with confirmation card, sessionStorage prefill from alerts) → weekly email summary (Resend HTML, preferences toggle) → inflation-adjusted analysis (TUFE 2023-2026, real vs nominal per category, ProgressInsight cache) → net worth asset subtype capture (all asset types have specific fields; crypto/fiat/commodity live picker; gold unit picker; stock/fund code fields; manual categories store structured metadata in `Asset.source_detail` JSON) → net worth display currency searchable via live `CurrencySelect` → receivable collection creates linked cash asset, repeated collection is idempotent, delete/write-off removes linked asset → stale received receivables and processed suggestions are hidden/cleaned after 30 days → onboarding accepts any institution/export source instead of hardcoded Turkish banks → financial event log + reconciliation item backend skeleton exists → net worth page shows Action Queue with open reconciliation items and recent financial events → reconciliation producers create queue items from overdue receivables, missing receivable assets, possible duplicate transactions, and large transaction review → Action Queue now has real action handlers per issue_type (mark received / write off / recreate asset / delete duplicate batch / confirm large tx).
 
@@ -967,6 +967,41 @@ Full stack: register/login → JWT → upload (rate-limited, busts caches) → 3
 
 ---
 
+### Phase 36 — Premium Per-Type Add Asset Forms + Action Queue Restructure (2026-06-22)
+
+#### Backend
+- [x] `backend/app/models/asset.py` — removed `startup_equity` from `ASSET_TYPES` (too niche). Now 18 types.
+- [x] `backend/app/api/currency.py` — new public `GET /currency/quote?symbol=AAPL` → `{symbol, price_usd}`; reuses `asset_prices.fetch_stock_price` (Yahoo chart API, 1h cache, stale-on-fail). No auth, no migration.
+
+#### Frontend — asset-forms architecture
+- [x] `frontend/src/components/asset-forms/shared.ts` — `AssetDraft`/`AssetFormProps` contracts; `sharedInputClass`; `buildSourceDetail()`; `TOP_CRYPTO`; `GOLD_UNITS` (12 units w/ `xauPerUnit` purity math); `MANUAL_CONFIGS` (per-type optional slots); `useUsdRates()` hook (`getCurrencyRates("USD")` → `usdPriceOf(code)=1/rate`, `tryPerUsd`); `previewLine(usd, tryPerUsd)` → "≈ 12,345 ₺ · $410".
+- [x] `CryptoAssetForm.tsx` — quick-select chips (TOP_CRYPTO) + live search from `/currency/list`; quantity; live TRY/USD preview. Stores `current_value=qty`, `currency=symbol`, `source_detail{subtype:crypto,symbol,name}`.
+- [x] `CurrencyAssetForm.tsx` — handles `foreign_currency` + `commodity`; live list search; quantity; preview.
+- [x] `GoldAssetForm.tsx` — gold-type `<select>` + quantity; computes `pure_oz = qty × xauPerUnit`; stores `current_value=pure_oz`, `currency="XAU"`. **Fixes** old bug where gold was stored with TRY currency (mis-valued).
+- [x] `MarketAssetForm.tsx` — stock/fund ticker/ISIN + "Look up" → `getMarketQuote` live USD price → shares input → `value=price×shares`. Graceful fallback: on null price, manual total-value (USD) input. `currency="USD"`.
+- [x] `ManualAssetForm.tsx` — config-driven (MANUAL_CONFIGS) for all manual types; name + primary(required) + optional secondary/tertiary + `CurrencySelect` + value. **BES special case**: contribution input → +30% state-match helper → live total; real_estate/vehicle get "best estimate" hint.
+- [x] `AddAssetModal.tsx` — full rewrite: 2-step flow (type-picker grid grouped into cashBank/investments/property/retirement/other → per-type sub-form router) + shared footer (as_of_date + notes). `startup_equity` removed from picker. Every string via `t()`.
+- [x] `frontend/src/lib/api.ts` — `MarketQuote` interface + `getMarketQuote(symbol)`.
+
+#### Frontend — net worth page (PART 2/3/4)
+- [x] `networth/page.tsx` — Action Queue: now **collapsed by default** (`actionQueueOpen` state, default false), clickable header w/ chevron + count badge, **moved to bottom** (after Smart Suggestions, before modals).
+- [x] `networth/page.tsx` — refresh-prices tooltip now `title={t("nw.refreshPricesTooltip")}` (was hardcoded English).
+- [x] `networth/page.tsx` — `startup_equity` removed from `ASSET_TYPE_GROUPS` investments array.
+- [x] `frontend/src/locales/{en,tr}.ts` — added `nw.refreshPricesTooltip` + full `assetForm.*` namespace (groups, gold units/units, crypto/currency/market/bes/manual field keys, per-type `fields.{type}.{primary,secondary,tertiary}`); removed `assetType.startup_equity` from both.
+
+#### Checks
+- [x] `python3 -m py_compile` passed (currency.py, asset.py, asset_prices.py).
+- [x] `npm run build` passed. 13 static pages. Type check clean.
+- [x] No remaining `startup_equity` references (except one explanatory comment).
+- [x] No new migration (asset subtype metadata stays in `source_detail` JSON).
+
+#### Architectural decisions
+- **Folder-of-components over one mega-modal**: `shared.ts` + 5 focused sub-forms + thin router modal. Each form fully owns its `AssetDraft` (name/type/currency/value/source_detail) so the modal stays dumb.
+- **`getCurrencyRates("USD")` is the single price oracle**: `1/rate[code]` gives USD price for fiat, crypto AND commodities — no separate crypto-price fetch needed in the preview hook.
+- **Market assets assume USD quote currency** (Yahoo): known limitation for non-USD listings; matches existing `asset_prices` behavior. Graceful manual fallback when quote unavailable.
+- **TEFAS Turkish-fund NAV intentionally NOT implemented**: fragile + violates no-Turkish-hardcoding. Funds fall back to Yahoo-quote-or-manual.
+- **BES 30% state-match is a UI helper only**: stored as plain total `current_value`; `source_detail` keeps contribution + state_match for lineage.
+
 ### Phase 35 — Reconciliation Queue Audit & UI Fixes (2026-06-22)
 - [x] `frontend/src/app/networth/page.tsx` — **Bug fix**: `overdue_receivable` and `possible_duplicate_transaction` handlers were always calling `updateReconciliationItemStatus(item.id, "resolved")` even when action was "dismiss". Fixed: `const recStatus = action === "dismiss" ? "dismissed" : "resolved"` before the status call.
 - [x] `frontend/src/app/networth/page.tsx` — Action Queue section now **always renders** after loading (replaced `{reconciliationItems.length > 0 || events.length > 0}` gate with `{!loading}`).
@@ -1002,7 +1037,7 @@ Full stack: register/login → JWT → upload (rate-limited, busts caches) → 3
 
 ## Next Session — Start Here
 
-**Phases 1–35 complete. Phase 35 = reconciliation queue audit + UI fixes. Alembic head = 0022. No new migrations.**
+**Phases 1–36 complete. Phase 36 = premium per-type Add Asset forms + Action Queue restructure. Alembic head = 0022. No new migrations.**
 
 Pre-flight (if docker was restarted):
 ```bash

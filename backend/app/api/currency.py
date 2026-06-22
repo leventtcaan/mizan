@@ -7,6 +7,7 @@ import logging
 
 from fastapi import APIRouter
 
+from app.services.asset_prices import fetch_stock_price
 from app.services.currency import (
     get_fiat_list,
     get_crypto_list,
@@ -66,3 +67,21 @@ async def currency_rates(base: str = "TRY") -> dict:
             pass
 
     return {"rates": rates}
+
+
+@router.get("/quote")
+async def currency_quote(symbol: str) -> dict:
+    """
+    Live per-share/unit price in USD for a market symbol (stock ticker or
+    Yahoo-listed ETF/fund). No auth required — used by the add-asset modal
+    to pre-fill stock/fund value as the user types a quantity.
+
+    Returns {"symbol": <upper>, "price_usd": float | null}. Never raises:
+    on lookup failure price_usd is null and the frontend falls back to
+    manual value entry.
+    """
+    sym = symbol.strip().upper()
+    if not sym:
+        return {"symbol": "", "price_usd": None}
+    price = await fetch_stock_price(sym)
+    return {"symbol": sym, "price_usd": price}

@@ -158,6 +158,7 @@ export default function NetWorthPage() {
   const [suggestions, setSuggestions] = useState<SuggestionItem[]>([]);
   const [events, setEvents] = useState<FinancialEventItem[]>([]);
   const [reconciliationItems, setReconciliationItems] = useState<ReconciliationItem[]>([]);
+  const [actionQueueOpen, setActionQueueOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [summaryLoading, setSummaryLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
@@ -177,7 +178,7 @@ export default function NetWorthPage() {
 
   const ASSET_TYPE_GROUPS: { label: string; icon: ReactNode; types: string[] }[] = [
     { label: t("nw.groups.cashBank"), icon: <Wallet size={16} className="text-emerald-400" />, types: ["cash", "bank_account", "foreign_currency"] },
-    { label: t("nw.groups.investments"), icon: <TrendingUp size={16} className="text-indigo-400" />, types: ["stock", "fund", "crypto", "bes", "gold", "bond", "commodity", "startup_equity"] },
+    { label: t("nw.groups.investments"), icon: <TrendingUp size={16} className="text-indigo-400" />, types: ["stock", "fund", "crypto", "bes", "gold", "bond", "commodity"] },
     { label: t("nw.groups.propertyVehicle"), icon: <Home size={16} className="text-amber-400" />, types: ["real_estate", "vehicle"] },
     { label: t("nw.groups.personalAssets"), icon: <Briefcase size={16} className="text-purple-400" />, types: ["art_collectible", "jewelry", "life_insurance", "pension", "business_ownership"] },
     { label: t("nw.groups.other"), icon: <Briefcase size={16} className="text-gray-400" />, types: ["other_asset"] },
@@ -446,7 +447,7 @@ export default function NetWorthPage() {
           <button
             onClick={handleRefreshPrices}
             disabled={refreshing}
-            title="Fetches live prices for crypto, gold, foreign currency, commodity, and stock assets. Manual assets (real estate, vehicle, etc.) are not updated."
+            title={t("nw.refreshPricesTooltip")}
             className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-[#1A1A1A] border border-[#2A2A2A] text-gray-400 hover:text-gray-200 hover:border-indigo-700 text-xs font-medium transition-colors disabled:opacity-50"
           >
             <RefreshCw size={13} className={refreshing ? "animate-spin" : ""} />
@@ -523,169 +524,6 @@ export default function NetWorthPage() {
             </div>
           ))}
         </div>
-      )}
-
-      {!loading && (
-        <section className="mb-8">
-          <div className="flex items-center gap-2 mb-4">
-            <Zap size={18} className="text-cyan-400" />
-            <h2 className="text-white font-semibold">{t("nw.actionQueue")}</h2>
-            <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
-              reconciliationItems.length > 0
-                ? "bg-cyan-950/50 border border-cyan-800/40 text-cyan-300"
-                : "bg-[#2A2A2A] text-gray-500"
-            }`}>
-              {reconciliationItems.length}
-            </span>
-          </div>
-
-          {reconciliationItems.length === 0 && (
-            <div className="bg-[#1A1A1A] border border-[#2A2A2A] rounded-xl p-6 flex items-center gap-3 mb-3 text-gray-400">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-emerald-500 shrink-0"><polyline points="20 6 9 17 4 12" /></svg>
-              <span className="text-sm">{t("nw.allClear")}</span>
-            </div>
-          )}
-
-          {reconciliationItems.length > 0 && (
-            <div className="space-y-3 mb-3">
-              {reconciliationItems.map((item) => {
-                const pa = (typeof item.proposed_action === "object" && item.proposed_action !== null)
-                  ? item.proposed_action as Record<string, unknown>
-                  : null;
-                const isPending = (action: string) => actionPending === `${item.id}:${action}`;
-                const btn = (action: string, label: string, cls: string) => (
-                  <button
-                    key={action}
-                    disabled={actionPending !== null}
-                    onClick={() => handleReconciliationAction(item, action)}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors disabled:opacity-40 ${cls}`}
-                  >
-                    {isPending(action) ? "…" : label}
-                  </button>
-                );
-
-                // Translated title — keyed by issue_type, ignores backend English string.
-                const itemTitle = (() => {
-                  if (item.issue_type === "overdue_receivable") return t("nw.recon.overdueTitle");
-                  if (item.issue_type === "received_receivable_missing_asset") return t("nw.recon.missingAssetTitle");
-                  if (item.issue_type === "possible_duplicate_transaction") return t("nw.recon.duplicateTitle");
-                  if (item.issue_type === "large_transaction_review") return t("nw.recon.largeTxTitle");
-                  return item.title;
-                })();
-
-                // Context line — built from proposed_action values, not from backend description.
-                const contextLine = (() => {
-                  if (item.issue_type === "overdue_receivable" && pa?.amount) {
-                    return `${String(pa.amount)} ${String(pa.currency ?? "")} ${t("nw.recon.overdueContext")} ${String(pa.expected_date ?? "")}`;
-                  }
-                  if (item.issue_type === "received_receivable_missing_asset" && pa?.amount) {
-                    return `${String(pa.amount)} ${String(pa.currency ?? "")} — ${t("nw.recon.missingAssetContext")}`;
-                  }
-                  if (item.issue_type === "possible_duplicate_transaction" && pa?.description) {
-                    const count = (pa.transaction_ids as string[] | undefined)?.length ?? 2;
-                    return `×${count} — "${String(pa.description).slice(0, 50)}"`;
-                  }
-                  if (item.issue_type === "large_transaction_review" && pa?.amount) {
-                    const sign = String(pa.transaction_type) === "debit" ? "−" : "+";
-                    return `${sign}${String(pa.amount)}${pa.description ? ` · "${String(pa.description).slice(0, 40)}"` : ""}`;
-                  }
-                  return null;
-                })();
-
-                // Subtitle — user-facing plain-language explanation.
-                const subtitle = (() => {
-                  if (item.issue_type === "overdue_receivable") return t("nw.recon.overdueSubtitle");
-                  if (item.issue_type === "received_receivable_missing_asset") return t("nw.recon.missingAssetSubtitle");
-                  if (item.issue_type === "possible_duplicate_transaction") return t("nw.recon.duplicateSubtitle");
-                  if (item.issue_type === "large_transaction_review") return t("nw.recon.largeTxSubtitle");
-                  return null;
-                })();
-
-                let actionButtons: ReactNode;
-                if (item.issue_type === "overdue_receivable") {
-                  actionButtons = (<>
-                    {btn("mark_received", t("nw.markReceived"), "bg-emerald-600/20 text-emerald-400 border border-emerald-800/40 hover:bg-emerald-600/30")}
-                    {btn("write_off", t("nw.writeOff"), "bg-red-600/10 text-red-400 border border-red-800/30 hover:bg-red-600/20")}
-                    {btn("dismiss", t("common.dismiss"), "bg-[#2A2A2A] text-gray-400 hover:text-gray-200")}
-                  </>);
-                } else if (item.issue_type === "received_receivable_missing_asset") {
-                  actionButtons = (<>
-                    {btn("create_cash_asset", t("nw.addAsset"), "bg-emerald-600/20 text-emerald-400 border border-emerald-800/40 hover:bg-emerald-600/30")}
-                    {btn("mark_pending", t("nw.pending"), "bg-amber-600/10 text-amber-400 border border-amber-800/30 hover:bg-amber-600/20")}
-                    {btn("write_off", t("nw.writeOff"), "bg-red-600/10 text-red-400 border border-red-800/30 hover:bg-red-600/20")}
-                  </>);
-                } else if (item.issue_type === "possible_duplicate_transaction") {
-                  const batchIds = (pa?.upload_batch_ids as string[] | undefined) ?? [];
-                  actionButtons = (<>
-                    {batchIds.length >= 2 && btn("delete_duplicate_batch", t("nw.recon.deleteOlderDuplicate"), "bg-red-600/10 text-red-400 border border-red-800/30 hover:bg-red-600/20")}
-                    {btn("keep_all", t("nw.recon.keepAll"), "bg-emerald-600/20 text-emerald-400 border border-emerald-800/40 hover:bg-emerald-600/30")}
-                    {btn("dismiss", t("common.dismiss"), "bg-[#2A2A2A] text-gray-400 hover:text-gray-200")}
-                  </>);
-                } else if (item.issue_type === "large_transaction_review") {
-                  actionButtons = (<>
-                    {btn("confirm_category", t("common.confirm"), "bg-emerald-600/20 text-emerald-400 border border-emerald-800/40 hover:bg-emerald-600/30")}
-                    {btn("ignore", t("common.dismiss"), "bg-[#2A2A2A] text-gray-400 hover:text-gray-200")}
-                  </>);
-                } else {
-                  actionButtons = (<>
-                    {btn("resolve", t("common.resolve"), "bg-emerald-600/20 text-emerald-400 border border-emerald-800/40 hover:bg-emerald-600/30")}
-                    {btn("dismiss", t("common.dismiss"), "bg-[#2A2A2A] text-gray-400 hover:text-gray-200")}
-                  </>);
-                }
-
-                return (
-                  <div key={item.id} className="bg-[#1A1A1A] border border-cyan-900/30 rounded-xl p-4">
-                    <div className="flex items-start justify-between gap-3 flex-wrap">
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <p className="text-gray-100 text-sm font-medium">{itemTitle}</p>
-                          <span className={`px-2 py-0.5 rounded-full text-xs ${
-                            item.severity === "high" ? "bg-red-950/50 text-red-400 border border-red-800/30"
-                              : item.severity === "medium" ? "bg-amber-950/50 text-amber-400 border border-amber-800/30"
-                              : "bg-[#2A2A2A] text-gray-400"
-                          }`}>
-                            {item.severity}
-                          </span>
-                        </div>
-                        {contextLine && (
-                          <p className="text-cyan-300/70 text-xs mt-1 truncate">{contextLine}</p>
-                        )}
-                        {subtitle && (
-                          <p className="text-gray-500 text-xs leading-relaxed mt-1">{subtitle}</p>
-                        )}
-                      </div>
-                    </div>
-                    <div className="flex gap-2 flex-wrap mt-3">{actionButtons}</div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-
-          {events.length > 0 && (
-            <div className="bg-[#1A1A1A] border border-[#2A2A2A] rounded-xl overflow-hidden">
-              <div className="px-4 py-2.5 border-b border-[#2A2A2A] bg-[#111]">
-                <span className="text-xs text-gray-400 font-medium">{t("nw.recentEvents")}</span>
-              </div>
-              {events.map((event, idx) => {
-                const detail = eventDetail(event.source_detail);
-                return (
-                  <div key={event.id} className={`flex items-center justify-between gap-3 px-4 py-3 ${idx < events.length - 1 ? "border-b border-[#2A2A2A]" : ""}`}>
-                    <div className="min-w-0">
-                      <p className="text-gray-200 text-sm">{eventLabel(event.event_type)}</p>
-                      <p className="text-gray-500 text-xs mt-0.5">
-                        {event.event_date} · {event.entity_type}{detail ? ` · ${detail}` : ""}
-                      </p>
-                    </div>
-                    {event.amount && event.currency && (
-                      <p className="text-gray-300 text-sm font-semibold tabular-nums shrink-0">{fmtItem(event.amount, event.currency)}</p>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </section>
       )}
 
       {/* Assets */}
@@ -899,6 +737,176 @@ export default function NetWorthPage() {
               </div>
             ))}
           </div>
+        </section>
+      )}
+
+      {!loading && (
+        <section className="mb-8">
+          <button
+            onClick={() => setActionQueueOpen((v) => !v)}
+            className="w-full flex items-center gap-2 mb-4 text-left"
+          >
+            <Zap size={18} className="text-cyan-400" />
+            <h2 className="text-white font-semibold">{t("nw.actionQueue")}</h2>
+            <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
+              reconciliationItems.length > 0
+                ? "bg-cyan-950/50 border border-cyan-800/40 text-cyan-300"
+                : "bg-[#2A2A2A] text-gray-500"
+            }`}>
+              {reconciliationItems.length}
+            </span>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+              className={`ml-auto text-gray-500 transition-transform ${actionQueueOpen ? "rotate-180" : ""}`}>
+              <polyline points="6 9 12 15 18 9" />
+            </svg>
+          </button>
+
+          {actionQueueOpen && reconciliationItems.length === 0 && (
+            <div className="bg-[#1A1A1A] border border-[#2A2A2A] rounded-xl p-6 flex items-center gap-3 mb-3 text-gray-400">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-emerald-500 shrink-0"><polyline points="20 6 9 17 4 12" /></svg>
+              <span className="text-sm">{t("nw.allClear")}</span>
+            </div>
+          )}
+
+          {actionQueueOpen && reconciliationItems.length > 0 && (
+            <div className="space-y-3 mb-3">
+              {reconciliationItems.map((item) => {
+                const pa = (typeof item.proposed_action === "object" && item.proposed_action !== null)
+                  ? item.proposed_action as Record<string, unknown>
+                  : null;
+                const isPending = (action: string) => actionPending === `${item.id}:${action}`;
+                const btn = (action: string, label: string, cls: string) => (
+                  <button
+                    key={action}
+                    disabled={actionPending !== null}
+                    onClick={() => handleReconciliationAction(item, action)}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors disabled:opacity-40 ${cls}`}
+                  >
+                    {isPending(action) ? "…" : label}
+                  </button>
+                );
+
+                // Translated title — keyed by issue_type, ignores backend English string.
+                const itemTitle = (() => {
+                  if (item.issue_type === "overdue_receivable") return t("nw.recon.overdueTitle");
+                  if (item.issue_type === "received_receivable_missing_asset") return t("nw.recon.missingAssetTitle");
+                  if (item.issue_type === "possible_duplicate_transaction") return t("nw.recon.duplicateTitle");
+                  if (item.issue_type === "large_transaction_review") return t("nw.recon.largeTxTitle");
+                  return item.title;
+                })();
+
+                // Context line — built from proposed_action values, not from backend description.
+                const contextLine = (() => {
+                  if (item.issue_type === "overdue_receivable" && pa?.amount) {
+                    return `${String(pa.amount)} ${String(pa.currency ?? "")} ${t("nw.recon.overdueContext")} ${String(pa.expected_date ?? "")}`;
+                  }
+                  if (item.issue_type === "received_receivable_missing_asset" && pa?.amount) {
+                    return `${String(pa.amount)} ${String(pa.currency ?? "")} — ${t("nw.recon.missingAssetContext")}`;
+                  }
+                  if (item.issue_type === "possible_duplicate_transaction" && pa?.description) {
+                    const count = (pa.transaction_ids as string[] | undefined)?.length ?? 2;
+                    return `×${count} — "${String(pa.description).slice(0, 50)}"`;
+                  }
+                  if (item.issue_type === "large_transaction_review" && pa?.amount) {
+                    const sign = String(pa.transaction_type) === "debit" ? "−" : "+";
+                    return `${sign}${String(pa.amount)}${pa.description ? ` · "${String(pa.description).slice(0, 40)}"` : ""}`;
+                  }
+                  return null;
+                })();
+
+                // Subtitle — user-facing plain-language explanation.
+                const subtitle = (() => {
+                  if (item.issue_type === "overdue_receivable") return t("nw.recon.overdueSubtitle");
+                  if (item.issue_type === "received_receivable_missing_asset") return t("nw.recon.missingAssetSubtitle");
+                  if (item.issue_type === "possible_duplicate_transaction") return t("nw.recon.duplicateSubtitle");
+                  if (item.issue_type === "large_transaction_review") return t("nw.recon.largeTxSubtitle");
+                  return null;
+                })();
+
+                let actionButtons: ReactNode;
+                if (item.issue_type === "overdue_receivable") {
+                  actionButtons = (<>
+                    {btn("mark_received", t("nw.markReceived"), "bg-emerald-600/20 text-emerald-400 border border-emerald-800/40 hover:bg-emerald-600/30")}
+                    {btn("write_off", t("nw.writeOff"), "bg-red-600/10 text-red-400 border border-red-800/30 hover:bg-red-600/20")}
+                    {btn("dismiss", t("common.dismiss"), "bg-[#2A2A2A] text-gray-400 hover:text-gray-200")}
+                  </>);
+                } else if (item.issue_type === "received_receivable_missing_asset") {
+                  actionButtons = (<>
+                    {btn("create_cash_asset", t("nw.addAsset"), "bg-emerald-600/20 text-emerald-400 border border-emerald-800/40 hover:bg-emerald-600/30")}
+                    {btn("mark_pending", t("nw.pending"), "bg-amber-600/10 text-amber-400 border border-amber-800/30 hover:bg-amber-600/20")}
+                    {btn("write_off", t("nw.writeOff"), "bg-red-600/10 text-red-400 border border-red-800/30 hover:bg-red-600/20")}
+                  </>);
+                } else if (item.issue_type === "possible_duplicate_transaction") {
+                  const batchIds = (pa?.upload_batch_ids as string[] | undefined) ?? [];
+                  actionButtons = (<>
+                    {batchIds.length >= 2 && btn("delete_duplicate_batch", t("nw.recon.deleteOlderDuplicate"), "bg-red-600/10 text-red-400 border border-red-800/30 hover:bg-red-600/20")}
+                    {btn("keep_all", t("nw.recon.keepAll"), "bg-emerald-600/20 text-emerald-400 border border-emerald-800/40 hover:bg-emerald-600/30")}
+                    {btn("dismiss", t("common.dismiss"), "bg-[#2A2A2A] text-gray-400 hover:text-gray-200")}
+                  </>);
+                } else if (item.issue_type === "large_transaction_review") {
+                  actionButtons = (<>
+                    {btn("confirm_category", t("common.confirm"), "bg-emerald-600/20 text-emerald-400 border border-emerald-800/40 hover:bg-emerald-600/30")}
+                    {btn("ignore", t("common.dismiss"), "bg-[#2A2A2A] text-gray-400 hover:text-gray-200")}
+                  </>);
+                } else {
+                  actionButtons = (<>
+                    {btn("resolve", t("common.resolve"), "bg-emerald-600/20 text-emerald-400 border border-emerald-800/40 hover:bg-emerald-600/30")}
+                    {btn("dismiss", t("common.dismiss"), "bg-[#2A2A2A] text-gray-400 hover:text-gray-200")}
+                  </>);
+                }
+
+                return (
+                  <div key={item.id} className="bg-[#1A1A1A] border border-cyan-900/30 rounded-xl p-4">
+                    <div className="flex items-start justify-between gap-3 flex-wrap">
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <p className="text-gray-100 text-sm font-medium">{itemTitle}</p>
+                          <span className={`px-2 py-0.5 rounded-full text-xs ${
+                            item.severity === "high" ? "bg-red-950/50 text-red-400 border border-red-800/30"
+                              : item.severity === "medium" ? "bg-amber-950/50 text-amber-400 border border-amber-800/30"
+                              : "bg-[#2A2A2A] text-gray-400"
+                          }`}>
+                            {item.severity}
+                          </span>
+                        </div>
+                        {contextLine && (
+                          <p className="text-cyan-300/70 text-xs mt-1 truncate">{contextLine}</p>
+                        )}
+                        {subtitle && (
+                          <p className="text-gray-500 text-xs leading-relaxed mt-1">{subtitle}</p>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex gap-2 flex-wrap mt-3">{actionButtons}</div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          {actionQueueOpen && events.length > 0 && (
+            <div className="bg-[#1A1A1A] border border-[#2A2A2A] rounded-xl overflow-hidden">
+              <div className="px-4 py-2.5 border-b border-[#2A2A2A] bg-[#111]">
+                <span className="text-xs text-gray-400 font-medium">{t("nw.recentEvents")}</span>
+              </div>
+              {events.map((event, idx) => {
+                const detail = eventDetail(event.source_detail);
+                return (
+                  <div key={event.id} className={`flex items-center justify-between gap-3 px-4 py-3 ${idx < events.length - 1 ? "border-b border-[#2A2A2A]" : ""}`}>
+                    <div className="min-w-0">
+                      <p className="text-gray-200 text-sm">{eventLabel(event.event_type)}</p>
+                      <p className="text-gray-500 text-xs mt-0.5">
+                        {event.event_date} · {event.entity_type}{detail ? ` · ${detail}` : ""}
+                      </p>
+                    </div>
+                    {event.amount && event.currency && (
+                      <p className="text-gray-300 text-sm font-semibold tabular-nums shrink-0">{fmtItem(event.amount, event.currency)}</p>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </section>
       )}
 
