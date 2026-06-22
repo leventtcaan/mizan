@@ -80,8 +80,14 @@ async def lifespan(app: FastAPI):
             await conn.run_sync(Base.metadata.create_all)
         logger.info("Dev: tables created (or already exist).")
 
+    # Start background scheduler (reconciliation + daily notifications).
+    # Imported here (after module load) to keep the import graph acyclic.
+    from app.core.scheduler import start_scheduler, shutdown_scheduler
+    start_scheduler()
+
     logger.info("Startup validation passed.")
     yield
+    shutdown_scheduler()
     logger.info("Mizan backend shutting down.")
 
 
@@ -131,3 +137,14 @@ async def health() -> dict:
     BREAKS IF REMOVED: Frontend can't confirm backend is up; Docker services start in wrong order.
     """
     return {"status": "ok", "service": "mizan-backend", "version": "0.1.0"}
+
+
+@app.get("/admin/scheduler/status")
+async def scheduler_status_endpoint() -> dict:
+    """
+    WHAT: Dev-only visibility into the background scheduler.
+    WHY: Verify jobs are registered and running inside Docker (next_run + last_run).
+    NOTE: No auth — development convenience only. Gate or remove before prod.
+    """
+    from app.core.scheduler import scheduler_status
+    return scheduler_status()
