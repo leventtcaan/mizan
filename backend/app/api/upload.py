@@ -57,6 +57,8 @@ class UploadResponse(BaseModel):
     job_id: str
     filename: str
     transaction_count: int
+    status: str = "success"      # "success" | "empty" | "failed"
+    reason: str | None = None    # machine code when not success (see pdf_parser)
     message: str
     suggestions: list[SuggestionOut] = []
 
@@ -182,19 +184,40 @@ async def upload_statement(
         job_id, current_user.id, filename, len(contents),
     )
 
-    parse_result = parse_statement(contents, file.content_type, filename)
-    logger.info("Parse complete — job_id=%s raw_transactions=%d", job_id, len(parse_result.transactions))
+    # Never let a corrupt/encrypted/unsupported file surface as a raw 500 — parse
+    # failures come back as a structured failed/empty response the user can act on.
+    try:
+        parse_result = parse_statement(contents, file.content_type, filename)
+    except Exception as exc:
+        logger.exception("Unexpected parse failure — job_id=%s: %s", job_id, exc)
+        return UploadResponse(
+            job_id=job_id, filename=filename, transaction_count=0,
+            status="failed", reason="parse_error",
+            message="Could not process the file.",
+        )
+
+    logger.info(
+        "Parse complete — job_id=%s status=%s reason=%s raw_transactions=%d",
+        job_id, parse_result.status, parse_result.reason, len(parse_result.transactions),
+    )
 
     if not parse_result.transactions:
+        # Distinguish a clean-but-empty parse from an actual failure so the frontend
+        # can show an honest, actionable message instead of a green "0 success".
+        status_str = parse_result.status if parse_result.status in ("empty", "failed") else "empty"
         return UploadResponse(
             job_id=job_id,
             filename=filename,
             transaction_count=0,
-            message="File parsed but no transactions were found. Check the file format.",
+            status=status_str,
+            reason=parse_result.reason or "unrecognized_format",
+            message="No transactions were extracted from this file.",
         )
 
+    default_ccy = parse_result.detected_currency or (current_user.display_currency or "TRY")
     persisted = await insert_transactions(
-        parse_result.transactions, current_user.id, session, upload_batch_id=job_id
+        parse_result.transactions, current_user.id, session,
+        upload_batch_id=job_id, default_currency=default_ccy,
     )
 
     llm_available = len(settings.DEEPSEEK_API_KEY) > 0 or len(settings.OPENAI_API_KEY) > 0
@@ -238,6 +261,8 @@ async def upload_statement(
         job_id=job_id,
         filename=filename,
         transaction_count=len(persisted),
+        status="success",
+        reason=None,
         message=msg,
         suggestions=suggestion_out,
     )

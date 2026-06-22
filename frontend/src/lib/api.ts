@@ -149,6 +149,8 @@ export interface UploadResponse {
   job_id: string;
   filename: string;
   transaction_count: number;
+  status: "success" | "empty" | "failed";
+  reason: string | null;
   message: string;
   suggestions?: SuggestionItem[];
 }

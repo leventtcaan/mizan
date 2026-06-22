@@ -10,6 +10,18 @@ import { useLanguage } from "@/lib/i18n";
 
 type UploadState = "idle" | "uploading" | "success" | "error";
 
+// Map backend reason code → i18n key under upload.uploadResult.
+function reasonKey(result: UploadResponse): string {
+  switch (result.reason) {
+    case "encrypted_pdf": return "upload.uploadResult.encrypted";
+    case "scanned_image": return "upload.uploadResult.scanned";
+    case "ocr_unavailable": return "upload.uploadResult.ocrFailed";
+    case "parse_error": return "upload.uploadResult.failed";
+    case "unrecognized_format": return "upload.uploadResult.empty";
+    default: return "upload.uploadResult.empty";
+  }
+}
+
 export default function UploadPage() {
   const router = useRouter();
   const { t } = useLanguage();
@@ -125,16 +137,22 @@ export default function UploadPage() {
 
       {state === "success" && result && (
         <div className="mt-5 space-y-3">
-          <div className="bg-emerald-950/40 border border-emerald-800/60 rounded-xl p-5">
-            <p className="text-emerald-300 font-semibold text-lg">{result.transaction_count} {t("upload.success")}</p>
-            <p className="text-emerald-500 text-sm mt-1">{result.message}</p>
-            <Link
-              href="/transactions"
-              className="mt-4 inline-flex items-center gap-2 text-indigo-400 hover:text-indigo-300 text-sm transition-colors"
-            >
-              {t("upload.viewTransactions")} <ArrowRight size={14} />
-            </Link>
-          </div>
+          {result.status === "success" ? (
+            <div className="bg-emerald-950/40 border border-emerald-800/60 rounded-xl p-5">
+              <p className="text-emerald-300 font-semibold text-lg">{result.transaction_count} {t("upload.uploadResult.successTitle")}</p>
+              <p className="text-emerald-500 text-sm mt-1">{result.message}</p>
+              <Link
+                href="/transactions"
+                className="mt-4 inline-flex items-center gap-2 text-indigo-400 hover:text-indigo-300 text-sm transition-colors"
+              >
+                {t("upload.viewTransactions")} <ArrowRight size={14} />
+              </Link>
+            </div>
+          ) : (
+            <div className="bg-amber-950/30 border border-amber-800/40 rounded-xl p-5">
+              <p className="text-amber-300 font-semibold">{t(reasonKey(result))}</p>
+            </div>
+          )}
 
           {pendingSuggestions.length > 0 && (
             <div className="bg-[#1A1A1A] border border-amber-900/30 rounded-xl p-4">

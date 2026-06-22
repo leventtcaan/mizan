@@ -23,11 +23,14 @@ from app.services.pdf_parser import RawTransaction
 logger = logging.getLogger(__name__)
 
 _DATE_FORMATS = [
+    "%Y-%m-%d",   # ISO (what the global LLM prompt now emits)
     "%d.%m.%Y",
     "%d/%m/%Y",
-    "%Y-%m-%d",
     "%d-%m-%Y",
+    "%m/%d/%Y",   # US
+    "%Y/%m/%d",
     "%d.%m.%y",
+    "%m/%d/%y",
 ]
 
 
@@ -68,6 +71,7 @@ async def insert_transactions(
     user_id: uuid.UUID,
     session: AsyncSession,
     upload_batch_id: str | None = None,
+    default_currency: str = "TRY",
 ) -> list[Transaction]:
     """
     WHAT: Converts RawTransaction list → Transaction ORM objects and bulk-inserts them.
@@ -87,6 +91,9 @@ async def insert_transactions(
             description=rt.description,
             transaction_date=_parse_date(rt.date),
             upload_batch_id=upload_batch_id,
+            # Carry the statement's detected currency through; fall back to the
+            # caller's default (the user's display currency) — never silently TRY.
+            currency=(rt.currency or default_currency),
         )
         for rt in raw_transactions
     ]

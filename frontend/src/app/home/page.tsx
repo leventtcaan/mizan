@@ -191,6 +191,10 @@ export default function HomePage() {
     { done: hasDebt, label: t("home.checklist.debt"), href: "/networth" },
     { done: hasStatement, label: t("home.checklist.statement"), href: "/upload" },
   ];
+  // A user who uploaded a statement (transactions, no assets) is NOT cold-start:
+  // lead with the cash-flow pulse + insight, not the "add net worth" checklist.
+  const hasData = hasAssets || hasStatement;
+  const statementOnly = hasStatement && !hasAssets;
 
   // --- derived: net worth delta ---
   const nwDelta = (() => {
@@ -344,9 +348,12 @@ export default function HomePage() {
 
   return (
     <PageLayout maxWidth="md">
-      <div className="space-y-4 mt-2">
+      <div className="flex flex-col gap-4 mt-2">
 
-        {/* 1 — FINANCIAL SNAPSHOT */}
+        {/* 1 — FINANCIAL SNAPSHOT
+            Hidden for statement-only users so the Cash Flow Pulse leads (no premature
+            "add your net worth" checklist right after they uploaded a statement). */}
+        {!statementOnly && (
         <section className={card}>
           {snapshotLoading ? (
             <div className="space-y-3">
@@ -461,9 +468,10 @@ export default function HomePage() {
             </div>
           )}
         </section>
+        )}
 
         {/* 2 — ACTION CENTER */}
-        <section className={card}>
+        <section className={`${card} ${statementOnly ? "order-3" : ""}`}>
           <div className="flex items-center justify-between mb-3">
             <p className={sectionHeading}>{t("home.needsAttention")}</p>
             <Link href="/networth" className="text-indigo-400 text-xs hover:text-indigo-300 transition-colors flex items-center gap-1">
@@ -524,7 +532,7 @@ export default function HomePage() {
         </section>
 
         {/* 3 — CASH FLOW PULSE */}
-        <section className={card}>
+        <section className={`${card} ${statementOnly ? "order-1" : ""}`}>
           <div className="flex items-center justify-between mb-3">
             <p className={sectionHeading}>{t("home.cashflowPulse")}</p>
             <Link href="/transactions" className="text-indigo-400 text-xs hover:text-indigo-300 transition-colors flex items-center gap-1">
@@ -601,7 +609,7 @@ export default function HomePage() {
         </section>
 
         {/* 4 — UPCOMING OBLIGATIONS */}
-        <section className={card}>
+        <section className={`${card} ${statementOnly ? "order-4" : ""}`}>
           <div className="flex items-center justify-between mb-3">
             <p className={sectionHeading}>{t("home.upcoming")}</p>
             <Link href="/cashflow" className="text-indigo-400 text-xs hover:text-indigo-300 transition-colors flex items-center gap-1">
@@ -642,7 +650,7 @@ export default function HomePage() {
         </section>
 
         {/* 5 — ONE SMART INSIGHT */}
-        <section className={card}>
+        <section className={`${card} ${statementOnly ? "order-2" : ""}`}>
           <div className="flex items-center gap-2 mb-2">
             <Brain size={15} className="text-indigo-400" />
             <p className={sectionHeading}>{t("home.aiTitle")}</p>
@@ -662,7 +670,7 @@ export default function HomePage() {
         </section>
 
         {/* 6 — QUICK ENTRY */}
-        <section>
+        <section className={statementOnly ? "order-5" : ""}>
           <p className={`${sectionHeading} mb-2 px-1`}>{t("home.quickActions")}</p>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <Link href="/upload" className={`${cardSm} flex items-center gap-3 hover:border-indigo-700 transition-colors`}>

@@ -34,28 +34,43 @@ class RawTransaction:
     amount: str           # Normalised: digits + dot decimal, e.g. "1234.56"
     transaction_type: str  # "debit" | "credit"
     raw_row: list[str] = field(default_factory=list)
+    currency: str | None = None  # ISO code when the statement reveals it, else None
 
 
 @dataclass
 class ParseResult:
     """
-    WHAT: Full output of a parse attempt with observability metadata.
-    WHY: source_type tells operators which layer ran — critical for debugging
-         when a bank's PDF format changes.
+    WHAT: Full output of a parse attempt with observability metadata + a user-facing
+          outcome (status/reason) so the caller can fail LOUDLY instead of silently.
+    WHY: source_type tells operators which layer ran. status/reason tell the USER
+         exactly what happened — "encrypted PDF", "scanned image", "unrecognized
+         format" — instead of a green "0 transactions" success that looks broken.
     """
     transactions: list[RawTransaction]
     page_count: int
     raw_row_count: int
     source_type: str  # "pdf-text-llm" | "pdf-text-regex" | "pdf-ocr-llm" | "pdf-ocr-regex" | "csv"
+    status: str = "success"          # "success" (>0 tx) | "empty" (parsed, 0 tx) | "failed" (error)
+    reason: str | None = None        # machine code: encrypted_pdf | scanned_image | ocr_unavailable | unrecognized_format | parse_error
+    detected_currency: str | None = None  # dominant ISO currency across transactions, if any
 
 
 # ─── Shared regex patterns ────────────────────────────────────────────────────
 
-# Matches Turkish date formats: DD.MM.YYYY or DD/MM/YYYY
-_DATE_RE = re.compile(r'\b(\d{2}[./]\d{2}[./]\d{4})\b')
+# Global date formats: DD.MM.YYYY, DD/MM/YYYY, DD-MM-YYYY, MM/DD/YYYY, YYYY-MM-DD,
+# "DD Mon YYYY", "Mon DD, YYYY" (any language month names via the letter class).
+_DATE_RE = re.compile(
+    r'\b('
+    r'\d{4}-\d{1,2}-\d{1,2}'                                  # 2026-06-23 (ISO)
+    r'|\d{1,2}[./-]\d{1,2}[./-]\d{2,4}'                       # 23.06.2026 / 06/23/2026 / 23-06-26
+    r'|\d{1,2}\s+[A-Za-zÇĞİÖŞÜçğıöşü]{3,9}\.?,?\s+\d{2,4}'    # 23 Jun 2026 / 23 Haziran 2026
+    r'|[A-Za-zÇĞİÖŞÜçğıöşü]{3,9}\.?\s+\d{1,2},?\s+\d{2,4}'    # Jun 23, 2026
+    r')\b'
+)
 
-# Matches Turkish amount: 1.234,56 (dot=thousands, comma=decimal) or plain 1234,56
-_TK_AMOUNT_RE = re.compile(r'\b([\d]{1,3}(?:\.[\d]{3})*,\d{2})\b')
+# Global amount with a 2-digit decimal, in either TR (1.234,56) or US (1,234.56)
+# style, with or without thousands separators, optional sign / parentheses.
+_AMOUNT_RE = re.compile(r'[-(]?\s*((?:\d{1,3}(?:[.,]\d{3})+|\d+)[.,]\d{2})\s*\)?')
 
 _SKIP_KEYWORDS = {
     "tarih", "date", "açıklama", "description", "tutar", "amount",
@@ -188,25 +203,36 @@ def _layer2_ocr(contents: bytes, page_count: int) -> str:
 # ─── LLM transaction extraction (text → structured JSON) ─────────────────────
 
 _LLM_SYSTEM = (
-    "Sen bir banka ekstresi ayrıştırıcısısın. "
-    "Verilen ham metin içindeki finansal işlemleri JSON formatında döndür. "
-    "Sadece JSON döndür, başka hiçbir şey yazma."
+    "You are a precise bank-statement parser. Extract every financial transaction "
+    "from the raw statement text — for ANY bank, country, language, or currency. "
+    "Return ONLY a JSON array, nothing else."
 )
 
 _LLM_USER_TEMPLATE = """\
-Aşağıdaki banka ekstresi metninden tüm işlemleri çıkar.
+Extract ALL transactions from the bank statement text below.
 
-Kurallar:
-- Her işlem için: date (DD.MM.YYYY), description, amount (sadece rakam ve nokta, ör. "125.50"), transaction_type ("debit" veya "credit")
-- Türkçe format: 1.234,56 → "1234.56" olarak normalize et (noktayı kaldır, virgülü noktaya çevir)
-- "Borç", "Çekim", "Ödeme" → debit; "Alacak", "Yatırma", "Gelen" → credit
-- Header satırları, bakiye satırları ve boş satırları atla
-- Eğer bir satırda hem borç hem alacak sütunu varsa ve biri 0 veya boşsa, dolu olanı kullan
+For each transaction return an object with exactly these fields:
+- "date": ISO format "YYYY-MM-DD". Convert from whatever format appears in the
+  statement (DD.MM.YYYY, MM/DD/YYYY, DD-MM-YYYY, "23 Jun 2026", "Jun 23, 2026", …).
+- "description": the merchant / counterparty text, cleaned of column noise.
+- "amount": a PLAIN POSITIVE number using a dot as the decimal separator, with NO
+  thousands separators and NO currency symbol. Convert BOTH "1.234,56" (TR/EU) and
+  "1,234.56" (US/UK) to "1234.56".
+- "transaction_type": "debit" if money LEFT the account (purchase, withdrawal,
+  payment, fee, outgoing transfer) or "credit" if money ENTERED (deposit, salary,
+  refund, interest, incoming transfer). Infer from the sign, the debit/credit
+  column, and the surrounding context. Do NOT default to "debit" when the context
+  clearly indicates money coming in.
+- "currency": the ISO 4217 code of the transaction if it can be determined from the
+  statement (e.g. "USD", "EUR", "TRY", "GBP", "JPY"), otherwise null.
 
-Yanıt formatı (başka hiçbir şey ekleme):
-[{{"date":"DD.MM.YYYY","description":"...","amount":"...","transaction_type":"debit|credit"}}, ...]
+Skip header rows, balance/total/summary rows, and blank lines. If a row has both a
+debit and a credit column and one is empty/zero, use the populated one.
 
-Banka ekstresi metni:
+Respond with ONLY this JSON array (no prose, no code fences):
+[{{"date":"YYYY-MM-DD","description":"...","amount":"1234.56","transaction_type":"debit","currency":"USD"}}]
+
+Bank statement text:
 {text}
 """
 
@@ -275,8 +301,12 @@ def _parse_llm_json(raw: str) -> list[RawTransaction]:
             continue
         date = str(item.get("date", "")).strip()
         description = str(item.get("description", "")).strip()
-        amount = str(item.get("amount", "")).strip()
+        amount = _normalise_amount(str(item.get("amount", "")).strip())
         tx_type = str(item.get("transaction_type", "debit")).strip().lower()
+        cur_raw = item.get("currency")
+        currency = str(cur_raw).strip().upper() if cur_raw and str(cur_raw).strip().lower() not in ("none", "null", "") else None
+        if currency and (len(currency) != 3 or not currency.isalpha()):
+            currency = None
         if not date or not amount:
             continue
         if tx_type not in ("debit", "credit"):
@@ -286,6 +316,7 @@ def _parse_llm_json(raw: str) -> list[RawTransaction]:
             description=description,
             amount=amount,
             transaction_type=tx_type,
+            currency=currency,
         ))
 
     logger.info("LLM extracted %d transactions from text", len(results))
@@ -393,21 +424,69 @@ def _ocr_postprocess_descriptions(transactions: list[RawTransaction]) -> list[Ra
 
 # ─── Regex extraction (offline fallback for both layers) ─────────────────────
 
+def _normalise_amount(raw: str) -> str:
+    """
+    WHAT: Converts ANY locale's amount format to a dot-decimal string.
+          "1.234,56" → "1234.56" (TR/EU)   "1,234.56" → "1234.56" (US/UK)
+          "1234,56" → "1234.56"   "1234.56" → "1234.56"   "(1.234,56)" → "-1234.56"
+    WHY:  The app is global — Decimal() only accepts dot-decimal, and the wrong
+          separator assumption silently corrupts every non-Turkish amount.
+    """
+    s = raw.strip().replace(" ", "")
+    neg = s.startswith("-") or s.startswith("(")
+    s = s.strip("()+-")
+    last_comma = s.rfind(",")
+    last_dot = s.rfind(".")
+    if last_comma > last_dot:
+        # comma is the decimal separator (TR/EU): drop dots, comma→dot
+        s = s.replace(".", "").replace(",", ".")
+    elif last_dot > last_comma:
+        # dot is the decimal separator (US/UK): drop commas
+        s = s.replace(",", "")
+    # else: no separators → already a plain integer string
+    return ("-" + s) if neg else s
+
+
+# Backwards-compatible alias (older callers/tests reference the Turkish name).
 def _normalise_turkish_amount(raw: str) -> str:
-    """
-    WHAT: Converts Turkish amount format (1.234,56) to dot-decimal string (1234.56).
-    WHY: Decimal("1.234,56") crashes — normalisation must happen before any Decimal() call.
-    BREAKS IF REMOVED: transaction_service crashes on every amount from Turkish PDFs.
-    """
-    return raw.replace(".", "").replace(",", ".")
+    return _normalise_amount(raw)
 
 
-def _infer_type_from_line(line: str) -> str:
+# Bilingual debit/credit signals — money OUT vs money IN. Used only by the offline
+# regex fallback; the LLM path infers type per-transaction from full context.
+_CREDIT_SIGNALS = {
+    "alacak", "yatırma", "gelen", "havale alındı", "maaş", "iade", "faiz",
+    "deposit", "salary", "refund", "credit", "received", "incoming", "interest",
+    "reversal", "rebate", "payout",
+}
+_DEBIT_SIGNALS = {
+    "borç", "çekim", "ödeme", "alışveriş", "pos", "atm", "komisyon",
+    "withdrawal", "purchase", "payment", "fee", "charge", "debit", "sent",
+    "transfer to", "bill", "subscription",
+}
+
+
+def _infer_type_from_line(line: str, amount_raw: str = "") -> str:
+    """
+    Sign-first, then bilingual keywords. A clearly negative amount (leading "-" or
+    parentheses) is a debit. Otherwise weigh credit vs debit signals. Only when the
+    line gives no signal at all do we fall back to debit (the common case for the
+    offline path) — we never blindly mark EVERYTHING debit.
+    """
+    amt = amount_raw.strip()
+    if amt.startswith("-") or amt.startswith("("):
+        return "debit"
     lower = line.lower()
-    credit_signals = {"alacak", "yatırma", "gelen", "havale alındı", "maaş", "iade"}
-    for signal in credit_signals:
-        if signal in lower:
-            return "credit"
+    # Word-boundary match so short keywords don't false-positive as substrings
+    # (e.g. "pos" must not match inside "de-pos-it").
+    def _has(signals: set[str]) -> bool:
+        return any(re.search(r"\b" + re.escape(sig) + r"\b", lower) for sig in signals)
+    has_credit = _has(_CREDIT_SIGNALS)
+    has_debit = _has(_DEBIT_SIGNALS)
+    if has_credit and not has_debit:
+        return "credit"
+    if has_debit and not has_credit:
+        return "debit"
     return "debit"
 
 
@@ -438,21 +517,21 @@ def _extract_with_regex(text: str) -> list[RawTransaction]:
             skipped_no_date += 1
             continue
 
-        amounts = _TK_AMOUNT_RE.findall(stripped)
+        amounts = _AMOUNT_RE.findall(stripped)
         if not amounts:
             skipped_no_amount += 1
             continue
 
         date_str = date_match.group(1).replace("/", ".")
         # WHY: Last amount on the line is the transaction amount; earlier amounts are often running balance
-        amount_norm = _normalise_turkish_amount(amounts[-1])
+        amount_norm = _normalise_amount(amounts[-1])
 
         date_end = date_match.end()
         first_amount_pos = stripped.find(amounts[0], date_end)
         if first_amount_pos > date_end:
             description = stripped[date_end:first_amount_pos].strip(" -|:\t")
         else:
-            description = _TK_AMOUNT_RE.sub("", stripped[date_end:]).strip(" -|:\t")
+            description = _AMOUNT_RE.sub("", stripped[date_end:]).strip(" -|:\t")
 
         description = description.strip() or "İşlem"
 
@@ -489,7 +568,7 @@ def _extract_with_regex(text: str) -> list[RawTransaction]:
             date=date_str,
             description=description,
             amount=amount_norm,
-            transaction_type=_infer_type_from_line(stripped),
+            transaction_type=_infer_type_from_line(stripped, amounts[-1]),
             raw_row=[stripped],
         ))
 
@@ -538,11 +617,15 @@ def _parse_csv(contents: bytes) -> ParseResult:
     transactions = _filter_zero_amount(transactions)
     transactions = _apply_sign_correction(transactions)
     logger.info("CSV parse complete — %d raw rows, %d transactions", raw_row_count, len(transactions))
+    if transactions:
+        return ParseResult(
+            transactions=transactions, page_count=1, raw_row_count=raw_row_count,
+            source_type="csv", status="success",
+            detected_currency=_dominant_currency(transactions),
+        )
     return ParseResult(
-        transactions=transactions,
-        page_count=1,
-        raw_row_count=raw_row_count,
-        source_type="csv",
+        transactions=[], page_count=1, raw_row_count=raw_row_count,
+        source_type="csv", status="empty", reason="unrecognized_format",
     )
 
 
@@ -567,18 +650,25 @@ def parse_statement(contents: bytes, content_type: str, filename: str) -> ParseR
         return _parse_csv(contents)
 
     # ── Layer 1: pdfplumber text extraction ───────────────────────────────────
-    raw_text, page_count = _layer1_extract_text(contents)
+    # Catch the two failure classes loudly: password-protected PDFs (pdfminer
+    # raises PDFPasswordIncorrect) and otherwise-unreadable/corrupt files. Never
+    # let either surface as a raw 500.
+    try:
+        raw_text, page_count = _layer1_extract_text(contents)
+    except Exception as exc:
+        emsg = str(exc).lower()
+        if "password" in emsg or "encrypt" in emsg or type(exc).__name__ == "PDFPasswordIncorrect":
+            logger.error("PDF is password-protected/encrypted: %s", exc)
+            return ParseResult([], 0, 0, "pdf-encrypted", status="failed", reason="encrypted_pdf")
+        logger.error("Layer 1: PDF could not be opened/read: %s", exc)
+        return ParseResult([], 0, 0, "pdf-error", status="failed", reason="parse_error")
+
     text_chars = len(raw_text.strip())
 
     if text_chars >= _MIN_TEXT_CHARS:
         logger.info("Layer 1: text extraction successful — %d chars extracted", text_chars)
-        transactions, source_suffix = _parse_text(raw_text, layer="1")
-        return ParseResult(
-            transactions=transactions,
-            page_count=page_count,
-            raw_row_count=len(transactions),
-            source_type=f"pdf-text-{source_suffix}",
-        )
+        transactions, source_suffix, currency = _parse_text(raw_text, layer="1")
+        return _finalize(transactions, page_count, f"pdf-text-{source_suffix}", currency)
 
     # ── Layer 2: Tesseract OCR ────────────────────────────────────────────────
     logger.info(
@@ -589,22 +679,33 @@ def parse_statement(contents: bytes, content_type: str, filename: str) -> ParseR
     try:
         ocr_text = _layer2_ocr(contents, page_count)
     except Exception as exc:
-        logger.error("Layer 2: Tesseract OCR failed: %s — returning empty result", exc)
-        return ParseResult(transactions=[], page_count=page_count, raw_row_count=0, source_type="pdf-ocr-failed")
+        logger.error("Layer 2: Tesseract OCR failed: %s", exc)
+        return ParseResult([], page_count, 0, "pdf-ocr-failed", status="failed", reason="ocr_unavailable")
 
-    logger.info("Layer 2: OCR via Tesseract — %d chars extracted", len(ocr_text.strip()))
-    transactions, source_suffix = _parse_text(ocr_text, layer="2")
+    ocr_chars = len(ocr_text.strip())
+    logger.info("Layer 2: OCR via Tesseract — %d chars extracted", ocr_chars)
+    if ocr_chars < _MIN_TEXT_CHARS:
+        # OCR ran but the page yielded almost no text → a scanned image we can't read.
+        logger.warning("Layer 2: OCR produced only %d chars — treating as unreadable scan", ocr_chars)
+        return ParseResult([], page_count, 0, "pdf-ocr-empty", status="failed", reason="scanned_image")
+
+    transactions, source_suffix, currency = _parse_text(ocr_text, layer="2")
     transactions = _ocr_postprocess_descriptions(transactions)
+    return _finalize(transactions, page_count, f"pdf-ocr-{source_suffix}", currency)
 
-    # ── Layer 3: Vision LLM (stub) ────────────────────────────────────────────
-    # FUTURE: if OCR confidence low, send image to vision LLM
-    # Requires: OpenAI GPT-4o-mini or similar vision-capable model
 
+def _finalize(
+    transactions: list[RawTransaction], page_count: int, source_type: str, currency: str | None
+) -> ParseResult:
+    """Stamp the user-facing outcome: success (>0), or empty (parsed cleanly, 0 found)."""
+    if transactions:
+        return ParseResult(
+            transactions=transactions, page_count=page_count, raw_row_count=len(transactions),
+            source_type=source_type, status="success", detected_currency=currency,
+        )
     return ParseResult(
-        transactions=transactions,
-        page_count=page_count,
-        raw_row_count=len(transactions),
-        source_type=f"pdf-ocr-{source_suffix}",
+        transactions=[], page_count=page_count, raw_row_count=0,
+        source_type=source_type, status="empty", reason="unrecognized_format",
     )
 
 
@@ -663,10 +764,21 @@ def _apply_sign_correction(transactions: list[RawTransaction]) -> list[RawTransa
     return transactions
 
 
-def _parse_text(text: str, layer: str) -> tuple[list[RawTransaction], str]:
+def _dominant_currency(transactions: list[RawTransaction]) -> str | None:
+    """Most common non-null currency across the transactions, if the LLM tagged any."""
+    counts: dict[str, int] = {}
+    for t in transactions:
+        if t.currency:
+            counts[t.currency] = counts.get(t.currency, 0) + 1
+    if not counts:
+        return None
+    return max(counts, key=counts.get)
+
+
+def _parse_text(text: str, layer: str) -> tuple[list[RawTransaction], str, str | None]:
     """
     WHAT: Given extracted text (from pdfplumber or OCR), runs LLM XOR regex extraction,
-          then deduplicates and applies sign correction.
+          then deduplicates and applies sign correction. Returns (txns, source, currency).
     WHY: LLM and regex must never both run on the same text — combined output would
          duplicate every transaction the LLM found that the regex also matched.
          Deduplication is an additional safety net for OCR rendering artifacts.
@@ -686,4 +798,4 @@ def _parse_text(text: str, layer: str) -> tuple[list[RawTransaction], str]:
     transactions = _deduplicate(transactions)
     transactions = _filter_zero_amount(transactions)
     transactions = _apply_sign_correction(transactions)
-    return transactions, source
+    return transactions, source, _dominant_currency(transactions)

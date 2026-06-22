@@ -18,6 +18,18 @@ const TOP_CURRENCIES = ["TRY", "USD", "EUR", "GBP", "CHF", "JPY", "AED"];
 
 const inputClass = "w-full bg-[#1A1A1A] border border-[#2A2A2A] rounded-xl px-4 py-3 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-indigo-600";
 
+// Map backend reason code → i18n key under upload.uploadResult.
+function uploadReasonKey(result: UploadResponse): string {
+  switch (result.reason) {
+    case "encrypted_pdf": return "upload.uploadResult.encrypted";
+    case "scanned_image": return "upload.uploadResult.scanned";
+    case "ocr_unavailable": return "upload.uploadResult.ocrFailed";
+    case "parse_error": return "upload.uploadResult.failed";
+    case "unrecognized_format": return "upload.uploadResult.empty";
+    default: return "upload.uploadResult.empty";
+  }
+}
+
 function CurrencyChips({ value, onChange, otherLabel }: { value: string; onChange: (c: string) => void; otherLabel: string }) {
   const [showFull, setShowFull] = useState(!TOP_CURRENCIES.includes(value));
   const chip = (active: boolean) =>
@@ -239,9 +251,13 @@ export default function OnboardingPage() {
                       <span className="inline-flex items-center gap-2 text-gray-500 text-sm"><FileText size={15} /> {t("onboarding.cs.orUpload")}</span>
                     )}
                   </div>
-                ) : (
+                ) : uploadResult.status === "success" ? (
                   <div className="mb-6 p-3 rounded-xl bg-emerald-950/30 border border-emerald-800/40 text-emerald-300 text-sm text-center">
                     ✓ {uploadResult.transaction_count} {t("onboarding.uploadSuccess")}
+                  </div>
+                ) : (
+                  <div className="mb-6 p-3 rounded-xl bg-amber-950/30 border border-amber-800/40 text-amber-300 text-sm text-center">
+                    {t(uploadReasonKey(uploadResult))}
                   </div>
                 )}
                 {renderStep2Footer()}
@@ -299,7 +315,16 @@ export default function OnboardingPage() {
               <span className="text-emerald-400 text-2xl">✓</span>
             </div>
             <h2 className="text-2xl font-bold mb-2">{t("onboarding.cs.doneTitle")}</h2>
-            <p className="text-gray-500 text-sm mb-8">{t("onboarding.cs.doneSub")}</p>
+            {(() => {
+              const echo = step3Echo();
+              const fallback = t("onboarding.cs.doneSub");
+              return echo === fallback
+                ? <p className="text-gray-500 text-sm mb-8">{fallback}</p>
+                : <>
+                    <p className="text-gray-300 text-sm mb-2">{echo}</p>
+                    <p className="text-gray-500 text-sm mb-8">{fallback}</p>
+                  </>;
+            })()}
             <button onClick={handleFinish} className="w-full py-4 rounded-xl bg-indigo-600 hover:bg-indigo-500 font-semibold transition-colors flex items-center justify-center gap-2">
               {t("onboarding.cs.seeDashboard")} <ArrowRight size={18} />
             </button>
@@ -308,6 +333,33 @@ export default function OnboardingPage() {
       </div>
     </div>
   );
+
+  // Echo the value the user entered in Step 2, goal-appropriate. No interpolation in t().
+  function step3Echo(): string {
+    const money = (raw: string) => {
+      const n = parseFloat(raw);
+      if (isNaN(n) || n <= 0) return null;
+      try {
+        return new Intl.NumberFormat(undefined, { style: "currency", currency, maximumFractionDigits: 0 }).format(n);
+      } catch {
+        return `${new Intl.NumberFormat(undefined, { maximumFractionDigits: 0 }).format(n)} ${currency}`;
+      }
+    };
+    if (goal === "networth") {
+      const m = money(balance);
+      if (m) return `${t("onboarding.cs.savedBalancePre")} ${m} ${t("onboarding.cs.savedBalancePost")}`;
+    } else if (goal === "spending") {
+      if (uploadResult && uploadResult.status === "success") {
+        return `${t("onboarding.cs.savedUploadPre")} ${uploadResult.transaction_count} ${t("onboarding.cs.savedUploadPost")}`.trim();
+      }
+      const m = money(spendingAmount);
+      if (m) return `${t("onboarding.cs.savedSpendingPre")}${m} ${t("onboarding.cs.savedSpendingPost")}`;
+    } else if (goal === "debt") {
+      const m = money(debtAmount);
+      if (m) return `${t("onboarding.cs.savedDebtPre")} ${m} ${t("onboarding.cs.savedDebtPost")}`;
+    }
+    return t("onboarding.cs.doneSub");
+  }
 
   function renderStep2Footer() {
     return (
