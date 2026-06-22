@@ -53,6 +53,14 @@ function Skeleton({ className = "" }: { className?: string }) {
   return <div className={`bg-[#2A2A2A] rounded-lg animate-pulse ${className}`} />;
 }
 
+// Map reconciliation issue_type → translated title (mirrors networth page).
+const RECON_TITLE_KEY: Record<string, string> = {
+  overdue_receivable: "nw.recon.overdueTitle",
+  received_receivable_missing_asset: "nw.recon.missingAssetTitle",
+  possible_duplicate_transaction: "nw.recon.duplicateTitle",
+  large_transaction_review: "nw.recon.largeTxTitle",
+};
+
 type Urgency = "today" | "week" | "whenever";
 type ActionItem = {
   key: string; urgency: Urgency; icon: React.ReactNode; accent: string;
@@ -64,6 +72,14 @@ const URGENCY_ORDER: Urgency[] = ["today", "week", "whenever"];
 export default function HomePage() {
   const router = useRouter();
   const { lang, t } = useLanguage();
+
+  // "1 gün", "3 gün" (non-abbreviated)
+  const dayLabel = (n: number) => `${n} ${n === 1 ? t("home.day") : t("home.days")}`;
+  // Localize backend "Receivable: X" prefix → "Alacak: X"
+  const flowLabel = (f: CashFlowItem) =>
+    f.description.startsWith("Receivable: ")
+      ? `${t("home.receivable")}: ${f.description.slice("Receivable: ".length)}`
+      : f.description;
 
   // Snapshot (net worth + ratios + health)
   const [summary, setSummary] = useState<NetWorthSummary | null>(null);
@@ -217,8 +233,8 @@ export default function HomePage() {
       key: k, urgency: du <= 0 ? "today" : "week",
       icon: isPayment ? <CreditCard size={16} /> : <Wallet size={16} />,
       accent: du <= 0 ? "text-red-400" : "text-amber-400",
-      title: `${f.description} · ${fmt(parseFloat(f.amount), f.currency)}`,
-      detail: du <= 0 ? t("home.overdue") : `${du}g`,
+      title: `${flowLabel(f)} · ${fmt(parseFloat(f.amount), f.currency)}`,
+      detail: du <= 0 ? t("home.overdue") : dayLabel(du),
       href: "/cashflow", onDismiss: () => setDismissed((s) => new Set(s).add(k)),
     });
   });
@@ -229,7 +245,8 @@ export default function HomePage() {
       key: k, urgency: item.severity === "high" ? "today" : item.severity === "medium" ? "week" : "whenever",
       icon: <Zap size={16} />,
       accent: item.severity === "high" ? "text-red-400" : item.severity === "medium" ? "text-amber-400" : "text-gray-400",
-      title: item.title, detail: item.description, href: "/networth",
+      title: RECON_TITLE_KEY[item.issue_type] ? t(RECON_TITLE_KEY[item.issue_type]) : item.title,
+      detail: item.description, href: "/networth",
       onDismiss: () => {
         setDismissed((s) => new Set(s).add(k));
         updateReconciliationItemStatus(item.id, "dismissed").catch(() => null);
@@ -490,14 +507,14 @@ export default function HomePage() {
                       {inflow ? <Wallet size={15} /> : <Calendar size={15} />}
                     </span>
                     <div className="flex-1 min-w-0">
-                      <p className="text-white text-sm truncate">{f.description}</p>
+                      <p className="text-white text-sm truncate">{flowLabel(f)}</p>
                     </div>
                     <div className="text-right shrink-0">
                       <p className={`text-sm font-medium tabular-nums ${inflow ? "text-emerald-400" : "text-gray-200"}`}>
                         {inflow ? "+" : "−"}{fmt(parseFloat(f.amount), f.currency)}
                       </p>
                       <p className={`text-[10px] ${du <= 0 ? "text-red-400 font-medium" : "text-gray-600"}`}>
-                        {du <= 0 ? t("home.overdue") : `${du}g`}
+                        {du <= 0 ? t("home.overdue") : dayLabel(du)}
                       </p>
                     </div>
                   </li>
