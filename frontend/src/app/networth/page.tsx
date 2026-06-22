@@ -35,6 +35,8 @@ import {
   deleteWealthAlert,
   analyzeNetWorth,
   generateDailyNotifications,
+  getNetWorthAttribution,
+  type NetWorthAttribution,
   AssetItem,
   LiabilityItem,
   ReceivableItem,
@@ -195,6 +197,7 @@ export default function NetWorthPage() {
   const { t } = useLanguage();
   const router = useRouter();
   const [displayCurrency, setDisplayCurrency] = useState("TRY");
+  const [attribution, setAttribution] = useState<NetWorthAttribution | null>(null);
 
   const [summary, setSummary] = useState<NetWorthSummary | null>(null);
   const [assets, setAssets] = useState<AssetItem[]>([]);
@@ -293,7 +296,10 @@ export default function NetWorthPage() {
     setLoading(true);
     getCurrencyRates("USD").then(setUsdRates).catch(() => null);
     // Fire-and-forget: snapshot + alerts + notifications don't block page load
-    createNetWorthSnapshot().then(() => getNetWorthHistory(90)).then(setSnapshots).catch(() => null);
+    createNetWorthSnapshot()
+      .then(() => getNetWorthHistory(90)).then(setSnapshots)
+      .then(() => getNetWorthAttribution(displayCurrency)).then(setAttribution)
+      .catch(() => null);
     getWealthAlerts().then(setWealthAlerts).catch(() => null);
     checkWealthAlerts().then(setTriggeredAlerts).catch(() => null);
     generateDailyNotifications().catch(() => null);
@@ -360,6 +366,7 @@ export default function NetWorthPage() {
 
   const reloadSummary = useCallback(async () => {
     setSummaryLoading(true);
+    getNetWorthAttribution(displayCurrency).then(setAttribution).catch(() => null);
     try { setSummary(await getNetWorthSummary(displayCurrency)); }
     finally { setSummaryLoading(false); }
   }, [displayCurrency]);
@@ -724,6 +731,24 @@ export default function NetWorthPage() {
                 </span>
               )}
             </div>
+
+            {/* Why it moved — change attribution (compact, one line) */}
+            {attribution && attribution.drivers.length > 0 && (
+              <div className="flex items-center justify-center flex-wrap gap-1.5 mb-4 -mt-1">
+                {attribution.drivers.map((d, i) => (
+                  <span
+                    key={i}
+                    className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-xs font-medium ${
+                      d.direction === "up" ? "bg-emerald-950/40 text-emerald-300" : "bg-red-950/40 text-red-300"
+                    }`}
+                  >
+                    {d.direction === "up" ? <TrendingUp size={11} /> : <TrendingDown size={11} />}
+                    <span className="text-gray-400 font-normal">{d.label}</span>
+                    {d.direction === "up" ? "+" : "−"}{fmt(d.amount, displayCurrency)}
+                  </span>
+                ))}
+              </div>
+            )}
             <div className="flex items-center justify-center gap-6 flex-wrap text-sm">
               <div className="flex items-center gap-1.5">
                 <TrendingUp size={14} className="text-emerald-400" />
