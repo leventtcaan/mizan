@@ -296,19 +296,42 @@ async def build_guidance(
                 })
 
     # ── PLAY: low savings rate ──────────────────────────────────────────────────
+    # Cash flow read alone is misleading: someone with a large asset base and a
+    # long runway is in a very different place than someone overspending with no
+    # buffer. Weight this finding by the cushion (liquid runway + net-worth years),
+    # so a wealthy month-of-overspend never outranks the real structural issues.
     if sav_pillar and sav_pillar.get("status") == "ok":
         rate = float(sav_pillar.get("value", 0)) / 100.0
         if rate < _SAVINGS_RATE_LOW:
             overspend = monthly_expenses - monthly_income
+            gap = overspend if overspend > 0 else monthly_expenses  # monthly drain
+            runway_months = (liquid / gap) if gap > 0 else 999.0
+            nw_years = (net_worth / (gap * 12)) if gap > 0 else 999.0
+            # Cushioned: liquid covers a year+ of the gap, or net worth covers 2+ years.
+            cushioned = net_worth > 0 and (runway_months >= 12 or nw_years >= 2)
+            severity = "low" if cushioned else "medium"
+
             if rate < 0:
-                # Spending exceeds income — never show a negative percent.
-                if overspend > 0:
+                if cushioned:
+                    obs = _tpl(lang,
+                        "Your spending has been running ahead of your income lately.",
+                        "Son dönemde harcamanız gelirinizin biraz önünde gidiyor.")
+                    why = _tpl(lang,
+                        f"Your assets cover the gap comfortably for now, but at about {_fmt(gap, cur)} a month it's worth keeping an eye on.",
+                        f"Varlıklarınız bu farkı şimdilik rahatça karşılıyor, ama ayda yaklaşık {_fmt(gap, cur)} ile göz ucuyla takip etmekte fayda var.")
+                    context = _tpl(lang,
+                        "Nothing urgent given your cushion — just a trend to keep from becoming a habit.",
+                        "Tamponunuz göz önüne alınınca acil bir şey yok — sadece alışkanlığa dönüşmemesi gereken bir eğilim.")
+                elif overspend > 0:
                     obs = _tpl(lang,
                         "Lately you're spending more than you bring in.",
                         "Son dönemde kazandığınızdan fazlasını harcıyorsunuz.")
                     why = _tpl(lang,
-                        f"You're running roughly {_fmt(overspend, cur)} short each month, which slowly eats into your net worth.",
-                        f"Her ay yaklaşık {_fmt(overspend, cur)} açık veriyorsunuz; bu net değerinizi yavaşça eritiyor.")
+                        f"You're running roughly {_fmt(overspend, cur)} short each month with little buffer to absorb it.",
+                        f"Her ay yaklaşık {_fmt(overspend, cur)} açık veriyorsunuz ve bunu karşılayacak tampon az.")
+                    context = _tpl(lang,
+                        "The goal isn't perfection — just getting back to spending a little less than you earn.",
+                        "Amaç kusursuzluk değil — yalnızca kazandığınızdan biraz azını harcamaya dönmek.")
                 else:
                     obs = _tpl(lang,
                         "Your spending is outpacing your income.",
@@ -316,9 +339,9 @@ async def build_guidance(
                     why = _tpl(lang,
                         "When more goes out than comes in, net worth drifts down month after month.",
                         "Girenden fazlası çıkınca net değer her ay biraz daha aşağı kayar.")
-                context = _tpl(lang,
-                    "The goal isn't perfection — just getting back to spending a little less than you earn.",
-                    "Amaç kusursuzluk değil — yalnızca kazandığınızdan biraz azını harcamaya dönmek.")
+                    context = _tpl(lang,
+                        "The goal isn't perfection — just getting back to spending a little less than you earn.",
+                        "Amaç kusursuzluk değil — yalnızca kazandığınızdan biraz azını harcamaya dönmek.")
             else:
                 pct = round(rate * 100)
                 obs = _tpl(lang,
@@ -331,7 +354,7 @@ async def build_guidance(
                     "How much you keep each month is the single biggest lever on your net worth over time.",
                     "Her ay ne kadar elinizde tuttuğunuz, zamanla net değerinizdeki en büyük kaldıraçtır.")
             findings.append({
-                "id": "savings_rate", "play": "savings_rate", "severity": "medium",
+                "id": "savings_rate", "play": "savings_rate", "severity": severity,
                 "action": {"type": "set_goal", "params": {}},
                 "observation": obs,
                 "context": context,

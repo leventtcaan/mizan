@@ -101,25 +101,85 @@ function convertAmount(
   return (amount / fromRate) * toRate;
 }
 
-function sourceDetailLabel(raw: string | null): string | null {
-  if (!raw) return null;
-  try {
-    const data = JSON.parse(raw) as {
-      subtype?: string; symbol?: string; code?: string; unit?: string;
-      label?: string; name?: string; venue?: string;
-      primary?: string; secondary?: string; tertiary?: string;
-    };
-    if (data.subtype === "crypto" && data.symbol) return [data.symbol, data.name].filter(Boolean).join(" · ");
-    if (data.subtype === "foreign_currency" && data.code) return [data.code, data.name].filter(Boolean).join(" · ");
-    if (data.subtype === "commodity" && data.code) return [data.code, data.name].filter(Boolean).join(" · ");
-    if (data.subtype === "gold") return data.label ?? data.unit ?? null;
-    if (data.subtype === "stock" && data.symbol) return [data.symbol, data.name, data.venue].filter(Boolean).join(" · ");
-    if (data.subtype === "fund" && data.code) return [data.code, data.name, data.venue].filter(Boolean).join(" · ");
-    if (data.primary || data.secondary || data.tertiary) return [data.primary, data.secondary, data.tertiary].filter(Boolean).join(" · ");
-  } catch {
-    return raw;
+// Format a number without trailing-zero noise (0.05000000 → "0.05", 4000 → "4,000").
+function trimNum(v: string | number): string {
+  const n = typeof v === "string" ? parseFloat(v) : v;
+  if (!Number.isFinite(n)) return "";
+  return new Intl.NumberFormat(undefined, { maximumFractionDigits: 8 }).format(n);
+}
+
+function monthYear(iso: string | undefined): string | null {
+  if (!iso) return null;
+  const d = new Date(iso.length <= 10 ? iso + "T00:00:00" : iso);
+  if (isNaN(d.getTime())) return null;
+  return d.toLocaleDateString(undefined, { month: "short", year: "numeric" });
+}
+
+// Render a human, readable one-liner per asset type. NEVER returns raw JSON.
+function assetDetailLabel(asset: AssetItem, t: (k: string) => string): string | null {
+  let d: Record<string, unknown> = {};
+  try { d = asset.source_detail ? (JSON.parse(asset.source_detail) as Record<string, unknown>) : {}; }
+  catch { d = {}; }
+  const s = (k: string): string | undefined => (typeof d[k] === "string" ? (d[k] as string).trim() || undefined : undefined);
+  const tx = (key: string): string | null => { const v = t(key); return v !== key ? v : null; };
+  const st = (s("subtype") || asset.asset_type) as string;
+  const join = (parts: (string | null | undefined)[]) => parts.filter(Boolean).join(" · ") || null;
+
+  switch (st) {
+    case "crypto":
+      return join([s("symbol") || asset.currency, trimNum(asset.current_value)]);
+    case "foreign_currency":
+      return join([s("code") || asset.currency, trimNum(asset.current_value)]);
+    case "commodity":
+      return join([s("code") || s("name") || asset.currency, trimNum(asset.current_value)]);
+    case "gold": {
+      const label = s("label") ? (tx(`assetForm.goldUnits.${s("label")}`) ?? s("label")!) : null;
+      const qty = s("quantity") ?? (d.quantity != null ? String(d.quantity) : null);
+      return join([label, qty ? trimNum(qty) : null]);
+    }
+    case "stock":
+    case "fund": {
+      const sym = s("symbol") || s("code");
+      const shares = (asset.quantity && parseFloat(asset.quantity) > 0)
+        ? `${trimNum(asset.quantity)} ${t("assetForm.units.piece")}`
+        : (s("shares") ? `${trimNum(s("shares")!)} ${t("assetForm.units.piece")}` : (s("name") ?? null));
+      return join([sym, shares]);
+    }
+    case "vehicle":
+      return [s("brand"), s("model"), s("year")].filter(Boolean).join(" ") || null;
+    case "bank_account": {
+      const typeMap: Record<string, string> = {
+        checking: "assetForm.bank.checking",
+        time_deposit: "assetForm.bank.timeDeposit",
+        participation: "assetForm.bank.participation",
+      };
+      const at = s("account_type");
+      const typeLabel = at ? (tx(typeMap[at] ?? "") ?? null) : null;
+      const rate = s("interest_rate") ? `%${s("interest_rate")}` : null;
+      const mat = monthYear(s("maturity_date"));
+      const matLabel = mat ? `${t("nw.maturityLabel")}: ${mat}` : null;
+      return join([typeLabel || s("primary"), rate, matLabel]);
+    }
+    case "real_estate": {
+      const pt = s("property_type") ? (tx(`assetForm.re.${s("property_type")}`) ?? s("property_type")!) : null;
+      return join([pt, s("city"), s("sqm") ? `${s("sqm")} m²` : null]);
+    }
+    case "bond":
+      return join([s("issuer"), s("coupon_rate") ? `%${s("coupon_rate")}` : null, monthYear(s("maturity_date"))]);
+    case "life_insurance":
+      return join([s("provider"), s("monthly_premium") ? `${trimNum(s("monthly_premium")!)}/${t("cashflow.legend.payment")}` : null]);
+    case "business_ownership":
+      return join([s("company"), s("pct") ? `%${s("pct")}` : null]);
+    case "art_collectible":
+    case "jewelry":
+      return join([s("item"), s("insurance_value") ? trimNum(s("insurance_value")!) : null]);
+    case "pension":
+    case "bes":
+      return join([s("primary") || s("provider"), s("secondary")]);
+    default:
+      // Generic manual subtypes — show captured fields, never the JSON.
+      return join([s("primary"), s("secondary"), s("tertiary")]);
   }
-  return raw;
 }
 
 function maturityCountdown(raw: string | null): { days: number; label: string } | null {
@@ -1015,7 +1075,7 @@ export default function NetWorthPage() {
                     <span className="text-xs text-gray-400 font-medium">{group.label}</span>
                   </div>
                   {groupAssets.map((a, idx) => {
-                    const detailLabel = sourceDetailLabel(a.source_detail);
+                    const detailLabel = assetDetailLabel(a, t);
                     const priceBadge = getPriceBadge(a);
                     const maturity = a.asset_type === "bank_account" ? maturityCountdown(a.source_detail ?? null) : null;
                     return (

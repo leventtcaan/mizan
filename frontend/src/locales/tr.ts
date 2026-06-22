@@ -307,6 +307,7 @@ export const tr = {
     alertCurrentPrice: "Güncel fiyat",
     alertNotifyIf: "Şu kadar düşerse haber ver",
     alertTriggersAt: "Tetiklenir:",
+    maturityLabel: "Vade",
     allocation: {
       title: "Varlık dağılımı",
       total: "Toplam",

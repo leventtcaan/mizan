@@ -307,6 +307,7 @@ export const en = {
     alertCurrentPrice: "Current price",
     alertNotifyIf: "Notify me if it drops by",
     alertTriggersAt: "Triggers at",
+    maturityLabel: "Matures",
     allocation: {
       title: "Asset allocation",
       total: "Total",

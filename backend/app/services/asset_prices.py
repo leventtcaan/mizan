@@ -277,10 +277,15 @@ async def fetch_all_for_user(
     now_utc = datetime.now(timezone.utc).isoformat()
 
     for asset in assets:
+        value_before = float(asset.current_value)
         price_usd = await _price_for_asset(asset)
 
         if price_usd is None:
             failed += 1
+            logger.warning(
+                "PRICE FAIL — %s [%s/%s] no price fetched (symbol/code unresolved or upstream down)",
+                asset.name, asset.asset_type, asset.currency,
+            )
             details.append({
                 "asset_id": str(asset.id),
                 "name": asset.name,
@@ -301,12 +306,13 @@ async def fetch_all_for_user(
         asset.as_of_date = date.today()
         # updated_at triggers automatically via SQLAlchemy onupdate
 
+        revalued = False
         # Stocks/funds store a VALUE (not a quantity), so recompute it live from
         # shares × price. If the share count is unknown (asset created via the
         # manual-value fallback or an older flow), back-fill it once from the
         # current value ÷ live price, then every future refresh moves the value.
         # Crypto/gold/FX/commodity keep their quantity in current_value (price
-        # applies at display time).
+        # applies at display time, so their stored value intentionally stays put).
         if asset.asset_type in MARKET_VALUE_TYPES and price_usd > 0:
             from app.services.currency import convert
             try:
@@ -315,15 +321,30 @@ async def fetch_all_for_user(
                     value_usd_now = await convert(float(asset.current_value), asset.currency, "USD")
                     shares = value_usd_now / price_usd
                     asset.quantity = Decimal(str(shares))
-                    logger.info("Back-filled %s shares=%.4f for %s", asset.asset_type, shares, asset.name)
+                    logger.info("Back-filled %s shares=%.6f for %s", asset.asset_type, shares, asset.name)
                 if shares and shares > 0:
                     value_usd = shares * price_usd
                     value_ccy = await convert(value_usd, "USD", asset.currency)
                     asset.current_value = Decimal(str(round(value_ccy, 2)))
                     sd["last_shares"] = shares
                     asset.source_detail = json.dumps(sd)
+                    revalued = True
             except Exception as exc:
                 logger.warning("Stock revalue failed for %s: %s", asset.name, exc)
+
+        if revalued:
+            logger.info(
+                "PRICED — %s [%s/%s] px=$%.4f  value %.2f → %.2f %s (shares×price)",
+                asset.name, asset.asset_type, asset.currency, price_usd,
+                value_before, float(asset.current_value), asset.currency,
+            )
+        else:
+            # Live-value type: current_value is the quantity; display value is
+            # quantity × live rate, computed on the client at render time.
+            logger.info(
+                "PRICED — %s [%s/%s] px=$%.4f  qty=%.6f (valued live at display time, stored value unchanged)",
+                asset.name, asset.asset_type, asset.currency, price_usd, value_before,
+            )
 
         updated += 1
         details.append({
