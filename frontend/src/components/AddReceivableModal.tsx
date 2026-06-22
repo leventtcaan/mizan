@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { createReceivable, ReceivableItem } from "@/lib/api";
+import { createReceivable, updateReceivable, ReceivableItem } from "@/lib/api";
 import { X } from "@/components/ui/Icons";
 import CurrencySelect from "@/components/CurrencySelect";
 import { useLanguage } from "@/lib/i18n";
@@ -9,15 +9,19 @@ import { useLanguage } from "@/lib/i18n";
 interface Props {
   onClose: () => void;
   onAdded: (receivable: ReceivableItem) => void;
+  onUpdated?: (receivable: ReceivableItem) => void;
+  editData?: ReceivableItem | null;
 }
 
-export default function AddReceivableModal({ onClose, onAdded }: Props) {
+export default function AddReceivableModal({ onClose, onAdded, onUpdated, editData }: Props) {
   const { t } = useLanguage();
-  const [fromPerson, setFromPerson] = useState("");
-  const [amount, setAmount] = useState("");
-  const [currency, setCurrency] = useState("TRY");
-  const [expectedDate, setExpectedDate] = useState("");
-  const [notes, setNotes] = useState("");
+  const isEdit = !!editData;
+
+  const [fromPerson, setFromPerson] = useState(editData?.from_person ?? "");
+  const [amount, setAmount] = useState(editData?.amount ?? "");
+  const [currency, setCurrency] = useState(editData?.currency ?? "TRY");
+  const [expectedDate, setExpectedDate] = useState(editData?.expected_date ?? "");
+  const [notes, setNotes] = useState(editData?.notes ?? "");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -26,14 +30,20 @@ export default function AddReceivableModal({ onClose, onAdded }: Props) {
     setError(null);
     setLoading(true);
     try {
-      const receivable = await createReceivable({
+      const body = {
         from_person: fromPerson,
         amount,
         currency,
         expected_date: expectedDate || undefined,
         notes: notes || undefined,
-      });
-      onAdded(receivable);
+      };
+      if (isEdit && editData) {
+        const updated = await updateReceivable(editData.id, body);
+        onUpdated?.(updated);
+      } else {
+        const receivable = await createReceivable(body);
+        onAdded(receivable);
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : t("common.error"));
     } finally {
@@ -47,7 +57,9 @@ export default function AddReceivableModal({ onClose, onAdded }: Props) {
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm" onClick={onClose}>
       <div className="bg-[#1A1A1A] border border-[#2A2A2A] rounded-2xl w-full max-w-md mx-4 p-6" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between mb-5">
-          <h2 className="text-white font-semibold text-lg">{t("nw.addReceivable")}</h2>
+          <h2 className="text-white font-semibold text-lg">
+            {isEdit ? `${t("common.edit")}: ${editData!.from_person}` : t("nw.addReceivable")}
+          </h2>
           <button onClick={onClose} className="text-gray-500 hover:text-gray-300 transition-colors"><X size={20} /></button>
         </div>
 
@@ -85,7 +97,7 @@ export default function AddReceivableModal({ onClose, onAdded }: Props) {
               {t("common.cancel")}
             </button>
             <button type="submit" disabled={loading || !fromPerson || !amount} className="flex-1 px-4 py-2 rounded-lg bg-amber-600 hover:bg-amber-500 disabled:opacity-50 disabled:cursor-not-allowed text-sm font-medium text-white transition-colors">
-              {loading ? t("common.loading") : t("common.add")}
+              {loading ? t("common.loading") : isEdit ? t("common.save") : t("common.add")}
             </button>
           </div>
         </form>

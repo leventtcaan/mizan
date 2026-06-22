@@ -6,6 +6,7 @@ import Link from "next/link";
 import { getToken, getStoredUser, clearToken, getNetWorthSuggestions, updatePreferences } from "@/lib/api";
 import { BarChart2, Calendar, CreditCard, Layers, Upload, LogOut, Menu, X, Scale } from "@/components/ui/Icons";
 import { useLanguage, type Lang } from "@/lib/i18n";
+import NotificationDropdown from "@/components/NotificationDropdown";
 
 const HIDDEN_PATHS = ["/login", "/onboarding"];
 
@@ -120,6 +121,7 @@ export default function Navbar() {
               </button>
             </div>
 
+            <NotificationDropdown />
             <span className="text-gray-500 text-xs truncate max-w-[140px]">{userEmail}</span>
             <Link
               href="/upload"

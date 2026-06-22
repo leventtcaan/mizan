@@ -341,3 +341,29 @@ export function ArrowUp({ size, className, strokeWidth }: IconProps) {
     </Icon>
   );
 }
+
+export function Pencil({ size, className, strokeWidth }: IconProps) {
+  return (
+    <Icon size={size} className={className} strokeWidth={strokeWidth}>
+      <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+      <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+    </Icon>
+  );
+}
+
+export function CheckCircle({ size, className, strokeWidth }: IconProps) {
+  return (
+    <Icon size={size} className={className} strokeWidth={strokeWidth}>
+      <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
+      <polyline points="22 4 12 14.01 9 11.01" />
+    </Icon>
+  );
+}
+
+export function MessageCircle({ size, className, strokeWidth }: IconProps) {
+  return (
+    <Icon size={size} className={className} strokeWidth={strokeWidth}>
+      <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+    </Icon>
+  );
+}

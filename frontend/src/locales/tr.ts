@@ -178,6 +178,20 @@ export const tr = {
       net_worth_drop: "Net Değer Düşüş Uyarısı",
       payment_coverage_risk: "Ödeme Karşılama Riski",
     },
+    analyzeTitle: "Finanslarınızı sorun",
+    analyzePlaceholder: "Örn. BTC %20 düşerse net değerim ne olur?",
+    analyzeSend: "Gönder",
+    analyzeClose: "Kapat",
+  },
+  notifications: {
+    title: "Bildirimler",
+    empty: "Bildirim yok",
+    markAllRead: "Tümünü okundu işaretle",
+    types: {
+      info: "Bilgi",
+      warning: "Uyarı",
+      alert: "Alarm",
+    },
   },
   progress: {
     title: "İlerleme",

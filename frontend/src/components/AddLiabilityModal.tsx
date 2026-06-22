@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { createLiability, LiabilityItem } from "@/lib/api";
+import { createLiability, updateLiability, LiabilityItem } from "@/lib/api";
 import { X } from "@/components/ui/Icons";
 import CurrencySelect from "@/components/CurrencySelect";
 import { useLanguage } from "@/lib/i18n";
@@ -14,19 +14,23 @@ const LIABILITY_TYPE_KEYS = [
 interface Props {
   onClose: () => void;
   onAdded: (liability: LiabilityItem) => void;
+  onUpdated?: (liability: LiabilityItem) => void;
+  editData?: LiabilityItem | null;
 }
 
-export default function AddLiabilityModal({ onClose, onAdded }: Props) {
+export default function AddLiabilityModal({ onClose, onAdded, onUpdated, editData }: Props) {
   const { t } = useLanguage();
-  const [name, setName] = useState("");
-  const [liabilityType, setLiabilityType] = useState("personal_loan");
-  const [currency, setCurrency] = useState("TRY");
-  const [totalAmount, setTotalAmount] = useState("");
-  const [remainingAmount, setRemainingAmount] = useState("");
-  const [monthlyPayment, setMonthlyPayment] = useState("");
-  const [dueDate, setDueDate] = useState("");
-  const [interestRate, setInterestRate] = useState("");
-  const [notes, setNotes] = useState("");
+  const isEdit = !!editData;
+
+  const [name, setName] = useState(editData?.name ?? "");
+  const [liabilityType, setLiabilityType] = useState(editData?.liability_type ?? "personal_loan");
+  const [currency, setCurrency] = useState(editData?.currency ?? "TRY");
+  const [totalAmount, setTotalAmount] = useState(editData?.total_amount ?? "");
+  const [remainingAmount, setRemainingAmount] = useState(editData?.remaining_amount ?? "");
+  const [monthlyPayment, setMonthlyPayment] = useState(editData?.monthly_payment ?? "");
+  const [dueDate, setDueDate] = useState(editData?.due_date ?? "");
+  const [interestRate, setInterestRate] = useState(editData?.interest_rate ?? "");
+  const [notes, setNotes] = useState(editData?.notes ?? "");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -35,7 +39,7 @@ export default function AddLiabilityModal({ onClose, onAdded }: Props) {
     setError(null);
     setLoading(true);
     try {
-      const liability = await createLiability({
+      const body = {
         name,
         liability_type: liabilityType,
         currency,
@@ -45,8 +49,14 @@ export default function AddLiabilityModal({ onClose, onAdded }: Props) {
         due_date: dueDate || undefined,
         interest_rate: interestRate || undefined,
         notes: notes || undefined,
-      });
-      onAdded(liability);
+      };
+      if (isEdit && editData) {
+        const updated = await updateLiability(editData.id, body);
+        onUpdated?.(updated);
+      } else {
+        const liability = await createLiability(body);
+        onAdded(liability);
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : t("common.error"));
     } finally {
@@ -60,7 +70,9 @@ export default function AddLiabilityModal({ onClose, onAdded }: Props) {
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm" onClick={onClose}>
       <div className="bg-[#1A1A1A] border border-[#2A2A2A] rounded-2xl w-full max-w-md mx-4 p-6 max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between mb-5">
-          <h2 className="text-white font-semibold text-lg">{t("nw.addLiability")}</h2>
+          <h2 className="text-white font-semibold text-lg">
+            {isEdit ? `${t("common.edit")}: ${editData!.name}` : t("nw.addLiability")}
+          </h2>
           <button onClick={onClose} className="text-gray-500 hover:text-gray-300 transition-colors"><X size={20} /></button>
         </div>
 
@@ -126,7 +138,7 @@ export default function AddLiabilityModal({ onClose, onAdded }: Props) {
               {t("common.cancel")}
             </button>
             <button type="submit" disabled={loading || !name || !totalAmount} className="flex-1 px-4 py-2 rounded-lg bg-red-600 hover:bg-red-500 disabled:opacity-50 disabled:cursor-not-allowed text-sm font-medium text-white transition-colors">
-              {loading ? t("common.loading") : t("common.add")}
+              {loading ? t("common.loading") : isEdit ? t("common.save") : t("common.add")}
             </button>
           </div>
         </form>

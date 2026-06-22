@@ -776,7 +776,7 @@ export async function createAsset(body: {
 }
 
 export async function updateAsset(id: string, body: {
-  name: string; asset_type: string; currency: string; current_value: string; notes?: string;
+  name: string; asset_type: string; currency: string; current_value: string; notes?: string; source_detail?: string; as_of_date?: string;
 }): Promise<AssetItem> {
   const response = await fetch(`${API_BASE_URL}/networth/assets/${id}`, {
     method: "PUT",
@@ -1197,4 +1197,83 @@ export async function deleteWealthAlert(id: string): Promise<void> {
     headers: authHeaders(),
   });
   if (!response.ok) throw new Error(`Failed to delete wealth alert: ${response.status}`);
+}
+
+// --- Receivable PUT (full update) ---
+
+export async function updateReceivable(id: string, body: {
+  from_person: string; amount: string; currency: string; expected_date?: string; notes?: string;
+}): Promise<ReceivableItem> {
+  const response = await fetch(`${API_BASE_URL}/networth/receivables/${id}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json", ...authHeaders() },
+    body: JSON.stringify(body),
+  });
+  if (!response.ok) {
+    const err = await response.json().catch(() => null);
+    throw new Error(extractErrorMessage(err, "Failed to update receivable"));
+  }
+  return response.json() as Promise<ReceivableItem>;
+}
+
+// --- Net Worth Analyze ---
+
+export async function analyzeNetWorth(message: string, lang = "en"): Promise<string> {
+  const response = await fetch(`${API_BASE_URL}/networth/analyze?lang=${lang}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...authHeaders() },
+    body: JSON.stringify({ message }),
+  });
+  if (!response.ok) throw new Error(`Analysis failed: ${response.status}`);
+  const data = await response.json() as { reply: string };
+  return data.reply;
+}
+
+// --- App Notifications ---
+
+export interface AppNotification {
+  id: string;
+  title: string;
+  message: string;
+  type: "info" | "warning" | "alert";
+  is_read: boolean;
+  created_at: string;
+}
+
+export async function getNotifications(): Promise<AppNotification[]> {
+  const response = await fetch(`${API_BASE_URL}/notifications`, { headers: authHeaders() });
+  if (!response.ok) throw new Error(`Failed to fetch notifications: ${response.status}`);
+  return response.json() as Promise<AppNotification[]>;
+}
+
+export async function getUnreadCount(): Promise<number> {
+  const response = await fetch(`${API_BASE_URL}/notifications/unread-count`, { headers: authHeaders() });
+  if (!response.ok) return 0;
+  const data = await response.json() as { count: number };
+  return data.count;
+}
+
+export async function markNotificationRead(id: string): Promise<AppNotification> {
+  const response = await fetch(`${API_BASE_URL}/notifications/${id}/read`, {
+    method: "PATCH",
+    headers: authHeaders(),
+  });
+  if (!response.ok) throw new Error(`Failed to mark notification read: ${response.status}`);
+  return response.json() as Promise<AppNotification>;
+}
+
+export async function markAllNotificationsRead(): Promise<void> {
+  await fetch(`${API_BASE_URL}/notifications/mark-all-read`, {
+    method: "POST",
+    headers: authHeaders(),
+  });
+}
+
+export async function generateDailyNotifications(lang = "en"): Promise<{ created: number; skipped: boolean }> {
+  const response = await fetch(`${API_BASE_URL}/notifications/generate-daily?lang=${lang}`, {
+    method: "POST",
+    headers: authHeaders(),
+  });
+  if (!response.ok) throw new Error(`Failed to generate notifications: ${response.status}`);
+  return response.json() as Promise<{ created: number; skipped: boolean }>;
 }

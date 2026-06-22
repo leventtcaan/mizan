@@ -178,6 +178,20 @@ export const en = {
       net_worth_drop: "Net Worth Drop Alert",
       payment_coverage_risk: "Payment Coverage Risk",
     },
+    analyzeTitle: "Ask about your finances",
+    analyzePlaceholder: "E.g. If BTC drops 20%, what happens to my net worth?",
+    analyzeSend: "Send",
+    analyzeClose: "Close",
+  },
+  notifications: {
+    title: "Notifications",
+    empty: "No notifications",
+    markAllRead: "Mark all read",
+    types: {
+      info: "Info",
+      warning: "Warning",
+      alert: "Alert",
+    },
   },
   progress: {
     title: "Progress",

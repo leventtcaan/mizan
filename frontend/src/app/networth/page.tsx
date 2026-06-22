@@ -33,6 +33,8 @@ import {
   checkWealthAlerts,
   createWealthAlert,
   deleteWealthAlert,
+  analyzeNetWorth,
+  generateDailyNotifications,
   AssetItem,
   LiabilityItem,
   ReceivableItem,
@@ -46,9 +48,8 @@ import {
 } from "@/lib/api";
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip,
-  PieChart, Pie, Cell, Tooltip as PieTooltip,
 } from "recharts";
-import { Plus, TrendingUp, TrendingDown, DollarSign, Home, Wallet, Briefcase, Scale, Brain, Zap, RefreshCw } from "@/components/ui/Icons";
+import { Plus, TrendingUp, TrendingDown, DollarSign, Home, Wallet, Briefcase, Scale, Brain, Zap, RefreshCw, Pencil, MessageCircle } from "@/components/ui/Icons";
 import { useLanguage } from "@/lib/i18n";
 
 const AUTO_PRICE_TYPES = new Set(["crypto", "gold", "foreign_currency", "commodity", "stock", "fund"]);
@@ -213,11 +214,25 @@ export default function NetWorthPage() {
   const [snapshots, setSnapshots] = useState<NetworthSnapshot[]>([]);
   const [wealthAlerts, setWealthAlerts] = useState<WealthAlertItem[]>([]);
   const [triggeredAlerts, setTriggeredAlerts] = useState<TriggeredWealthAlert[]>([]);
-  const [highlightedGroup, setHighlightedGroup] = useState<string | null>(null);
   const [alertModalAsset, setAlertModalAsset] = useState<AssetItem | null>(null);
   const [alertThreshold, setAlertThreshold] = useState("");
   const [alertMessage, setAlertMessage] = useState("");
   const [alertSaving, setAlertSaving] = useState(false);
+
+  // Edit modals
+  const [editingAsset, setEditingAsset] = useState<AssetItem | null>(null);
+  const [editingLiability, setEditingLiability] = useState<LiabilityItem | null>(null);
+  const [editingReceivable, setEditingReceivable] = useState<ReceivableItem | null>(null);
+
+  // Focused analysis chat
+  const [analyzeOpen, setAnalyzeOpen] = useState(false);
+  const [analyzeMessages, setAnalyzeMessages] = useState<{ role: "user" | "assistant"; text: string }[]>([]);
+  const [analyzeInput, setAnalyzeInput] = useState("");
+  const [analyzePending, setAnalyzePending] = useState(false);
+
+  // Refresh cooldown (15 min after last price fetch)
+  const [lastRefreshAt, setLastRefreshAt] = useState<number | null>(null);
+  const [cooldownSec, setCooldownSec] = useState(0);
 
   const [showAddAsset, setShowAddAsset] = useState(false);
   const [showAddLiability, setShowAddLiability] = useState(false);
@@ -277,10 +292,11 @@ export default function NetWorthPage() {
   const loadAll = async () => {
     setLoading(true);
     getCurrencyRates("USD").then(setUsdRates).catch(() => null);
-    // Fire-and-forget: snapshot + alerts don't block page load
+    // Fire-and-forget: snapshot + alerts + notifications don't block page load
     createNetWorthSnapshot().then(() => getNetWorthHistory(90)).then(setSnapshots).catch(() => null);
     getWealthAlerts().then(setWealthAlerts).catch(() => null);
     checkWealthAlerts().then(setTriggeredAlerts).catch(() => null);
+    generateDailyNotifications().catch(() => null);
     try {
       const [s, a, l, r, sugg, eventRows, itemRows] = await Promise.all([
         getNetWorthSummary(displayCurrency),
@@ -298,6 +314,19 @@ export default function NetWorthPage() {
       setSuggestions(sugg);
       setEvents(eventRows);
       setReconciliationItems(itemRows);
+
+      // Derive last refresh time from assets for cooldown
+      const latestFetch = a.reduce<number | null>((best, asset) => {
+        if (!AUTO_PRICE_TYPES.has(asset.asset_type)) return best;
+        try {
+          const d = asset.source_detail ? (JSON.parse(asset.source_detail) as Record<string, unknown>) : {};
+          const fetchedAt = d.price_fetched_at as string | undefined;
+          if (!fetchedAt) return best;
+          const ts = new Date(fetchedAt).getTime();
+          return best === null || ts > best ? ts : best;
+        } catch { return best; }
+      }, null);
+      if (latestFetch) setLastRefreshAt(latestFetch);
 
       const needsRefresh = a.some((asset) => {
         if (!AUTO_PRICE_TYPES.has(asset.asset_type)) return false;
@@ -384,25 +413,57 @@ export default function NetWorthPage() {
     setSuggestions((prev) => prev.filter((s) => s.id !== id));
   };
 
+  const COOLDOWN_MS = 15 * 60 * 1000; // 15 minutes
+
+  // Cooldown countdown timer
+  useEffect(() => {
+    if (!lastRefreshAt) { setCooldownSec(0); return; }
+    const update = () => {
+      const remaining = Math.max(0, Math.ceil((lastRefreshAt + COOLDOWN_MS - Date.now()) / 1000));
+      setCooldownSec(remaining);
+    };
+    update();
+    const interval = setInterval(update, 1000);
+    return () => clearInterval(interval);
+  }, [lastRefreshAt]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const handleRefreshPrices = async () => {
-    if (refreshing) return;
+    if (refreshing || cooldownSec > 0) return;
     setRefreshing(true);
     try {
       const result = await refreshAssetPrices();
       const updatedAssets = await getAssets();
       setAssets(updatedAssets);
+      const now = Date.now();
+      setLastRefreshAt(now);
       if (result.updated > 0) {
         void reloadSummary();
         setToast(`${result.updated} assets updated${result.failed > 0 ? `, ${result.failed} failed` : ""}.`);
       } else if (result.failed > 0) {
         setToast(`Could not fetch prices (${result.failed} assets). Try again.`);
       } else {
-        setToast("No updated price data found.");
+        setToast("No auto-priceable assets found.");
       }
     } catch {
       setToast("Price refresh failed.");
     } finally {
       setRefreshing(false);
+    }
+  };
+
+  const handleAnalyzeSend = async () => {
+    if (!analyzeInput.trim() || analyzePending) return;
+    const msg = analyzeInput.trim();
+    setAnalyzeInput("");
+    setAnalyzeMessages((prev) => [...prev, { role: "user", text: msg }]);
+    setAnalyzePending(true);
+    try {
+      const reply = await analyzeNetWorth(msg);
+      setAnalyzeMessages((prev) => [...prev, { role: "assistant", text: reply }]);
+    } catch {
+      setAnalyzeMessages((prev) => [...prev, { role: "assistant", text: "Analysis unavailable — please try again." }]);
+    } finally {
+      setAnalyzePending(false);
     }
   };
 
@@ -535,18 +596,16 @@ export default function NetWorthPage() {
     };
   });
 
-  // Donut chart data: sum asset values per group
-  const DONUT_COLORS = ["#10b981", "#6366f1", "#f59e0b", "#a855f7", "#6b7280"];
-  const donutData = ASSET_TYPE_GROUPS.map((group, idx) => {
-    const total = assets
-      .filter((a) => group.types.includes(a.asset_type))
-      .reduce((sum, a) => {
-        const raw = parseFloat(a.current_value);
-        const cv = convertAmount(raw, a.currency, displayCurrency, usdRates) ?? raw;
-        return sum + cv;
-      }, 0);
-    return { name: group.label, value: Math.max(0, Math.round(total)), color: DONUT_COLORS[idx] };
-  }).filter((d) => d.value > 0);
+  // Net worth delta from last 2 snapshots
+  const nwDelta: { value: number; pct: number; positive: boolean } | null = (() => {
+    if (historyChartData.length < 2) return null;
+    const prev = historyChartData[historyChartData.length - 2].value;
+    const curr = historyChartData[historyChartData.length - 1].value;
+    if (prev === 0) return null;
+    const diff = curr - prev;
+    const pct = (diff / Math.abs(prev)) * 100;
+    return { value: diff, pct, positive: diff >= 0 };
+  })();
 
   return (
     <PageLayout
@@ -555,15 +614,22 @@ export default function NetWorthPage() {
       maxWidth="lg"
       action={
         <div className="flex items-center gap-2">
-          <button
-            onClick={handleRefreshPrices}
-            disabled={refreshing}
-            title={t("nw.refreshPricesTooltip")}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-[#1A1A1A] border border-[#2A2A2A] text-gray-400 hover:text-gray-200 hover:border-indigo-700 text-xs font-medium transition-colors disabled:opacity-50"
-          >
-            <RefreshCw size={13} className={refreshing ? "animate-spin" : ""} />
-            {refreshing ? t("nw.refreshing") : t("nw.refreshPrices")}
-          </button>
+          <div className="flex flex-col items-end gap-0.5">
+            <button
+              onClick={handleRefreshPrices}
+              disabled={refreshing || cooldownSec > 0}
+              title={t("nw.refreshPricesTooltip")}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-[#1A1A1A] border border-[#2A2A2A] text-gray-400 hover:text-gray-200 hover:border-indigo-700 text-xs font-medium transition-colors disabled:opacity-50"
+            >
+              <RefreshCw size={13} className={refreshing ? "animate-spin" : ""} />
+              {refreshing ? t("nw.refreshing") : cooldownSec > 0 ? `${Math.floor(cooldownSec / 60)}:${String(cooldownSec % 60).padStart(2, "0")}` : t("nw.refreshPrices")}
+            </button>
+            {lastRefreshAt && cooldownSec === 0 && (
+              <span className="text-[10px] text-gray-600">
+                {Math.floor((Date.now() - lastRefreshAt) / 60000)}m {t("nw.minAgo")}
+              </span>
+            )}
+          </div>
           <div className="w-48">
             <CurrencySelect value={displayCurrency} onChange={setDisplayCurrency} />
           </div>
@@ -611,33 +677,6 @@ export default function NetWorthPage() {
         </div>
       )}
 
-      {/* Net worth history chart */}
-      {!loading && (
-        <div className="bg-[#1A1A1A] border border-[#2A2A2A] rounded-2xl p-5 mb-4">
-          <h3 className="text-xs text-gray-400 font-medium mb-3">{t("nw.historyTitle")}</h3>
-          {historyChartData.length < 2 ? (
-            <p className="text-gray-600 text-xs">{t("nw.historyNoData")}</p>
-          ) : (
-            <AreaChart width={600} height={120} data={historyChartData} style={{ width: "100%", maxWidth: "100%" }}>
-              <defs>
-                <linearGradient id="nwGrad" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#10b981" stopOpacity={0.25} />
-                  <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
-                </linearGradient>
-              </defs>
-              <CartesianGrid strokeDasharray="3 3" stroke="#2A2A2A" />
-              <XAxis dataKey="date" tick={{ fontSize: 10, fill: "#6b7280" }} axisLine={false} tickLine={false} />
-              <YAxis hide />
-              <RechartsTooltip
-                contentStyle={{ backgroundColor: "#1A1A1A", border: "1px solid #2A2A2A", borderRadius: 8, fontSize: 12 }}
-                formatter={(v: number) => [fmt(v, displayCurrency), ""]}
-              />
-              <Area type="monotone" dataKey="value" stroke="#10b981" strokeWidth={2} fill="url(#nwGrad)" dot={false} />
-            </AreaChart>
-          )}
-        </div>
-      )}
-
       {/* Hero */}
       <div className="bg-[#1A1A1A] border border-[#2A2A2A] rounded-2xl p-8 mb-6 text-center">
         {loading ? (
@@ -648,9 +687,17 @@ export default function NetWorthPage() {
         ) : (
           <>
             <p className="text-gray-500 text-sm mb-2">{t("nw.netWorth")}</p>
-            <p className={`text-5xl font-bold tabular-nums mb-4 ${netPositive ? "text-emerald-400" : "text-red-400"} ${summaryLoading ? "opacity-50" : ""}`}>
-              {summary ? fmt(summary.net_worth_try, displayCurrency) : "—"}
-            </p>
+            <div className="flex items-center justify-center gap-3 mb-4">
+              <p className={`text-5xl font-bold tabular-nums ${netPositive ? "text-emerald-400" : "text-red-400"} ${summaryLoading ? "opacity-50" : ""}`}>
+                {summary ? fmt(summary.net_worth_try, displayCurrency) : "—"}
+              </p>
+              {nwDelta && (
+                <span className={`text-sm font-semibold tabular-nums px-2 py-1 rounded-lg ${nwDelta.positive ? "bg-emerald-950/50 text-emerald-400" : "bg-red-950/50 text-red-400"}`}>
+                  {nwDelta.positive ? "+" : ""}{fmt(nwDelta.value, displayCurrency)}
+                  <span className="text-xs ml-1 opacity-70">({nwDelta.pct >= 0 ? "+" : ""}{nwDelta.pct.toFixed(1)}%)</span>
+                </span>
+              )}
+            </div>
             <div className="flex items-center justify-center gap-6 flex-wrap text-sm">
               <div className="flex items-center gap-1.5">
                 <TrendingUp size={14} className="text-emerald-400" />
@@ -685,55 +732,34 @@ export default function NetWorthPage() {
         )}
       </div>
 
-      {/* Asset allocation donut */}
-      {!loading && donutData.length > 0 && (
-        <div className="bg-[#1A1A1A] border border-[#2A2A2A] rounded-2xl p-5 mb-4">
-          <h3 className="text-xs text-gray-400 font-medium mb-3">{t("nw.allocationTitle")}</h3>
-          <div className="flex items-center gap-6">
-            <PieChart width={140} height={140}>
-              <Pie
-                data={donutData}
-                cx={65} cy={65}
-                innerRadius={42} outerRadius={65}
-                dataKey="value"
-                onClick={(d) => setHighlightedGroup(highlightedGroup === d.name ? null : d.name as string)}
-                style={{ cursor: "pointer" }}
-              >
-                {donutData.map((entry) => (
-                  <Cell key={entry.name} fill={entry.color} opacity={highlightedGroup && highlightedGroup !== entry.name ? 0.35 : 1} />
-                ))}
-              </Pie>
-              <PieTooltip
-                contentStyle={{ backgroundColor: "#1A1A1A", border: "1px solid #2A2A2A", borderRadius: 8, fontSize: 11 }}
-                formatter={(v: number) => [fmt(v, displayCurrency), ""]}
-              />
-            </PieChart>
-            <div className="flex flex-col gap-1.5 text-xs">
-              {donutData.map((d) => (
-                <button
-                  key={d.name}
-                  onClick={() => setHighlightedGroup(highlightedGroup === d.name ? null : d.name)}
-                  className={`flex items-center gap-2 text-left transition-opacity ${highlightedGroup && highlightedGroup !== d.name ? "opacity-40" : ""}`}
-                >
-                  <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: d.color }} />
-                  <span className="text-gray-300">{d.name}</span>
-                  <span className="text-gray-500 tabular-nums ml-auto">{fmt(d.value, displayCurrency)}</span>
-                </button>
-              ))}
-            </div>
+      {/* AI insight card */}
+      {summary?.ai_insight && (
+        <div className="mb-4 bg-[#1A1A1A] border border-indigo-900/30 rounded-xl p-4">
+          <div className="flex gap-3">
+            <Brain size={16} className="text-indigo-400 shrink-0 mt-0.5" />
+            <p className="text-gray-300 text-sm leading-relaxed flex-1">{summary.ai_insight}</p>
           </div>
-          {highlightedGroup && (
-            <button onClick={() => setHighlightedGroup(null)} className="mt-2 text-xs text-indigo-400 hover:text-indigo-300">
-              ✕ Clear filter
+          <div className="mt-3 flex justify-end">
+            <button
+              onClick={() => { setAnalyzeOpen(true); setAnalyzeMessages([]); setAnalyzeInput(""); }}
+              className="flex items-center gap-1.5 text-xs text-indigo-400 hover:text-indigo-300 transition-colors"
+            >
+              <MessageCircle size={13} />
+              {t("nw.analyzeTitle")}
             </button>
-          )}
+          </div>
         </div>
       )}
 
-      {summary?.ai_insight && (
-        <div className="mb-4 bg-[#1A1A1A] border border-indigo-900/30 rounded-xl p-4 flex gap-3">
-          <Brain size={16} className="text-indigo-400 shrink-0 mt-0.5" />
-          <p className="text-gray-300 text-sm leading-relaxed">{summary.ai_insight}</p>
+      {/* Warning banners */}
+      {summary && summary.warnings.length > 0 && (
+        <div className="mb-4 flex flex-col gap-2">
+          {summary.warnings.map((w, i) => (
+            <div key={i} className="flex items-start gap-2 bg-amber-950/30 border border-amber-800/40 rounded-xl px-4 py-3">
+              <span className="text-amber-400 text-sm shrink-0">⚠</span>
+              <p className="text-amber-200 text-sm">{w}</p>
+            </div>
+          ))}
         </div>
       )}
 
@@ -752,14 +778,30 @@ export default function NetWorthPage() {
         </div>
       )}
 
-      {summary && summary.warnings.length > 0 && (
-        <div className="mb-6 flex flex-col gap-2">
-          {summary.warnings.map((w, i) => (
-            <div key={i} className="flex items-start gap-2 bg-amber-950/30 border border-amber-800/40 rounded-xl px-4 py-3">
-              <span className="text-amber-400 text-sm shrink-0">⚠</span>
-              <p className="text-amber-200 text-sm">{w}</p>
-            </div>
-          ))}
+      {/* Net worth history chart */}
+      {!loading && (
+        <div className="bg-[#1A1A1A] border border-[#2A2A2A] rounded-2xl p-5 mb-6">
+          <h3 className="text-xs text-gray-400 font-medium mb-3">{t("nw.historyTitle")}</h3>
+          {historyChartData.length < 2 ? (
+            <p className="text-gray-600 text-xs">{t("nw.historyNoData")}</p>
+          ) : (
+            <AreaChart width={600} height={120} data={historyChartData} style={{ width: "100%", maxWidth: "100%" }}>
+              <defs>
+                <linearGradient id="nwGrad" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor="#10b981" stopOpacity={0.25} />
+                  <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
+                </linearGradient>
+              </defs>
+              <CartesianGrid strokeDasharray="3 3" stroke="#2A2A2A" />
+              <XAxis dataKey="date" tick={{ fontSize: 10, fill: "#6b7280" }} axisLine={false} tickLine={false} />
+              <YAxis hide />
+              <RechartsTooltip
+                contentStyle={{ backgroundColor: "#1A1A1A", border: "1px solid #2A2A2A", borderRadius: 8, fontSize: 12 }}
+                formatter={(v: number) => [fmt(v, displayCurrency), ""]}
+              />
+              <Area type="monotone" dataKey="value" stroke="#10b981" strokeWidth={2} fill="url(#nwGrad)" dot={false} />
+            </AreaChart>
+          )}
         </div>
       )}
 
@@ -786,9 +828,9 @@ export default function NetWorthPage() {
             {ASSET_TYPE_GROUPS.map((group) => {
               const groupAssets = assets.filter((a) => group.types.includes(a.asset_type));
               if (groupAssets.length === 0) return null;
-              const isHighlighted = !highlightedGroup || highlightedGroup === group.label;
+              
               return (
-                <div key={group.label} className={`bg-[#1A1A1A] border border-[#2A2A2A] rounded-xl overflow-hidden transition-opacity ${isHighlighted ? "" : "opacity-30"}`}>
+                <div key={group.label} className="bg-[#1A1A1A] border border-[#2A2A2A] rounded-xl overflow-hidden">
                   <div className="flex items-center gap-2 px-4 py-2.5 border-b border-[#2A2A2A] bg-[#111]">
                     {group.icon}
                     <span className="text-xs text-gray-400 font-medium">{group.label}</span>
