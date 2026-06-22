@@ -284,6 +284,7 @@ export const tr = {
     sourceAuto: "Otomatik",
     priceBadgeAuto: "Otomatik",
     priceBadgeManual: "Manuel",
+    priceBadgeUpdated: "Güncellendi",
     justNow: "az önce",
     minAgo: "dak önce",
     hrAgo: "sa önce",

@@ -270,6 +270,10 @@ export default function NetWorthPage() {
   const [guidanceLoading, setGuidanceLoading] = useState(true);
   const [alertPct, setAlertPct] = useState(15);
   const alertsSectionRef = useRef<HTMLElement | null>(null);
+  // Synchronous in-flight guard — prevents the manual button and the auto-refresh
+  // in loadAll from firing overlapping POST /refresh-prices calls (React state is
+  // async, so a ref is the only reliable single-flight lock).
+  const refreshInFlightRef = useRef(false);
   const [attribution, setAttribution] = useState<NetWorthAttribution | null>(null);
   const [accountsMap, setAccountsMap] = useState<Record<string, string>>({});
 
@@ -326,7 +330,7 @@ export default function NetWorthPage() {
     { label: t("nw.groups.other"), icon: <Briefcase size={16} className="text-gray-400" />, types: ["other_asset"] },
   ];
 
-  function getPriceBadge(asset: AssetItem): { label: string; cls: string } | null {
+  function getPriceBadge(asset: AssetItem): { label: string; cls: string; title?: string } | null {
     if (!AUTO_PRICE_TYPES.has(asset.asset_type)) return null;
     let detail: Record<string, unknown> = {};
     try {
@@ -334,15 +338,16 @@ export default function NetWorthPage() {
     } catch { /* ignore */ }
     const fetchedAt = detail.price_fetched_at as string | undefined;
     if (!fetchedAt) return { label: t("nw.priceBadgeManual"), cls: "text-orange-400 bg-orange-950/30 border-orange-800/30" };
-    const ageMs = Date.now() - new Date(fetchedAt).getTime();
-    const ageMin = Math.floor(ageMs / 60000);
-    if (ageMin < 60) {
-      const label = ageMin < 2 ? `${t("nw.priceBadgeAuto")} · ${t("nw.justNow")}` : `${t("nw.priceBadgeAuto")} · ${ageMin} ${t("nw.minAgo")}`;
-      return { label, cls: "text-emerald-400 bg-emerald-950/30 border-emerald-800/30" };
-    }
-    const ageHours = Math.floor(ageMin / 60);
-    if (ageHours < 24) return { label: `${t("nw.priceBadgeAuto")} · ${ageHours} ${t("nw.hrAgo")}`, cls: "text-amber-400 bg-amber-950/30 border-amber-800/30" };
-    return { label: `${t("nw.priceBadgeAuto")} · ${t("nw.stale")}`, cls: "text-orange-400 bg-orange-950/30 border-orange-800/30" };
+    const when = new Date(fetchedAt);
+    const ageMin = Math.floor((Date.now() - when.getTime()) / 60000);
+    // Concrete clock time so the user can see it tick to "now" after a refresh,
+    // even when a stable price means the value itself doesn't move.
+    const clock = when.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
+    const rel = ageMin < 2 ? t("nw.justNow") : ageMin < 60 ? `${ageMin} ${t("nw.minAgo")}` : `${Math.floor(ageMin / 60)} ${t("nw.hrAgo")}`;
+    const title = `${t("nw.priceBadgeUpdated")} ${clock} · ${rel}`;
+    if (ageMin < 60) return { label: `${t("nw.priceBadgeUpdated")} ${clock}`, cls: "text-emerald-400 bg-emerald-950/30 border-emerald-800/30", title };
+    if (ageMin < 1440) return { label: `${t("nw.priceBadgeUpdated")} ${clock}`, cls: "text-amber-400 bg-amber-950/30 border-amber-800/30", title };
+    return { label: `${t("nw.priceBadgeAuto")} · ${t("nw.stale")}`, cls: "text-orange-400 bg-orange-950/30 border-orange-800/30", title };
   }
 
   function getAssetTypeLabel(type: string): string {
@@ -440,10 +445,17 @@ export default function NetWorthPage() {
           return Date.now() - new Date(fetchedAt).getTime() > 3600_000;
         } catch { return true; }
       });
-      if (needsRefresh) {
+      if (needsRefresh && !refreshInFlightRef.current) {
+        refreshInFlightRef.current = true;
         refreshAssetPrices()
-          .then((result) => { if (result.updated > 0) return getAssets().then(setAssets); })
-          .catch(() => {});
+          .then(async (result) => {
+            const rates = await getCurrencyRates("USD").catch(() => null);
+            if (rates) setUsdRates(rates);
+            if (result.updated > 0) setAssets(await getAssets());
+            setLastRefreshAt(Date.now());
+          })
+          .catch(() => {})
+          .finally(() => { refreshInFlightRef.current = false; });
       }
     } catch {
       // silent
@@ -554,17 +566,24 @@ export default function NetWorthPage() {
   };
 
   const handleRefreshPrices = async () => {
-    // Server-side caches (15 min crypto / 1 h fiat+stock) already throttle the
-    // upstream APIs, so the button stays clickable — no client cooldown gating.
-    if (refreshing) return;
+    // Single-flight: bail synchronously if any refresh (manual or auto) is in
+    // flight. React's `refreshing` state is async, so the ref is the real lock.
+    if (refreshInFlightRef.current) return;
+    refreshInFlightRef.current = true;
     setRefreshing(true);
     try {
       const result = await refreshAssetPrices();
-      // Re-fetch FX/crypto/commodity rates too: live-value assets store a
-      // quantity in current_value and are valued at display time via usdRates,
-      // so without this their displayed value never moves after a refresh.
-      getCurrencyRates("USD").then(setUsdRates).catch(() => null);
-      const updatedAssets = await getAssets();
+      // Re-fetch FX/crypto/commodity rates AND assets together, then commit both
+      // in the same render. Live-value assets (crypto/FX/gold/commodity) keep
+      // their quantity in current_value and are valued at display time via
+      // usdRates — so their on-screen value only moves when usdRates moves. Note
+      // the server caches fiat rates ~1h, so a stable price legitimately shows no
+      // number change; the per-card "updated" timestamp is the proof it ran.
+      const [rates, updatedAssets] = await Promise.all([
+        getCurrencyRates("USD").catch(() => null),
+        getAssets(),
+      ]);
+      if (rates) setUsdRates(rates);
       setAssets(updatedAssets);
       setLastRefreshAt(Date.now());
       void reloadSummary();
@@ -578,6 +597,7 @@ export default function NetWorthPage() {
     } catch {
       setToast(t("nw.toast.refreshFailed"));
     } finally {
+      refreshInFlightRef.current = false;
       setRefreshing(false);
     }
   };
@@ -1084,7 +1104,7 @@ export default function NetWorthPage() {
                           <div className="flex items-center gap-2 flex-wrap">
                             <p className="text-white text-sm font-medium">{a.name}</p>
                             {priceBadge && (
-                              <span className={`text-[10px] px-1.5 py-0.5 rounded-full border ${priceBadge.cls}`}>{priceBadge.label}</span>
+                              <span title={priceBadge.title} className={`text-[10px] px-1.5 py-0.5 rounded-full border ${priceBadge.cls}`}>{priceBadge.label}</span>
                             )}
                             {maturity && (
                               <span className={`text-[10px] px-1.5 py-0.5 rounded-full border ${

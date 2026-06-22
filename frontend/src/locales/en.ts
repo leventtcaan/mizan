@@ -284,6 +284,7 @@ export const en = {
     sourceAuto: "Auto",
     priceBadgeAuto: "Auto",
     priceBadgeManual: "Manual",
+    priceBadgeUpdated: "Updated",
     justNow: "just now",
     minAgo: "min ago",
     hrAgo: "hr ago",
