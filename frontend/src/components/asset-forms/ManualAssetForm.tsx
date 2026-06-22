@@ -5,7 +5,7 @@ import CurrencySelect from "@/components/CurrencySelect";
 import { useLanguage } from "@/lib/i18n";
 import { AssetFormProps, buildSourceDetail, MANUAL_CONFIGS, previewLine, sharedInputClass, useUsdRates } from "./shared";
 
-// ── Bank account ────────────────────────────────────────────────────────────
+// ── Bank account ─────────────────────────────────────────────────────────────
 const BANK_ACCOUNT_TYPES = [
   { value: "checking",      labelKey: "assetForm.bank.checking" },
   { value: "time_deposit",  labelKey: "assetForm.bank.timeDeposit" },
@@ -17,32 +17,32 @@ function daysUntil(dateStr: string): number | null {
   return Math.ceil((new Date(dateStr).getTime() - Date.now()) / 86400000);
 }
 
-// ── Real estate ─────────────────────────────────────────────────────────────
+// ── Real estate ──────────────────────────────────────────────────────────────
 const RE_TYPES = [
-  { value: "konut",    emoji: "🏠", labelKey: "assetForm.re.konut" },
-  { value: "isyeri",   emoji: "🏢", labelKey: "assetForm.re.isyeri" },
-  { value: "arsa",     emoji: "🌿", labelKey: "assetForm.re.arsa" },
-  { value: "other",    emoji: "🏨", labelKey: "assetForm.re.other" },
+  { value: "konut",  emoji: "🏠", labelKey: "assetForm.re.konut" },
+  { value: "isyeri", emoji: "🏢", labelKey: "assetForm.re.isyeri" },
+  { value: "arsa",   emoji: "🌿", labelKey: "assetForm.re.arsa" },
+  { value: "other",  emoji: "🏨", labelKey: "assetForm.re.other" },
 ] as const;
 
-// ── BES/pension ─────────────────────────────────────────────────────────────
+// ── BES / pension ─────────────────────────────────────────────────────────────
 function BesForm({ isPension, currency, fmtCcy, t, onDraftChange, displayCurrency, usdPriceOf, rates }: {
   isPension: boolean; currency: string; fmtCcy: (n: number) => string;
   t: (k: string) => string; onDraftChange: (d: import("./shared").AssetDraft | null) => void;
   displayCurrency: string; usdPriceOf: (c: string) => number | null; rates: Record<string, number> | null;
 }) {
-  const [provider, setProvider] = useState("");
+  const [provider, setProvider]           = useState("");
   const [monthlyContrib, setMonthlyContrib] = useState("");
-  const [totalContrib, setTotalContrib] = useState("");
-  const [actualValue, setActualValue] = useState("");
+  const [totalContrib, setTotalContrib]   = useState("");
+  const [actualValue, setActualValue]     = useState("");
   const [retirementDate, setRetirementDate] = useState("");
 
-  const totalN = parseFloat(totalContrib || "0") || 0;
+  const totalN     = parseFloat(totalContrib || "0") || 0;
   const stateMatch = isPension ? 0 : totalN * 0.30;
-  const actualN = parseFloat(actualValue || "0") || 0;
+  const actualN    = parseFloat(actualValue || "0") || 0;
 
   const effectiveValue = actualN || (isPension ? 0 : totalN + stateMatch);
-  const usdVal = effectiveValue > 0 ? (currency === "USD" ? effectiveValue : (usdPriceOf(currency) ?? 0) * effectiveValue) : null;
+  const usdVal  = effectiveValue > 0 ? (currency === "USD" ? effectiveValue : (usdPriceOf(currency) ?? 0) * effectiveValue) : null;
   const preview = previewLine(usdVal, displayCurrency, rates);
 
   useEffect(() => {
@@ -56,7 +56,7 @@ function BesForm({ isPension, currency, fmtCcy, t, onDraftChange, displayCurrenc
         state_match: isPension ? "" : stateMatch.toFixed(2),
         retirement_date: retirementDate,
       });
-      onDraftChange({ name: provider.trim() || (isPension ? "Emeklilik Fonu" : "BES"), asset_type: isPension ? "pension" : "bes", currency, current_value: v.toFixed(2), source_detail: sd });
+      onDraftChange({ name: provider.trim() || (isPension ? "Pension Fund" : "BES"), asset_type: isPension ? "pension" : "bes", currency, current_value: v.toFixed(2), source_detail: sd });
     } else {
       onDraftChange(null);
     }
@@ -86,7 +86,7 @@ function BesForm({ isPension, currency, fmtCcy, t, onDraftChange, displayCurrenc
       {!isPension && totalN > 0 && (
         <div className="rounded-lg bg-emerald-950/20 border border-emerald-900/30 px-3 py-2.5">
           <div className="flex items-center justify-between text-xs">
-            <span className="text-gray-400">{t("assetForm.bes.stateMatch")} <span className="text-gray-600">(katkının %30'u)</span></span>
+            <span className="text-gray-400">{t("assetForm.bes.stateMatch")} <span className="text-gray-600">(30%)</span></span>
             <span className="text-emerald-300 font-semibold tabular-nums">+ {fmtCcy(stateMatch)}</span>
           </div>
         </div>
@@ -108,7 +108,310 @@ function BesForm({ isPension, currency, fmtCcy, t, onDraftChange, displayCurrenc
   );
 }
 
-// ── Main component ───────────────────────────────────────────────────────────
+// ── Bond ──────────────────────────────────────────────────────────────────────
+function BondForm({ onDraftChange, displayCurrency, usdPriceOf, rates, t }: {
+  onDraftChange: (d: import("./shared").AssetDraft | null) => void;
+  displayCurrency: string; usdPriceOf: (c: string) => number | null;
+  rates: Record<string, number> | null; t: (k: string) => string;
+}) {
+  const [issuer, setIssuer]           = useState("");
+  const [isin, setIsin]               = useState("");
+  const [maturityDate, setMaturityDate] = useState("");
+  const [couponRate, setCouponRate]   = useState("");
+  const [faceValue, setFaceValue]     = useState("");
+  const [currency, setCurrency]       = useState("TRY");
+
+  const faceN = parseFloat(faceValue || "0") || 0;
+  const usdVal = faceN > 0
+    ? (currency === "USD" ? faceN : (usdPriceOf(currency) ?? 0) * faceN)
+    : null;
+  const preview = previewLine(usdVal, displayCurrency, rates);
+
+  useEffect(() => {
+    const v = parseFloat(faceValue);
+    if (!isNaN(v) && v > 0 && issuer.trim().length > 0) {
+      onDraftChange({
+        name: issuer.trim(),
+        asset_type: "bond",
+        currency,
+        current_value: faceValue,
+        source_detail: buildSourceDetail({ subtype: "bond", issuer: issuer.trim(), isin: isin.trim(), maturity_date: maturityDate, coupon_rate: couponRate }),
+      });
+    } else {
+      onDraftChange(null);
+    }
+  }, [issuer, isin, maturityDate, couponRate, faceValue, currency]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  return (
+    <div className="space-y-4">
+      <div>
+        <label className="block text-xs text-gray-400 mb-1.5">{t("assetForm.fields.bond.primary")}</label>
+        <input value={issuer} onChange={(e) => setIssuer(e.target.value)}
+          placeholder="e.g. US Treasury, Apple Inc." className={sharedInputClass} />
+      </div>
+
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <label className="block text-xs text-gray-400 mb-1.5">{t("assetForm.fields.bond.secondary")}</label>
+          <input value={isin} onChange={(e) => setIsin(e.target.value)}
+            placeholder="ISIN / code" className={sharedInputClass} />
+        </div>
+        <div>
+          <label className="block text-xs text-gray-400 mb-1.5">{t("assetForm.bond.couponRate")}</label>
+          <div className="relative">
+            <input type="number" min="0" step="0.01" value={couponRate}
+              onChange={(e) => setCouponRate(e.target.value)} placeholder="0.00"
+              className={sharedInputClass + " pr-6"} />
+            <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-500 text-xs">%</span>
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <label className="block text-xs text-gray-400 mb-1.5">{t("assetForm.bond.maturityDate")}</label>
+        <input type="date" value={maturityDate} onChange={(e) => setMaturityDate(e.target.value)} className={sharedInputClass} />
+      </div>
+
+      <div>
+        <label className="block text-xs text-gray-400 mb-1.5">{t("common.currency")}</label>
+        <CurrencySelect value={currency} onChange={setCurrency} />
+      </div>
+
+      <div>
+        <label className="block text-xs text-gray-400 mb-1.5">{t("assetForm.bond.faceValue")}</label>
+        <input type="number" min="0" step="0.01" value={faceValue}
+          onChange={(e) => setFaceValue(e.target.value)} placeholder="0.00" className={sharedInputClass} />
+        {preview && <p className="text-emerald-400/80 text-xs mt-1.5">{preview}</p>}
+      </div>
+    </div>
+  );
+}
+
+// ── Life insurance ────────────────────────────────────────────────────────────
+function LifeInsuranceForm({ onDraftChange, displayCurrency, usdPriceOf, rates, t }: {
+  onDraftChange: (d: import("./shared").AssetDraft | null) => void;
+  displayCurrency: string; usdPriceOf: (c: string) => number | null;
+  rates: Record<string, number> | null; t: (k: string) => string;
+}) {
+  const [provider, setProvider]         = useState("");
+  const [policyNo, setPolicyNo]         = useState("");
+  const [coverage, setCoverage]         = useState("");
+  const [monthlyPremium, setMonthlyPremium] = useState("");
+  const [currency, setCurrency]         = useState("TRY");
+
+  const coverageN = parseFloat(coverage || "0") || 0;
+  const usdVal = coverageN > 0
+    ? (currency === "USD" ? coverageN : (usdPriceOf(currency) ?? 0) * coverageN)
+    : null;
+  const preview = previewLine(usdVal, displayCurrency, rates);
+
+  useEffect(() => {
+    const v = parseFloat(coverage);
+    if (!isNaN(v) && v > 0 && provider.trim().length > 0) {
+      onDraftChange({
+        name: provider.trim(),
+        asset_type: "life_insurance",
+        currency,
+        current_value: coverage,
+        source_detail: buildSourceDetail({ subtype: "life_insurance", provider: provider.trim(), policy_no: policyNo.trim(), monthly_premium: monthlyPremium }),
+      });
+    } else {
+      onDraftChange(null);
+    }
+  }, [provider, policyNo, coverage, monthlyPremium, currency]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  return (
+    <div className="space-y-4">
+      <div>
+        <label className="block text-xs text-gray-400 mb-1.5">{t("assetForm.fields.life_insurance.primary")}</label>
+        <input value={provider} onChange={(e) => setProvider(e.target.value)}
+          placeholder="e.g. Allianz, MetLife..." className={sharedInputClass} />
+      </div>
+
+      <div>
+        <label className="block text-xs text-gray-400 mb-1.5">{t("assetForm.life.policyNo")}</label>
+        <input value={policyNo} onChange={(e) => setPolicyNo(e.target.value)}
+          placeholder="POL-123456" className={sharedInputClass} />
+      </div>
+
+      <div>
+        <label className="block text-xs text-gray-400 mb-1.5">{t("common.currency")}</label>
+        <CurrencySelect value={currency} onChange={setCurrency} />
+      </div>
+
+      <div>
+        <label className="block text-xs text-gray-400 mb-1.5">{t("assetForm.life.coverageAmount")}</label>
+        <input type="number" min="0" step="0.01" value={coverage}
+          onChange={(e) => setCoverage(e.target.value)} placeholder="0.00" className={sharedInputClass} />
+        {preview && <p className="text-emerald-400/80 text-xs mt-1.5">{preview}</p>}
+      </div>
+
+      <div>
+        <label className="block text-xs text-gray-400 mb-1.5">{t("assetForm.life.monthlyPremium")}</label>
+        <input type="number" min="0" step="0.01" value={monthlyPremium}
+          onChange={(e) => setMonthlyPremium(e.target.value)} placeholder="0.00" className={sharedInputClass} />
+      </div>
+    </div>
+  );
+}
+
+// ── Business ownership ────────────────────────────────────────────────────────
+function BusinessOwnershipForm({ onDraftChange, displayCurrency, usdPriceOf, rates, t }: {
+  onDraftChange: (d: import("./shared").AssetDraft | null) => void;
+  displayCurrency: string; usdPriceOf: (c: string) => number | null;
+  rates: Record<string, number> | null; t: (k: string) => string;
+}) {
+  const [company, setCompany]   = useState("");
+  const [pct, setPct]           = useState("");
+  const [country, setCountry]   = useState("");
+  const [value, setValue]       = useState("");
+  const [currency, setCurrency] = useState("TRY");
+
+  const valueN = parseFloat(value || "0") || 0;
+  const usdVal = valueN > 0
+    ? (currency === "USD" ? valueN : (usdPriceOf(currency) ?? 0) * valueN)
+    : null;
+  const preview = previewLine(usdVal, displayCurrency, rates);
+
+  useEffect(() => {
+    const v = parseFloat(value);
+    if (!isNaN(v) && v > 0 && company.trim().length > 0) {
+      onDraftChange({
+        name: company.trim(),
+        asset_type: "business_ownership",
+        currency,
+        current_value: value,
+        source_detail: buildSourceDetail({ subtype: "business_ownership", company: company.trim(), pct: pct.trim(), country: country.trim() }),
+      });
+    } else {
+      onDraftChange(null);
+    }
+  }, [company, pct, country, value, currency]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  return (
+    <div className="space-y-4">
+      <div>
+        <label className="block text-xs text-gray-400 mb-1.5">{t("assetForm.fields.business_ownership.primary")}</label>
+        <input value={company} onChange={(e) => setCompany(e.target.value)}
+          placeholder="e.g. Acme Ltd." className={sharedInputClass} />
+      </div>
+
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <label className="block text-xs text-gray-400 mb-1.5">{t("assetForm.business.ownershipPct")}</label>
+          <div className="relative">
+            <input type="number" min="0" max="100" step="0.1" value={pct}
+              onChange={(e) => setPct(e.target.value)} placeholder="e.g. 25"
+              className={sharedInputClass + " pr-6"} />
+            <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-500 text-xs">%</span>
+          </div>
+        </div>
+        <div>
+          <label className="block text-xs text-gray-400 mb-1.5">{t("assetForm.business.country")}</label>
+          <input value={country} onChange={(e) => setCountry(e.target.value)}
+            placeholder="e.g. Turkey" className={sharedInputClass} />
+        </div>
+      </div>
+
+      <div>
+        <label className="block text-xs text-gray-400 mb-1.5">{t("common.currency")}</label>
+        <CurrencySelect value={currency} onChange={setCurrency} />
+      </div>
+
+      <div>
+        <label className="block text-xs text-gray-400 mb-1.5">{t("assetForm.estimatedValue")}</label>
+        <input type="number" min="0" step="0.01" value={value}
+          onChange={(e) => setValue(e.target.value)} placeholder="0.00" className={sharedInputClass} />
+        <p className="text-[11px] text-gray-600 mt-1.5">{t("assetForm.estimateHint")}</p>
+        {preview && <p className="text-emerald-400/80 text-xs mt-1.5">{preview}</p>}
+      </div>
+    </div>
+  );
+}
+
+// ── Art / collectible / jewelry ───────────────────────────────────────────────
+function ArtJewelryForm({ assetType, onDraftChange, displayCurrency, usdPriceOf, rates, t }: {
+  assetType: string; onDraftChange: (d: import("./shared").AssetDraft | null) => void;
+  displayCurrency: string; usdPriceOf: (c: string) => number | null;
+  rates: Record<string, number> | null; t: (k: string) => string;
+}) {
+  const [itemName, setItemName]         = useState("");
+  const [provenance, setProvenance]     = useState("");
+  const [certificate, setCertificate]   = useState("");
+  const [insuranceVal, setInsuranceVal] = useState("");
+  const [value, setValue]               = useState("");
+  const [currency, setCurrency]         = useState("TRY");
+
+  const valueN = parseFloat(value || "0") || 0;
+  const usdVal = valueN > 0
+    ? (currency === "USD" ? valueN : (usdPriceOf(currency) ?? 0) * valueN)
+    : null;
+  const preview = previewLine(usdVal, displayCurrency, rates);
+
+  useEffect(() => {
+    const v = parseFloat(value);
+    if (!isNaN(v) && v > 0 && itemName.trim().length > 0) {
+      onDraftChange({
+        name: itemName.trim(),
+        asset_type: assetType,
+        currency,
+        current_value: value,
+        source_detail: buildSourceDetail({ subtype: assetType, item: itemName.trim(), provenance: provenance.trim(), certificate: certificate.trim(), insurance_value: insuranceVal }),
+      });
+    } else {
+      onDraftChange(null);
+    }
+  }, [itemName, provenance, certificate, insuranceVal, value, currency, assetType]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const isJewelry = assetType === "jewelry";
+  const primaryKey = isJewelry ? "assetForm.fields.jewelry.primary" : "assetForm.fields.art_collectible.primary";
+
+  return (
+    <div className="space-y-4">
+      <div>
+        <label className="block text-xs text-gray-400 mb-1.5">{t(primaryKey)}</label>
+        <input value={itemName} onChange={(e) => setItemName(e.target.value)}
+          placeholder={isJewelry ? "e.g. Gold ring, Diamond necklace" : "e.g. Oil painting, Vintage watch"}
+          className={sharedInputClass} />
+      </div>
+
+      <div>
+        <label className="block text-xs text-gray-400 mb-1.5">{t("assetForm.art.provenance")}</label>
+        <input value={provenance} onChange={(e) => setProvenance(e.target.value)}
+          placeholder={isJewelry ? "e.g. 18K yellow gold" : "e.g. Picasso, 1950s"}
+          className={sharedInputClass} />
+      </div>
+
+      <div>
+        <label className="block text-xs text-gray-400 mb-1.5">{t("common.currency")}</label>
+        <CurrencySelect value={currency} onChange={setCurrency} />
+      </div>
+
+      <div>
+        <label className="block text-xs text-gray-400 mb-1.5">{t("assetForm.estimatedValue")}</label>
+        <input type="number" min="0" step="0.01" value={value}
+          onChange={(e) => setValue(e.target.value)} placeholder="0.00" className={sharedInputClass} />
+        <p className="text-[11px] text-gray-600 mt-1.5">{t("assetForm.estimateHint")}</p>
+        {preview && <p className="text-emerald-400/80 text-xs mt-1.5">{preview}</p>}
+      </div>
+
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <label className="block text-xs text-gray-400 mb-1.5">{t("assetForm.art.insuranceValue")}</label>
+          <input type="number" min="0" step="0.01" value={insuranceVal}
+            onChange={(e) => setInsuranceVal(e.target.value)} placeholder="0.00" className={sharedInputClass} />
+        </div>
+        <div>
+          <label className="block text-xs text-gray-400 mb-1.5">{isJewelry ? "Purity / certificate" : "Certificate / ref."}</label>
+          <input value={certificate} onChange={(e) => setCertificate(e.target.value)}
+            placeholder="optional" className={sharedInputClass} />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Main component ────────────────────────────────────────────────────────────
 export default function ManualAssetForm({ assetType, onDraftChange, displayCurrency }: AssetFormProps) {
   const { t } = useLanguage();
   const { usdPriceOf, rates } = useUsdRates();
@@ -118,10 +421,15 @@ export default function ManualAssetForm({ assetType, onDraftChange, displayCurre
   const isRealEstate  = assetType === "real_estate";
   const isBes         = assetType === "bes";
   const isPension     = assetType === "pension";
+  const isBond        = assetType === "bond";
+  const isLifeIns     = assetType === "life_insurance";
+  const isBusiness    = assetType === "business_ownership";
+  const isArtJewelry  = assetType === "art_collectible" || assetType === "jewelry";
 
   const [name,      setName]      = useState("");
   const [primary,   setPrimary]   = useState("");
   const [secondary, setSecondary] = useState("");
+  const [tertiary,  setTertiary]  = useState("");
   const [currency,  setCurrency]  = useState("TRY");
   const [value,     setValue]     = useState("");
 
@@ -157,7 +465,7 @@ export default function ManualAssetForm({ assetType, onDraftChange, displayCurre
   };
 
   useEffect(() => {
-    if (isBes || isPension) return; // handled by BesForm sub-component
+    if (isBes || isPension || isBond || isLifeIns || isBusiness || isArtJewelry) return;
 
     const hasName = name.trim().length > 0 || primary.trim().length > 0 || (isRealEstate && reType.length > 0);
     const v = parseFloat(value);
@@ -165,15 +473,17 @@ export default function ManualAssetForm({ assetType, onDraftChange, displayCurre
       const sd = isRealEstate
         ? buildSourceDetail({ subtype: "real_estate", property_type: reType, city: reCity.trim() })
         : isBankAccount
-          ? buildSourceDetail({ subtype: "bank_account", primary: primary.trim(), secondary: secondary.trim(), account_type: bankAccountType, interest_rate: bankAccountType !== "checking" ? interestRate : "", maturity_date: bankAccountType !== "checking" ? maturityDate : "" })
-          : buildSourceDetail({ subtype: assetType, primary: primary.trim(), secondary: secondary.trim() });
+          ? buildSourceDetail({ subtype: "bank_account", primary: primary.trim(), secondary: secondary.trim(), tertiary: tertiary.trim(), account_type: bankAccountType, interest_rate: bankAccountType !== "checking" ? interestRate : "", maturity_date: bankAccountType !== "checking" ? maturityDate : "" })
+          : buildSourceDetail({ subtype: assetType, primary: primary.trim(), secondary: secondary.trim(), tertiary: tertiary.trim() });
       onDraftChange({ name: name.trim() || primary.trim() || t(`assetForm.re.${reType}`), asset_type: assetType, currency, current_value: value, source_detail: sd });
     } else {
       onDraftChange(null);
     }
-  }, [name, primary, secondary, currency, value, bankAccountType, interestRate, maturityDate, reType, reCity, assetType]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [name, primary, secondary, tertiary, currency, value, bankAccountType, interestRate, maturityDate, reType, reCity, assetType]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // BES/Pension — delegated to sub-component
+  // ── Dedicated sub-form routing ───────────────────────────────────────────
+  const sharedDelegateProps = { onDraftChange, displayCurrency, usdPriceOf, rates, t };
+
   if (isBes || isPension) {
     return (
       <div className="space-y-4">
@@ -188,6 +498,11 @@ export default function ManualAssetForm({ assetType, onDraftChange, displayCurre
       </div>
     );
   }
+
+  if (isBond)     return <BondForm {...sharedDelegateProps} />;
+  if (isLifeIns)  return <LifeInsuranceForm {...sharedDelegateProps} />;
+  if (isBusiness) return <BusinessOwnershipForm {...sharedDelegateProps} />;
+  if (isArtJewelry) return <ArtJewelryForm assetType={assetType} {...sharedDelegateProps} />;
 
   // Real estate — simplified
   if (isRealEstate) {
@@ -226,7 +541,7 @@ export default function ManualAssetForm({ assetType, onDraftChange, displayCurre
     );
   }
 
-  // All other manual types
+  // All other manual types (cash, vehicle, pension, other_asset)
   const k = (slot: string) => `assetForm.fields.${assetType}.${slot}`;
   const showSecondary = config.slots.includes("s") && !isBankAccount;
   const showTertiary  = config.slots.includes("x") && !isBankAccount;
@@ -265,6 +580,9 @@ export default function ManualAssetForm({ assetType, onDraftChange, displayCurre
           <input value={secondary} onChange={(e) => setSecondary(e.target.value)}
             placeholder={`${t("assetForm.fields.bank_account.secondary")} (${t("common.optional")})`}
             className={sharedInputClass} />
+          <input value={tertiary} onChange={(e) => setTertiary(e.target.value)}
+            placeholder={`${t("assetForm.fields.bank_account.tertiary")} (${t("common.optional")})`}
+            className={sharedInputClass} />
         </>
       )}
 
@@ -275,7 +593,7 @@ export default function ManualAssetForm({ assetType, onDraftChange, displayCurre
               placeholder={`${t(k("secondary"))} (${t("common.optional")})`} className={sharedInputClass} />
           )}
           {showTertiary && (
-            <input value={secondary} onChange={(e) => setSecondary(e.target.value)}
+            <input value={tertiary} onChange={(e) => setTertiary(e.target.value)}
               placeholder={`${t(k("tertiary"))} (${t("common.optional")})`} className={sharedInputClass} />
           )}
         </div>

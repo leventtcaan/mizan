@@ -532,6 +532,35 @@ export const en = {
     besStateMatch: "State match (30%)",
     besTotal: "Estimated total",
     besNote: "Includes the 30% state contribution. Adjust the figure if your plan differs.",
+    bes: {
+      provider: "Provider",
+      providerHint: "e.g. Aegon, Allianz...",
+      monthly: "Monthly contribution",
+      total: "Total contributions to date",
+      stateMatch: "State match",
+      actualValue: "Current fund value",
+      actualValueHint: "Check your fund statement. Overrides the calculated estimate.",
+      retirementDate: "Planned retirement date",
+      pensionNote: "Individual pension fund — state match does not apply. Enter the current fund value.",
+    },
+    bond: {
+      faceValue: "Face value",
+      maturityDate: "Maturity date (optional)",
+      couponRate: "Coupon rate % (optional)",
+    },
+    life: {
+      coverageAmount: "Coverage amount",
+      monthlyPremium: "Monthly premium (optional)",
+      policyNo: "Policy number (optional)",
+    },
+    art: {
+      insuranceValue: "Insurance / appraisal value (optional)",
+      provenance: "Artist / maker / provenance (optional)",
+    },
+    business: {
+      ownershipPct: "Your ownership %",
+      country: "Country / sector (optional)",
+    },
     fields: {
       cash: { primary: "Storage location", secondary: "Label", tertiary: "Note" },
       bank_account: { primary: "Institution / bank", secondary: "Account type", tertiary: "Last 4 digits / label" },

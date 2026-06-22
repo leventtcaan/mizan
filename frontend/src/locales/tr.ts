@@ -532,6 +532,35 @@ export const tr = {
     besStateMatch: "Devlet katkısı (%30)",
     besTotal: "Tahmini toplam",
     besNote: "%30 devlet katkısı dahildir. Planınız farklıysa tutarı düzenleyin.",
+    bes: {
+      provider: "Sağlayıcı",
+      providerHint: "örn. Aegon, Allianz...",
+      monthly: "Aylık katkı",
+      total: "Toplam katkı",
+      stateMatch: "Devlet katkısı",
+      actualValue: "Güncel fon değeri",
+      actualValueHint: "Fon ekstrenizden bakın. Hesaplanan tahminin üzerine yazılır.",
+      retirementDate: "Planlanan emeklilik tarihi",
+      pensionNote: "Bireysel emeklilik fonu — devlet katkısı uygulanmaz. Güncel fon değerini girin.",
+    },
+    bond: {
+      faceValue: "Nominal değer",
+      maturityDate: "Vade tarihi (opsiyonel)",
+      couponRate: "Kupon oranı % (opsiyonel)",
+    },
+    life: {
+      coverageAmount: "Teminat tutarı",
+      monthlyPremium: "Aylık prim (opsiyonel)",
+      policyNo: "Poliçe numarası (opsiyonel)",
+    },
+    art: {
+      insuranceValue: "Sigorta / ekspertiz değeri (opsiyonel)",
+      provenance: "Sanatçı / üretici / köken (opsiyonel)",
+    },
+    business: {
+      ownershipPct: "Ortaklık payınız %",
+      country: "Ülke / sektör (opsiyonel)",
+    },
     fields: {
       cash: { primary: "Saklama yeri", secondary: "Etiket", tertiary: "Not" },
       bank_account: { primary: "Kurum / banka", secondary: "Hesap türü", tertiary: "Son 4 hane / etiket" },

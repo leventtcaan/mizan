@@ -971,6 +971,20 @@ Full stack: register/login → JWT → upload (rate-limited, busts caches) → 3
 
 ---
 
+### Phase 40 — Asset Form Completions (2026-06-22)
+
+#### Changes
+- [x] `frontend/src/components/asset-forms/ManualAssetForm.tsx` — **Tertiary bug fixed**: tertiary field now has its own `tertiary` state variable (was incorrectly bound to `secondary`).
+- [x] `ManualAssetForm.tsx` — Dedicated `BondForm` sub-component: issuer (required), ISIN/code, coupon rate %, maturity date, currency, face value with display-currency preview.
+- [x] `ManualAssetForm.tsx` — Dedicated `LifeInsuranceForm` sub-component: provider (required), policy no. (optional), currency, coverage amount (required) + display-currency preview, monthly premium (optional).
+- [x] `ManualAssetForm.tsx` — Dedicated `BusinessOwnershipForm` sub-component: company name (required), ownership % with `%` suffix, country/sector, currency, estimated value + hint + preview.
+- [x] `ManualAssetForm.tsx` — Dedicated `ArtJewelryForm` sub-component: shared for `art_collectible` and `jewelry`; item name (required), provenance (type-specific placeholder), currency, estimated value + hint + preview, insurance/appraisal value + certificate/purity (optional).
+- [x] `ManualAssetForm.tsx` — BES locale keys fixed: form was using `assetForm.bes.*` paths that were missing from locale files; all BES labels now resolve correctly.
+- [x] `frontend/src/components/asset-forms/CurrencyAssetForm.tsx` — **Commodity simplified**: shows all commodity entries as a 3-column chip grid (list is small, ~5 items); no search box needed. Each chip shows code + name.
+- [x] `CurrencyAssetForm.tsx` — **Foreign currency improved**: selected currency shown as dismissible pill above search; quantity label shows live USD rate per unit; preview shows `≈ X (DISPLAY_CURRENCY)` label.
+- [x] `frontend/src/locales/en.ts` + `tr.ts` — Added new nested locale sections: `assetForm.bes.*`, `assetForm.bond.*`, `assetForm.life.*`, `assetForm.art.*`, `assetForm.business.*`.
+- [x] No backend changes. No migration needed. Build: 13 pages, clean.
+
 ### Phase 36 — Premium Per-Type Add Asset Forms + Action Queue Restructure (2026-06-22)
 
 #### Backend
@@ -1041,7 +1055,7 @@ Full stack: register/login → JWT → upload (rate-limited, busts caches) → 3
 
 ## Next Session — Start Here
 
-**Phases 1–36 complete. Phase 36 = premium per-type Add Asset forms + Action Queue restructure. Alembic head = 0022. No new migrations.**
+**Phases 1–40 complete. Phase 40 = asset form improvements (bond/life/business/art/jewelry/commodity). Alembic head = 0022. No new migrations.**
 
 Pre-flight (if docker was restarted):
 ```bash
@@ -1061,11 +1075,12 @@ curl -s http://localhost:8000/currency/list | python3 -c "import sys,json; d=jso
 ```
 
 Next task options (priority order):
-1. **Transactions SpendingChart redesign** — replace weak bar chart with cash-flow panel or area chart.
-2. **i18n coverage audit** — check all components for remaining hardcoded TR strings; wire to translation keys.
-3. **Schema cleanup** — split `Asset.current_value` into quantity/value fields; currently overloaded (quantity for crypto/gold/FX, total value for stocks/manual).
-4. **Global market search** — stock ticker search + fund ISIN lookup via chosen providers.
-5. **Deployment** — Railway backend + Vercel frontend; alembic head on cold start.
+1. **Proactive net worth alerts** — "BTC drops 20% → net worth drops X" style threshold alerts. User sets thresholds per asset type, system evaluates on price refresh.
+2. **Transactions SpendingChart redesign** — replace weak bar chart with cash-flow panel or area chart.
+3. **i18n coverage audit** — check all components for remaining hardcoded TR strings; wire to translation keys.
+4. **Schema cleanup** — split `Asset.current_value` into quantity/value fields; currently overloaded (quantity for crypto/gold/FX, total value for stocks/manual).
+5. **Global market search** — stock ticker search + fund ISIN lookup via chosen providers.
+6. **Deployment** — Railway backend + Vercel frontend; alembic head on cold start.
 
 ---
 
