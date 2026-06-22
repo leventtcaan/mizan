@@ -263,13 +263,64 @@ When context reaches ~70% capacity:
 
 ---
 
+### Phase 49 — Settings + Persistent Display Currency (2026-06-22)
+- [x] `User.display_currency` String(10) default TRY (migration 0029). TokenResponse + UserResponse carry it; register/login/me return it; POST /auth/preferences accepts+validates (uppercase alnum 1-10). Also fixed register never returning `language`.
+- [x] `/settings` page: language TR/EN, default currency (CurrencySelect), weekly-email toggle, account+logout. Each control saves immediately ("Saved ✓" flash). Loads /me, re-syncs localStorage. Navbar gear icon (desktop+mobile).
+- [x] api.ts: `getDefaultCurrency()` (reads StoredUser.display_currency ?? TRY) + `setDefaultCurrencyLocal()` (writes localStorage + dispatches `mizan-currency-change`). StoredUser/TokenResponse/UserResponse gain display_currency. updatePreferences accepts display_currency.
+- [x] Navbar `CurrencyMenu` dropdown (top-right): top-7 chips + "all currencies →" /settings; on select setDefaultCurrencyLocal + updatePreferences → broadcasts → Home/networth/cashflow re-fetch+convert live.
+- [x] Currency threaded: Home `let ACTIVE_CCY` synced to user currency (fmt default reads it; loadAll keyed on ccy); networth + cashflow init from getDefaultCurrency + listen to event. Per-page CurrencySelect kept as session override.
+
+### Phase 50 — Home/Cashflow Logic + Currency Conversion Fixes (2026-06-22)
+- [x] **Currency bug**: backend summaries DID convert; gaps were (a) no app-wide control, (b) Home "This Month" used raw-TRY `progress`. Fixed: navbar selector + Home pulse uses converted cashflow month-actuals + derived `ccyFactor` for category bars.
+- [x] **Overdue bug** (`cashflow.py`): liability w/ monthly_payment but no due_date got base_day=today → next-payment=today → frontend labeled "overdue". Added `CashFlowItem.overdue` (true ONLY for receivables past expected_date). Liabilities never overdue; urgent only when has_due_date & ≤3d. Frontend: overdue→"gecikti", du≤0→"bugün", else "N gün".
+- [x] **Projection redesign** (ISSUE 3): summary added month-anchored fields — `month_income_actual`, `month_expenses_actual` (this calendar month tx, TRY-assumed→converted), `expected_income_rest`, `expected_payments_rest` (today→month_end), `projected_month_end = liquid + (rest_income − rest_payments)`. Home uses these; rolling `days` window kept for calendar page.
+- [x] Home action items: use `f.overdue`; links by source (liability/receivable→/networth, subscription→/recurring, recurring_income→/cashflow); urgentFlows filter `f.urgent || f.overdue`.
+
+### Phase 51 — Money Flow Overhaul (2026-06-22)
+- [x] **Unified recurring engine**: `services/subscription_detect.py` (extracted, ±10%/≥2mo) + `services/installment.py` (TAKSİT + implicit ±2%) → `services/recurring.py` `analyze_recurring()` scans once, classifies each merchant into exactly ONE bucket (installments win ties, no double-count). `api/recurring.py` GET /recurring?display_currency → {subscriptions, installments, summary}, converts every figure to display currency (detection carries each group's modal currency; cached per-pair factors). subscriptions.py slimmed to POST /flag only.
+- [x] **3-tab restructure**: MoneyTabs = Activity(/transactions) · Upcoming(/cashflow) · Recurring(/recurring). `/subscriptions` + `/installments` pages → redirects to /recurring. New `/recurring` page merges subs (flag essential/review/cancel) + installments (progress + opportunity cost).
+- [x] **MoneyOverview** header (rendered inside MoneyTabs → on every money page): this-month income/expenses/net + fixed monthly commitments (recurring.monthly_total) + projected month-end. Month-anchored, currency-aware.
+- [x] **SpendingChart redesign**: recharts bar → CSS horizontal bars (category dot + label + amount + share %), total header, per-tx currency conversion via live rates.
+- [x] **Transaction filters**: search + type (all/debit/credit) + category dropdown; "no matches" state.
+- [x] **Currency foundation**: `transaction.currency` String(10) default TRY (migration 0030); manual-entry currency field in AddTransactionModal; TransactionTable renders each amount in its own currency.
+
+### Phase 52 — Net Worth P0-P3 (2026-06-22)
+- [x] **P0 precision**: `assets.current_value` Numeric(18,2)→**Numeric(28,8)** (migration 0031) — fractional crypto/gold (0.00012345 BTC) now representable. **P0 repricing**: refresh-prices recomputes stock/fund `current_value = shares × live price` when `quantity` known.
+- [x] **P1 valuation cols** (additive, backward-compat): `assets.quantity Numeric(28,8)` + `assets.unit_code String(20)` nullable; MarketAssetForm persists shares+ticker → powers repricing. Existing rows untouched (current_value convention unchanged).
+- [x] **P2 accounts**: `models/account.py` (bank/wallet/broker/cash/credit_card/other) + CRUD `api/accounts.py` + nullable `assets.account_id` FK SET NULL. AddAssetModal account selector (cash/bank/FX) w/ inline create. Asset rows show account name badge.
+- [x] **P3**: FX-exposure panel (currency_breakdown → stacked bar + % legend); staleness badge (manual assets not updated 90+ days → "stale"). Type picker already grouped (5 sections).
+
+### Phase 53 — Cohesion + Hardening Pass (2026-06-22)
+- [x] Currency rider: recurring/spending no longer sum raw TRY — detection carries native currency, /recurring converts, SpendingChart per-tx converts.
+- [x] **Dead code removed**: `ChatPanel.tsx` (→GlobalAssistant), `api/installments.py` (→/recurring) + router, subscriptions.py GET list/summary (kept POST /flag), dead networth analyze modal (~95 lines + 4 state hooks + handler), orphaned `analyzeNetWorth` api fn, dead frontend interfaces.
+- [x] **New-user empty states**: transactions page was blank for zero-tx → added empty card w/ Upload + Add Manual CTAs.
+- [x] **`mizan-data-changed` complete**: added progress-page listener (re-categorize refreshes comparison). All data pages now wired (home/networth/cashflow/transactions/recurring/progress).
+- [x] **Currency assumption documented**: visible note on transactions page (uploaded tx kept in recorded currency, default ₺; summaries/charts converted). Home subscription action item → /recurring (was redirect-stub /subscriptions).
+- [x] Verified: all 5 assistant executors schema-safe vs new quantity/unit_code/account_id/currency cols; fixed latent `_parse_as_of_date` bug (returned None for valid ISO dates).
+
+---
+
 ## Current Status
 
-**Phases 1–44 complete. Alembic head = 0026. Last migrations: 0025 (wealth_alerts), 0026 (app_notifications).**
+**Phases 1–53 complete. Alembic head = 0031.**
+
+### App structure (current)
+- **Nav**: Home · Money Flow · Net Değer · İlerleme · Settings (+ currency dropdown, notification bell, global assistant FAB)
+- **Money Flow tabs**: Activity (/transactions) · Upcoming (/cashflow) · Recurring (/recurring) — shared MoneyOverview header
+- **Display currency**: user-level `User.display_currency`, switched via navbar dropdown, broadcast via `mizan-currency-change`, persisted to prefs
+- **Assistant**: one global `GlobalAssistant` (FAB everywhere), 5 structured actions (mark_receivable_received, create_asset, dismiss_reconciliation_item, categorize_transaction, add_liability), confirms → `mizan-data-changed` → all data pages refresh
+- **Schedulers** (APScheduler, in-process): reconciliation 6h, daily notifications 09:00 UTC, price refresh 12h
+
+### Known deferred (post-53)
+- **P1-deep**: full `quantity`/`unit_code`/`manual_value` canonical valuation migration + data backfill. LOW priority — crypto precision bug already fixed by Numeric(28,8); rest is internal hygiene w/ migration risk.
+- **P2-reconciliation**: link transactions↔accounts so Net Worth balances reconcile w/ Money Flow. Wait for real multi-account usage data before building.
+- Assistant-created assets write `source_detail={created_by:assistant}` w/o subtype → don't auto-reprice (minor).
+- `POST /networth/analyze` backend endpoint unused (frontend caller removed). Harmless; remove later.
+- Recurring/spending amounts: per-tx currency now carried, but transactions are still effectively single-currency (TRY) until multi-currency tx data exists.
 
 Full stack: register/login → JWT → upload (rate-limited, busts caches) → 3-layer OCR → LLM extract → OCR cleanup → dedup → zero-amount filter → persist → LLM categorize (13 categories) → insight cache → globalized LLM coach with corrections+notes injected → spending chart + progress page (LineChart 3-month trend + cross-batch-deduped category comparison + LLM one-liners, 24h cached) → PersonalityCard (5 types, cached per batch) → AlertsPanel (3 algorithmic detectors, dismiss persisted, stale dismissals auto-cleaned) → GoalsPanel (monthly budget vs actual) → ChatPanel (globalized conversational coaching, behavioral profile memory, voice input, chat-based tx entry with confirmation card, sessionStorage prefill from alerts) → weekly email summary (Resend HTML, preferences toggle) → inflation-adjusted analysis (TUFE 2023-2026, real vs nominal per category, ProgressInsight cache) → net worth asset subtype capture (all asset types have specific fields; crypto/fiat/commodity live picker; gold unit picker; stock/fund code fields; manual categories store structured metadata in `Asset.source_detail` JSON) → net worth display currency searchable via live `CurrencySelect` → receivable collection creates linked cash asset, repeated collection is idempotent, delete/write-off removes linked asset → stale received receivables and processed suggestions are hidden/cleaned after 30 days → onboarding accepts any institution/export source instead of hardcoded Turkish banks → financial event log + reconciliation item backend skeleton exists → net worth page shows Action Queue with open reconciliation items and recent financial events → reconciliation producers (overdue receivables, missing receivable assets, cross-batch duplicate detection) → Action Queue real action handlers per issue_type → net worth history AreaChart (daily USD snapshots, converted to display currency) → asset allocation donut PieChart (5 groups, click to highlight) → proactive threshold alerts (WealthAlert model, asset_price_drop / net_worth_drop / payment_coverage_risk, bell icon on auto-priced asset cards, triggered alerts banner).
 
-### Migrations (head = 0025)
+### Migrations (head = 0031)
 | Migration | What |
 |---|---|
 | 0001 | CREATE users + transactions |
@@ -298,6 +349,11 @@ Full stack: register/login → JWT → upload (rate-limited, busts caches) → 3
 | 0024 | CREATE networth_snapshots |
 | 0025 | CREATE wealth_alerts |
 | 0026 | CREATE app_notifications |
+| 0027 | CREATE assistant_actions |
+| 0028 | ADD breakdown_json to networth_snapshots |
+| 0029 | ADD display_currency to users |
+| 0030 | ADD currency to transactions |
+| 0031 | assets current_value→Numeric(28,8) + quantity + unit_code + account_id; CREATE accounts |
 
 ### Known Issues (open)
 - **History chart needs data** — `NetworthSnapshot` only populates on page load; <2 snapshots shows placeholder. Will self-populate after 2 visits.
@@ -1109,12 +1165,12 @@ Full stack: register/login → JWT → upload (rate-limited, busts caches) → 3
 
 ## Next Session — Start Here
 
-**Phases 1–44 complete. Alembic head = 0026. Last migrations: 0025 (wealth_alerts), 0026 (app_notifications).**
+**Phases 1–53 complete. Alembic head = 0031.**
 
 ### Next session setup:
-- Use claude-opus-4-8 model (switch in settings)
-- First task: propose full site architecture and page structure for broader global audience
-- Then implement page by page per model's proposal
+- Use claude-opus-4-8 model
+- First task: ask model for its genuine highest-leverage recommendation (audit-then-build cadence has worked well; cohesion pass just done). Candidates: P2-reconciliation (only if real multi-account data exists), deployment (user said "far away"), or a fresh audit of Insights/Progress + onboarding.
+- Deferred items live in "Known deferred (post-53)" under Current Status.
 
 ### Product vision (updated):
 - Target: global users replacing manual Excel tracking of complete financial life
@@ -1133,7 +1189,7 @@ Pre-flight (if docker was restarted):
 ```bash
 docker compose up -d
 docker compose exec backend alembic upgrade head
-docker compose exec backend alembic current   # must say 0026 (head)
+docker compose exec backend alembic current   # must say 0031 (head)
 ```
 
 Quick smoke-test:

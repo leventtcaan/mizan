@@ -263,9 +263,33 @@ When context reaches ~70% capacity:
 
 ---
 
+> **NOTE:** This file lagged behind `CLAUDE.md` (older Phase 34 / head 0022 content below). `CLAUDE.md` is the authoritative project brain — read it first. Summary of Phases 35–53 added below.
+
+### Phases 35–48 (summary — see CLAUDE.md for detail)
+- Asset subtype forms (per-type folder of sub-forms), TEFAS/real-estate/BES forms, Action Queue restructure, i18n TR/EN, real-time asset prices (asset_prices.py), reconciliation queue handlers, wealth alerts (0025), app notifications (0026), assistant_actions (0027), networth snapshot breakdown (0028), Home command-center page, scheduled scanning (APScheduler), global AI assistant (5 structured actions), net-worth attribution ("Net Worth Story"), cold-start onboarding rework.
+
+### Phase 49 — Settings + Persistent Display Currency (2026-06-22)
+- [x] `User.display_currency` (0029); /settings page (lang, currency, email, account); api.ts getDefaultCurrency/setDefaultCurrencyLocal + `mizan-currency-change` event; Navbar CurrencyMenu dropdown; currency threaded into Home/networth/cashflow.
+
+### Phase 50 — Home/Cashflow Logic + Currency Fixes (2026-06-22)
+- [x] CashFlowItem.overdue (receivables only; liabilities never overdue); month-anchored projection (month actuals + rest-of-month expected → projected_month_end); Home pulse converts via ccyFactor; action items link by source.
+
+### Phase 51 — Money Flow Overhaul (2026-06-22)
+- [x] Unified recurring engine (subscription_detect + installment → recurring.py, dedup); 3 tabs Activity/Upcoming/Recurring; /subscriptions+/installments → redirects; MoneyOverview header; SpendingChart CSS redesign; tx filters; `transaction.currency` (0030).
+
+### Phase 52 — Net Worth P0-P3 (2026-06-22)
+- [x] current_value→Numeric(28,8) + quantity + unit_code + accounts table + assets.account_id (0031); stock repricing (shares×price); FX-exposure panel; staleness badges.
+
+### Phase 53 — Cohesion + Hardening (2026-06-22)
+- [x] Removed ChatPanel, installments API, subscriptions GET endpoints, dead networth analyze modal, analyzeNetWorth fn; transactions empty state; progress mizan-data-changed listener; currency-assumption note; fixed _parse_as_of_date bug. All 5 assistant executors verified schema-safe.
+
+---
+
 ## Current Status
 
-**Phases 1–34 complete. Alembic head = 0022. No new migrations since Phase 32.**
+**Phases 1–53 complete. Alembic head = 0031.** (App: Nav = Home · Money Flow · Net Değer · İlerleme · Settings; Money Flow tabs = Activity · Upcoming · Recurring. Deferred: P1-deep valuation migration, P2 tx↔account reconciliation, assistant-created assets don't auto-reprice, unused POST /networth/analyze.)
+
+**(historical, Phase 34) Phases 1–34 complete. Alembic head = 0022. No new migrations since Phase 32.**
 
 Full stack: register/login → JWT → upload (rate-limited, busts caches) → 3-layer OCR → LLM extract → OCR cleanup → dedup → zero-amount filter → persist → LLM categorize (13 categories) → insight cache → LLM coach with corrections+notes injected → spending chart + progress page (LineChart 3-month trend + cross-batch-deduped category comparison + LLM one-liners, 24h cached) → PersonalityCard (5 types, cached per batch) → AlertsPanel (3 algorithmic detectors, dismiss persisted) → GoalsPanel (monthly budget vs actual) → ChatPanel (conversational coaching, behavioral profile memory, voice input, chat-based tx entry with confirmation card, sessionStorage prefill from alerts) → weekly email summary (Resend HTML, preferences toggle) → inflation-adjusted analysis (TUFE 2023-2026, real vs nominal per category, ProgressInsight cache).
 
@@ -717,13 +741,13 @@ Full stack: register/login → JWT → upload (rate-limited, busts caches) → 3
 
 ## Next Session — Start Here
 
-**Phases 1–42 complete. Alembic head = 0022. No migrations since Phase 32.**
+**Phases 1–53 complete. Alembic head = 0031.** (Older Phase 42/head-0022 notes below are historical — CLAUDE.md is authoritative.) Next: ask model for genuine highest-leverage recommendation; deferred items in Current Status.
 
 Pre-flight (if docker was restarted):
 ```bash
 docker compose up -d
 docker compose exec backend alembic upgrade head
-docker compose exec backend alembic current   # must say 0022 (head)
+docker compose exec backend alembic current   # must say 0031 (head)
 ```
 
 ### Immediate fixes (do first, in order):
