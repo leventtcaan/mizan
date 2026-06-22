@@ -310,9 +310,32 @@ async def build_guidance(
             # Cushioned: liquid covers a year+ of the gap, or net worth covers 2+ years.
             cushioned = net_worth > 0 and (runway_months >= 12 or nw_years >= 2)
             severity = "low" if cushioned else "medium"
+            logger.info(
+                "GUIDANCE savings — cur=%s net_worth=%.0f liquid=%.0f mExp=%.0f mInc=%.0f "
+                "gap=%.0f runway=%.1f nw_years=%.2f rate=%.3f cushioned=%s sev=%s",
+                cur, net_worth, liquid, monthly_expenses, monthly_income,
+                gap, runway_months, nw_years, rate, cushioned, severity,
+            )
 
-            if rate < 0:
-                if cushioned:
+            # "Decades of runway" — a large net worth versus a tiny monthly gap.
+            # At that point a low/negative month is simply not a finding worth surfacing.
+            very_cushioned = net_worth > 0 and nw_years >= 10
+
+            flag = True
+            obs = context = why = None
+
+            if rate < 0 and overspend <= 0:
+                # The scorecard rate is a single-month read; the 90-day average here
+                # shows income >= expenses. Recent reality contradicts the one bad
+                # month, so don't cry wolf — suppress entirely.
+                flag = False
+                logger.info("GUIDANCE savings — suppressed: 90d trend (income>=expenses) contradicts single-month rate")
+            elif rate < 0:
+                # Genuinely overspending across the 90-day window.
+                if very_cushioned:
+                    flag = False
+                    logger.info("GUIDANCE savings — suppressed: very cushioned (nw_years=%.1f)", nw_years)
+                elif cushioned:
                     obs = _tpl(lang,
                         "Your spending has been running ahead of your income lately.",
                         "Son dönemde harcamanız gelirinizin biraz önünde gidiyor.")
@@ -322,7 +345,7 @@ async def build_guidance(
                     context = _tpl(lang,
                         "Nothing urgent given your cushion — just a trend to keep from becoming a habit.",
                         "Tamponunuz göz önüne alınınca acil bir şey yok — sadece alışkanlığa dönüşmemesi gereken bir eğilim.")
-                elif overspend > 0:
+                else:
                     obs = _tpl(lang,
                         "Lately you're spending more than you bring in.",
                         "Son dönemde kazandığınızdan fazlasını harcıyorsunuz.")
@@ -332,37 +355,34 @@ async def build_guidance(
                     context = _tpl(lang,
                         "The goal isn't perfection — just getting back to spending a little less than you earn.",
                         "Amaç kusursuzluk değil — yalnızca kazandığınızdan biraz azını harcamaya dönmek.")
-                else:
-                    obs = _tpl(lang,
-                        "Your spending is outpacing your income.",
-                        "Harcamanız gelirinizin önüne geçmiş durumda.")
-                    why = _tpl(lang,
-                        "When more goes out than comes in, net worth drifts down month after month.",
-                        "Girenden fazlası çıkınca net değer her ay biraz daha aşağı kayar.")
-                    context = _tpl(lang,
-                        "The goal isn't perfection — just getting back to spending a little less than you earn.",
-                        "Amaç kusursuzluk değil — yalnızca kazandığınızdan biraz azını harcamaya dönmek.")
             else:
-                pct = round(rate * 100)
-                obs = _tpl(lang,
-                    f"You're holding on to only about {pct}% of what you earn.",
-                    f"Kazandığınızın yalnızca yaklaşık %{pct}'ini elinizde tutuyorsunuz.")
-                context = _tpl(lang,
-                    "Building wealth gets hard when there's little left at the end of the month.",
-                    "Ay sonunda geriye az şey kalınca servet biriktirmek zorlaşır.")
-                why = _tpl(lang,
-                    "How much you keep each month is the single biggest lever on your net worth over time.",
-                    "Her ay ne kadar elinizde tuttuğunuz, zamanla net değerinizdeki en büyük kaldıraçtır.")
-            findings.append({
-                "id": "savings_rate", "play": "savings_rate", "severity": severity,
-                "action": {"type": "set_goal", "params": {}},
-                "observation": obs,
-                "context": context,
-                "why": why,
-                "move": _tpl(lang,
-                    "Putting a cap on a category or two is the easiest place to start — want to set one?",
-                    "Bir-iki kategoriye sınır koymak başlamak için en kolay yer — bir tane belirleyelim mi?"),
-            })
+                # Positive but low savings rate.
+                if very_cushioned:
+                    flag = False  # already wealthy; a low savings month isn't a problem
+                    logger.info("GUIDANCE savings — suppressed: low rate but very cushioned (nw_years=%.1f)", nw_years)
+                else:
+                    pct = round(rate * 100)
+                    obs = _tpl(lang,
+                        f"You're holding on to only about {pct}% of what you earn.",
+                        f"Kazandığınızın yalnızca yaklaşık %{pct}'ini elinizde tutuyorsunuz.")
+                    context = _tpl(lang,
+                        "Building wealth gets hard when there's little left at the end of the month.",
+                        "Ay sonunda geriye az şey kalınca servet biriktirmek zorlaşır.")
+                    why = _tpl(lang,
+                        "How much you keep each month is the single biggest lever on your net worth over time.",
+                        "Her ay ne kadar elinizde tuttuğunuz, zamanla net değerinizdeki en büyük kaldıraçtır.")
+
+            if flag:
+                findings.append({
+                    "id": "savings_rate", "play": "savings_rate", "severity": severity,
+                    "action": {"type": "set_goal", "params": {}},
+                    "observation": obs,
+                    "context": context,
+                    "why": why,
+                    "move": _tpl(lang,
+                        "Putting a cap on a category or two is the easiest place to start — want to set one?",
+                        "Bir-iki kategoriye sınır koymak başlamak için en kolay yer — bir tane belirleyelim mi?"),
+                })
 
     # ── PLAY: stale prices on auto-priced assets ────────────────────────────────
     stale = []

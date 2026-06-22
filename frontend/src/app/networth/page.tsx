@@ -31,7 +31,6 @@ import {
   deleteBatch,
   refreshAssetPrices,
   createNetWorthSnapshot,
-  getNetWorthHistory,
   getWealthAlerts,
   checkWealthAlerts,
   createWealthAlert,
@@ -49,14 +48,10 @@ import {
   SuggestionItem,
   FinancialEventItem,
   ReconciliationItem,
-  NetworthSnapshot,
   WealthAlertItem,
   TriggeredWealthAlert,
   GuidanceFinding,
 } from "@/lib/api";
-import {
-  AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip,
-} from "recharts";
 import { Plus, TrendingUp, TrendingDown, DollarSign, Home, Wallet, Briefcase, Scale, Brain, Zap, RefreshCw, Pencil, MessageCircle, Bell } from "@/components/ui/Icons";
 import { useLanguage } from "@/lib/i18n";
 
@@ -106,6 +101,13 @@ function trimNum(v: string | number): string {
   const n = typeof v === "string" ? parseFloat(v) : v;
   if (!Number.isFinite(n)) return "";
   return new Intl.NumberFormat(undefined, { maximumFractionDigits: 8 }).format(n);
+}
+
+// Locale-aware clock: Turkish convention is 24h ("23:04"); English uses 12h ("11:04 PM").
+function fmtTime(ms: number, lang: string): string {
+  return new Date(ms).toLocaleTimeString(lang === "tr" ? "tr-TR" : "en-US", {
+    hour: "2-digit", minute: "2-digit", hour12: lang !== "tr",
+  });
 }
 
 function monthYear(iso: string | undefined): string | null {
@@ -265,7 +267,11 @@ function Toast({ message, onDismiss }: { message: string; onDismiss: () => void 
 export default function NetWorthPage() {
   const { t, lang } = useLanguage();
   const router = useRouter();
-  const [displayCurrency, setDisplayCurrency] = useState("TRY");
+  // Initialize from the user's saved default BEFORE the first fetch, so loadAll()
+  // always queries the summary in the correct currency. (Previously this started
+  // as "TRY" and flipped to USD via an effect AFTER loadAll had already fetched,
+  // racing the late USD refetch and sometimes leaving TRY values labelled USD.)
+  const [displayCurrency, setDisplayCurrency] = useState<string>(() => getDefaultCurrency());
   const [guidance, setGuidance] = useState<GuidanceFinding[]>([]);
   const [guidanceLoading, setGuidanceLoading] = useState(true);
   const [alertPct, setAlertPct] = useState(15);
@@ -292,7 +298,6 @@ export default function NetWorthPage() {
   const [actionPending, setActionPending] = useState<string | null>(null);
   const [usdRates, setUsdRates] = useState<Record<string, number> | null>(null);
 
-  const [snapshots, setSnapshots] = useState<NetworthSnapshot[]>([]);
   const [wealthAlerts, setWealthAlerts] = useState<WealthAlertItem[]>([]);
   const [triggeredAlerts, setTriggeredAlerts] = useState<TriggeredWealthAlert[]>([]);
   const [alertModalAsset, setAlertModalAsset] = useState<AssetItem | null>(null);
@@ -342,7 +347,7 @@ export default function NetWorthPage() {
     const ageMin = Math.floor((Date.now() - when.getTime()) / 60000);
     // Concrete clock time so the user can see it tick to "now" after a refresh,
     // even when a stable price means the value itself doesn't move.
-    const clock = when.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
+    const clock = fmtTime(when.getTime(), lang);
     const rel = ageMin < 2 ? t("nw.justNow") : ageMin < 60 ? `${ageMin} ${t("nw.minAgo")}` : `${Math.floor(ageMin / 60)} ${t("nw.hrAgo")}`;
     const title = `${t("nw.priceBadgeUpdated")} ${clock} · ${rel}`;
     if (ageMin < 60) return { label: `${t("nw.priceBadgeUpdated")} ${clock}`, cls: "text-emerald-400 bg-emerald-950/30 border-emerald-800/30", title };
@@ -367,9 +372,10 @@ export default function NetWorthPage() {
     loadAll();
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Honor the user's preferred display currency and react to Settings changes.
+  // React to live currency changes from Settings / the navbar selector. The
+  // initial value already comes from the lazy useState initializer above, so we
+  // only need the listener here (no mount-time setDisplayCurrency that would race).
   useEffect(() => {
-    setDisplayCurrency(getDefaultCurrency());
     const handler = (e: Event) => setDisplayCurrency((e as CustomEvent<string>).detail);
     window.addEventListener(CURRENCY_CHANGE_EVENT, handler);
     return () => window.removeEventListener(CURRENCY_CHANGE_EVENT, handler);
@@ -397,9 +403,10 @@ export default function NetWorthPage() {
       .then((g) => setGuidance(g.findings))
       .catch(() => setGuidance([]))
       .finally(() => setGuidanceLoading(false));
-    // Fire-and-forget: snapshot + alerts + notifications don't block page load
+    // Keep recording the daily snapshot so REAL history accrues over time (the
+    // trajectory chart lives on the Progress page). We just don't render an
+    // estimated/reconstructed history chart here — it was misleading.
     createNetWorthSnapshot()
-      .then(() => getNetWorthHistory(90)).then(setSnapshots)
       .then(() => getNetWorthAttribution(displayCurrency)).then(setAttribution)
       .catch(() => null);
     getWealthAlerts().then(setWealthAlerts).catch(() => null);
@@ -778,28 +785,6 @@ export default function NetWorthPage() {
   const netPositive = (summary?.net_worth_try ?? 0) >= 0;
   const pendingSuggestions = suggestions.filter((s) => s.status === "pending");
 
-  // History chart data: convert USD snapshots → displayCurrency
-  const historyChartData = snapshots.map((s) => {
-    const nwUsd = parseFloat(s.net_worth_usd);
-    const converted = convertAmount(nwUsd, "USD", displayCurrency, usdRates) ?? nwUsd;
-    const d = new Date(s.recorded_at);
-    return {
-      date: `${d.toLocaleString(undefined, { month: "short" })} ${d.getDate()}`,
-      value: Math.round(converted),
-    };
-  });
-
-  // Net worth delta from last 2 snapshots
-  const nwDelta: { value: number; pct: number; positive: boolean } | null = (() => {
-    if (historyChartData.length < 2) return null;
-    const prev = historyChartData[historyChartData.length - 2].value;
-    const curr = historyChartData[historyChartData.length - 1].value;
-    if (prev === 0) return null;
-    const diff = curr - prev;
-    const pct = (diff / Math.abs(prev)) * 100;
-    return { value: diff, pct, positive: diff >= 0 };
-  })();
-
   // Allocation donut: wealth by high-level group, converted to display currency.
   const allocationSlices = ASSET_TYPE_GROUPS
     .map((g) => ({
@@ -831,7 +816,7 @@ export default function NetWorthPage() {
           {lastRefreshAt && (
             <span className="hidden sm:flex items-center gap-1.5 text-[11px] text-gray-500" title={t("nw.pricesUpdatedHint")}>
               <RefreshCw size={11} className="text-gray-600" />
-              {t("nw.pricesUpdatedPre")} {new Date(lastRefreshAt).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" })}{t("nw.pricesUpdatedPost")}
+              {t("nw.pricesUpdatedPre")} {fmtTime(lastRefreshAt, lang)}{t("nw.pricesUpdatedPost")}
             </span>
           )}
           <div className="w-48">
@@ -917,12 +902,6 @@ export default function NetWorthPage() {
               <p className={`text-5xl font-bold tabular-nums ${netPositive ? "text-emerald-400" : "text-red-400"} ${summaryLoading ? "opacity-50" : ""}`}>
                 {summary ? fmt(summary.net_worth_try, displayCurrency) : "—"}
               </p>
-              {nwDelta && (
-                <span className={`text-sm font-semibold tabular-nums px-2 py-1 rounded-lg ${nwDelta.positive ? "bg-emerald-950/50 text-emerald-400" : "bg-red-950/50 text-red-400"}`}>
-                  {nwDelta.positive ? "+" : ""}{fmt(nwDelta.value, displayCurrency)}
-                  <span className="text-xs ml-1 opacity-70">({nwDelta.pct >= 0 ? "+" : ""}{nwDelta.pct.toFixed(1)}%)</span>
-                </span>
-              )}
             </div>
 
             {/* Why it moved — change attribution (compact, one line) */}
@@ -1018,39 +997,9 @@ export default function NetWorthPage() {
         </div>
       )}
 
-      {/* Net worth history chart */}
-      {!loading && (
-        <div className="bg-[#1A1A1A] border border-[#2A2A2A] rounded-2xl p-5 mb-6">
-          <div className="flex items-center gap-2 mb-3">
-            <h3 className="text-xs text-gray-400 font-medium">{t("nw.historyTitle")}</h3>
-            {snapshots.some((s) => s.estimated) && historyChartData.length >= 2 && (
-              <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-950/40 border border-amber-900/40 text-amber-400/90">
-                {t("scorecard.trajectory.estimated")}
-              </span>
-            )}
-          </div>
-          {historyChartData.length < 2 ? (
-            <p className="text-gray-600 text-xs">{t("nw.historyNoData")}</p>
-          ) : (
-            <AreaChart width={600} height={120} data={historyChartData} style={{ width: "100%", maxWidth: "100%" }}>
-              <defs>
-                <linearGradient id="nwGrad" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#10b981" stopOpacity={0.25} />
-                  <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
-                </linearGradient>
-              </defs>
-              <CartesianGrid strokeDasharray="3 3" stroke="#2A2A2A" />
-              <XAxis dataKey="date" tick={{ fontSize: 10, fill: "#6b7280" }} axisLine={false} tickLine={false} />
-              <YAxis hide />
-              <RechartsTooltip
-                contentStyle={{ backgroundColor: "#1A1A1A", border: "1px solid #2A2A2A", borderRadius: 8, fontSize: 12 }}
-                formatter={(v: number) => [fmt(v, displayCurrency), ""]}
-              />
-              <Area type="monotone" dataKey="value" stroke="#10b981" strokeWidth={2} fill="url(#nwGrad)" dot={false} />
-            </AreaChart>
-          )}
-        </div>
-      )}
+      {/* Net-worth history chart removed: it showed estimated/reconstructed data,
+          which was misleading. Real trajectory lives on the Progress page once
+          enough daily snapshots have accrued. */}
 
       {/* Asset allocation — interactive donut + per-currency exposure */}
       {!loading && (
