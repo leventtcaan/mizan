@@ -54,14 +54,19 @@ export default function ProgressPage() {
     const user = getStoredUser();
     if (!user) { router.replace("/login"); return; }
 
-    getProgress()
-      .then((d) => { setProgress(d); setProgressState("ready"); })
-      .catch(() => setProgressState("error"));
-
-    getComparison()
-      .then((d) => { setComparison(d); setComparisonState("ready"); })
-      .catch(() => setComparisonState("error"));
-  }, []);
+    const load = () => {
+      getProgress()
+        .then((d) => { setProgress(d); setProgressState("ready"); })
+        .catch(() => setProgressState("error"));
+      getComparison()
+        .then((d) => { setComparison(d); setComparisonState("ready"); })
+        .catch(() => setComparisonState("error"));
+    };
+    load();
+    // Re-load after the global assistant confirms an action (e.g. re-categorize).
+    window.addEventListener("mizan-data-changed", load);
+    return () => window.removeEventListener("mizan-data-changed", load);
+  }, [router]);
 
   const spendingLabel = t("progress.spending");
   const incomeLabel = t("progress.income");

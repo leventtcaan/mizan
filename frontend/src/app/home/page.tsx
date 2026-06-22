@@ -99,7 +99,7 @@ export default function HomePage() {
   const hrefForFlow = (f: CashFlowItem) =>
     f.source === "liability" ? "/networth"
       : f.source === "receivable" ? "/networth"
-      : f.source === "subscription" ? "/subscriptions"
+      : f.source === "subscription" ? "/recurring"
       : "/cashflow";
 
   // Snapshot (net worth + ratios + health)

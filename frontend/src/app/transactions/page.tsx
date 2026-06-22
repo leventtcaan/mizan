@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import {
   getTransactions, getBatches, getStoredUser,
   type Transaction, type BatchSummary,
@@ -195,8 +196,29 @@ export default function TransactionsPage() {
         </div>
       )}
 
+      {/* Empty state — brand-new account, no transactions yet */}
+      {txState === "ready" && transactions.length === 0 && (
+        <div className="bg-[#1A1A1A] border border-[#2A2A2A] rounded-2xl p-10 text-center">
+          <p className="text-gray-300 text-base font-medium">{t("tx.empty")}</p>
+          <p className="text-gray-500 text-sm mt-1.5 mb-5">{t("tx.uploadCTA")}</p>
+          <div className="flex items-center justify-center gap-3 flex-wrap">
+            <Link href="/upload" className="px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-sm font-medium text-white transition-colors">
+              {t("nav.upload")}
+            </Link>
+            <button onClick={() => setShowAddModal(true)} className="px-4 py-2 rounded-lg border border-[#2A2A2A] hover:border-[#3A3A3A] text-sm text-gray-300 transition-colors">
+              {t("tx.addManual")}
+            </button>
+          </div>
+        </div>
+      )}
+
       {txState === "ready" && transactions.length > 0 && (
         <SpendingChart transactions={transactions} />
+      )}
+
+      {/* Currency note: uploaded transactions are recorded in their stored currency (default TRY). */}
+      {txState === "ready" && transactions.length > 0 && (
+        <p className="text-[11px] text-gray-600 mb-3">{t("tx.currencyNote")}</p>
       )}
 
       {/* Filter bar */}

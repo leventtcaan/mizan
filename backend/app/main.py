@@ -14,7 +14,6 @@ from app.api.auth import router as auth_router
 from app.api.cashflow import router as cashflow_router
 from app.api.currency import router as currency_router
 from app.api.networth import router as networth_router
-from app.api.installments import router as installments_router
 from app.api.subscriptions import router as subscriptions_router
 from app.api.email import router as email_router
 from app.api.inflation import router as inflation_router
@@ -125,7 +124,6 @@ app.include_router(patterns_router)
 app.include_router(email_router)
 app.include_router(inflation_router)
 app.include_router(subscriptions_router)
-app.include_router(installments_router)
 app.include_router(currency_router)
 app.include_router(networth_router)
 app.include_router(reconciliation_router)

@@ -609,37 +609,6 @@ export async function correctCategory(
 
 // --- Subscriptions ---
 
-export interface SubscriptionItem {
-  merchant_key: string;
-  merchant: string;
-  avg_amount: string;
-  frequency: "monthly" | "weekly";
-  last_seen: string;
-  total_paid_all_time: string;
-  months_active: number;
-  category: string;
-  flag: "essential" | "review" | "cancelled" | null;
-}
-
-export interface SubscriptionsResponse {
-  subscriptions: SubscriptionItem[];
-}
-
-export interface SubscriptionSummary {
-  total_monthly_cost: string;
-  count: number;
-  flagged_for_review: string[];
-  potential_savings: string;
-}
-
-export async function getSubscriptions(): Promise<SubscriptionsResponse> {
-  const response = await fetch(`${API_BASE_URL}/subscriptions`, {
-    headers: authHeaders(),
-  });
-  if (!response.ok) throw new Error(`Failed to fetch subscriptions: ${response.status}`);
-  return response.json() as Promise<SubscriptionsResponse>;
-}
-
 export async function flagSubscription(
   merchant_key: string,
   flag: "essential" | "review" | "cancelled",
@@ -651,49 +620,6 @@ export async function flagSubscription(
   });
   if (!response.ok) throw new Error(`Failed to flag subscription: ${response.status}`);
   return response.json() as Promise<{ merchant_key: string; flag: string }>;
-}
-
-export async function getSubscriptionSummary(): Promise<SubscriptionSummary> {
-  const response = await fetch(`${API_BASE_URL}/subscriptions/summary`, {
-    headers: authHeaders(),
-  });
-  if (!response.ok) throw new Error(`Failed to fetch subscription summary: ${response.status}`);
-  return response.json() as Promise<SubscriptionSummary>;
-}
-
-// --- Installments ---
-
-export interface InstallmentPlan {
-  merchant_key: string;
-  merchant: string;
-  monthly_amount: number;
-  months_detected: number;
-  estimated_remaining: number;
-  total_plan_months: number;
-  total_paid: number;
-  estimated_total: number;
-  first_seen: string;
-  last_seen: string;
-  category: string;
-  source: string;
-  total_nominal: number;
-  opportunity_loss: number;
-  real_cost_with_opportunity: number;
-}
-
-export interface InstallmentResponse {
-  plans: InstallmentPlan[];
-  insight: string | null;
-  cached: boolean;
-}
-
-export interface InstallmentSummary {
-  total_monthly_burden: number;
-  active_plan_count: number;
-  months_until_debt_free: number;
-  total_remaining_nominal: number;
-  total_opportunity_loss: number;
-  income_pct: number | null;
 }
 
 // --- Unified recurring commitments (subscriptions + installments, de-duplicated) ---
@@ -751,22 +677,6 @@ export async function getRecurring(displayCurrency = "TRY"): Promise<RecurringRe
   const response = await fetch(`${API_BASE_URL}/recurring?display_currency=${displayCurrency}`, { headers: authHeaders() });
   if (!response.ok) throw new Error(`Failed to fetch recurring: ${response.status}`);
   return response.json() as Promise<RecurringResponse>;
-}
-
-export async function getInstallments(): Promise<InstallmentResponse> {
-  const response = await fetch(`${API_BASE_URL}/installments`, {
-    headers: authHeaders(),
-  });
-  if (!response.ok) throw new Error(`Failed to fetch installments: ${response.status}`);
-  return response.json() as Promise<InstallmentResponse>;
-}
-
-export async function getInstallmentSummary(): Promise<InstallmentSummary> {
-  const response = await fetch(`${API_BASE_URL}/installments/summary`, {
-    headers: authHeaders(),
-  });
-  if (!response.ok) throw new Error(`Failed to fetch installment summary: ${response.status}`);
-  return response.json() as Promise<InstallmentSummary>;
 }
 
 // --- Net Worth ---
@@ -1367,17 +1277,6 @@ export async function updateReceivable(id: string, body: {
 }
 
 // --- Net Worth Analyze ---
-
-export async function analyzeNetWorth(message: string, lang = "en"): Promise<string> {
-  const response = await fetch(`${API_BASE_URL}/networth/analyze?lang=${lang}`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", ...authHeaders() },
-    body: JSON.stringify({ message }),
-  });
-  if (!response.ok) throw new Error(`Analysis failed: ${response.status}`);
-  const data = await response.json() as { reply: string };
-  return data.reply;
-}
 
 // --- App Notifications ---
 

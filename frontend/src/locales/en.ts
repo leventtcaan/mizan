@@ -188,6 +188,7 @@ export const en = {
     fixCategory: "Fix Category",
     searchPlaceholder: "Search transactions…",
     noMatches: "No transactions match the filter.",
+    currencyNote: "Uploaded transactions are kept in their recorded currency (₺ by default) unless tagged. Summaries and charts are converted to your display currency.",
     filter: {
       all: "All",
       debit: "Expenses",

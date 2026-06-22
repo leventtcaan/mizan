@@ -188,6 +188,7 @@ export const tr = {
     fixCategory: "Kategoriyi Düzelt",
     searchPlaceholder: "İşlem ara…",
     noMatches: "Filtreyle eşleşen işlem yok.",
+    currencyNote: "Yüklenen işlemler, etiketlenmedikçe kayıtlı para biriminde (varsayılan ₺) tutulur. Özet ve grafikler görüntüleme para birimine çevrilir.",
     filter: {
       all: "Tümü",
       debit: "Gider",
