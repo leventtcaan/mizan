@@ -174,13 +174,19 @@ async def _produce_duplicate_transaction_items(user_id: uuid.UUID, session: Asyn
     for rows in groups.values():
         if len(rows) < 2:
             continue
-        id_set = frozenset(row.id for row in rows)
+        id_set = frozenset(str(row.id) for row in rows)
         if id_set in seen_id_sets:
             continue
         seen_id_sets.add(id_set)
-        # Use the minimum UUID as a stable anchor so repeated scans always
-        # resolve to the same related_entity_id and _ensure_item deduplicates.
-        anchor = min(rows, key=lambda r: r.id)
+
+        # Derive a deterministic UUID from the sorted set of transaction IDs.
+        # uuid5 is a pure hash — identical input always produces identical output
+        # regardless of query order, Python UUID type, or ORM session state.
+        # This is the stable unique key _ensure_item uses for deduplication.
+        sorted_ids = ",".join(sorted(id_set))
+        dedup_uuid = uuid.uuid5(uuid.NAMESPACE_OID, sorted_ids)
+
+        first = rows[0]
         batch_ids = {row.upload_batch_id for row in rows if row.upload_batch_id}
         severity = "high" if len(batch_ids) > 1 else "medium"
         created += int(
@@ -191,16 +197,16 @@ async def _produce_duplicate_transaction_items(user_id: uuid.UUID, session: Asyn
                 severity=severity,
                 title="Possible duplicate transaction",
                 description=(
-                    f"{len(rows)} matching transactions found on {anchor.transaction_date.isoformat()} "
-                    f"for amount {anchor.amount}. Review before these rows affect insights twice."
+                    f"{len(rows)} matching transactions found on {first.transaction_date.isoformat()} "
+                    f"for amount {first.amount}. Review before these rows affect insights twice."
                 ),
                 related_entity_type="transaction",
-                related_entity_id=anchor.id,
+                related_entity_id=dedup_uuid,
                 proposed_action={
                     "actions": ["review_duplicates", "delete_duplicate_batch", "keep_all"],
-                    "transaction_ids": [str(row.id) for row in rows],
+                    "transaction_ids": list(sorted(id_set)),
                     "upload_batch_ids": sorted(batch_ids),
-                    "description": anchor.description,
+                    "description": first.description,
                 },
             )
         )
