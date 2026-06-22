@@ -532,6 +532,23 @@ export const tr = {
     besStateMatch: "Devlet katkısı (%30)",
     besTotal: "Tahmini toplam",
     besNote: "%30 devlet katkısı dahildir. Planınız farklıysa tutarı düzenleyin.",
+    re: {
+      typeLabel: "Mülk türü",
+      residential: "Konut",
+      commercial: "İş yeri",
+      land: "Arsa",
+      other: "Diğer",
+      city: "Şehir / konum",
+      size: "Alan (m²)",
+      pricePerSqm: "m² fiyatı",
+      hint: "Güncel piyasa değerine dair en iyi tahmininizi girin.",
+    },
+    vehicle: {
+      brand: "Marka",
+      model: "Model",
+      year: "Yıl",
+      depreciationNote: "Araçlar genellikle ilk yılda %15–20, sonraki yıllarda yıllık %10–15 değer kaybeder.",
+    },
     bes: {
       provider: "Sağlayıcı",
       providerHint: "örn. Aegon, Allianz...",
@@ -547,19 +564,17 @@ export const tr = {
       faceValue: "Nominal değer",
       maturityDate: "Vade tarihi (opsiyonel)",
       couponRate: "Kupon oranı % (opsiyonel)",
+      note: "Not (opsiyonel)",
     },
     life: {
       coverageAmount: "Teminat tutarı",
       monthlyPremium: "Aylık prim (opsiyonel)",
-      policyNo: "Poliçe numarası (opsiyonel)",
     },
     art: {
       insuranceValue: "Sigorta / ekspertiz değeri (opsiyonel)",
-      provenance: "Sanatçı / üretici / köken (opsiyonel)",
     },
     business: {
       ownershipPct: "Ortaklık payınız %",
-      country: "Ülke / sektör (opsiyonel)",
     },
     fields: {
       cash: { primary: "Saklama yeri", secondary: "Etiket", tertiary: "Not" },

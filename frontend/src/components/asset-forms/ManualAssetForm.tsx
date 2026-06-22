@@ -19,11 +19,79 @@ function daysUntil(dateStr: string): number | null {
 
 // ── Real estate ──────────────────────────────────────────────────────────────
 const RE_TYPES = [
-  { value: "konut",  emoji: "🏠", labelKey: "assetForm.re.konut" },
-  { value: "isyeri", emoji: "🏢", labelKey: "assetForm.re.isyeri" },
-  { value: "arsa",   emoji: "🌿", labelKey: "assetForm.re.arsa" },
-  { value: "other",  emoji: "🏨", labelKey: "assetForm.re.other" },
+  { value: "residential", emoji: "🏠", labelKey: "assetForm.re.residential" },
+  { value: "commercial",  emoji: "🏢", labelKey: "assetForm.re.commercial" },
+  { value: "land",        emoji: "🌿", labelKey: "assetForm.re.land" },
+  { value: "other",       emoji: "🏨", labelKey: "assetForm.re.other" },
 ] as const;
+
+// ── Vehicle ───────────────────────────────────────────────────────────────────
+function VehicleForm({ onDraftChange, displayCurrency, usdPriceOf, rates, t }: {
+  onDraftChange: (d: import("./shared").AssetDraft | null) => void;
+  displayCurrency: string; usdPriceOf: (c: string) => number | null;
+  rates: Record<string, number> | null; t: (k: string) => string;
+}) {
+  const [brand, setBrand]   = useState("");
+  const [model, setModel]   = useState("");
+  const [year, setYear]     = useState("");
+  const [value, setValue]   = useState("");
+  const [currency, setCurrency] = useState("TRY");
+
+  const valueN = parseFloat(value || "0") || 0;
+  const usdVal = valueN > 0 ? (currency === "USD" ? valueN : (usdPriceOf(currency) ?? 0) * valueN) : null;
+  const preview = previewLine(usdVal, displayCurrency, rates);
+
+  useEffect(() => {
+    const v = parseFloat(value);
+    if (!isNaN(v) && v > 0 && brand.trim().length > 0) {
+      const assetName = [brand.trim(), model.trim(), year.trim()].filter(Boolean).join(" ");
+      onDraftChange({
+        name: assetName,
+        asset_type: "vehicle",
+        currency,
+        current_value: value,
+        source_detail: buildSourceDetail({ subtype: "vehicle", brand: brand.trim(), model: model.trim(), year: year.trim() }),
+      });
+    } else {
+      onDraftChange(null);
+    }
+  }, [brand, model, year, value, currency]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  return (
+    <div className="space-y-4">
+      <div className="grid grid-cols-3 gap-2">
+        <div>
+          <label className="block text-xs text-gray-400 mb-1.5">{t("assetForm.vehicle.brand")}</label>
+          <input value={brand} onChange={(e) => setBrand(e.target.value)}
+            placeholder="e.g. Toyota" className={sharedInputClass} />
+        </div>
+        <div>
+          <label className="block text-xs text-gray-400 mb-1.5">{t("assetForm.vehicle.model")}</label>
+          <input value={model} onChange={(e) => setModel(e.target.value)}
+            placeholder="e.g. Corolla" className={sharedInputClass} />
+        </div>
+        <div>
+          <label className="block text-xs text-gray-400 mb-1.5">{t("assetForm.vehicle.year")}</label>
+          <input type="number" min="1900" max="2030" value={year} onChange={(e) => setYear(e.target.value)}
+            placeholder="2020" className={sharedInputClass} />
+        </div>
+      </div>
+
+      <div>
+        <label className="block text-xs text-gray-400 mb-1.5">{t("common.currency")}</label>
+        <CurrencySelect value={currency} onChange={setCurrency} />
+      </div>
+
+      <div>
+        <label className="block text-xs text-gray-400 mb-1.5">{t("assetForm.estimatedValue")}</label>
+        <input type="number" min="0" step="0.01" value={value} onChange={(e) => setValue(e.target.value)}
+          placeholder="0.00" className={sharedInputClass} />
+        <p className="text-[11px] text-gray-600 mt-1.5">{t("assetForm.vehicle.depreciationNote")}</p>
+        {preview && <p className="text-emerald-400/80 text-xs mt-1.5">{preview}</p>}
+      </div>
+    </div>
+  );
+}
 
 // ── BES / pension ─────────────────────────────────────────────────────────────
 function BesForm({ isPension, currency, fmtCcy, t, onDraftChange, displayCurrency, usdPriceOf, rates }: {
@@ -115,16 +183,14 @@ function BondForm({ onDraftChange, displayCurrency, usdPriceOf, rates, t }: {
   rates: Record<string, number> | null; t: (k: string) => string;
 }) {
   const [issuer, setIssuer]           = useState("");
-  const [isin, setIsin]               = useState("");
   const [maturityDate, setMaturityDate] = useState("");
   const [couponRate, setCouponRate]   = useState("");
   const [faceValue, setFaceValue]     = useState("");
+  const [note, setNote]               = useState("");
   const [currency, setCurrency]       = useState("TRY");
 
   const faceN = parseFloat(faceValue || "0") || 0;
-  const usdVal = faceN > 0
-    ? (currency === "USD" ? faceN : (usdPriceOf(currency) ?? 0) * faceN)
-    : null;
+  const usdVal = faceN > 0 ? (currency === "USD" ? faceN : (usdPriceOf(currency) ?? 0) * faceN) : null;
   const preview = previewLine(usdVal, displayCurrency, rates);
 
   useEffect(() => {
@@ -135,12 +201,12 @@ function BondForm({ onDraftChange, displayCurrency, usdPriceOf, rates, t }: {
         asset_type: "bond",
         currency,
         current_value: faceValue,
-        source_detail: buildSourceDetail({ subtype: "bond", issuer: issuer.trim(), isin: isin.trim(), maturity_date: maturityDate, coupon_rate: couponRate }),
+        source_detail: buildSourceDetail({ subtype: "bond", issuer: issuer.trim(), maturity_date: maturityDate, coupon_rate: couponRate, note: note.trim() }),
       });
     } else {
       onDraftChange(null);
     }
-  }, [issuer, isin, maturityDate, couponRate, faceValue, currency]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [issuer, maturityDate, couponRate, faceValue, note, currency]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <div className="space-y-4">
@@ -152,11 +218,6 @@ function BondForm({ onDraftChange, displayCurrency, usdPriceOf, rates, t }: {
 
       <div className="grid grid-cols-2 gap-3">
         <div>
-          <label className="block text-xs text-gray-400 mb-1.5">{t("assetForm.fields.bond.secondary")}</label>
-          <input value={isin} onChange={(e) => setIsin(e.target.value)}
-            placeholder="ISIN / code" className={sharedInputClass} />
-        </div>
-        <div>
           <label className="block text-xs text-gray-400 mb-1.5">{t("assetForm.bond.couponRate")}</label>
           <div className="relative">
             <input type="number" min="0" step="0.01" value={couponRate}
@@ -165,11 +226,10 @@ function BondForm({ onDraftChange, displayCurrency, usdPriceOf, rates, t }: {
             <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-500 text-xs">%</span>
           </div>
         </div>
-      </div>
-
-      <div>
-        <label className="block text-xs text-gray-400 mb-1.5">{t("assetForm.bond.maturityDate")}</label>
-        <input type="date" value={maturityDate} onChange={(e) => setMaturityDate(e.target.value)} className={sharedInputClass} />
+        <div>
+          <label className="block text-xs text-gray-400 mb-1.5">{t("assetForm.bond.maturityDate")}</label>
+          <input type="date" value={maturityDate} onChange={(e) => setMaturityDate(e.target.value)} className={sharedInputClass} />
+        </div>
       </div>
 
       <div>
@@ -183,6 +243,12 @@ function BondForm({ onDraftChange, displayCurrency, usdPriceOf, rates, t }: {
           onChange={(e) => setFaceValue(e.target.value)} placeholder="0.00" className={sharedInputClass} />
         {preview && <p className="text-emerald-400/80 text-xs mt-1.5">{preview}</p>}
       </div>
+
+      <div>
+        <label className="block text-xs text-gray-400 mb-1.5">{t("assetForm.bond.note")}</label>
+        <input value={note} onChange={(e) => setNote(e.target.value)}
+          placeholder="ISIN, series, custodian..." className={sharedInputClass} />
+      </div>
     </div>
   );
 }
@@ -194,15 +260,12 @@ function LifeInsuranceForm({ onDraftChange, displayCurrency, usdPriceOf, rates, 
   rates: Record<string, number> | null; t: (k: string) => string;
 }) {
   const [provider, setProvider]         = useState("");
-  const [policyNo, setPolicyNo]         = useState("");
   const [coverage, setCoverage]         = useState("");
   const [monthlyPremium, setMonthlyPremium] = useState("");
   const [currency, setCurrency]         = useState("TRY");
 
   const coverageN = parseFloat(coverage || "0") || 0;
-  const usdVal = coverageN > 0
-    ? (currency === "USD" ? coverageN : (usdPriceOf(currency) ?? 0) * coverageN)
-    : null;
+  const usdVal = coverageN > 0 ? (currency === "USD" ? coverageN : (usdPriceOf(currency) ?? 0) * coverageN) : null;
   const preview = previewLine(usdVal, displayCurrency, rates);
 
   useEffect(() => {
@@ -213,12 +276,12 @@ function LifeInsuranceForm({ onDraftChange, displayCurrency, usdPriceOf, rates, 
         asset_type: "life_insurance",
         currency,
         current_value: coverage,
-        source_detail: buildSourceDetail({ subtype: "life_insurance", provider: provider.trim(), policy_no: policyNo.trim(), monthly_premium: monthlyPremium }),
+        source_detail: buildSourceDetail({ subtype: "life_insurance", provider: provider.trim(), monthly_premium: monthlyPremium }),
       });
     } else {
       onDraftChange(null);
     }
-  }, [provider, policyNo, coverage, monthlyPremium, currency]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [provider, coverage, monthlyPremium, currency]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <div className="space-y-4">
@@ -226,12 +289,6 @@ function LifeInsuranceForm({ onDraftChange, displayCurrency, usdPriceOf, rates, 
         <label className="block text-xs text-gray-400 mb-1.5">{t("assetForm.fields.life_insurance.primary")}</label>
         <input value={provider} onChange={(e) => setProvider(e.target.value)}
           placeholder="e.g. Allianz, MetLife..." className={sharedInputClass} />
-      </div>
-
-      <div>
-        <label className="block text-xs text-gray-400 mb-1.5">{t("assetForm.life.policyNo")}</label>
-        <input value={policyNo} onChange={(e) => setPolicyNo(e.target.value)}
-          placeholder="POL-123456" className={sharedInputClass} />
       </div>
 
       <div>
@@ -263,14 +320,11 @@ function BusinessOwnershipForm({ onDraftChange, displayCurrency, usdPriceOf, rat
 }) {
   const [company, setCompany]   = useState("");
   const [pct, setPct]           = useState("");
-  const [country, setCountry]   = useState("");
   const [value, setValue]       = useState("");
   const [currency, setCurrency] = useState("TRY");
 
   const valueN = parseFloat(value || "0") || 0;
-  const usdVal = valueN > 0
-    ? (currency === "USD" ? valueN : (usdPriceOf(currency) ?? 0) * valueN)
-    : null;
+  const usdVal = valueN > 0 ? (currency === "USD" ? valueN : (usdPriceOf(currency) ?? 0) * valueN) : null;
   const preview = previewLine(usdVal, displayCurrency, rates);
 
   useEffect(() => {
@@ -281,12 +335,12 @@ function BusinessOwnershipForm({ onDraftChange, displayCurrency, usdPriceOf, rat
         asset_type: "business_ownership",
         currency,
         current_value: value,
-        source_detail: buildSourceDetail({ subtype: "business_ownership", company: company.trim(), pct: pct.trim(), country: country.trim() }),
+        source_detail: buildSourceDetail({ subtype: "business_ownership", company: company.trim(), pct: pct.trim() }),
       });
     } else {
       onDraftChange(null);
     }
-  }, [company, pct, country, value, currency]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [company, pct, value, currency]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <div className="space-y-4">
@@ -296,20 +350,13 @@ function BusinessOwnershipForm({ onDraftChange, displayCurrency, usdPriceOf, rat
           placeholder="e.g. Acme Ltd." className={sharedInputClass} />
       </div>
 
-      <div className="grid grid-cols-2 gap-3">
-        <div>
-          <label className="block text-xs text-gray-400 mb-1.5">{t("assetForm.business.ownershipPct")}</label>
-          <div className="relative">
-            <input type="number" min="0" max="100" step="0.1" value={pct}
-              onChange={(e) => setPct(e.target.value)} placeholder="e.g. 25"
-              className={sharedInputClass + " pr-6"} />
-            <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-500 text-xs">%</span>
-          </div>
-        </div>
-        <div>
-          <label className="block text-xs text-gray-400 mb-1.5">{t("assetForm.business.country")}</label>
-          <input value={country} onChange={(e) => setCountry(e.target.value)}
-            placeholder="e.g. Turkey" className={sharedInputClass} />
+      <div>
+        <label className="block text-xs text-gray-400 mb-1.5">{t("assetForm.business.ownershipPct")}</label>
+        <div className="relative">
+          <input type="number" min="0" max="100" step="0.1" value={pct}
+            onChange={(e) => setPct(e.target.value)} placeholder="e.g. 25"
+            className={sharedInputClass + " pr-6"} />
+          <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-500 text-xs">%</span>
         </div>
       </div>
 
@@ -336,16 +383,12 @@ function ArtJewelryForm({ assetType, onDraftChange, displayCurrency, usdPriceOf,
   rates: Record<string, number> | null; t: (k: string) => string;
 }) {
   const [itemName, setItemName]         = useState("");
-  const [provenance, setProvenance]     = useState("");
-  const [certificate, setCertificate]   = useState("");
   const [insuranceVal, setInsuranceVal] = useState("");
   const [value, setValue]               = useState("");
   const [currency, setCurrency]         = useState("TRY");
 
   const valueN = parseFloat(value || "0") || 0;
-  const usdVal = valueN > 0
-    ? (currency === "USD" ? valueN : (usdPriceOf(currency) ?? 0) * valueN)
-    : null;
+  const usdVal = valueN > 0 ? (currency === "USD" ? valueN : (usdPriceOf(currency) ?? 0) * valueN) : null;
   const preview = previewLine(usdVal, displayCurrency, rates);
 
   useEffect(() => {
@@ -356,12 +399,12 @@ function ArtJewelryForm({ assetType, onDraftChange, displayCurrency, usdPriceOf,
         asset_type: assetType,
         currency,
         current_value: value,
-        source_detail: buildSourceDetail({ subtype: assetType, item: itemName.trim(), provenance: provenance.trim(), certificate: certificate.trim(), insurance_value: insuranceVal }),
+        source_detail: buildSourceDetail({ subtype: assetType, item: itemName.trim(), insurance_value: insuranceVal }),
       });
     } else {
       onDraftChange(null);
     }
-  }, [itemName, provenance, certificate, insuranceVal, value, currency, assetType]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [itemName, insuranceVal, value, currency, assetType]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const isJewelry = assetType === "jewelry";
   const primaryKey = isJewelry ? "assetForm.fields.jewelry.primary" : "assetForm.fields.art_collectible.primary";
@@ -372,13 +415,6 @@ function ArtJewelryForm({ assetType, onDraftChange, displayCurrency, usdPriceOf,
         <label className="block text-xs text-gray-400 mb-1.5">{t(primaryKey)}</label>
         <input value={itemName} onChange={(e) => setItemName(e.target.value)}
           placeholder={isJewelry ? "e.g. Gold ring, Diamond necklace" : "e.g. Oil painting, Vintage watch"}
-          className={sharedInputClass} />
-      </div>
-
-      <div>
-        <label className="block text-xs text-gray-400 mb-1.5">{t("assetForm.art.provenance")}</label>
-        <input value={provenance} onChange={(e) => setProvenance(e.target.value)}
-          placeholder={isJewelry ? "e.g. 18K yellow gold" : "e.g. Picasso, 1950s"}
           className={sharedInputClass} />
       </div>
 
@@ -395,17 +431,10 @@ function ArtJewelryForm({ assetType, onDraftChange, displayCurrency, usdPriceOf,
         {preview && <p className="text-emerald-400/80 text-xs mt-1.5">{preview}</p>}
       </div>
 
-      <div className="grid grid-cols-2 gap-3">
-        <div>
-          <label className="block text-xs text-gray-400 mb-1.5">{t("assetForm.art.insuranceValue")}</label>
-          <input type="number" min="0" step="0.01" value={insuranceVal}
-            onChange={(e) => setInsuranceVal(e.target.value)} placeholder="0.00" className={sharedInputClass} />
-        </div>
-        <div>
-          <label className="block text-xs text-gray-400 mb-1.5">{isJewelry ? "Purity / certificate" : "Certificate / ref."}</label>
-          <input value={certificate} onChange={(e) => setCertificate(e.target.value)}
-            placeholder="optional" className={sharedInputClass} />
-        </div>
+      <div>
+        <label className="block text-xs text-gray-400 mb-1.5">{t("assetForm.art.insuranceValue")}</label>
+        <input type="number" min="0" step="0.01" value={insuranceVal}
+          onChange={(e) => setInsuranceVal(e.target.value)} placeholder="0.00" className={sharedInputClass} />
       </div>
     </div>
   );
@@ -419,6 +448,7 @@ export default function ManualAssetForm({ assetType, onDraftChange, displayCurre
 
   const isBankAccount = assetType === "bank_account";
   const isRealEstate  = assetType === "real_estate";
+  const isVehicle     = assetType === "vehicle";
   const isBes         = assetType === "bes";
   const isPension     = assetType === "pension";
   const isBond        = assetType === "bond";
@@ -439,16 +469,15 @@ export default function ManualAssetForm({ assetType, onDraftChange, displayCurre
   const [maturityDate,    setMaturityDate]    = useState("");
 
   // Real estate
-  const [reType, setReType] = useState("konut");
+  const [reType, setReType] = useState("residential");
   const [reCity, setReCity] = useState("");
+  const [reSqm,  setReSqm]  = useState("");
 
-  const balanceN      = parseFloat(value || "0") || 0;
-  const rateN         = parseFloat(interestRate || "0") || 0;
+  const balanceN       = parseFloat(value || "0") || 0;
+  const rateN          = parseFloat(interestRate || "0") || 0;
   const projectedValue = (bankAccountType === "time_deposit" || bankAccountType === "participation") && balanceN > 0 && rateN > 0
     ? balanceN * (1 + rateN / 100) : null;
   const daysLeft = daysUntil(maturityDate);
-
-  const isEstimate = assetType === "vehicle";
 
   const effectiveValue = parseFloat(value || "0") || 0;
   const usdValue = (() => {
@@ -459,19 +488,23 @@ export default function ManualAssetForm({ assetType, onDraftChange, displayCurre
   })();
   const preview = previewLine(usdValue, displayCurrency, rates);
 
+  // Price per m² for real estate
+  const sqmN = parseFloat(reSqm || "0") || 0;
+  const pricePerSqm = sqmN > 0 && effectiveValue > 0 ? effectiveValue / sqmN : null;
+
   const fmtCcy = (n: number) => {
     try { return new Intl.NumberFormat(undefined, { style: "currency", currency, maximumFractionDigits: 0 }).format(n); }
     catch { return `${n.toLocaleString()} ${currency}`; }
   };
 
   useEffect(() => {
-    if (isBes || isPension || isBond || isLifeIns || isBusiness || isArtJewelry) return;
+    if (isBes || isPension || isVehicle || isBond || isLifeIns || isBusiness || isArtJewelry) return;
 
     const hasName = name.trim().length > 0 || primary.trim().length > 0 || (isRealEstate && reType.length > 0);
     const v = parseFloat(value);
     if (!isNaN(v) && v > 0 && hasName) {
       const sd = isRealEstate
-        ? buildSourceDetail({ subtype: "real_estate", property_type: reType, city: reCity.trim() })
+        ? buildSourceDetail({ subtype: "real_estate", property_type: reType, city: reCity.trim(), sqm: reSqm.trim() })
         : isBankAccount
           ? buildSourceDetail({ subtype: "bank_account", primary: primary.trim(), secondary: secondary.trim(), tertiary: tertiary.trim(), account_type: bankAccountType, interest_rate: bankAccountType !== "checking" ? interestRate : "", maturity_date: bankAccountType !== "checking" ? maturityDate : "" })
           : buildSourceDetail({ subtype: assetType, primary: primary.trim(), secondary: secondary.trim(), tertiary: tertiary.trim() });
@@ -479,7 +512,7 @@ export default function ManualAssetForm({ assetType, onDraftChange, displayCurre
     } else {
       onDraftChange(null);
     }
-  }, [name, primary, secondary, tertiary, currency, value, bankAccountType, interestRate, maturityDate, reType, reCity, assetType]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [name, primary, secondary, tertiary, currency, value, bankAccountType, interestRate, maturityDate, reType, reCity, reSqm, assetType]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Dedicated sub-form routing ───────────────────────────────────────────
   const sharedDelegateProps = { onDraftChange, displayCurrency, usdPriceOf, rates, t };
@@ -499,49 +532,59 @@ export default function ManualAssetForm({ assetType, onDraftChange, displayCurre
     );
   }
 
-  if (isBond)     return <BondForm {...sharedDelegateProps} />;
-  if (isLifeIns)  return <LifeInsuranceForm {...sharedDelegateProps} />;
-  if (isBusiness) return <BusinessOwnershipForm {...sharedDelegateProps} />;
+  if (isVehicle)    return <VehicleForm {...sharedDelegateProps} />;
+  if (isBond)       return <BondForm {...sharedDelegateProps} />;
+  if (isLifeIns)    return <LifeInsuranceForm {...sharedDelegateProps} />;
+  if (isBusiness)   return <BusinessOwnershipForm {...sharedDelegateProps} />;
   if (isArtJewelry) return <ArtJewelryForm assetType={assetType} {...sharedDelegateProps} />;
 
-  // Real estate — simplified
+  // ── Real estate ──────────────────────────────────────────────────────────
   if (isRealEstate) {
     return (
       <div className="space-y-4">
         <div>
           <label className="block text-xs text-gray-400 mb-1.5">{t("assetForm.re.typeLabel")}</label>
           <div className="grid grid-cols-2 gap-2">
-            {RE_TYPES.map((rt) => {
-              const label = t(rt.labelKey) !== rt.labelKey ? t(rt.labelKey) : rt.value;
-              return (
-                <button key={rt.value} type="button" onClick={() => setReType(rt.value)}
-                  className={`px-3 py-2 rounded-lg text-sm border transition-colors text-left ${
-                    reType === rt.value ? "bg-indigo-600/20 border-indigo-600/50 text-indigo-200" : "bg-[#0F0F0F] border-[#2A2A2A] text-gray-300 hover:border-indigo-700"
-                  }`}>
-                  {rt.emoji} {label}
-                </button>
-              );
-            })}
+            {RE_TYPES.map((rt) => (
+              <button key={rt.value} type="button" onClick={() => setReType(rt.value)}
+                className={`px-3 py-2 rounded-lg text-sm border transition-colors text-left ${
+                  reType === rt.value ? "bg-indigo-600/20 border-indigo-600/50 text-indigo-200" : "bg-[#0F0F0F] border-[#2A2A2A] text-gray-300 hover:border-indigo-700"
+                }`}>
+                {rt.emoji} {t(rt.labelKey)}
+              </button>
+            ))}
           </div>
         </div>
-        <input value={reCity} onChange={(e) => setReCity(e.target.value)}
-          placeholder={`${t("assetForm.re.city")} (${t("common.optional")})`} className={sharedInputClass} />
+
+        <div className="grid grid-cols-2 gap-3">
+          <input value={reCity} onChange={(e) => setReCity(e.target.value)}
+            placeholder={`${t("assetForm.re.city")} (${t("common.optional")})`} className={sharedInputClass} />
+          <input type="number" min="0" step="any" value={reSqm} onChange={(e) => setReSqm(e.target.value)}
+            placeholder={`${t("assetForm.re.size")} (${t("common.optional")})`} className={sharedInputClass} />
+        </div>
+
         <div>
           <label className="block text-xs text-gray-400 mb-1.5">{t("common.currency")}</label>
           <CurrencySelect value={currency} onChange={setCurrency} />
         </div>
+
         <div>
           <label className="block text-xs text-gray-400 mb-1.5">{t("assetForm.estimatedValue")}</label>
           <input type="number" min="0" step="0.01" value={value} onChange={(e) => setValue(e.target.value)}
             placeholder="0.00" className={sharedInputClass} />
           <p className="text-[11px] text-gray-600 mt-1.5">{t("assetForm.re.hint")}</p>
+          {pricePerSqm !== null && (
+            <p className="text-xs text-gray-500 mt-1">
+              {t("assetForm.re.pricePerSqm")}: {fmtCcy(pricePerSqm)} / m²
+            </p>
+          )}
           {preview && <p className="text-emerald-400/80 text-xs mt-1.5">{preview}</p>}
         </div>
       </div>
     );
   }
 
-  // All other manual types (cash, vehicle, pension, other_asset)
+  // ── All other manual types (cash, pension-generic, other_asset) ──────────
   const k = (slot: string) => `assetForm.fields.${assetType}.${slot}`;
   const showSecondary = config.slots.includes("s") && !isBankAccount;
   const showTertiary  = config.slots.includes("x") && !isBankAccount;
@@ -560,7 +603,6 @@ export default function ManualAssetForm({ assetType, onDraftChange, displayCurre
           placeholder={t(k("primary"))} className={sharedInputClass} />
       </div>
 
-      {/* Bank account type */}
       {isBankAccount && (
         <>
           <div>
@@ -610,7 +652,6 @@ export default function ManualAssetForm({ assetType, onDraftChange, displayCurre
         </label>
         <input type="number" min="0" step="0.01" value={value} onChange={(e) => setValue(e.target.value)}
           placeholder="0.00" className={sharedInputClass} />
-        {isEstimate && <p className="text-[11px] text-gray-600 mt-1.5">{t("assetForm.estimateHint")}</p>}
         {preview && <p className="text-emerald-400/80 text-xs mt-1.5">{preview}</p>}
       </div>
 

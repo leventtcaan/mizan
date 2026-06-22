@@ -53,24 +53,38 @@ export default function CurrencyAssetForm({ assetType, onDraftChange, displayCur
   const totalUsd = unitUsd !== null && qty ? (unitUsd * parseFloat(qty || "0")) : null;
   const preview = previewLine(totalUsd, displayCurrency, rates);
 
-  // ── Commodity: chip grid ─────────────────────────────────────────────────
+  function fmtUsdPrice(usd: number): string {
+    if (usd >= 1000) return `$${Math.round(usd).toLocaleString()}`;
+    if (usd >= 1) return `$${usd.toLocaleString(undefined, { maximumFractionDigits: 2 })}`;
+    return `$${usd.toLocaleString(undefined, { maximumFractionDigits: 4 })}`;
+  }
+
+  // ── Commodity: chip grid with live prices ────────────────────────────────
   if (isCommodity) {
     return (
       <div className="space-y-4">
         <div>
           <label className="block text-xs text-gray-400 mb-2">{t("assetForm.commodityChooseLabel")}</label>
           <div className="grid grid-cols-3 gap-2">
-            {matches.map((e) => (
-              <button key={e.code} type="button" onClick={() => { setSelected(e); setQty(""); }}
-                className={`flex flex-col items-center gap-0.5 px-3 py-2.5 rounded-lg text-xs border transition-colors ${
-                  selected?.code === e.code
-                    ? "bg-indigo-600/20 border-indigo-600/50 text-indigo-200"
-                    : "bg-[#0F0F0F] border-[#2A2A2A] text-gray-300 hover:border-indigo-700"
-                }`}>
-                <span className="font-bold text-sm">{e.code}</span>
-                <span className="text-gray-500 text-[10px] truncate w-full text-center">{e.name}</span>
-              </button>
-            ))}
+            {matches.map((e) => {
+              const price = usdPriceOf(e.code);
+              return (
+                <button key={e.code} type="button" onClick={() => { setSelected(e); setQty(""); }}
+                  className={`flex flex-col items-center gap-0.5 px-2 py-3 rounded-lg text-xs border transition-colors ${
+                    selected?.code === e.code
+                      ? "bg-indigo-600/20 border-indigo-600/50 text-indigo-200"
+                      : "bg-[#0F0F0F] border-[#2A2A2A] text-gray-300 hover:border-indigo-700"
+                  }`}>
+                  <span className="font-bold text-sm">{e.code}</span>
+                  <span className="text-gray-500 text-[10px] truncate w-full text-center">{e.name}</span>
+                  {price !== null && (
+                    <span className={`text-[10px] tabular-nums mt-0.5 ${selected?.code === e.code ? "text-indigo-300" : "text-gray-600"}`}>
+                      {fmtUsdPrice(price)}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
             {matches.length === 0 && (
               <p className="col-span-3 text-xs text-gray-600 py-2">{t("common.notFound")}</p>
             )}
@@ -83,7 +97,7 @@ export default function CurrencyAssetForm({ assetType, onDraftChange, displayCur
               {t("assetForm.amountHeld")}
               {unitUsd !== null && (
                 <span className="ml-2 text-gray-600 tabular-nums">
-                  · 1 {selected.code} ≈ ${unitUsd.toLocaleString(undefined, { maximumFractionDigits: 4 })}
+                  · 1 {selected.code} = {fmtUsdPrice(unitUsd)}
                 </span>
               )}
             </label>
@@ -133,7 +147,7 @@ export default function CurrencyAssetForm({ assetType, onDraftChange, displayCur
             {t("assetForm.amountHeld")}
             {unitUsd !== null && (
               <span className="ml-2 text-gray-600 tabular-nums">
-                · 1 {selected.code} ≈ ${unitUsd.toLocaleString(undefined, { maximumFractionDigits: 4 })}
+                · 1 {selected.code} = {fmtUsdPrice(unitUsd)}
               </span>
             )}
           </label>

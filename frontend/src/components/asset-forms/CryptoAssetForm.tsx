@@ -4,8 +4,10 @@ import { useEffect, useMemo, useState } from "react";
 import { getCurrencyList, type CurrencyEntry } from "@/lib/api";
 import { useLanguage } from "@/lib/i18n";
 import {
-  AssetFormProps, buildSourceDetail, previewLine, sharedInputClass, TOP_CRYPTO, useUsdRates,
+  AssetFormProps, buildSourceDetail, previewLine, sharedInputClass, useUsdRates,
 } from "./shared";
+
+const TOP_N = 10;
 
 export default function CryptoAssetForm({ onDraftChange, displayCurrency }: AssetFormProps) {
   const { t } = useLanguage();
@@ -16,13 +18,11 @@ export default function CryptoAssetForm({ onDraftChange, displayCurrency }: Asse
   const [qty, setQty] = useState("");
 
   useEffect(() => {
+    // CoinGecko returns coins sorted by market_cap_desc — first N are the top by market cap
     getCurrencyList().then((l) => setCoins(l.crypto)).catch(() => setCoins([]));
   }, []);
 
-  const popular = useMemo(
-    () => TOP_CRYPTO.map((c) => coins.find((e) => e.code === c)).filter(Boolean) as CurrencyEntry[],
-    [coins],
-  );
+  const topCoins = useMemo(() => coins.slice(0, TOP_N), [coins]);
 
   const matches = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -55,8 +55,42 @@ export default function CryptoAssetForm({ onDraftChange, displayCurrency }: Asse
     setQuery("");
   }
 
+  function fmtUsdPrice(usd: number): string {
+    if (usd >= 1000) return `$${Math.round(usd).toLocaleString()}`;
+    if (usd >= 1)    return `$${usd.toLocaleString(undefined, { maximumFractionDigits: 2 })}`;
+    return `$${usd.toLocaleString(undefined, { maximumFractionDigits: 4 })}`;
+  }
+
   return (
     <div className="space-y-4">
+      {/* Top 10 by market cap */}
+      {topCoins.length > 0 && (
+        <div>
+          <p className="text-[11px] text-gray-600 mb-2">{t("assetForm.popular")}</p>
+          <div className="grid grid-cols-5 gap-1.5">
+            {topCoins.map((e) => {
+              const price = usdPriceOf(e.code);
+              return (
+                <button key={e.code} type="button" onClick={() => pick(e)}
+                  className={`flex flex-col items-center gap-0.5 px-1.5 py-2 rounded-lg text-xs border transition-colors ${
+                    selected?.code === e.code
+                      ? "bg-indigo-600/20 border-indigo-600/50 text-indigo-200"
+                      : "bg-[#0F0F0F] border-[#2A2A2A] text-gray-300 hover:border-indigo-700"
+                  }`}>
+                  <span className="font-bold">{e.code}</span>
+                  {price !== null && (
+                    <span className={`text-[9px] tabular-nums ${selected?.code === e.code ? "text-indigo-300" : "text-gray-600"}`}>
+                      {fmtUsdPrice(price)}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Search for any coin */}
       <div>
         <label className="block text-xs text-gray-400 mb-1.5">{t("assetForm.cryptoSearchLabel")}</label>
         <input
@@ -76,32 +110,17 @@ export default function CryptoAssetForm({ onDraftChange, displayCurrency }: Asse
             ))}
           </div>
         )}
-        {!query && popular.length > 0 && (
-          <div className="mt-2.5">
-            <p className="text-[11px] text-gray-600 mb-1.5">{t("assetForm.popular")}</p>
-            <div className="flex flex-wrap gap-1.5">
-              {popular.map((e) => (
-                <button key={e.code} type="button" onClick={() => pick(e)}
-                  className={`px-2.5 py-1 rounded-full text-xs border transition-colors ${
-                    selected?.code === e.code
-                      ? "bg-indigo-600/20 border-indigo-600/50 text-indigo-300"
-                      : "bg-[#0F0F0F] border-[#2A2A2A] text-gray-400 hover:border-indigo-700"
-                  }`}>
-                  {e.code}
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
       </div>
 
+      {/* Selected coin summary */}
       {selected && (
         <div className="rounded-lg bg-indigo-950/20 border border-indigo-900/30 px-3 py-2 flex items-center justify-between">
           <span className="text-sm text-indigo-200 font-medium">{selected.code} · {selected.name}</span>
-          {unitUsd && <span className="text-xs text-gray-400">${new Intl.NumberFormat("en-US", { maximumFractionDigits: 2 }).format(unitUsd)}</span>}
+          {unitUsd !== null && <span className="text-xs text-gray-400">{fmtUsdPrice(unitUsd)}</span>}
         </div>
       )}
 
+      {/* Amount */}
       <div>
         <label className="block text-xs text-gray-400 mb-1.5">{t("assetForm.holdings")}</label>
         <input type="number" min="0" step="any" value={qty} onChange={(e) => setQty(e.target.value)}

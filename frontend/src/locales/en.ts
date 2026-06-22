@@ -532,6 +532,23 @@ export const en = {
     besStateMatch: "State match (30%)",
     besTotal: "Estimated total",
     besNote: "Includes the 30% state contribution. Adjust the figure if your plan differs.",
+    re: {
+      typeLabel: "Property type",
+      residential: "Residential",
+      commercial: "Commercial",
+      land: "Land",
+      other: "Other",
+      city: "City / location",
+      size: "Size (m²)",
+      pricePerSqm: "Price per m²",
+      hint: "Enter your best estimate of the current market value.",
+    },
+    vehicle: {
+      brand: "Brand",
+      model: "Model",
+      year: "Year",
+      depreciationNote: "Vehicles typically depreciate 15–20% in the first year and 10–15% annually after that.",
+    },
     bes: {
       provider: "Provider",
       providerHint: "e.g. Aegon, Allianz...",
@@ -547,19 +564,17 @@ export const en = {
       faceValue: "Face value",
       maturityDate: "Maturity date (optional)",
       couponRate: "Coupon rate % (optional)",
+      note: "Note (optional)",
     },
     life: {
       coverageAmount: "Coverage amount",
       monthlyPremium: "Monthly premium (optional)",
-      policyNo: "Policy number (optional)",
     },
     art: {
       insuranceValue: "Insurance / appraisal value (optional)",
-      provenance: "Artist / maker / provenance (optional)",
     },
     business: {
       ownershipPct: "Your ownership %",
-      country: "Country / sector (optional)",
     },
     fields: {
       cash: { primary: "Storage location", secondary: "Label", tertiary: "Note" },
