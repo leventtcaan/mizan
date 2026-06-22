@@ -257,7 +257,7 @@ When context reaches ~70% capacity:
 
 ## Current Status
 
-**Phases 1–31 complete. Docker not changed this session. Alembic head = 0022.**
+**Phases 1–34 complete. Alembic head = 0022. No new migrations since Phase 32.**
 
 Full stack: register/login → JWT → upload (rate-limited, busts caches) → 3-layer OCR → LLM extract → OCR cleanup → dedup → zero-amount filter → persist → LLM categorize (13 categories) → insight cache → globalized LLM coach with corrections+notes injected → spending chart + progress page (LineChart 3-month trend + cross-batch-deduped category comparison + LLM one-liners, 24h cached) → PersonalityCard (5 types, cached per batch) → AlertsPanel (3 algorithmic detectors, dismiss persisted, stale dismissals auto-cleaned) → GoalsPanel (monthly budget vs actual) → ChatPanel (globalized conversational coaching, behavioral profile memory, voice input, chat-based tx entry with confirmation card, sessionStorage prefill from alerts) → weekly email summary (Resend HTML, preferences toggle) → inflation-adjusted analysis (TUFE 2023-2026, real vs nominal per category, ProgressInsight cache) → net worth asset subtype capture (all asset types have specific fields; crypto/fiat/commodity live picker; gold unit picker; stock/fund code fields; manual categories store structured metadata in `Asset.source_detail` JSON) → net worth display currency searchable via live `CurrencySelect` → receivable collection creates linked cash asset, repeated collection is idempotent, delete/write-off removes linked asset → stale received receivables and processed suggestions are hidden/cleaned after 30 days → onboarding accepts any institution/export source instead of hardcoded Turkish banks → financial event log + reconciliation item backend skeleton exists → net worth page shows Action Queue with open reconciliation items and recent financial events → reconciliation producers create queue items from overdue receivables, missing receivable assets, possible duplicate transactions, and large transaction review → Action Queue now has real action handlers per issue_type (mark received / write off / recreate asset / delete duplicate batch / confirm large tx).
 
@@ -296,6 +296,9 @@ Full stack: register/login → JWT → upload (rate-limited, busts caches) → 3
 - **Subscription flag toggle**: UI supports toggle-off optimistically but backend has no "unflag" endpoint — only upsert. Visually works but flag is never deleted; workaround: flag to different value.
 - **Frontend lint missing config**: `npm run lint` opens Next ESLint setup wizard. Build still runs type check. Add ESLint config later.
 - **Dependency risk**: `npm ci` warns Next 14.2.0 has security issue; Recharts 2.x deprecated; npm audit shows 1 moderate + 1 critical vulnerability. Upgrade needed soon.
+- **"Fiyatları Güncelle" button UX**: updates current_value for auto-fetchable assets (crypto, gold, stocks) but user may not understand scope. Needs tooltip explaining which asset types auto-refresh vs manual.
+- **Reconciliation Action Queue**: Phase 31 action handlers (mark received, write off, delete duplicate batch) need live verification that items close and disappear correctly after action.
+- **i18n coverage incomplete**: Phase 34 added locale files + useLanguage hook + navbar toggle, but some components may still have hardcoded TR strings not yet wired to translation keys.
 
 ### Phase 7 — Chat Interface + Behavioral Vector (2026-06-18)
 - [x] `backend/app/models/transaction_note.py` — TransactionNote table: id UUID, transaction_id FK CASCADE, user_id FK CASCADE, note_text Text, created_at tz-aware
@@ -966,9 +969,32 @@ Full stack: register/login → JWT → upload (rate-limited, busts caches) → 3
 
 ---
 
+### Phase 34 — i18n TR/EN (2026-06-22)
+- [x] `frontend/src/lib/i18n/` — locale JSON files for TR and EN; all UI strings keyed; translation lookup function.
+- [x] `frontend/src/hooks/useLanguage.ts` — hook reads/writes language preference to localStorage; returns `{ lang, setLang, t }` where `t(key)` returns translated string for current lang.
+- [x] `frontend/src/components/ui/Navbar.tsx` — TR/EN toggle button; calls `setLang`; re-renders all consuming components via hook state.
+- [x] Backend LLM calls — `lang` param threaded through to all AI system prompts (coach, behavioral coach, progress comparison, networth insight, installments, personality); prompts now explicitly instruct model to respond in user's language.
+- [x] `backend/app/api/chat.py`, `progress.py`, `insights.py`, `installments.py`, `personality.py`, `networth.py` — accept `lang: str = "tr"` query param; passed to relevant service functions; injected into system prompt header.
+
+### Phase 33 — Real-time Asset Prices (2026-06-22)
+- [x] `backend/app/services/asset_prices.py` — new service. `AUTO_FETCHABLE_TYPES = LIVE_VALUE_TYPES | MARKET_VALUE_TYPES`. `LIVE_VALUE_TYPES = {crypto, gold, foreign_currency, commodity}`. `MARKET_VALUE_TYPES = {stock, fund}`.
+- [x] `fetch_crypto_price(symbol)` — uses shared `_fetch_crypto_rates()` from currency service (CoinGecko cache, 15 min TTL).
+- [x] `fetch_gold_price()` — uses `_fetch_commodity_rates()` (XAU/USD, 1h TTL).
+- [x] `fetch_commodity_price(code)` — uses `_fetch_commodity_rates()`.
+- [x] `fetch_fiat_price(code)` — uses `_fetch_fiat_rates()`.
+- [x] `fetch_stock_price(ticker)` — Yahoo Finance unofficial chart API `/v8/finance/chart/{TICKER}?interval=1d&range=1d`; per-ticker `_stock_cache`, 1h TTL; stale cache returned on fetch failure.
+- [x] `_price_for_asset(asset)` — dispatches to right fetcher by `asset_type`, reads symbol/code from `source_detail` JSON.
+- [x] `fetch_all_for_user(user_id, session)` — loops auto-fetchable assets, stores `last_price_usd + price_fetched_at` in `source_detail`, updates `as_of_date = today`; does NOT change `current_value` for live-value types (quantity intact). Returns `{updated, failed, details}`.
+- [x] `POST /networth/assets/refresh-prices` — calls `fetch_all_for_user`, returns `RefreshPricesResponse`.
+- [x] `frontend/src/lib/api.ts` — `RefreshPricesResult` interface; `refreshAssetPrices()`.
+- [x] `frontend/src/app/networth/page.tsx` — `AUTO_PRICE_TYPES` constant; `getPriceBadge(asset)` freshness helper (<2 min emerald / <60 min emerald / <24h amber / else orange / no date = "Manuel" orange); "Fiyatları Güncelle" button with spinning `RefreshCw` icon; per-asset freshness badge pill; auto-refresh on page load when any auto-fetchable asset is stale (>1h).
+- **No new migration**: `source_detail` (String 500, already exists) stores price metadata as JSON.
+
+---
+
 ## Next Session — Start Here
 
-**Phases 1–33 complete. Phase 33 = Real-time Asset Prices. Alembic head = 0022. No new migrations.**
+**Phases 1–34 complete. Phase 34 = i18n TR/EN + LLM language-aware. Alembic head = 0022. No new migrations.**
 
 Pre-flight (if docker was restarted):
 ```bash
@@ -983,16 +1009,15 @@ Quick smoke-test:
 curl -s http://localhost:8000/currency/list | python3 -c "import sys,json; d=json.load(sys.stdin); print(len(d['fiat']), 'fiat,', len(d['crypto']), 'crypto')"
 # → should print "166 fiat, 100 crypto"
 
-# Reconciliation scan + items
-# POST /reconciliation/scan → {created: N}
-# GET /reconciliation/items?status=open → list of open items with issue_type + proposed_action
+# Price refresh (auth required)
+# POST /networth/assets/refresh-prices → {updated, failed, details}
 ```
 
 Next task options (priority order):
-1. **Transactions SpendingChart redesign** — replace weak bar chart with cash-flow panel or area chart.
-2. **Schema cleanup** — split `Asset.current_value` into quantity/value fields; currently overloaded (quantity for crypto/gold/FX, total value for stocks/manual).
-3. **Global market search** — stock ticker search + fund ISIN lookup via chosen providers.
-4. **Cashflow: recurring tx currency** — transactions have no currency column; recurring amounts default TRY. Needs currency column or disclaimer.
+1. **Verify i18n coverage** — audit all components for hardcoded TR strings; wire remaining ones to translation keys.
+2. **Transactions SpendingChart redesign** — replace weak bar chart with cash-flow panel or area chart.
+3. **Schema cleanup** — split `Asset.current_value` into quantity/value fields; currently overloaded (quantity for crypto/gold/FX, total value for stocks/manual).
+4. **Global market search** — stock ticker search + fund ISIN lookup via chosen providers.
 5. **Deployment** — Railway backend + Vercel frontend; alembic head on cold start.
 
 ---

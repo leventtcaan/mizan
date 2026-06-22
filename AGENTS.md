@@ -263,7 +263,7 @@ When context reaches ~70% capacity:
 
 ## Current Status
 
-**Phases 1–22 complete and tested. Docker running. Alembic head = 0020. All features working.**
+**Phases 1–34 complete. Alembic head = 0022. No new migrations since Phase 32.**
 
 Full stack: register/login → JWT → upload (rate-limited, busts caches) → 3-layer OCR → LLM extract → OCR cleanup → dedup → zero-amount filter → persist → LLM categorize (13 categories) → insight cache → LLM coach with corrections+notes injected → spending chart + progress page (LineChart 3-month trend + cross-batch-deduped category comparison + LLM one-liners, 24h cached) → PersonalityCard (5 types, cached per batch) → AlertsPanel (3 algorithmic detectors, dismiss persisted) → GoalsPanel (monthly budget vs actual) → ChatPanel (conversational coaching, behavioral profile memory, voice input, chat-based tx entry with confirmation card, sessionStorage prefill from alerts) → weekly email summary (Resend HTML, preferences toggle) → inflation-adjusted analysis (TUFE 2023-2026, real vs nominal per category, ProgressInsight cache).
 
@@ -298,6 +298,9 @@ Full stack: register/login → JWT → upload (rate-limited, busts caches) → 3
 - **Migration drift in dev**: `create_all` adds base schema but not Alembic migrations. Must run `alembic upgrade head` then `alembic stamp HEAD` after fresh DB. behavioral_profiles.personality_cache + personality_batch_id had to be manually ALTER TABLE'd in current dev DB (same issue will recur on fresh DB — 0011 migration runs correctly on clean install).
 - **TUFE rates 2025-2026**: approximate (TCMB trajectory estimates). Users see disclaimer. Real rates available from TÜİK monthly.
 - **Subscription flag toggle**: UI supports toggle-off optimistically but backend has no "unflag" endpoint — only upsert. Visually works but flag is never deleted; workaround: flag to different value.
+- **"Fiyatları Güncelle" button UX**: updates current_value for auto-fetchable assets (crypto, gold, stocks) but user may not understand scope. Needs tooltip explaining which asset types auto-refresh vs manual.
+- **Reconciliation Action Queue**: Phase 31 action handlers (mark received, write off, delete duplicate batch) need live verification that items close and disappear correctly after action.
+- **i18n coverage incomplete**: Phase 34 added locale files + useLanguage hook + navbar toggle, but some components may still have hardcoded TR strings not yet wired to translation keys.
 
 ### Phase 7 — Chat Interface + Behavioral Vector (2026-06-18)
 - [x] `backend/app/models/transaction_note.py` — TransactionNote table: id UUID, transaction_id FK CASCADE, user_id FK CASCADE, note_text Text, created_at tz-aware
@@ -696,11 +699,23 @@ Full stack: register/login → JWT → upload (rate-limited, busts caches) → 3
 - **Stock: no quantity stored**: Yahoo Finance gives per-share price. Without quantity, total value can't be recomputed. Refresh stores price in source_detail for display only.
 - **Per-ticker stock cache separate**: `_stock_cache` is independent from `_crypto_cache`. TTL = 1h (daily close data doesn't change intraday).
 
+### Phase 34 — i18n TR/EN (2026-06-22)
+- [x] `frontend/src/lib/i18n/` — locale JSON files for TR and EN; all UI strings keyed; translation lookup function.
+- [x] `frontend/src/hooks/useLanguage.ts` — hook reads/writes language preference to localStorage; returns `{ lang, setLang, t }` where `t(key)` returns translated string for current lang.
+- [x] `frontend/src/components/ui/Navbar.tsx` — TR/EN toggle button; calls `setLang`; re-renders all consuming components via hook state.
+- [x] Backend LLM calls — `lang` param threaded through to all AI system prompts; prompts now explicitly instruct model to respond in user's language.
+- [x] `backend/app/api/chat.py`, `progress.py`, `insights.py`, `installments.py`, `personality.py`, `networth.py` — accept `lang: str = "tr"` query param; injected into system prompt header.
+
+#### Architectural decisions
+- **Language preference in localStorage**: no new DB column needed for MVP. Future: store in user profile so language persists across devices.
+- **t(key) lookup at render time**: no build-time extraction, no i18next dependency. Simple dict lookup. Sufficient for current string volume.
+- **LLM lang param default "tr"**: existing users and cached prompts continue in Turkish by default. Opt-in to EN via toggle.
+
 ---
 
 ## Next Session — Start Here
 
-**Phases 1–33 complete. Phase 33 = real-time asset prices. Alembic head = 0022 (unchanged).**
+**Phases 1–34 complete. Phase 34 = i18n TR/EN + LLM language-aware. Alembic head = 0022 (unchanged).**
 
 Pre-flight (if docker was restarted):
 ```bash
@@ -715,16 +730,15 @@ Quick smoke-test:
 curl -s http://localhost:8000/currency/list | python3 -c "import sys,json; d=json.load(sys.stdin); print(len(d['fiat']), 'fiat,', len(d['crypto']), 'crypto')"
 # → should print "166 fiat, 100 crypto"
 
-# Cash flow upcoming (auth required)
-# GET /cashflow/upcoming?days=30 → list[{date, type, amount, currency, description, source, urgent}]
-# GET /cashflow/summary → {total_expected_income, total_expected_payments, projected_net, liquid_assets}
+# Price refresh (auth required)
+# POST /networth/assets/refresh-prices → {updated, failed, details}
 ```
 
 Next task options (priority order):
-1. **Transactions SpendingChart redesign** — replace weak bar chart with cash-flow panel or area chart.
-2. **Schema cleanup** — split `Asset.current_value` into quantity/value fields; currently overloaded (quantity for crypto/gold/FX, total value for stocks/manual).
-3. **Global market search** — stock ticker + fund ISIN live search via market data provider.
-4. **Cashflow tx currency** — transactions have no currency column; recurring amounts default TRY. Needs fix or disclaimer.
+1. **Verify i18n coverage** — audit all components for hardcoded TR strings; wire remaining ones to translation keys.
+2. **Transactions SpendingChart redesign** — replace weak bar chart with cash-flow panel or area chart.
+3. **Schema cleanup** — split `Asset.current_value` into quantity/value fields; currently overloaded (quantity for crypto/gold/FX, total value for stocks/manual).
+4. **Global market search** — stock ticker + fund ISIN live search via market data provider.
 5. **Deployment** — Railway backend + Vercel frontend; alembic head on cold start.
 
 ---
