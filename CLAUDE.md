@@ -123,6 +123,10 @@ Dependency direction (strict): `api → services → models`. Never reverse.
 ## Known Issues (fix next session, priority order)
 
 1. **Transactions SpendingChart** — basic bar chart, needs redesign (pie + trend combo, or area chart).
+2. **History chart needs data** — `NetworthSnapshot` only populates after page loads; <2 snapshots shows placeholder. Will self-populate over time; no fix needed, just wait.
+3. **Asset allocation donut placement** — sits above AI insight, feels disconnected. Consider moving to a dedicated sidebar or collapsible panel.
+4. **Wealth alert bell depends on refresh-prices** — `last_price_usd` in `source_detail` only exists after `POST /networth/assets/refresh-prices`. Alert check silently skips assets with no price data. Fix: show "refresh prices first" hint if no price data.
+5. **Proactive scheduled alerts** — wealth alerts only check on page load, not on schedule. Redis + Celery or cron job needed for push notifications.
 
 ---
 
@@ -261,11 +265,11 @@ When context reaches ~70% capacity:
 
 ## Current Status
 
-**Phases 1–36 complete. Alembic head = 0022. No new migrations since Phase 32.**
+**Phases 1–43 complete. Alembic head = 0025. Last migrations: 0024 (networth_snapshots), 0025 (wealth_alerts).**
 
-Full stack: register/login → JWT → upload (rate-limited, busts caches) → 3-layer OCR → LLM extract → OCR cleanup → dedup → zero-amount filter → persist → LLM categorize (13 categories) → insight cache → globalized LLM coach with corrections+notes injected → spending chart + progress page (LineChart 3-month trend + cross-batch-deduped category comparison + LLM one-liners, 24h cached) → PersonalityCard (5 types, cached per batch) → AlertsPanel (3 algorithmic detectors, dismiss persisted, stale dismissals auto-cleaned) → GoalsPanel (monthly budget vs actual) → ChatPanel (globalized conversational coaching, behavioral profile memory, voice input, chat-based tx entry with confirmation card, sessionStorage prefill from alerts) → weekly email summary (Resend HTML, preferences toggle) → inflation-adjusted analysis (TUFE 2023-2026, real vs nominal per category, ProgressInsight cache) → net worth asset subtype capture (all asset types have specific fields; crypto/fiat/commodity live picker; gold unit picker; stock/fund code fields; manual categories store structured metadata in `Asset.source_detail` JSON) → net worth display currency searchable via live `CurrencySelect` → receivable collection creates linked cash asset, repeated collection is idempotent, delete/write-off removes linked asset → stale received receivables and processed suggestions are hidden/cleaned after 30 days → onboarding accepts any institution/export source instead of hardcoded Turkish banks → financial event log + reconciliation item backend skeleton exists → net worth page shows Action Queue with open reconciliation items and recent financial events → reconciliation producers create queue items from overdue receivables, missing receivable assets, possible duplicate transactions, and large transaction review → Action Queue now has real action handlers per issue_type (mark received / write off / recreate asset / delete duplicate batch / confirm large tx).
+Full stack: register/login → JWT → upload (rate-limited, busts caches) → 3-layer OCR → LLM extract → OCR cleanup → dedup → zero-amount filter → persist → LLM categorize (13 categories) → insight cache → globalized LLM coach with corrections+notes injected → spending chart + progress page (LineChart 3-month trend + cross-batch-deduped category comparison + LLM one-liners, 24h cached) → PersonalityCard (5 types, cached per batch) → AlertsPanel (3 algorithmic detectors, dismiss persisted, stale dismissals auto-cleaned) → GoalsPanel (monthly budget vs actual) → ChatPanel (globalized conversational coaching, behavioral profile memory, voice input, chat-based tx entry with confirmation card, sessionStorage prefill from alerts) → weekly email summary (Resend HTML, preferences toggle) → inflation-adjusted analysis (TUFE 2023-2026, real vs nominal per category, ProgressInsight cache) → net worth asset subtype capture (all asset types have specific fields; crypto/fiat/commodity live picker; gold unit picker; stock/fund code fields; manual categories store structured metadata in `Asset.source_detail` JSON) → net worth display currency searchable via live `CurrencySelect` → receivable collection creates linked cash asset, repeated collection is idempotent, delete/write-off removes linked asset → stale received receivables and processed suggestions are hidden/cleaned after 30 days → onboarding accepts any institution/export source instead of hardcoded Turkish banks → financial event log + reconciliation item backend skeleton exists → net worth page shows Action Queue with open reconciliation items and recent financial events → reconciliation producers (overdue receivables, missing receivable assets, cross-batch duplicate detection) → Action Queue real action handlers per issue_type → net worth history AreaChart (daily USD snapshots, converted to display currency) → asset allocation donut PieChart (5 groups, click to highlight) → proactive threshold alerts (WealthAlert model, asset_price_drop / net_worth_drop / payment_coverage_risk, bell icon on auto-priced asset cards, triggered alerts banner).
 
-### Migrations (head = 0022)
+### Migrations (head = 0025)
 | Migration | What |
 |---|---|
 | 0001 | CREATE users + transactions |
@@ -290,19 +294,20 @@ Full stack: register/login → JWT → upload (rate-limited, busts caches) → 3
 | 0020 | CREATE networth_suggestions |
 | 0021 | ADD linked_asset_id to receivables |
 | 0022 | CREATE financial_events + reconciliation_items |
+| 0023 | ADD language to users |
+| 0024 | CREATE networth_snapshots |
+| 0025 | CREATE wealth_alerts |
 
 ### Known Issues (open)
-- **USD subtitle cosmetic bug**: asset cards always show `{a.currency}` subtitle even when display currency matches. Fix: `a.currency !== displayCurrency` guard. **Fix next session.**
-- **Duplicate detection false positives**: `possible_duplicate_transaction` producer flags same-batch transactions. Fix: only flag cross-batch duplicates. **Fix next session.**
-- **large_transaction producer**: too many false positives (salary, rent, one-time payments). Remove from producers entirely. **Fix next session.**
-- **Net worth historical chart**: no dated snapshots. Assets only store current value. Need `networth_snapshots` table or computed from event log.
-- **Asset allocation pie chart**: missing. Would show distribution by type/currency on networth page.
+- **History chart needs data** — `NetworthSnapshot` only populates on page load; <2 snapshots shows placeholder. Will self-populate after 2 visits.
+- **Asset allocation donut placement** — floats above AI insight, feels disconnected. Consider moving to collapsible sidebar or secondary tab.
+- **Wealth alert bell depends on refresh-prices** — `last_price_usd` in `source_detail` only exists after `POST /networth/assets/refresh-prices`. Alert check silently skips assets with no price data.
+- **Proactive scheduled alerts** — wealth alerts only check on page load. Redis + cron needed for push notifications.
 - **Layer 3 vision LLM**: stub ready in pdf_parser.py, not wired. Needed for banks with fonts <8pt.
 - **Rate limiter in-memory**: resets on backend restart. Redis needed for prod multi-process deploy.
 - **Resend domain**: `noreply@mizan.app` hardcoded in api/email.py — must be verified Resend domain in prod.
-- **Migration drift in dev**: `create_all` adds base schema before Alembic can stamp. 0022 idempotent. Run `alembic upgrade head` after any new migration.
+- **Migration drift in dev**: `create_all` adds base schema before Alembic can stamp. 0024+0025 idempotent. Run `alembic upgrade head` after any new migration.
 - **TUFE rates 2025-2026**: approximate. Users see disclaimer.
-- **Subscription flag toggle**: no "unflag" endpoint — only upsert. Visually works.
 - **Frontend lint missing config**: `npm run lint` opens ESLint wizard. Build type-checks fine.
 - **Dependency risk**: Next 14.2.0 security issue; Recharts deprecated; npm audit 1 moderate + 1 critical.
 - **i18n coverage incomplete**: some components still have hardcoded TR strings.
