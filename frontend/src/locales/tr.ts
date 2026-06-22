@@ -306,6 +306,20 @@ export const tr = {
     alertSave: "Uyarıyı Kaydet",
     alertDeleted: "Uyarı silindi",
     alertTriggered: "Uyarı tetiklendi",
+    guidance: {
+      title: "Rehberlik",
+      subtitle: "Öne çıkanlar ve bunlar için yapabilecekleriniz.",
+      disclaimer: "Verilerinize dayalı genel bilgi — finansal veya yatırım tavsiyesi değildir.",
+      allClearTitle: "Şu an acil bir şey yok",
+      allClearDesc: "Mevcut tablonuzda yüksek etkili bir sorun öne çıkmıyor.",
+      action: {
+        discuss: "Mizan ile konuş",
+        set_goal: "Bütçe hedefi belirle",
+        create_alert: "Fiyat uyarısı kur",
+        refresh_prices: "Fiyatları güncelle",
+        add_liability: "Borcu ekle",
+      },
+    },
     confirmDeleteDuplicates: "Eski yinelenen ekstreler silinsin mi? Bu işlemler kalıcı olarak kaldırılır.",
     confirmDeleteLinkedReceivable: "Bu alacak zaten tahsil edilmişti. Silmek bağlı nakit varlığı da kaldırır.",
     toast: {

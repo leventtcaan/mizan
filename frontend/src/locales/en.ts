@@ -306,6 +306,20 @@ export const en = {
     alertSave: "Save Alert",
     alertDeleted: "Alert deleted",
     alertTriggered: "Alert triggered",
+    guidance: {
+      title: "Guidance",
+      subtitle: "What stands out, and what you can do about it.",
+      disclaimer: "General information based on your data — not financial or investment advice.",
+      allClearTitle: "Nothing urgent right now",
+      allClearDesc: "No high-impact issues stand out in your current picture.",
+      action: {
+        discuss: "Discuss with Mizan",
+        set_goal: "Set a budget goal",
+        create_alert: "Set a price alert",
+        refresh_prices: "Refresh prices",
+        add_liability: "Add the debt",
+      },
+    },
     confirmDeleteDuplicates: "Delete the older duplicate batch(es)? This will remove those transactions permanently.",
     confirmDeleteLinkedReceivable: "This receivable was already collected. Deleting it will also remove the linked cash asset.",
     toast: {

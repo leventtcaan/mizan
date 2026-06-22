@@ -854,6 +854,37 @@ export async function getNetWorthSummary(displayCurrency = "TRY"): Promise<NetWo
   return response.json() as Promise<NetWorthSummary>;
 }
 
+// ── Net Worth AI guidance ───────────────────────────────────────────────────
+export interface GuidanceAction {
+  type: "discuss" | "set_goal" | "create_alert" | "refresh_prices" | "add_liability";
+  params: Record<string, string>;
+}
+
+export interface GuidanceFinding {
+  id: string;
+  play: string;
+  severity: "high" | "medium" | "low";
+  observation: string;
+  context: string;
+  why: string;
+  move: string;
+  action: GuidanceAction | null;
+}
+
+export interface GuidanceResponse {
+  findings: GuidanceFinding[];
+  cached: boolean;
+}
+
+export async function getNetWorthGuidance(displayCurrency = "TRY", lang = "tr"): Promise<GuidanceResponse> {
+  const response = await fetch(
+    `${API_BASE_URL}/networth/guidance?display_currency=${displayCurrency}&lang=${lang}`,
+    { headers: authHeaders() },
+  );
+  if (!response.ok) throw new Error(`Failed to fetch guidance: ${response.status}`);
+  return response.json() as Promise<GuidanceResponse>;
+}
+
 export async function getAssets(): Promise<AssetItem[]> {
   const response = await fetch(`${API_BASE_URL}/networth/assets`, { headers: authHeaders() });
   if (!response.ok) throw new Error(`Failed to fetch assets: ${response.status}`);

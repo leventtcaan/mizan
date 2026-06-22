@@ -23,12 +23,14 @@ from app.models.receivable import Receivable, RECEIVABLE_STATUSES
 from app.models.user import User
 from app.services.currency import convert
 from app.services.llm_provider import get_provider
+from app.services.networth_guidance import build_guidance
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/networth", tags=["networth"])
 
 _INSIGHT_DATA_TYPE = "networth_insight"
+_GUIDANCE_DATA_TYPE = "networth_guidance"
 _CACHE_TTL_HOURS = 24
 _ARCHIVE_AFTER_DAYS = 30
 
@@ -461,14 +463,15 @@ async def _insight_cache_set(
 
 
 async def bust_networth_insight_cache(user_id: uuid.UUID, session: AsyncSession) -> None:
-    """Delete cached networth AI insight so next summary request regenerates it."""
+    """Delete cached networth AI insight + guidance so they regenerate next request.
+    Guidance reacts to every asset/liability mutation, so it is busted here too."""
     await session.execute(
         delete(ProgressInsight).where(
             ProgressInsight.user_id == user_id,
-            ProgressInsight.data_type == _INSIGHT_DATA_TYPE,
+            ProgressInsight.data_type.in_((_INSIGHT_DATA_TYPE, _GUIDANCE_DATA_TYPE)),
         )
     )
-    logger.info("Networth insight cache busted — user_id=%s", user_id)
+    logger.info("Networth insight + guidance cache busted — user_id=%s", user_id)
 
 
 # ---------- Assets ----------
@@ -1228,6 +1231,92 @@ async def _generate_ai_insight(
         return None
 
 
+# ---------- AI Guidance ----------
+
+class GuidanceAction(BaseModel):
+    type: str
+    params: dict = {}
+
+
+class GuidanceFinding(BaseModel):
+    id: str
+    play: str
+    severity: str
+    observation: str
+    context: str
+    why: str
+    move: str
+    action: GuidanceAction | None = None
+
+
+class GuidanceResponse(BaseModel):
+    findings: list[GuidanceFinding]
+    cached: bool = False
+
+
+def _guidance_cache_key(user_id: uuid.UUID, asset_ids: list[str], liability_ids: list[str], cur: str, lang: str) -> str:
+    content = f"{user_id}|{cur}|{lang}|{','.join(sorted(asset_ids))}|{','.join(sorted(liability_ids))}"
+    return hashlib.sha256(content.encode()).hexdigest()
+
+
+@router.get("/guidance", response_model=GuidanceResponse)
+async def get_guidance(
+    display_currency: str = "TRY",
+    lang: str = "tr",
+    current_user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
+) -> GuidanceResponse:
+    """
+    WHAT: Ranked, benchmarked, action-linked findings about the user's net worth.
+    WHY:  Replaces dead-end warnings. A deterministic rule engine computes findings;
+          the LLM only narrates them. Cached 24 h, busted on asset/liability change.
+    """
+    cur = display_currency.upper()
+
+    asset_ids = [str(a) for a in (await session.execute(
+        select(Asset.id).where(Asset.user_id == current_user.id)
+    )).scalars().all()]
+    liability_ids = [str(li) for li in (await session.execute(
+        select(Liability.id).where(Liability.user_id == current_user.id)
+    )).scalars().all()]
+    key = _guidance_cache_key(current_user.id, asset_ids, liability_ids, cur, lang)
+
+    # Cache lookup (separate data_type row from the legacy insight).
+    row = (await session.execute(
+        select(ProgressInsight).where(
+            ProgressInsight.user_id == current_user.id,
+            ProgressInsight.data_type == _GUIDANCE_DATA_TYPE,
+        )
+    )).scalar_one_or_none()
+    if row is not None and row.cache_key == key:
+        age = datetime.now(timezone.utc) - row.generated_at.replace(tzinfo=timezone.utc)
+        if age < timedelta(hours=_CACHE_TTL_HOURS):
+            findings = json.loads(row.data)
+            return GuidanceResponse(findings=findings, cached=True)
+
+    findings = await build_guidance(current_user.id, cur, lang, session)
+
+    stmt = (
+        pg_insert(ProgressInsight)
+        .values(
+            id=uuid.uuid4(),
+            user_id=current_user.id,
+            data_type=_GUIDANCE_DATA_TYPE,
+            cache_key=key,
+            data=json.dumps(findings, ensure_ascii=False),
+            generated_at=datetime.now(timezone.utc),
+        )
+        .on_conflict_do_update(
+            constraint="uq_progress_insights_user_type",
+            set_={"cache_key": key, "data": json.dumps(findings, ensure_ascii=False),
+                  "generated_at": datetime.now(timezone.utc)},
+        )
+    )
+    await session.execute(stmt)
+    await session.commit()
+    return GuidanceResponse(findings=findings, cached=False)
+
+
 # ---------- Snapshots ----------
 
 class SnapshotResponse(BaseModel):
@@ -1373,29 +1462,10 @@ async def get_summary(
     # Warnings (rule-based, instant)
     warnings = _build_warnings(total_assets, total_liabilities, list(assets), list(liabilities), all_receivables, target)
 
-    # AI insight with cache
-    asset_ids = [str(a.id) for a in assets]
-    liability_ids = [str(l.id) for l in liabilities]
-    cache_key = _insight_cache_key(current_user.id, asset_ids, liability_ids)
-
-    cached_data = await _insight_cache_get(current_user.id, cache_key, session)
-    if cached_data:
-        ai_insight: str | None = json.loads(cached_data).get("insight")
-        logger.info("Networth insight cache hit — user_id=%s", current_user.id)
-    else:
-        ai_insight = await _generate_ai_insight(
-            total_assets, total_liabilities,
-            total_assets - total_liabilities,
-            assets_by_type, liabilities_by_type,
-            target,
-        )
-        await _insight_cache_set(
-            current_user.id,
-            cache_key,
-            json.dumps({"insight": ai_insight}),
-            session,
-        )
-        await session.commit()
+    # AI commentary now lives in GET /networth/guidance (ranked, action-linked
+    # findings). The summary no longer spends an LLM call on a single blurb;
+    # `ai_insight` stays in the schema as null for backward compatibility.
+    ai_insight: str | None = None
 
     return NetWorthSummary(
         total_assets_try=round(total_assets, 2),

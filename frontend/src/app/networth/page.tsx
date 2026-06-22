@@ -5,11 +5,13 @@ import { useRouter } from "next/navigation";
 import PageLayout from "@/components/ui/PageLayout";
 import AddAssetModal from "@/components/AddAssetModal";
 import AddLiabilityModal from "@/components/AddLiabilityModal";
+import GuidancePanel from "@/components/GuidancePanel";
 import AddReceivableModal from "@/components/AddReceivableModal";
 import CurrencySelect from "@/components/CurrencySelect";
 import {
   getToken,
   getCurrencyRates,
+  getNetWorthGuidance,
   getNetWorthSummary,
   getAssets,
   getLiabilities,
@@ -49,6 +51,7 @@ import {
   NetworthSnapshot,
   WealthAlertItem,
   TriggeredWealthAlert,
+  GuidanceFinding,
 } from "@/lib/api";
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip,
@@ -196,9 +199,11 @@ function Toast({ message, onDismiss }: { message: string; onDismiss: () => void 
 }
 
 export default function NetWorthPage() {
-  const { t } = useLanguage();
+  const { t, lang } = useLanguage();
   const router = useRouter();
   const [displayCurrency, setDisplayCurrency] = useState("TRY");
+  const [guidance, setGuidance] = useState<GuidanceFinding[]>([]);
+  const [guidanceLoading, setGuidanceLoading] = useState(true);
   const [attribution, setAttribution] = useState<NetWorthAttribution | null>(null);
   const [accountsMap, setAccountsMap] = useState<Record<string, string>>({});
 
@@ -315,6 +320,12 @@ export default function NetWorthPage() {
   const loadAll = async () => {
     setLoading(true);
     getCurrencyRates("USD").then(setUsdRates).catch(() => null);
+    // Guidance loads independently — its own engine + cache, never blocks the page.
+    setGuidanceLoading(true);
+    getNetWorthGuidance(displayCurrency, lang)
+      .then((g) => setGuidance(g.findings))
+      .catch(() => setGuidance([]))
+      .finally(() => setGuidanceLoading(false));
     // Fire-and-forget: snapshot + alerts + notifications don't block page load
     createNetWorthSnapshot()
       .then(() => getNetWorthHistory(90)).then(setSnapshots)
@@ -493,6 +504,40 @@ export default function NetWorthPage() {
     } finally {
       setRefreshing(false);
     }
+  };
+
+  // Map a guidance finding's action to an in-page action or an assistant handoff.
+  // Every finding resolves to either one click here or a grounded conversation.
+  const handleGuidanceAction = (f: GuidanceFinding) => {
+    const a = f.action;
+    if (!a) return;
+    switch (a.type) {
+      case "refresh_prices":
+        void handleRefreshPrices();
+        break;
+      case "create_alert": {
+        const asset = assets.find((x) => x.id === a.params.asset_id);
+        if (asset) setAlertModalAsset(asset);
+        else openAssistantWith(f);
+        break;
+      }
+      case "add_liability":
+        setShowAddLiability(true);
+        break;
+      case "set_goal":
+        router.push("/progress");
+        break;
+      case "discuss":
+      default:
+        openAssistantWith(f);
+        break;
+    }
+  };
+
+  const openAssistantWith = (f: GuidanceFinding) => {
+    window.dispatchEvent(new CustomEvent("mizan-open-assistant", {
+      detail: { prefill: `${f.observation} ${f.move}` },
+    }));
   };
 
   const handleSaveAlert = async () => {
@@ -802,36 +847,8 @@ export default function NetWorthPage() {
         </div>
       )}
 
-      {/* AI insight card */}
-      {summary?.ai_insight && (
-        <div className="mb-4 bg-[#1A1A1A] border border-indigo-900/30 rounded-xl p-4">
-          <div className="flex gap-3">
-            <Brain size={16} className="text-indigo-400 shrink-0 mt-0.5" />
-            <p className="text-gray-300 text-sm leading-relaxed flex-1">{summary.ai_insight}</p>
-          </div>
-          <div className="mt-3 flex justify-end">
-            <button
-              onClick={() => window.dispatchEvent(new CustomEvent("mizan-open-assistant"))}
-              className="flex items-center gap-1.5 text-xs text-indigo-400 hover:text-indigo-300 transition-colors"
-            >
-              <MessageCircle size={13} />
-              {t("assistant.askMizan")}
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* Warning banners */}
-      {summary && summary.warnings.length > 0 && (
-        <div className="mb-4 flex flex-col gap-2">
-          {summary.warnings.map((w, i) => (
-            <div key={i} className="flex items-start gap-2 bg-amber-950/30 border border-amber-800/40 rounded-xl px-4 py-3">
-              <span className="text-amber-400 text-sm shrink-0">⚠</span>
-              <p className="text-amber-200 text-sm">{w}</p>
-            </div>
-          ))}
-        </div>
-      )}
+      {/* AI guidance — ranked, benchmarked, action-linked findings */}
+      <GuidancePanel findings={guidance} loading={guidanceLoading} onAction={handleGuidanceAction} t={t} />
 
       {/* Triggered wealth alerts */}
       {triggeredAlerts.length > 0 && (

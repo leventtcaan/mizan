@@ -46,7 +46,14 @@ export default function GlobalAssistant() {
   }, [pathname]);
 
   useEffect(() => {
-    const openHandler = () => setOpen(true);
+    const openHandler = (e: Event) => {
+      setOpen(true);
+      const prefill = (e as CustomEvent<{ prefill?: string }>).detail?.prefill;
+      if (prefill) {
+        setInput(prefill);
+        setTimeout(() => inputRef.current?.focus(), 80);
+      }
+    };
     window.addEventListener("mizan-open-assistant", openHandler);
     return () => window.removeEventListener("mizan-open-assistant", openHandler);
   }, []);
