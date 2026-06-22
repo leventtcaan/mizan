@@ -1277,3 +1277,62 @@ export async function generateDailyNotifications(lang = "en"): Promise<{ created
   if (!response.ok) throw new Error(`Failed to generate notifications: ${response.status}`);
   return response.json() as Promise<{ created: number; skipped: boolean }>;
 }
+
+// --- Global Assistant ---
+
+export type AssistantPageContext = "home" | "networth" | "transactions" | "cashflow";
+
+export interface AssistantChatMessage {
+  role: "user" | "assistant";
+  content: string;
+}
+
+export interface ActionProposal {
+  action_id: string;
+  action_type: string;
+  description: string;
+  params: Record<string, unknown>;
+}
+
+export interface AssistantChatResponse {
+  reply: string;
+  proposal: ActionProposal | null;
+}
+
+export async function assistantChat(
+  message: string,
+  pageContext: AssistantPageContext,
+  sessionHistory: AssistantChatMessage[],
+): Promise<AssistantChatResponse> {
+  const response = await fetch(`${API_BASE_URL}/assistant/chat`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...authHeaders() },
+    body: JSON.stringify({ message, page_context: pageContext, session_history: sessionHistory }),
+  });
+  if (!response.ok) {
+    const err = await response.json().catch(() => null);
+    throw new Error(extractErrorMessage(err, "Assistant unavailable"));
+  }
+  return response.json() as Promise<AssistantChatResponse>;
+}
+
+export async function confirmAssistantAction(actionId: string): Promise<{ ok: boolean; message: string | null; action_type: string | null }> {
+  const response = await fetch(`${API_BASE_URL}/assistant/action/confirm`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...authHeaders() },
+    body: JSON.stringify({ action_id: actionId }),
+  });
+  if (!response.ok) {
+    const err = await response.json().catch(() => null);
+    throw new Error(extractErrorMessage(err, "Action failed"));
+  }
+  return response.json();
+}
+
+export async function rejectAssistantAction(actionId: string): Promise<void> {
+  await fetch(`${API_BASE_URL}/assistant/action/reject`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...authHeaders() },
+    body: JSON.stringify({ action_id: actionId }),
+  });
+}

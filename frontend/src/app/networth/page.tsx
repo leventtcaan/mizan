@@ -758,11 +758,11 @@ export default function NetWorthPage() {
           </div>
           <div className="mt-3 flex justify-end">
             <button
-              onClick={() => { setAnalyzeOpen(true); setAnalyzeMessages([]); setAnalyzeInput(""); }}
+              onClick={() => window.dispatchEvent(new CustomEvent("mizan-open-assistant"))}
               className="flex items-center gap-1.5 text-xs text-indigo-400 hover:text-indigo-300 transition-colors"
             >
               <MessageCircle size={13} />
-              {t("nw.analyzeTitle")}
+              {t("assistant.askMizan")}
             </button>
           </div>
         </div>
