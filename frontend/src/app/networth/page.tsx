@@ -374,10 +374,27 @@ export default function NetWorthPage() {
     void reloadSummary();
   };
 
+  const handleUpdateAsset = (updated: AssetItem) => {
+    setAssets((prev) => prev.map((a) => a.id === updated.id ? updated : a));
+    setEditingAsset(null);
+    void reloadSummary();
+  };
+
   const handleDeleteLiability = async (id: string) => {
     await deleteLiability(id);
     setLiabilities((prev) => prev.filter((l) => l.id !== id));
     void reloadSummary();
+  };
+
+  const handleUpdateLiability = (updated: LiabilityItem) => {
+    setLiabilities((prev) => prev.map((l) => l.id === updated.id ? updated : l));
+    setEditingLiability(null);
+    void reloadSummary();
+  };
+
+  const handleUpdateReceivable = (updated: ReceivableItem) => {
+    setReceivables((prev) => prev.map((r) => r.id === updated.id ? updated : r));
+    setEditingReceivable(null);
   };
 
   const handleDeleteReceivable = async (id: string) => {
@@ -889,6 +906,9 @@ export default function NetWorthPage() {
                               🔔
                             </button>
                           )}
+                          <button onClick={() => setEditingAsset(a)} title={t("common.edit")} className="text-gray-700 hover:text-indigo-400 transition-colors px-1">
+                            <Pencil size={13} />
+                          </button>
                           <button onClick={() => handleDeleteAsset(a.id)} className="text-gray-700 hover:text-red-400 transition-colors text-xs px-2">×</button>
                         </div>
                       </div>
@@ -949,6 +969,9 @@ export default function NetWorthPage() {
                       </div>
                       <p className="text-xs text-gray-600 mt-1">{Math.round(pct)}{t("nw.totalPaid")} · {t("nw.total")} {fmtItem(l.total_amount, l.currency)}</p>
                     </div>
+                    <button onClick={() => setEditingLiability(l)} title={t("common.edit")} className="text-gray-700 hover:text-indigo-400 transition-colors px-1 shrink-0">
+                      <Pencil size={13} />
+                    </button>
                     <button onClick={() => handleDeleteLiability(l.id)} className="text-gray-700 hover:text-red-400 transition-colors text-sm px-2 shrink-0">×</button>
                   </div>
                 </div>
@@ -1007,6 +1030,9 @@ export default function NetWorthPage() {
                         {t("nw.markReceived")}
                       </button>
                     )}
+                    <button onClick={() => setEditingReceivable(r)} title={t("common.edit")} className="text-gray-700 hover:text-indigo-400 transition-colors px-1">
+                      <Pencil size={13} />
+                    </button>
                     <button onClick={() => handleDeleteReceivable(r.id)} className="text-gray-700 hover:text-red-400 transition-colors text-sm px-1">×</button>
                   </div>
                 </div>
@@ -1247,11 +1273,73 @@ export default function NetWorthPage() {
       {showAddAsset && (
         <AddAssetModal displayCurrency={displayCurrency} onClose={() => setShowAddAsset(false)} onAdded={(asset) => { setAssets((prev) => [...prev, asset]); setShowAddAsset(false); void reloadSummary(); }} />
       )}
+      {editingAsset && (
+        <AddAssetModal displayCurrency={displayCurrency} editData={editingAsset} onClose={() => setEditingAsset(null)} onAdded={() => setEditingAsset(null)} onUpdated={handleUpdateAsset} />
+      )}
       {showAddLiability && (
         <AddLiabilityModal onClose={() => setShowAddLiability(false)} onAdded={(liability) => { setLiabilities((prev) => [...prev, liability]); setShowAddLiability(false); void reloadSummary(); }} />
       )}
+      {editingLiability && (
+        <AddLiabilityModal editData={editingLiability} onClose={() => setEditingLiability(null)} onAdded={() => setEditingLiability(null)} onUpdated={handleUpdateLiability} />
+      )}
       {showAddReceivable && (
         <AddReceivableModal onClose={() => setShowAddReceivable(false)} onAdded={(receivable) => { setReceivables((prev) => [...prev, receivable]); setShowAddReceivable(false); void reloadSummary(); }} />
+      )}
+      {editingReceivable && (
+        <AddReceivableModal editData={editingReceivable} onClose={() => setEditingReceivable(null)} onAdded={() => setEditingReceivable(null)} onUpdated={handleUpdateReceivable} />
+      )}
+
+      {/* Focused analyze chat modal */}
+      {analyzeOpen && (
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/70 backdrop-blur-sm p-4">
+          <div className="w-full max-w-lg bg-[#1A1A1A] border border-[#2A2A2A] rounded-2xl flex flex-col max-h-[70vh]">
+            <div className="flex items-center justify-between px-4 py-3 border-b border-[#2A2A2A]">
+              <div className="flex items-center gap-2">
+                <Brain size={15} className="text-indigo-400" />
+                <span className="text-white text-sm font-semibold">{t("nw.analyzeTitle")}</span>
+              </div>
+              <button onClick={() => setAnalyzeOpen(false)} className="text-gray-500 hover:text-gray-300 transition-colors text-lg leading-none">×</button>
+            </div>
+            <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3 min-h-0">
+              {analyzeMessages.length === 0 && (
+                <p className="text-gray-600 text-sm text-center py-4">{t("nw.analyzePlaceholder")}</p>
+              )}
+              {analyzeMessages.map((m, i) => (
+                <div key={i} className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}>
+                  <div className={`max-w-[85%] px-3 py-2 rounded-xl text-sm ${m.role === "user" ? "bg-indigo-600 text-white" : "bg-[#2A2A2A] text-gray-200"}`}>
+                    {m.text}
+                  </div>
+                </div>
+              ))}
+              {analyzePending && (
+                <div className="flex justify-start">
+                  <div className="bg-[#2A2A2A] px-3 py-2 rounded-xl">
+                    <div className="flex gap-1 items-center h-4">
+                      {[0, 1, 2].map((i) => <span key={i} className="w-1.5 h-1.5 rounded-full bg-gray-500 animate-bounce" style={{ animationDelay: `${i * 0.15}s` }} />)}
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+            <div className="flex gap-2 px-4 py-3 border-t border-[#2A2A2A]">
+              <input
+                value={analyzeInput}
+                onChange={(e) => setAnalyzeInput(e.target.value)}
+                onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); void handleAnalyzeSend(); } }}
+                placeholder={t("nw.analyzePlaceholder")}
+                className="flex-1 bg-[#0F0F0F] border border-[#2A2A2A] rounded-lg px-3 py-2 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-indigo-600"
+                disabled={analyzePending}
+              />
+              <button
+                onClick={() => { void handleAnalyzeSend(); }}
+                disabled={analyzePending || !analyzeInput.trim()}
+                className="px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 text-white text-sm font-medium transition-colors"
+              >
+                {t("nw.analyzeSend")}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </PageLayout>
   );

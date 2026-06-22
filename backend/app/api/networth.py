@@ -872,6 +872,132 @@ async def delete_receivable(
     await session.commit()
 
 
+# ---------- Receivables PUT (full update) ----------
+
+@router.put("/receivables/{receivable_id}", response_model=ReceivableResponse)
+async def update_receivable(
+    receivable_id: str,
+    body: ReceivableRequest,
+    current_user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
+) -> ReceivableResponse:
+    try:
+        rid = uuid.UUID(receivable_id)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid receivable ID")
+
+    result = await session.execute(
+        select(Receivable).where(Receivable.id == rid, Receivable.user_id == current_user.id)
+    )
+    receivable = result.scalar_one_or_none()
+    if not receivable:
+        raise HTTPException(status_code=404, detail="Receivable not found")
+
+    exp = None
+    if body.expected_date:
+        try:
+            exp = date.fromisoformat(body.expected_date)
+        except ValueError:
+            raise HTTPException(status_code=422, detail="expected_date must be YYYY-MM-DD")
+
+    receivable.from_person = body.from_person
+    receivable.amount = Decimal(body.amount.replace(",", "."))
+    receivable.currency = body.currency
+    receivable.expected_date = exp
+    receivable.notes = body.notes
+    await session.commit()
+    await session.refresh(receivable)
+    return _receivable_resp(receivable)
+
+
+# ---------- Net Worth Analyze (focused session-only chat) ----------
+
+class AnalyzeRequest(BaseModel):
+    message: str
+
+    @field_validator("message")
+    @classmethod
+    def non_empty(cls, v: str) -> str:
+        if not v.strip():
+            raise ValueError("message cannot be empty")
+        if len(v) > 2000:
+            raise ValueError("message too long")
+        return v.strip()
+
+
+class AnalyzeResponse(BaseModel):
+    reply: str
+
+
+@router.post("/analyze", response_model=AnalyzeResponse)
+async def analyze_networth(
+    body: AnalyzeRequest,
+    lang: str = "en",
+    current_user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
+) -> AnalyzeResponse:
+    """
+    Session-only focused analysis chat. Not persisted. Uses full net worth context.
+    """
+    from app.services.llm_provider import get_provider
+    from app.services.currency import convert
+
+    assets_result = await session.execute(select(Asset).where(Asset.user_id == current_user.id))
+    assets = assets_result.scalars().all()
+    liabilities_result = await session.execute(select(Liability).where(Liability.user_id == current_user.id))
+    liabilities = liabilities_result.scalars().all()
+
+    total_assets_usd = 0.0
+    total_liabilities_usd = 0.0
+    asset_lines = []
+    for a in assets:
+        try:
+            usd = await convert(float(a.current_value), a.currency, "USD")
+            total_assets_usd += usd
+            asset_lines.append(f"- {a.name} ({a.asset_type}): {float(a.current_value):.2f} {a.currency} ≈ ${usd:,.0f}")
+        except Exception:
+            asset_lines.append(f"- {a.name} ({a.asset_type}): {float(a.current_value):.2f} {a.currency}")
+
+    for l in liabilities:
+        try:
+            usd = await convert(float(l.remaining_amount), l.currency, "USD")
+            total_liabilities_usd += usd
+        except Exception:
+            pass
+
+    net_worth_usd = total_assets_usd - total_liabilities_usd
+
+    context = f"""Net worth: ${net_worth_usd:,.0f} USD
+Total assets: ${total_assets_usd:,.0f} USD
+Total liabilities: ${total_liabilities_usd:,.0f} USD
+
+Assets:
+{chr(10).join(asset_lines) if asset_lines else "None"}
+
+Liabilities:
+{"; ".join(f"{l.name}: {float(l.remaining_amount):.2f} {l.currency}" for l in liabilities) or "None"}"""
+
+    lang_line = f"Respond in {lang}." if lang else "Respond in English."
+    system = f"""You are a focused financial analyst. The user wants a quick, data-driven analysis of their net worth.
+{lang_line}
+Use the exact numbers provided. Do calculations when asked (e.g. what-if scenarios).
+Be direct, specific, and concise. No generic advice — only analysis grounded in the user's actual data.
+
+USER'S FINANCIAL SNAPSHOT:
+{context}"""
+
+    try:
+        provider = get_provider()
+        reply = await provider.complete(
+            system_prompt=system,
+            user_message=body.message,
+            temperature=0.3,
+        )
+        return AnalyzeResponse(reply=reply or "I could not generate an analysis. Please try again.")
+    except Exception:
+        return AnalyzeResponse(reply="Analysis unavailable right now. Please try again.")
+
+
 # ---------- Suggestions ----------
 
 @router.get("/suggestions", response_model=list[SuggestionResponse])
