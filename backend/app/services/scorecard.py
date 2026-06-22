@@ -10,6 +10,7 @@ Returns plain numbers + keys; the frontend composes all display text so the page
 stays correctly localized (TR/EN).
 """
 
+import calendar
 import json
 import logging
 import uuid
@@ -275,6 +276,17 @@ async def build_scorecard(
             top_mover = {"key": diffs[0][0], "direction": "up" if diffs[0][1] > 0 else "down"}
 
     trajectory = await _trajectory(snaps, cur)
+    trajectory_estimated = False
+    # Net-worth snapshots accrue one-per-day, so a new user has <2 points and the
+    # real line can't render. Reconstruct an approximate trajectory from monthly
+    # cash flow, anchored to the true current net worth, until snapshots build up.
+    if len(trajectory) < 2:
+        nw_now_cur = await _to(assets_usd - liab_usd, "USD", cur)
+        recon = await _reconstruct_trajectory(by_month, nw_now_cur, cur)
+        if len(recon) >= 2:
+            trajectory = recon
+            trajectory_estimated = True
+
     annotations = await _annotations(snaps, cur)
     drivers = await _drivers(by_month.get(this_key, {}), by_month.get(last_key, {}), snaps, cur)
     milestones = await _milestones(liabilities, snaps, assets_usd, liab_usd, cur)
@@ -291,6 +303,7 @@ async def build_scorecard(
         "top_mover": top_mover,
         "pillars": pillars,
         "trajectory": trajectory,
+        "trajectory_estimated": trajectory_estimated,
         "annotations": annotations,
         "drivers": drivers,
         "milestones": milestones,
@@ -356,6 +369,41 @@ async def _trajectory(snaps: list, cur: str) -> list[dict]:
         nw = await _to(float(s.net_worth_usd), "USD", cur)
         out.append({"date": s.recorded_at.date().isoformat(), "net_worth": round(nw, 2)})
     return out
+
+
+async def _reconstruct_trajectory(by_month: dict, nw_now_cur: float, cur: str) -> list[dict]:
+    """
+    Approximate net-worth trajectory from monthly cash flow when real snapshots
+    are too few. Anchored to the true current net worth, walking backwards:
+        nw_end[m-1] = nw_end[m] - net_flow[m]
+    Returns ascending points; the latest point is dated today (= true net worth).
+    """
+    months = sorted(by_month.keys())
+    if len(months) < 2:
+        return []
+    months = months[-12:]  # at most a year of context
+
+    flows: dict[str, float] = {}
+    for mk in months:
+        income = float(by_month.get(mk, {}).get("income", 0) or 0)
+        spent = float(by_month.get(mk, {}).get("spent", 0) or 0)
+        flows[mk] = await _to(income - spent, "TRY", cur)
+
+    today = date.today()
+    this_key = f"{today.year:04d}-{today.month:02d}"
+
+    running = nw_now_cur
+    pts: list[dict] = []
+    for mk in reversed(months):
+        if mk == this_key:
+            d = today
+        else:
+            y, m = int(mk[:4]), int(mk[5:7])
+            d = date(y, m, calendar.monthrange(y, m)[1])
+        pts.append({"date": d.isoformat(), "net_worth": round(running, 2)})
+        running -= flows.get(mk, 0.0)
+    pts.reverse()
+    return pts
 
 
 async def _annotations(snaps: list, cur: str) -> list[dict]:

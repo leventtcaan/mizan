@@ -37,13 +37,26 @@ export function t(key: string, lang?: Lang): string {
   return getNestedValue(locale, key);
 }
 
+/** Resolve a locale key whose value is an array of strings (e.g. landing.sourceTypes). */
+export function tList(key: string, lang?: Lang): string[] {
+  const resolvedLang = lang ?? getCurrentLang();
+  const locale = locales[resolvedLang] as unknown as Record<string, unknown>;
+  const parts = key.split(".");
+  let current: unknown = locale;
+  for (const part of parts) {
+    if (current == null || typeof current !== "object") return [];
+    current = (current as Record<string, unknown>)[part];
+  }
+  return Array.isArray(current) ? (current as string[]) : [];
+}
+
 export function setLanguage(lang: Lang): void {
   if (typeof window === "undefined") return;
   localStorage.setItem(STORAGE_KEY, lang);
   window.dispatchEvent(new CustomEvent(CHANGE_EVENT, { detail: lang }));
 }
 
-export function useLanguage(): { lang: Lang; setLanguage: (lang: Lang) => void; t: (key: string) => string } {
+export function useLanguage(): { lang: Lang; setLanguage: (lang: Lang) => void; t: (key: string) => string; tList: (key: string) => string[] } {
   const [lang, setLangState] = useState<Lang>("tr");
 
   useEffect(() => {
@@ -56,10 +69,11 @@ export function useLanguage(): { lang: Lang; setLanguage: (lang: Lang) => void; 
   }, []);
 
   const boundT = (key: string) => t(key, lang);
+  const boundTList = (key: string) => tList(key, lang);
   const boundSet = (newLang: Lang) => {
     setLangState(newLang);
     setLanguage(newLang);
   };
 
-  return { lang, setLanguage: boundSet, t: boundT };
+  return { lang, setLanguage: boundSet, t: boundT, tList: boundTList };
 }

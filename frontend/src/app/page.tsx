@@ -10,7 +10,7 @@ import {
 import { useLanguage } from "@/lib/i18n";
 
 export default function HomePage() {
-  const { t } = useLanguage();
+  const { t, tList } = useLanguage();
   const [userEmail, setUserEmail] = useState<string | null>(null);
   const howRef = useRef<HTMLElement>(null);
 
@@ -37,7 +37,7 @@ export default function HomePage() {
     { icon: MessageSquare, title: t("landing.step3.title"), desc: t("landing.step3.desc"), step: "03" },
   ];
 
-  const sourceTypes = t("landing.sourceTypes") as unknown as string[];
+  const sourceTypes = tList("landing.sourceTypes");
 
   return (
     <main className="min-h-screen bg-[#0F0F0F] text-white overflow-x-hidden">

@@ -270,6 +270,7 @@ export interface Scorecard {
   top_mover: { key: PillarKey; direction: "up" | "down" } | null;
   pillars: ScorecardPillar[];
   trajectory: TrajectoryPoint[];
+  trajectory_estimated: boolean;
   annotations: ScorecardAnnotation[];
   drivers: { best: ScorecardDriver | null; worst: ScorecardDriver | null };
   milestones: ScorecardMilestone[];

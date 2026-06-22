@@ -142,6 +142,7 @@ export default function ProgressPage() {
           <Trajectory
             chartData={chartData}
             annotations={data.annotations}
+            estimated={data.trajectory_estimated}
             ccy={ccy}
             range={range}
             setRange={setRange}
@@ -261,10 +262,11 @@ function Pillars({ pillars, t }: { pillars: ScorecardPillar[]; t: (k: string) =>
 
 // ── Trajectory: net worth over time, with the story annotated ───────────────
 function Trajectory({
-  chartData, annotations, ccy, range, setRange, t, catLabel,
+  chartData, annotations, estimated, ccy, range, setRange, t, catLabel,
 }: {
   chartData: { label: string; value: number }[];
   annotations: Scorecard["annotations"];
+  estimated: boolean;
   ccy: string;
   range: Range;
   setRange: (r: Range) => void;
@@ -277,7 +279,14 @@ function Trajectory({
   return (
     <div className="bg-[#1A1A1A] border border-[#2A2A2A] rounded-xl p-5">
       <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
-        <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">{t("scorecard.trajectory.title")}</p>
+        <div className="flex items-center gap-2">
+          <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">{t("scorecard.trajectory.title")}</p>
+          {estimated && hasChart && (
+            <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-950/40 border border-amber-900/40 text-amber-400/90">
+              {t("scorecard.trajectory.estimated")}
+            </span>
+          )}
+        </div>
         <div className="flex items-center gap-1 bg-[#0F0F0F] border border-[#2A2A2A] rounded-full p-0.5">
           {ranges.map((r) => (
             <button
@@ -287,7 +296,7 @@ function Trajectory({
                 range === r ? "bg-indigo-600 text-white" : "text-gray-500 hover:text-gray-300"
               }`}
             >
-              {t(`scorecard.trajectory.range${r === "all" ? "All" : r.toUpperCase()}`)}
+              {t(`scorecard.trajectory.range${r === "all" ? "All" : r}`)}
             </button>
           ))}
         </div>

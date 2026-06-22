@@ -436,7 +436,7 @@ export default function NetWorthPage() {
   const handleDeleteReceivable = async (id: string) => {
     const receivable = receivables.find((r) => r.id === id);
     if (receivable?.status === "received" && receivable.linked_asset_id) {
-      if (!window.confirm("This receivable was already collected. Deleting it will also remove the linked cash asset.")) return;
+      if (!window.confirm(t("nw.confirmDeleteLinkedReceivable"))) return;
     }
     await deleteReceivable(id);
     setReceivables((prev) => prev.filter((r) => r.id !== id));
@@ -482,14 +482,14 @@ export default function NetWorthPage() {
       setLastRefreshAt(Date.now());
       void reloadSummary();
       if (result.updated > 0) {
-        setToast(`${result.updated} assets updated${result.failed > 0 ? `, ${result.failed} failed` : ""}.`);
+        setToast(`${result.updated} ${t("nw.toast.assetsUpdated")}${result.failed > 0 ? `, ${result.failed} ${t("nw.toast.failed")}` : ""}.`);
       } else if (result.failed > 0) {
-        setToast(`Could not fetch prices (${result.failed} assets). Try again.`);
+        setToast(t("nw.toast.fetchFailed"));
       } else {
-        setToast("No auto-priceable assets found.");
+        setToast(t("nw.toast.noAutoPriceable"));
       }
     } catch {
-      setToast("Price refresh failed.");
+      setToast(t("nw.toast.refreshFailed"));
     } finally {
       setRefreshing(false);
     }
@@ -509,9 +509,9 @@ export default function NetWorthPage() {
       setAlertModalAsset(null);
       setAlertThreshold("");
       setAlertMessage("");
-      setToast("Alert created.");
+      setToast(t("nw.toast.alertCreated"));
     } catch {
-      setToast("Could not save alert — check threshold.");
+      setToast(t("nw.toast.alertSaveError"));
     } finally {
       setAlertSaving(false);
     }
@@ -538,11 +538,11 @@ export default function NetWorthPage() {
           const result = await updateReceivableStatus(entityId, "received");
           setReceivables((prev) => prev.map((r) => r.id === entityId ? result.receivable : r));
           if (result.created_asset) setAssets((prev) => [...prev, result.created_asset!]);
-          setToast(result.toast_message ?? "Receivable marked received.");
+          setToast(result.toast_message ?? t("nw.toast.receivableReceived"));
         } else if (action === "write_off") {
           await updateReceivableStatus(entityId, "written_off");
           setReceivables((prev) => prev.filter((r) => r.id !== entityId));
-          setToast("Receivable written off.");
+          setToast(t("nw.toast.receivableWrittenOff"));
         }
         const recStatus = action === "dismiss" ? "dismissed" : "resolved";
         await updateReconciliationItemStatus(item.id, recStatus);
@@ -556,15 +556,15 @@ export default function NetWorthPage() {
           const result = await updateReceivableStatus(entityId, "received");
           setReceivables((prev) => prev.map((r) => r.id === entityId ? result.receivable : r));
           if (result.created_asset) setAssets((prev) => [...prev, result.created_asset!]);
-          setToast(result.toast_message ?? "Cash asset created.");
+          setToast(result.toast_message ?? t("nw.toast.cashAssetCreated"));
         } else if (action === "mark_pending") {
           const result = await updateReceivableStatus(entityId, "pending");
           setReceivables((prev) => prev.map((r) => r.id === entityId ? result.receivable : r));
-          setToast("Receivable set back to pending.");
+          setToast(t("nw.toast.receivablePending"));
         } else if (action === "write_off") {
           await updateReceivableStatus(entityId, "written_off");
           setReceivables((prev) => prev.filter((r) => r.id !== entityId));
-          setToast("Receivable written off.");
+          setToast(t("nw.toast.receivableWrittenOff"));
         }
         await updateReconciliationItemStatus(item.id, "resolved");
         setReconciliationItems((prev) => prev.filter((i) => i.id !== item.id));
@@ -576,14 +576,14 @@ export default function NetWorthPage() {
         if (action === "delete_duplicate_batch" && pa?.upload_batch_ids) {
           const batchIds = pa.upload_batch_ids as string[];
           if (batchIds.length < 2) {
-            setToast("Only one batch — nothing to delete.");
+            setToast(t("nw.toast.oneBatch"));
           } else {
-            const ok = window.confirm(`Delete ${batchIds.length - 1} older duplicate batch(es)? This will remove those transactions permanently.`);
+            const ok = window.confirm(t("nw.confirmDeleteDuplicates"));
             if (!ok) { setActionPending(null); return; }
             for (const batchId of batchIds.slice(0, -1)) {
               await deleteBatch(batchId).catch(() => null);
             }
-            setToast(`Removed ${batchIds.length - 1} duplicate batch(es).`);
+            setToast(`${batchIds.length - 1} ${t("nw.toast.duplicatesRemoved")}`);
           }
         }
         const dupStatus = action === "dismiss" ? "dismissed" : "resolved";
@@ -596,7 +596,7 @@ export default function NetWorthPage() {
         const finalStatus = action === "ignore" ? "dismissed" : "resolved";
         await updateReconciliationItemStatus(item.id, finalStatus);
         setReconciliationItems((prev) => prev.filter((i) => i.id !== item.id));
-        setToast(finalStatus === "resolved" ? "Transaction reviewed." : "Review dismissed.");
+        setToast(finalStatus === "resolved" ? t("nw.toast.txReviewed") : t("nw.toast.reviewDismissed"));
         return;
       }
 
@@ -604,7 +604,7 @@ export default function NetWorthPage() {
       await updateReconciliationItemStatus(item.id, finalStatus);
       setReconciliationItems((prev) => prev.filter((i) => i.id !== item.id));
     } catch {
-      setToast("Action failed — please try again.");
+      setToast(t("nw.toast.actionFailed"));
     } finally {
       setActionPending(null);
     }
