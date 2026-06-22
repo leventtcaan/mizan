@@ -9,6 +9,7 @@ import AddReceivableModal from "@/components/AddReceivableModal";
 import CurrencySelect from "@/components/CurrencySelect";
 import {
   getToken,
+  getCurrencyRates,
   getNetWorthSummary,
   getAssets,
   getLiabilities,
@@ -55,6 +56,24 @@ function fmtItem(value: string, currency: string): string {
   const n = parseFloat(value);
   if (isNaN(n)) return value;
   return fmt(n, currency);
+}
+
+// Convert amount from one currency to another using USD as pivot.
+// rates: getCurrencyRates("USD") → rates[code] = units of code per 1 USD.
+function convertAmount(
+  amount: number,
+  fromCurrency: string,
+  toCurrency: string,
+  rates: Record<string, number> | null,
+): number | null {
+  if (!rates) return null;
+  const from = fromCurrency.toUpperCase();
+  const to = toCurrency.toUpperCase();
+  if (from === to) return amount;
+  const fromRate = rates[from]; // units of 'from' per 1 USD
+  const toRate = rates[to];    // units of 'to' per 1 USD
+  if (!fromRate || !toRate) return null;
+  return (amount / fromRate) * toRate;
 }
 
 function sourceDetailLabel(raw: string | null): string | null {
@@ -176,6 +195,7 @@ export default function NetWorthPage() {
   const [refreshing, setRefreshing] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
   const [actionPending, setActionPending] = useState<string | null>(null);
+  const [usdRates, setUsdRates] = useState<Record<string, number> | null>(null);
 
   const [showAddAsset, setShowAddAsset] = useState(false);
   const [showAddLiability, setShowAddLiability] = useState(false);
@@ -234,6 +254,7 @@ export default function NetWorthPage() {
 
   const loadAll = async () => {
     setLoading(true);
+    getCurrencyRates("USD").then(setUsdRates).catch(() => null);
     try {
       const [s, a, l, r, sugg, eventRows, itemRows] = await Promise.all([
         getNetWorthSummary(displayCurrency),
@@ -597,8 +618,19 @@ export default function NetWorthPage() {
                         </div>
                         <div className="flex items-center gap-3">
                           <div className="text-right">
-                            <p className="text-emerald-400 text-sm font-semibold tabular-nums">{fmtItem(a.current_value, a.currency)}</p>
-                            {a.currency !== "TRY" && <p className="text-gray-600 text-xs">{a.currency}</p>}
+                            {(() => {
+                              const raw = parseFloat(a.current_value);
+                              const converted = convertAmount(raw, a.currency, displayCurrency, usdRates);
+                              const showConverted = converted !== null && a.currency.toUpperCase() !== displayCurrency.toUpperCase();
+                              return (
+                                <>
+                                  <p className="text-emerald-400 text-sm font-semibold tabular-nums">
+                                    {showConverted ? fmt(converted!, displayCurrency) : fmtItem(a.current_value, a.currency)}
+                                  </p>
+                                  <p className="text-gray-600 text-xs">{a.currency}</p>
+                                </>
+                              );
+                            })()}
                           </div>
                           <button onClick={() => handleDeleteAsset(a.id)} className="text-gray-700 hover:text-red-400 transition-colors text-xs px-2">×</button>
                         </div>
