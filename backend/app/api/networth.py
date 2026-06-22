@@ -20,6 +20,7 @@ from app.models.liability import Liability, LIABILITY_TYPES
 from app.models.networth_suggestion import NetworthSuggestion
 from app.models.progress_insight import ProgressInsight
 from app.models.receivable import Receivable, RECEIVABLE_STATUSES
+from app.models.transaction import Transaction
 from app.models.user import User
 from app.services.currency import convert
 from app.services.llm_provider import get_provider
@@ -1325,6 +1326,7 @@ class SnapshotResponse(BaseModel):
     assets_usd: str
     liabilities_usd: str
     recorded_at: str
+    estimated: bool = False
 
 
 @router.post("/snapshot", response_model=SnapshotResponse, status_code=status.HTTP_201_CREATED)
@@ -1392,16 +1394,78 @@ async def get_history(
         )
         .order_by(NetworthSnapshot.recorded_at.asc())
     )
-    return [
-        SnapshotResponse(
-            id=str(s.id),
-            net_worth_usd=str(s.net_worth_usd),
-            assets_usd=str(s.assets_usd),
-            liabilities_usd=str(s.liabilities_usd),
-            recorded_at=s.recorded_at.isoformat(),
-        )
-        for s in result.scalars().all()
-    ]
+    snaps = list(result.scalars().all())
+
+    if len(snaps) >= 2:
+        return [
+            SnapshotResponse(
+                id=str(s.id),
+                net_worth_usd=str(s.net_worth_usd),
+                assets_usd=str(s.assets_usd),
+                liabilities_usd=str(s.liabilities_usd),
+                recorded_at=s.recorded_at.isoformat(),
+            )
+            for s in snaps
+        ]
+
+    # Too few real snapshots to draw a line — reconstruct an estimated USD
+    # trajectory from monthly cash flow, anchored to the true current net worth.
+    return await _reconstruct_history_usd(current_user.id, session)
+
+
+async def _reconstruct_history_usd(user_id: uuid.UUID, session: AsyncSession) -> list[SnapshotResponse]:
+    import calendar as _cal
+    from app.services.transaction_service import dedup_transactions_orm
+
+    assets = list((await session.execute(select(Asset).where(Asset.user_id == user_id))).scalars().all())
+    liabilities = list((await session.execute(select(Liability).where(Liability.user_id == user_id))).scalars().all())
+    assets_usd = 0.0
+    for a in assets:
+        assets_usd += await convert(float(a.current_value), a.currency, "USD")
+    liab_usd = 0.0
+    for li in liabilities:
+        liab_usd += await convert(float(li.remaining_amount), li.currency, "USD")
+    nw_usd = assets_usd - liab_usd
+
+    tx_rows = list((await session.execute(select(Transaction).where(Transaction.user_id == user_id))).scalars().all())
+    txns = dedup_transactions_orm(tx_rows)
+    by_month: dict[str, float] = {}
+    for t in txns:
+        mk = f"{t.transaction_date.year:04d}-{t.transaction_date.month:02d}"
+        flow = float(t.amount) if t.transaction_type == "credit" else -float(t.amount)
+        by_month[mk] = by_month.get(mk, 0.0) + flow
+
+    months = sorted(by_month.keys())
+    if len(months) < 2:
+        return []
+    months = months[-12:]
+
+    today = date.today()
+    this_key = f"{today.year:04d}-{today.month:02d}"
+    # net flows TRY-assumed → USD
+    flows_usd: dict[str, float] = {}
+    for mk in months:
+        flows_usd[mk] = await convert(by_month[mk], "TRY", "USD")
+
+    running = nw_usd
+    pts: list[SnapshotResponse] = []
+    for mk in reversed(months):
+        if mk == this_key:
+            d = today
+        else:
+            y, m = int(mk[:4]), int(mk[5:7])
+            d = date(y, m, _cal.monthrange(y, m)[1])
+        pts.append(SnapshotResponse(
+            id=f"est-{mk}",
+            net_worth_usd=str(round(running, 2)),
+            assets_usd=str(round(max(running, 0.0), 2)),
+            liabilities_usd="0",
+            recorded_at=datetime(d.year, d.month, d.day, tzinfo=timezone.utc).isoformat(),
+            estimated=True,
+        ))
+        running -= flows_usd.get(mk, 0.0)
+    pts.reverse()
+    return pts
 
 
 # ---------- Summary ----------

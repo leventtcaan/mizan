@@ -1263,6 +1263,7 @@ export interface NetworthSnapshot {
   assets_usd: string;
   liabilities_usd: string;
   recorded_at: string;
+  estimated?: boolean;
 }
 
 export async function createNetWorthSnapshot(): Promise<NetworthSnapshot> {

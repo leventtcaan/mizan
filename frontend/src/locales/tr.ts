@@ -304,6 +304,14 @@ export const tr = {
     alertThreshold: "Fiyat şu değerin altına düşünce uyar (USD)",
     alertMessage: "Uyarı mesajı",
     alertSave: "Uyarıyı Kaydet",
+    alertCurrentPrice: "Güncel fiyat",
+    alertNotifyIf: "Şu kadar düşerse haber ver",
+    alertTriggersAt: "Tetiklenir:",
+    allocation: {
+      title: "Varlık dağılımı",
+      total: "Toplam",
+      currencyExposure: "Döviz dağılımı",
+    },
     alertDeleted: "Uyarı silindi",
     alertTriggered: "Uyarı tetiklendi",
     guidance: {
@@ -329,6 +337,8 @@ export const tr = {
       noAutoPriceable: "Otomatik fiyatlanabilir varlık yok.",
       refreshFailed: "Fiyat güncellemesi başarısız.",
       alertCreated: "Uyarı oluşturuldu.",
+      alertAdded: "Uyarı eklendi",
+      alertNeedsPrice: "Önce fiyatları güncelle ki uyarının izleyeceği canlı bir fiyat olsun.",
       alertSaveError: "Uyarı kaydedilemedi — eşiği kontrol et.",
       receivableReceived: "Alacak alındı olarak işaretlendi.",
       receivableWrittenOff: "Alacak silindi.",

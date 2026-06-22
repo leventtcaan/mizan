@@ -6,6 +6,7 @@ import PageLayout from "@/components/ui/PageLayout";
 import AddAssetModal from "@/components/AddAssetModal";
 import AddLiabilityModal from "@/components/AddLiabilityModal";
 import GuidancePanel from "@/components/GuidancePanel";
+import AllocationChart from "@/components/AllocationChart";
 import AddReceivableModal from "@/components/AddReceivableModal";
 import CurrencySelect from "@/components/CurrencySelect";
 import {
@@ -56,10 +57,13 @@ import {
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip,
 } from "recharts";
-import { Plus, TrendingUp, TrendingDown, DollarSign, Home, Wallet, Briefcase, Scale, Brain, Zap, RefreshCw, Pencil, MessageCircle } from "@/components/ui/Icons";
+import { Plus, TrendingUp, TrendingDown, DollarSign, Home, Wallet, Briefcase, Scale, Brain, Zap, RefreshCw, Pencil, MessageCircle, Bell } from "@/components/ui/Icons";
 import { useLanguage } from "@/lib/i18n";
 
 const AUTO_PRICE_TYPES = new Set(["crypto", "gold", "foreign_currency", "commodity", "stock", "fund"]);
+// Price-drop alerts only make sense for genuinely priced assets — a fiat holding's
+// "price" is just an exchange rate, so it's excluded from the alert bell.
+const PRICED_ALERT_TYPES = new Set(["crypto", "stock", "fund", "gold", "commodity"]);
 
 function fmt(value: number, currency = "TRY"): string {
   try {
@@ -204,6 +208,8 @@ export default function NetWorthPage() {
   const [displayCurrency, setDisplayCurrency] = useState("TRY");
   const [guidance, setGuidance] = useState<GuidanceFinding[]>([]);
   const [guidanceLoading, setGuidanceLoading] = useState(true);
+  const [alertPct, setAlertPct] = useState(15);
+  const alertsSectionRef = useRef<HTMLElement | null>(null);
   const [attribution, setAttribution] = useState<NetWorthAttribution | null>(null);
   const [accountsMap, setAccountsMap] = useState<Record<string, string>>({});
 
@@ -395,12 +401,22 @@ export default function NetWorthPage() {
     return () => window.removeEventListener("mizan-data-changed", handler);
   }, []);
 
+  const reloadGuidance = useCallback(() => {
+    setGuidanceLoading(true);
+    getNetWorthGuidance(displayCurrency, lang)
+      .then((g) => setGuidance(g.findings))
+      .catch(() => setGuidance([]))
+      .finally(() => setGuidanceLoading(false));
+  }, [displayCurrency, lang]);
+
   const reloadSummary = useCallback(async () => {
     setSummaryLoading(true);
     getNetWorthAttribution(displayCurrency).then(setAttribution).catch(() => null);
+    // Guidance reacts to the new asset/liability picture — refetch it too.
+    reloadGuidance();
     try { setSummary(await getNetWorthSummary(displayCurrency)); }
     finally { setSummaryLoading(false); }
-  }, [displayCurrency]);
+  }, [displayCurrency, reloadGuidance]);
 
   const reloadReconciliation = useCallback(async () => {
     const [eventRows, itemRows] = await Promise.all([
@@ -542,25 +558,43 @@ export default function NetWorthPage() {
 
   const handleSaveAlert = async () => {
     if (!alertModalAsset || !alertThreshold || !alertMessage) return;
+    const lastPrice = assetLastPriceUsd(alertModalAsset);
+    if (!lastPrice || lastPrice <= 0) {
+      setToast(t("nw.toast.alertNeedsPrice"));
+      return;
+    }
+    const threshold = lastPrice * (1 - alertPct / 100);
     setAlertSaving(true);
     try {
       const newAlert = await createWealthAlert({
         alert_type: "asset_price_drop",
         asset_id: alertModalAsset.id,
-        threshold_usd: parseFloat(alertThreshold),
-        message: alertMessage,
+        threshold_usd: threshold,
+        message: alertMessage.trim() || `${alertModalAsset.name} −${alertPct}%`,
       });
       setWealthAlerts((prev) => [newAlert, ...prev]);
       setAlertModalAsset(null);
-      setAlertThreshold("");
       setAlertMessage("");
-      setToast(t("nw.toast.alertCreated"));
+      setToast(`${t("nw.toast.alertAdded")} ↓`);
+      // Scroll to the alerts section so the user sees where it landed.
+      setTimeout(() => alertsSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "center" }), 120);
     } catch {
       setToast(t("nw.toast.alertSaveError"));
     } finally {
       setAlertSaving(false);
     }
   };
+
+  // Per-unit USD price stored by the last price refresh (used for % drop alerts).
+  function assetLastPriceUsd(a: AssetItem): number | null {
+    try {
+      const d = a.source_detail ? JSON.parse(a.source_detail) as Record<string, unknown> : {};
+      const p = Number(d.last_price_usd);
+      return p > 0 ? p : null;
+    } catch {
+      return null;
+    }
+  }
 
   const handleDeleteAlert = async (id: string) => {
     await deleteWealthAlert(id).catch(() => null);
@@ -680,6 +714,25 @@ export default function NetWorthPage() {
     return { value: diff, pct, positive: diff >= 0 };
   })();
 
+  // Allocation donut: wealth by high-level group, converted to display currency.
+  const allocationSlices = ASSET_TYPE_GROUPS
+    .map((g) => ({
+      key: g.label,
+      label: g.label,
+      value: assets
+        .filter((a) => g.types.includes(a.asset_type))
+        .reduce((sum, a) => sum + (convertAmount(parseFloat(a.current_value), a.currency, displayCurrency, usdRates) ?? 0), 0),
+    }))
+    .filter((s) => s.value > 0)
+    .sort((a, b) => b.value - a.value);
+
+  const currencyBars = summary
+    ? Object.entries(summary.currency_breakdown)
+        .map(([code, value]) => ({ code, value: Math.abs(value) }))
+        .filter((c) => c.value > 0)
+        .sort((a, b) => b.value - a.value)
+    : [];
+
   return (
     <PageLayout
       title={t("nw.title")}
@@ -711,36 +764,57 @@ export default function NetWorthPage() {
     >
       {toast && <Toast message={toast} onDismiss={() => setToast(null)} />}
 
-      {/* Alert modal */}
-      {alertModalAsset && (
+      {/* Alert modal — % drop from the live per-unit price */}
+      {alertModalAsset && (() => {
+        const lastPrice = assetLastPriceUsd(alertModalAsset);
+        const target = lastPrice ? lastPrice * (1 - alertPct / 100) : null;
+        return (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm" onClick={() => setAlertModalAsset(null)}>
           <div className="bg-[#1A1A1A] border border-[#2A2A2A] rounded-2xl p-6 w-full max-w-sm mx-4 space-y-4" onClick={(e) => e.stopPropagation()}>
-            <h3 className="text-white font-semibold">{t("nw.addAlert")} — {alertModalAsset.name}</h3>
-            <div>
-              <label className="block text-xs text-gray-400 mb-1.5">{t("nw.alertThreshold")}</label>
-              <input
-                type="number" min="0" step="any" value={alertThreshold}
-                onChange={(e) => setAlertThreshold(e.target.value)}
-                placeholder="e.g. 50000"
-                className="w-full bg-[#0F0F0F] border border-[#2A2A2A] text-white text-sm rounded-lg px-3 py-2.5 focus:outline-none focus:border-indigo-600"
-              />
+            <div className="flex items-center gap-2">
+              <Bell size={16} className="text-amber-400" />
+              <h3 className="text-white font-semibold">{t("nw.addAlert")}</h3>
             </div>
-            <div>
-              <label className="block text-xs text-gray-400 mb-1.5">{t("nw.alertMessage")}</label>
-              <input
-                type="text" value={alertMessage}
-                onChange={(e) => setAlertMessage(e.target.value)}
-                placeholder={`${alertModalAsset.name} dropped below threshold`}
-                className="w-full bg-[#0F0F0F] border border-[#2A2A2A] text-white text-sm rounded-lg px-3 py-2.5 focus:outline-none focus:border-indigo-600"
-              />
-            </div>
-            <div className="flex gap-2">
+            <p className="text-sm text-gray-400">{alertModalAsset.name}</p>
+
+            {!lastPrice ? (
+              <div className="bg-amber-950/30 border border-amber-900/40 rounded-lg px-3 py-2.5 text-amber-300 text-xs">
+                {t("nw.toast.alertNeedsPrice")}
+              </div>
+            ) : (
+              <>
+                <div className="flex items-center justify-between text-xs bg-[#0F0F0F] border border-[#2A2A2A] rounded-lg px-3 py-2.5">
+                  <span className="text-gray-500">{t("nw.alertCurrentPrice")}</span>
+                  <span className="text-gray-200 font-medium tabular-nums">${lastPrice.toLocaleString(undefined, { maximumFractionDigits: 2 })}</span>
+                </div>
+                <div>
+                  <label className="block text-xs text-gray-400 mb-2">{t("nw.alertNotifyIf")}</label>
+                  <div className="grid grid-cols-4 gap-2">
+                    {[10, 15, 20, 25].map((p) => (
+                      <button key={p} onClick={() => setAlertPct(p)}
+                        className={`py-2 rounded-lg text-sm font-medium border transition-colors ${
+                          alertPct === p ? "bg-amber-600/20 border-amber-600/60 text-amber-300" : "bg-[#0F0F0F] border-[#2A2A2A] text-gray-400 hover:border-amber-700/50"
+                        }`}>
+                        −{p}%
+                      </button>
+                    ))}
+                  </div>
+                  {target !== null && (
+                    <p className="text-xs text-gray-500 mt-2">
+                      {t("nw.alertTriggersAt")} <span className="text-gray-300 font-medium tabular-nums">${target.toLocaleString(undefined, { maximumFractionDigits: 2 })}</span>
+                    </p>
+                  )}
+                </div>
+              </>
+            )}
+
+            <div className="flex gap-2 pt-1">
               <button
                 onClick={handleSaveAlert}
-                disabled={alertSaving || !alertThreshold || !alertMessage}
-                className="flex-1 bg-indigo-600 text-white rounded-lg py-2.5 text-sm font-medium hover:bg-indigo-500 transition-colors disabled:opacity-40"
+                disabled={alertSaving || !lastPrice}
+                className="flex-1 bg-amber-600 text-white rounded-lg py-2.5 text-sm font-medium hover:bg-amber-500 transition-colors disabled:opacity-40"
               >
-                {alertSaving ? "Saving…" : t("nw.alertSave")}
+                {alertSaving ? "…" : t("nw.alertSave")}
               </button>
               <button onClick={() => setAlertModalAsset(null)} className="px-4 py-2.5 rounded-lg bg-[#2A2A2A] text-gray-400 hover:text-gray-200 text-sm transition-colors">
                 {t("common.cancel")}
@@ -748,7 +822,8 @@ export default function NetWorthPage() {
             </div>
           </div>
         </div>
-      )}
+        );
+      })()}
 
       {/* Hero */}
       <div className="bg-[#1A1A1A] border border-[#2A2A2A] rounded-2xl p-8 mb-6 text-center">
@@ -868,7 +943,14 @@ export default function NetWorthPage() {
       {/* Net worth history chart */}
       {!loading && (
         <div className="bg-[#1A1A1A] border border-[#2A2A2A] rounded-2xl p-5 mb-6">
-          <h3 className="text-xs text-gray-400 font-medium mb-3">{t("nw.historyTitle")}</h3>
+          <div className="flex items-center gap-2 mb-3">
+            <h3 className="text-xs text-gray-400 font-medium">{t("nw.historyTitle")}</h3>
+            {snapshots.some((s) => s.estimated) && historyChartData.length >= 2 && (
+              <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-950/40 border border-amber-900/40 text-amber-400/90">
+                {t("scorecard.trajectory.estimated")}
+              </span>
+            )}
+          </div>
           {historyChartData.length < 2 ? (
             <p className="text-gray-600 text-xs">{t("nw.historyNoData")}</p>
           ) : (
@@ -892,32 +974,15 @@ export default function NetWorthPage() {
         </div>
       )}
 
-      {/* FX exposure — wealth by currency */}
-      {summary && Object.keys(summary.currency_breakdown).length > 1 && (() => {
-        const entries = Object.entries(summary.currency_breakdown).sort(([, a], [, b]) => b - a);
-        const total = entries.reduce((s, [, v]) => s + Math.abs(v), 0) || 1;
-        const PALETTE = ["#6366F1", "#10B981", "#F59E0B", "#EC4899", "#06B6D4", "#A78BFA", "#F87171", "#94A3B8"];
-        return (
-          <section className="mb-8 bg-[#1A1A1A] border border-[#2A2A2A] rounded-2xl p-5">
-            <p className="text-xs text-gray-500 uppercase tracking-wide font-semibold mb-4">{t("nw.fxExposure")}</p>
-            <div className="flex h-2.5 rounded-full overflow-hidden mb-4">
-              {entries.map(([cur, v], i) => (
-                <div key={cur} title={`${cur} ${((Math.abs(v) / total) * 100).toFixed(0)}%`}
-                  style={{ width: `${(Math.abs(v) / total) * 100}%`, backgroundColor: PALETTE[i % PALETTE.length] }} />
-              ))}
-            </div>
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-              {entries.map(([cur, v], i) => (
-                <div key={cur} className="flex items-center gap-2 text-xs">
-                  <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: PALETTE[i % PALETTE.length] }} />
-                  <span className="text-gray-300 font-medium">{cur}</span>
-                  <span className="text-gray-600 tabular-nums">{((Math.abs(v) / total) * 100).toFixed(0)}%</span>
-                </div>
-              ))}
-            </div>
-          </section>
-        );
-      })()}
+      {/* Asset allocation — interactive donut + per-currency exposure */}
+      {!loading && (
+        <AllocationChart
+          slices={allocationSlices}
+          currencyBars={currencyBars}
+          displayCurrency={displayCurrency}
+          t={t}
+        />
+      )}
 
       {/* Assets */}
       <section className="mb-8">
@@ -1005,13 +1070,13 @@ export default function NetWorthPage() {
                               );
                             })()}
                           </div>
-                          {AUTO_PRICE_TYPES.has(a.asset_type) && (
+                          {PRICED_ALERT_TYPES.has(a.asset_type) && (
                             <button
-                              onClick={() => { setAlertModalAsset(a); setAlertThreshold(""); setAlertMessage(`${a.name} price alert`); }}
+                              onClick={() => { setAlertModalAsset(a); setAlertPct(15); setAlertMessage(""); }}
                               title={t("nw.addAlert")}
-                              className="text-gray-700 hover:text-amber-400 transition-colors text-xs px-1"
+                              className="text-gray-700 hover:text-amber-400 transition-colors px-1"
                             >
-                              🔔
+                              <Bell size={13} />
                             </button>
                           )}
                           <button onClick={() => setEditingAsset(a)} title={t("common.edit")} className="text-gray-700 hover:text-indigo-400 transition-colors px-1">
@@ -1353,25 +1418,29 @@ export default function NetWorthPage() {
         </section>
       )}
 
-      {/* Wealth alerts list */}
+      {/* Wealth alerts list — dedicated, visually distinct section */}
       {!loading && wealthAlerts.length > 0 && (
-        <section className="mb-8">
+        <section ref={alertsSectionRef} className="mb-8 bg-amber-950/10 border border-amber-900/30 rounded-2xl p-5">
           <div className="flex items-center gap-2 mb-3">
-            <span className="text-amber-400 text-base">🔔</span>
-            <h2 className="text-white font-semibold text-sm">{t("nw.wealthAlerts")}</h2>
-            <span className="px-2 py-0.5 rounded-full bg-amber-950/40 border border-amber-800/30 text-amber-400 text-xs">{wealthAlerts.length}</span>
+            <div className="w-7 h-7 rounded-lg bg-amber-950/50 border border-amber-900/50 flex items-center justify-center">
+              <Bell size={14} className="text-amber-400" />
+            </div>
+            <h2 className="text-white font-semibold text-sm flex-1">{t("nw.wealthAlerts")}</h2>
+            <span className="px-2 py-0.5 rounded-full bg-amber-950/40 border border-amber-800/30 text-amber-400 text-xs font-medium">{wealthAlerts.length}</span>
           </div>
           <div className="space-y-2">
             {wealthAlerts.map((a) => (
               <div key={a.id} className="bg-[#1A1A1A] border border-[#2A2A2A] rounded-xl px-4 py-3 flex items-center justify-between gap-3">
-                <div className="min-w-0">
-                  <p className="text-gray-200 text-sm truncate">{a.message_template}</p>
-                  <p className="text-gray-600 text-xs mt-0.5">
-                    {t(`nw.alertTypes.${a.alert_type}` as Parameters<typeof t>[0]) || a.alert_type}
-                    {a.threshold_usd !== null && ` · $${a.threshold_usd.toLocaleString()}`}
-                  </p>
+                <div className="min-w-0 flex items-center gap-2.5">
+                  <span className="w-1.5 h-1.5 rounded-full bg-amber-500 shrink-0" />
+                  <div className="min-w-0">
+                    <p className="text-gray-200 text-sm truncate">{a.message_template}</p>
+                    <p className="text-gray-600 text-xs mt-0.5">
+                      {a.threshold_usd !== null && `${t("nw.alertTriggersAt")} $${a.threshold_usd.toLocaleString(undefined, { maximumFractionDigits: 2 })}`}
+                    </p>
+                  </div>
                 </div>
-                <button onClick={() => handleDeleteAlert(a.id)} className="text-gray-700 hover:text-red-400 transition-colors text-xs px-1 shrink-0">×</button>
+                <button onClick={() => handleDeleteAlert(a.id)} title={t("common.delete")} className="text-gray-700 hover:text-red-400 transition-colors text-xs px-1 shrink-0">×</button>
               </div>
             ))}
           </div>

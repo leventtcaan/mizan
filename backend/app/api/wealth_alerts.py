@@ -177,6 +177,12 @@ async def check_alerts(
             asset = asset_result.scalar_one_or_none()
             if not asset or not asset.source_detail:
                 continue
+            # Skip nonsensical comparisons. A fiat holding priced in USD is just an
+            # exchange rate (and USD itself is always 1.00) — fiat-vs-fiat is not a
+            # real price-drop signal. Price alerts only make sense for genuinely
+            # priced assets (crypto / stock / fund / gold / commodity).
+            if asset.asset_type == "foreign_currency":
+                continue
             try:
                 detail = json.loads(asset.source_detail)
                 last_price_usd = float(detail.get("last_price_usd", 0))

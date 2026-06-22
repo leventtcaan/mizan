@@ -304,6 +304,14 @@ export const en = {
     alertThreshold: "Alert me when price drops below (USD)",
     alertMessage: "Alert message",
     alertSave: "Save Alert",
+    alertCurrentPrice: "Current price",
+    alertNotifyIf: "Notify me if it drops by",
+    alertTriggersAt: "Triggers at",
+    allocation: {
+      title: "Asset allocation",
+      total: "Total",
+      currencyExposure: "Currency exposure",
+    },
     alertDeleted: "Alert deleted",
     alertTriggered: "Alert triggered",
     guidance: {
@@ -329,6 +337,8 @@ export const en = {
       noAutoPriceable: "No auto-priceable assets found.",
       refreshFailed: "Price refresh failed.",
       alertCreated: "Alert created.",
+      alertAdded: "Alert added",
+      alertNeedsPrice: "Refresh prices first so the alert has a live price to watch.",
       alertSaveError: "Could not save alert — check threshold.",
       receivableReceived: "Receivable marked received.",
       receivableWrittenOff: "Receivable written off.",
