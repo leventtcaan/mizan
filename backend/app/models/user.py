@@ -79,6 +79,13 @@ class User(Base):
         server_default=text("false"),
     )
 
+    language: Mapped[str] = mapped_column(
+        String(5),
+        nullable=False,
+        default="tr",
+        server_default=text("'tr'"),
+    )
+
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         nullable=False,

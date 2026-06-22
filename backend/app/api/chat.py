@@ -117,7 +117,7 @@ async def chat(
     # ── 4. Build system prompt with all context ───────────────────────────────
     profile_ctx = build_profile_context(profile)
     spending_ctx = build_spending_summary(transactions)
-    system_prompt = build_system_prompt(profile_ctx, spending_ctx)
+    system_prompt = build_system_prompt(profile_ctx, spending_ctx, language=current_user.language)
 
     # ── 5. Assemble messages for LLM ─────────────────────────────────────────
     messages = [{"role": "system", "content": system_prompt}]

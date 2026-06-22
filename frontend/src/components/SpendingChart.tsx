@@ -10,7 +10,8 @@ import {
   Cell,
 } from "recharts";
 import type { Transaction } from "@/lib/api";
-import { CATEGORY_LABELS, CATEGORY_COLORS, DEFAULT_CATEGORY_COLOR } from "@/lib/categories";
+import { CATEGORY_COLORS, DEFAULT_CATEGORY_COLOR } from "@/lib/categories";
+import { useLanguage } from "@/lib/i18n";
 
 interface ChartDatum {
   slug: string;
@@ -24,29 +25,34 @@ interface Props {
 }
 
 export default function SpendingChart({ transactions }: Props) {
-  const totals: Record<string, number> = {};
+  const { t } = useLanguage();
 
-  for (const t of transactions) {
-    if (t.transaction_type !== "debit") continue;
-    const cat = t.category ?? "diger";
-    totals[cat] = (totals[cat] ?? 0) + parseFloat(t.amount);
+  const totals: Record<string, number> = {};
+  for (const tx of transactions) {
+    if (tx.transaction_type !== "debit") continue;
+    const cat = tx.category ?? "diger";
+    totals[cat] = (totals[cat] ?? 0) + parseFloat(tx.amount);
   }
 
   const data: ChartDatum[] = Object.entries(totals)
     .sort((a, b) => b[1] - a[1])
-    .map(([slug, amount]) => ({
-      slug,
-      label: CATEGORY_LABELS[slug] ?? slug,
-      amount: Math.round(amount),
-      color: CATEGORY_COLORS[slug] ?? DEFAULT_CATEGORY_COLOR,
-    }));
+    .map(([slug, amount]) => {
+      const key = `category.${slug}`;
+      const label = t(key) !== key ? t(key) : slug;
+      return {
+        slug,
+        label,
+        amount: Math.round(amount),
+        color: CATEGORY_COLORS[slug] ?? DEFAULT_CATEGORY_COLOR,
+      };
+    });
 
   if (data.length === 0) return null;
 
   return (
     <div className="mb-8 p-5 rounded-xl bg-[#1A1A1A] border border-[#2A2A2A]">
       <p className="text-xs text-gray-500 uppercase tracking-wide mb-4 font-semibold">
-        Kategoriye Göre Harcama (₺)
+        {t("tx.spending")}
       </p>
       <ResponsiveContainer width="100%" height={220}>
         <BarChart data={data} margin={{ top: 0, right: 8, left: 8, bottom: 40 }}>
@@ -63,15 +69,13 @@ export default function SpendingChart({ transactions }: Props) {
             tick={{ fill: "#6b7280", fontSize: 10 }}
             axisLine={false}
             tickLine={false}
-            tickFormatter={(v: number) =>
-              v >= 1000 ? `${(v / 1000).toFixed(0)}k` : String(v)
-            }
+            tickFormatter={(v: number) => v >= 1000 ? `${(v / 1000).toFixed(0)}k` : String(v)}
           />
           <Tooltip
             contentStyle={{ backgroundColor: "#1A1A1A", border: "1px solid #2A2A2A", borderRadius: 8 }}
             labelStyle={{ color: "#e5e7eb", fontSize: 12 }}
             itemStyle={{ color: "#d1d5db", fontSize: 12 }}
-            formatter={(value: number) => [`₺${value.toLocaleString("tr-TR")}`, "Harcama"]}
+            formatter={(value: number) => [value.toLocaleString(), t("progress.spending")]}
           />
           <Bar dataKey="amount" radius={[4, 4, 0, 0]}>
             {data.map((entry) => (

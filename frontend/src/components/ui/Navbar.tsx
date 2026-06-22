@@ -3,25 +3,11 @@
 import { useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import Link from "next/link";
-import { getToken, getStoredUser, clearToken, getNetWorthSuggestions } from "@/lib/api";
+import { getToken, getStoredUser, clearToken, getNetWorthSuggestions, updatePreferences } from "@/lib/api";
 import { BarChart2, Calendar, CreditCard, Layers, Upload, LogOut, Menu, X, Scale } from "@/components/ui/Icons";
+import { useLanguage, type Lang } from "@/lib/i18n";
 
 const HIDDEN_PATHS = ["/login", "/onboarding"];
-
-interface NavLink {
-  href: string;
-  label: string;
-  icon: React.ReactNode;
-}
-
-const NAV_LINKS: NavLink[] = [
-  { href: "/transactions", label: "İşlemler", icon: <PieChartMini /> },
-  { href: "/networth", label: "Net Değer", icon: <Scale size={16} /> },
-  { href: "/progress", label: "İlerleme", icon: <BarChart2 size={16} /> },
-  { href: "/cashflow", label: "Takvim", icon: <Calendar size={16} /> },
-  { href: "/subscriptions", label: "Abonelikler", icon: <CreditCard size={16} /> },
-  { href: "/installments", label: "Taksitler", icon: <Layers size={16} /> },
-];
 
 function PieChartMini() {
   return (
@@ -35,16 +21,24 @@ function PieChartMini() {
 export default function Navbar() {
   const pathname = usePathname();
   const router = useRouter();
+  const { lang, setLanguage, t } = useLanguage();
   const [userEmail, setUserEmail] = useState<string | null>(null);
   const [mobileOpen, setMobileOpen] = useState(false);
-  const [emailEnabled, setEmailEnabled] = useState<boolean | null>(null);
   const [suggestionCount, setSuggestionCount] = useState(0);
+
+  const NAV_LINKS = [
+    { href: "/transactions", label: t("nav.transactions"), icon: <PieChartMini /> },
+    { href: "/networth", label: t("nav.networth"), icon: <Scale size={16} /> },
+    { href: "/progress", label: t("nav.progress"), icon: <BarChart2 size={16} /> },
+    { href: "/cashflow", label: t("nav.calendar"), icon: <Calendar size={16} /> },
+    { href: "/subscriptions", label: t("nav.subscriptions"), icon: <CreditCard size={16} /> },
+    { href: "/installments", label: t("nav.installments"), icon: <Layers size={16} /> },
+  ];
 
   useEffect(() => {
     const user = getStoredUser();
     if (user && getToken()) {
       setUserEmail(user.email);
-      // Fetch pending suggestions count (silent on error)
       getNetWorthSuggestions()
         .then((suggs) => setSuggestionCount(suggs.filter((s) => s.status === "pending").length))
         .catch(() => setSuggestionCount(0));
@@ -65,6 +59,11 @@ export default function Navbar() {
     clearToken();
     setUserEmail(null);
     router.push("/login");
+  };
+
+  const handleLangSwitch = (newLang: Lang) => {
+    setLanguage(newLang);
+    updatePreferences({ language: newLang }).catch(() => null);
   };
 
   return (
@@ -105,17 +104,33 @@ export default function Navbar() {
 
           {/* Right side */}
           <div className="hidden md:flex items-center gap-2 shrink-0">
+            {/* Language toggle */}
+            <div className="flex rounded-lg overflow-hidden border border-[#2A2A2A] text-xs font-medium">
+              <button
+                onClick={() => handleLangSwitch("tr")}
+                className={`px-2 py-1 transition-colors ${lang === "tr" ? "bg-indigo-600 text-white" : "text-gray-400 hover:text-gray-200"}`}
+              >
+                TR
+              </button>
+              <button
+                onClick={() => handleLangSwitch("en")}
+                className={`px-2 py-1 transition-colors ${lang === "en" ? "bg-indigo-600 text-white" : "text-gray-400 hover:text-gray-200"}`}
+              >
+                EN
+              </button>
+            </div>
+
             <span className="text-gray-500 text-xs truncate max-w-[140px]">{userEmail}</span>
             <Link
               href="/upload"
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-sm font-medium text-white transition-colors"
             >
               <Upload size={14} />
-              Yükle
+              {t("nav.upload")}
             </Link>
             <button
               onClick={handleLogout}
-              title="Çıkış"
+              title={t("nav.logout")}
               className="p-1.5 rounded-lg text-gray-500 hover:text-gray-300 hover:bg-[#2A2A2A] transition-colors"
             >
               <LogOut size={16} />
@@ -159,20 +174,35 @@ export default function Navbar() {
             })}
             <div className="pt-3 border-t border-[#2A2A2A] flex items-center justify-between">
               <span className="text-gray-500 text-xs">{userEmail}</span>
-              <div className="flex gap-2">
+              <div className="flex gap-2 items-center">
+                {/* Language toggle (mobile) */}
+                <div className="flex rounded-lg overflow-hidden border border-[#2A2A2A] text-xs font-medium">
+                  <button
+                    onClick={() => handleLangSwitch("tr")}
+                    className={`px-2 py-1 ${lang === "tr" ? "bg-indigo-600 text-white" : "text-gray-400"}`}
+                  >
+                    TR
+                  </button>
+                  <button
+                    onClick={() => handleLangSwitch("en")}
+                    className={`px-2 py-1 ${lang === "en" ? "bg-indigo-600 text-white" : "text-gray-400"}`}
+                  >
+                    EN
+                  </button>
+                </div>
                 <Link
                   href="/upload"
                   className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-indigo-600 text-sm font-medium text-white"
                 >
                   <Upload size={14} />
-                  Yükle
+                  {t("nav.upload")}
                 </Link>
                 <button
                   onClick={handleLogout}
                   className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-[#2A2A2A] text-sm text-gray-300"
                 >
                   <LogOut size={14} />
-                  Çıkış
+                  {t("nav.logout")}
                 </button>
               </div>
             </div>

@@ -32,7 +32,8 @@
       "Bash(git add *)",
       "Bash(git commit *)",
       "Bash(python3 -m py_compile /Users/leventcanceylan/Projects/mizan/backend/app/api/cashflow.py /Users/leventcanceylan/Projects/mizan/backend/app/main.py)",
-      "Bash(python3 -m py_compile backend/app/services/asset_prices.py backend/app/api/networth.py)"
+      "Bash(python3 -m py_compile backend/app/services/asset_prices.py backend/app/api/networth.py)",
+      "Bash(python3 -m py_compile backend/app/services/behavioral_coach.py backend/app/api/chat.py backend/app/api/insights.py backend/app/api/auth.py backend/app/models/user.py backend/alembic/versions/0023_add_language_to_users.py)"
     ]
   }
 }

@@ -38,6 +38,20 @@ class TokenResponse(BaseModel):
     user_id: str
     email: str
     onboarding_completed: bool = False
+    language: str = "tr"
+
+
+class UserResponse(BaseModel):
+    user_id: str
+    email: str
+    onboarding_completed: bool
+    language: str
+    email_weekly_enabled: bool
+
+
+class PreferencesRequest(BaseModel):
+    language: str | None = None
+    email_weekly_enabled: bool | None = None
 
 
 @router.post("/register", response_model=TokenResponse, status_code=status.HTTP_201_CREATED)
@@ -113,6 +127,45 @@ async def login(
         user_id=str(user.id),
         email=user.email,
         onboarding_completed=user.onboarding_completed,
+        language=user.language,
+    )
+
+
+@router.get("/me", response_model=UserResponse)
+async def get_me(
+    current_user: User = Depends(get_current_user),
+) -> UserResponse:
+    return UserResponse(
+        user_id=str(current_user.id),
+        email=current_user.email,
+        onboarding_completed=current_user.onboarding_completed,
+        language=current_user.language,
+        email_weekly_enabled=current_user.email_weekly_enabled,
+    )
+
+
+@router.post("/preferences", response_model=UserResponse)
+async def update_preferences(
+    body: PreferencesRequest,
+    current_user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
+) -> UserResponse:
+    if body.language is not None:
+        if body.language not in ("tr", "en"):
+            from fastapi import HTTPException
+            raise HTTPException(status_code=422, detail="language must be 'tr' or 'en'")
+        current_user.language = body.language
+    if body.email_weekly_enabled is not None:
+        current_user.email_weekly_enabled = body.email_weekly_enabled
+    session.add(current_user)
+    await session.commit()
+    logger.info("Preferences updated — user=%s language=%s", current_user.id, current_user.language)
+    return UserResponse(
+        user_id=str(current_user.id),
+        email=current_user.email,
+        onboarding_completed=current_user.onboarding_completed,
+        language=current_user.language,
+        email_weekly_enabled=current_user.email_weekly_enabled,
     )
 
 

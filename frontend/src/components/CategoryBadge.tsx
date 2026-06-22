@@ -1,4 +1,6 @@
-import { CATEGORY_LABELS } from "@/lib/categories";
+"use client";
+
+import { useLanguage } from "@/lib/i18n";
 
 interface CategoryBadgeProps {
   category: string | null;
@@ -24,8 +26,11 @@ const CATEGORY_STYLES: Record<string, { bg: string; text: string; dot: string }>
 const FALLBACK = { bg: "bg-[#2A2A2A]", text: "text-gray-500", dot: "bg-gray-600" };
 
 export default function CategoryBadge({ category }: CategoryBadgeProps) {
+  const { t } = useLanguage();
   const style = category ? (CATEGORY_STYLES[category] ?? FALLBACK) : FALLBACK;
-  const label = category ? (CATEGORY_LABELS[category] ?? category) : "—";
+  const localeKey = `category.${category}`;
+  const translated = category ? t(localeKey) : "—";
+  const label = translated === localeKey ? (category ?? "—") : translated;
 
   return (
     <span className={`inline-flex items-center gap-1.5 pl-1.5 pr-2.5 py-0.5 rounded-full text-xs font-medium whitespace-nowrap ${style.bg} ${style.text}`}>

@@ -4,28 +4,13 @@ import { useEffect, useMemo, useState } from "react";
 import { createAsset, AssetItem, getCurrencyList, type CurrencyEntry, type CurrencyList } from "@/lib/api";
 import { X } from "@/components/ui/Icons";
 import CurrencySelect from "@/components/CurrencySelect";
+import { useLanguage } from "@/lib/i18n";
 
-const ASSET_TYPES: { value: string; label: string }[] = [
-  { value: "cash", label: "Nakit" },
-  { value: "bank_account", label: "Banka Hesabı" },
-  { value: "stock", label: "Hisse Senedi" },
-  { value: "fund", label: "Yatırım Fonu" },
-  { value: "crypto", label: "Kripto Para" },
-  { value: "real_estate", label: "Gayrimenkul" },
-  { value: "vehicle", label: "Araç" },
-  { value: "bes", label: "BES / Emeklilik" },
-  { value: "gold", label: "Altın" },
-  { value: "foreign_currency", label: "Döviz" },
-  { value: "bond", label: "Tahvil / Bono" },
-  { value: "commodity", label: "Emtia" },
-  { value: "startup_equity", label: "Startup Hissesi" },
-  { value: "art_collectible", label: "Sanat / Koleksiyon" },
-  { value: "jewelry", label: "Mücevher" },
-  { value: "life_insurance", label: "Hayat Sigortası" },
-  { value: "pension", label: "Emeklilik Fonu" },
-  { value: "business_ownership", label: "İşletme Ortaklığı" },
-  { value: "other_asset", label: "Diğer" },
-];
+const ASSET_TYPE_KEYS = [
+  "cash", "bank_account", "stock", "fund", "crypto", "real_estate", "vehicle",
+  "bes", "gold", "foreign_currency", "bond", "commodity", "startup_equity",
+  "art_collectible", "jewelry", "life_insurance", "pension", "business_ownership", "other_asset",
+] as const;
 
 const GOLD_UNITS: { code: string; label: string }[] = [
   { code: "XAU_TROY_OZ", label: "Troy ounce" },
@@ -43,19 +28,19 @@ const GOLD_UNITS: { code: string; label: string }[] = [
 ];
 
 const MANUAL_DETAIL_CONFIG: Record<string, { primary: string; secondary?: string; tertiary?: string; required?: boolean }> = {
-  cash: { primary: "Saklama Yeri", secondary: "Kasa / cüzdan etiketi", required: true },
-  bank_account: { primary: "Kurum / Banka", secondary: "Hesap tipi", tertiary: "Son 4 hane / etiket", required: true },
-  real_estate: { primary: "Mülk Tipi", secondary: "Ülke / şehir", tertiary: "Adres / tapu notu", required: true },
-  vehicle: { primary: "Marka", secondary: "Model / yıl", tertiary: "Plaka / VIN / not", required: true },
-  bes: { primary: "Sağlayıcı", secondary: "Plan / sözleşme no", required: true },
-  bond: { primary: "İhraççı", secondary: "ISIN / kod", tertiary: "Vade tarihi", required: true },
-  startup_equity: { primary: "Şirket", secondary: "Sahiplik oranı", tertiary: "Tur / sözleşme notu", required: true },
-  art_collectible: { primary: "Eser / koleksiyon adı", secondary: "Sanatçı / üretici", tertiary: "Sertifika / provenans", required: true },
-  jewelry: { primary: "Parça tipi", secondary: "Metal / taş", tertiary: "Ayar / sertifika", required: true },
-  life_insurance: { primary: "Sigorta şirketi", secondary: "Poliçe no", tertiary: "Lehtar / not", required: true },
-  pension: { primary: "Sağlayıcı", secondary: "Plan / hesap no", required: true },
-  business_ownership: { primary: "İşletme adı", secondary: "Sahiplik oranı", tertiary: "Ülke / sektör", required: true },
-  other_asset: { primary: "Açıklama", secondary: "Referans / not", required: false },
+  cash: { primary: "Storage location", secondary: "Label", required: true },
+  bank_account: { primary: "Institution / Bank", secondary: "Account type", tertiary: "Last 4 digits / label", required: true },
+  real_estate: { primary: "Property type", secondary: "Country / city", tertiary: "Address / deed note", required: true },
+  vehicle: { primary: "Make", secondary: "Model / year", tertiary: "Plate / VIN / note", required: true },
+  bes: { primary: "Provider", secondary: "Plan / contract no.", required: true },
+  bond: { primary: "Issuer", secondary: "ISIN / code", tertiary: "Maturity date", required: true },
+  startup_equity: { primary: "Company", secondary: "Ownership %", tertiary: "Round / note", required: true },
+  art_collectible: { primary: "Item / collection name", secondary: "Artist / maker", tertiary: "Certificate / provenance", required: true },
+  jewelry: { primary: "Piece type", secondary: "Metal / stone", tertiary: "Purity / certificate", required: true },
+  life_insurance: { primary: "Insurance company", secondary: "Policy no.", tertiary: "Beneficiary / note", required: true },
+  pension: { primary: "Provider", secondary: "Plan / account no.", required: true },
+  business_ownership: { primary: "Business name", secondary: "Ownership %", tertiary: "Country / sector", required: true },
+  other_asset: { primary: "Description", secondary: "Reference / note", required: false },
 };
 
 function todayISO(): string {
@@ -71,9 +56,7 @@ function filterEntries(entries: CurrencyEntry[], query: string): CurrencyEntry[]
 }
 
 function stringifySourceDetail(detail: Record<string, string>): string {
-  const cleaned = Object.fromEntries(
-    Object.entries(detail).filter(([, value]) => value.trim().length > 0),
-  );
+  const cleaned = Object.fromEntries(Object.entries(detail).filter(([, v]) => v.trim().length > 0));
   return JSON.stringify(cleaned);
 }
 
@@ -83,6 +66,7 @@ interface Props {
 }
 
 export default function AddAssetModal({ onClose, onAdded }: Props) {
+  const { t } = useLanguage();
   const [name, setName] = useState("");
   const [assetType, setAssetType] = useState("bank_account");
   const [currency, setCurrency] = useState("TRY");
@@ -105,23 +89,12 @@ export default function AddAssetModal({ onClose, onAdded }: Props) {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    getCurrencyList()
-      .then(setCurrencyList)
-      .catch(() => setCurrencyList(null));
+    getCurrencyList().then(setCurrencyList).catch(() => setCurrencyList(null));
   }, []);
 
-  const cryptoMatches = useMemo(
-    () => filterEntries(currencyList?.crypto ?? [], subtypeQuery),
-    [currencyList, subtypeQuery],
-  );
-  const fiatMatches = useMemo(
-    () => filterEntries(currencyList?.fiat ?? [], subtypeQuery),
-    [currencyList, subtypeQuery],
-  );
-  const commodityMatches = useMemo(
-    () => filterEntries(currencyList?.commodities ?? [], subtypeQuery),
-    [currencyList, subtypeQuery],
-  );
+  const cryptoMatches = useMemo(() => filterEntries(currencyList?.crypto ?? [], subtypeQuery), [currencyList, subtypeQuery]);
+  const fiatMatches = useMemo(() => filterEntries(currencyList?.fiat ?? [], subtypeQuery), [currencyList, subtypeQuery]);
+  const commodityMatches = useMemo(() => filterEntries(currencyList?.commodities ?? [], subtypeQuery), [currencyList, subtypeQuery]);
 
   function resetSubtypeState(nextType: string) {
     setAssetType(nextType);
@@ -130,12 +103,8 @@ export default function AddAssetModal({ onClose, onAdded }: Props) {
     setSelectedFiat(null);
     setSelectedCommodity(null);
     setGoldUnit(GOLD_UNITS[0].code);
-    setMarketSymbol("");
-    setMarketName("");
-    setMarketVenue("");
-    setManualPrimary("");
-    setManualSecondary("");
-    setManualTertiary("");
+    setMarketSymbol(""); setMarketName(""); setMarketVenue("");
+    setManualPrimary(""); setManualSecondary(""); setManualTertiary("");
   }
 
   function setNameIfEmpty(nextName: string) {
@@ -143,60 +112,14 @@ export default function AddAssetModal({ onClose, onAdded }: Props) {
   }
 
   function buildSourceDetail(): string | undefined {
-    if (assetType === "crypto" && selectedCrypto) {
-      return stringifySourceDetail({
-        subtype: "crypto",
-        symbol: selectedCrypto.code,
-        name: selectedCrypto.name,
-      });
-    }
-    if (assetType === "foreign_currency" && selectedFiat) {
-      return stringifySourceDetail({
-        subtype: "foreign_currency",
-        code: selectedFiat.code,
-        name: selectedFiat.name,
-      });
-    }
-    if (assetType === "commodity" && selectedCommodity) {
-      return stringifySourceDetail({
-        subtype: "commodity",
-        code: selectedCommodity.code,
-        name: selectedCommodity.name,
-      });
-    }
-    if (assetType === "gold") {
-      const unit = GOLD_UNITS.find((item) => item.code === goldUnit);
-      return stringifySourceDetail({
-        subtype: "gold",
-        unit: goldUnit,
-        label: unit?.label ?? goldUnit,
-      });
-    }
-    if (assetType === "stock" && marketSymbol.trim()) {
-      return stringifySourceDetail({
-        subtype: "stock",
-        symbol: marketSymbol.trim().toUpperCase(),
-        name: marketName.trim(),
-        venue: marketVenue.trim(),
-      });
-    }
-    if (assetType === "fund" && marketSymbol.trim()) {
-      return stringifySourceDetail({
-        subtype: "fund",
-        code: marketSymbol.trim().toUpperCase(),
-        name: marketName.trim(),
-        venue: marketVenue.trim(),
-      });
-    }
+    if (assetType === "crypto" && selectedCrypto) return stringifySourceDetail({ subtype: "crypto", symbol: selectedCrypto.code, name: selectedCrypto.name });
+    if (assetType === "foreign_currency" && selectedFiat) return stringifySourceDetail({ subtype: "foreign_currency", code: selectedFiat.code, name: selectedFiat.name });
+    if (assetType === "commodity" && selectedCommodity) return stringifySourceDetail({ subtype: "commodity", code: selectedCommodity.code, name: selectedCommodity.name });
+    if (assetType === "gold") { const unit = GOLD_UNITS.find((item) => item.code === goldUnit); return stringifySourceDetail({ subtype: "gold", unit: goldUnit, label: unit?.label ?? goldUnit }); }
+    if (assetType === "stock" && marketSymbol.trim()) return stringifySourceDetail({ subtype: "stock", symbol: marketSymbol.trim().toUpperCase(), name: marketName.trim(), venue: marketVenue.trim() });
+    if (assetType === "fund" && marketSymbol.trim()) return stringifySourceDetail({ subtype: "fund", code: marketSymbol.trim().toUpperCase(), name: marketName.trim(), venue: marketVenue.trim() });
     const config = MANUAL_DETAIL_CONFIG[assetType];
-    if (config) {
-      return stringifySourceDetail({
-        subtype: assetType,
-        primary: manualPrimary.trim(),
-        secondary: manualSecondary.trim(),
-        tertiary: manualTertiary.trim(),
-      });
-    }
+    if (config) return stringifySourceDetail({ subtype: assetType, primary: manualPrimary.trim(), secondary: manualSecondary.trim(), tertiary: manualTertiary.trim() });
     return undefined;
   }
 
@@ -214,130 +137,69 @@ export default function AddAssetModal({ onClose, onAdded }: Props) {
     setError(null);
     setLoading(true);
     try {
-      const asset = await createAsset({
-        name,
-        asset_type: assetType,
-        currency,
-        current_value: value,
-        notes: notes || undefined,
-        source: "manual",
-        source_detail: buildSourceDetail(),
-        as_of_date: asOfDate || undefined,
-      });
+      const asset = await createAsset({ name, asset_type: assetType, currency, current_value: value, notes: notes || undefined, source: "manual", source_detail: buildSourceDetail(), as_of_date: asOfDate || undefined });
       onAdded(asset);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Bir hata oluştu");
+      setError(err instanceof Error ? err.message : t("common.error"));
     } finally {
       setLoading(false);
     }
   };
 
+  const inputClass = "w-full bg-[#0F0F0F] border border-[#2A2A2A] rounded-lg px-3 py-2 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-indigo-600";
+
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm"
-      onClick={onClose}
-    >
-      <div
-        className="bg-[#1A1A1A] border border-[#2A2A2A] rounded-2xl w-full max-w-md mx-4 p-6 max-h-[90vh] overflow-y-auto"
-        onClick={(e) => e.stopPropagation()}
-      >
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm" onClick={onClose}>
+      <div className="bg-[#1A1A1A] border border-[#2A2A2A] rounded-2xl w-full max-w-md mx-4 p-6 max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between mb-5">
-          <h2 className="text-white font-semibold text-lg">Varlık Ekle</h2>
-          <button onClick={onClose} className="text-gray-500 hover:text-gray-300 transition-colors">
-            <X size={20} />
-          </button>
+          <h2 className="text-white font-semibold text-lg">{t("nw.addAsset")}</h2>
+          <button onClick={onClose} className="text-gray-500 hover:text-gray-300 transition-colors"><X size={20} /></button>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-xs text-gray-400 mb-1">Ad</label>
-            <input
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="örn. Main checking account"
-              required
-              className="w-full bg-[#0F0F0F] border border-[#2A2A2A] rounded-lg px-3 py-2 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-indigo-600"
-            />
+            <label className="block text-xs text-gray-400 mb-1">{t("common.name")}</label>
+            <input value={name} onChange={(e) => setName(e.target.value)} required className={inputClass} />
           </div>
 
           <div>
-            <label className="block text-xs text-gray-400 mb-1">Tür</label>
-            <select
-              value={assetType}
-              onChange={(e) => resetSubtypeState(e.target.value)}
-              className="w-full bg-[#0F0F0F] border border-[#2A2A2A] rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-600"
-            >
-              {ASSET_TYPES.map((t) => (
-                <option key={t.value} value={t.value}>{t.label}</option>
-              ))}
+            <label className="block text-xs text-gray-400 mb-1">{t("common.type")}</label>
+            <select value={assetType} onChange={(e) => resetSubtypeState(e.target.value)} className={inputClass}>
+              {ASSET_TYPE_KEYS.map((k) => {
+                const key = `assetType.${k}`;
+                const label = t(key) !== key ? t(key) : k;
+                return <option key={k} value={k}>{label}</option>;
+              })}
             </select>
           </div>
 
           {assetType === "crypto" && (
             <div>
-              <label className="block text-xs text-gray-400 mb-1">Kripto Birimi</label>
-              <input
-                value={subtypeQuery}
-                onChange={(e) => {
-                  setSubtypeQuery(e.target.value);
-                  setSelectedCrypto(null);
-                }}
-                placeholder="Bitcoin, ETH, SOL..."
-                className="w-full bg-[#0F0F0F] border border-[#2A2A2A] rounded-lg px-3 py-2 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-indigo-600"
-              />
+              <label className="block text-xs text-gray-400 mb-1">{t("assetType.crypto")}</label>
+              <input value={subtypeQuery} onChange={(e) => { setSubtypeQuery(e.target.value); setSelectedCrypto(null); }} placeholder="Bitcoin, ETH, SOL..." className={inputClass} />
               <div className="mt-2 max-h-36 overflow-y-auto rounded-lg border border-[#2A2A2A]">
                 {cryptoMatches.map((entry) => (
-                  <button
-                    key={`${entry.code}-${entry.name}`}
-                    type="button"
-                    onClick={() => {
-                      setSelectedCrypto(entry);
-                      setCurrency(entry.code);
-                      setSubtypeQuery(`${entry.code} — ${entry.name}`);
-                      setNameIfEmpty(entry.name);
-                    }}
-                    className={`w-full flex items-center justify-between px-3 py-2 text-left text-xs hover:bg-[#111] ${
-                      selectedCrypto?.code === entry.code ? "bg-indigo-950/40 text-indigo-300" : "text-gray-300"
-                    }`}
-                  >
+                  <button key={`${entry.code}-${entry.name}`} type="button"
+                    onClick={() => { setSelectedCrypto(entry); setCurrency(entry.code); setSubtypeQuery(`${entry.code} — ${entry.name}`); setNameIfEmpty(entry.name); }}
+                    className={`w-full flex items-center justify-between px-3 py-2 text-left text-xs hover:bg-[#111] ${selectedCrypto?.code === entry.code ? "bg-indigo-950/40 text-indigo-300" : "text-gray-300"}`}>
                     <span className="font-semibold">{entry.code}</span>
                     <span className="text-gray-500 truncate ml-3">{entry.name}</span>
                   </button>
                 ))}
-                {cryptoMatches.length === 0 && (
-                  <p className="px-3 py-3 text-xs text-gray-600">Sonuç yok</p>
-                )}
+                {cryptoMatches.length === 0 && <p className="px-3 py-3 text-xs text-gray-600">{t("common.notFound")}</p>}
               </div>
             </div>
           )}
 
           {assetType === "foreign_currency" && (
             <div>
-              <label className="block text-xs text-gray-400 mb-1">Döviz Birimi</label>
-              <input
-                value={subtypeQuery}
-                onChange={(e) => {
-                  setSubtypeQuery(e.target.value);
-                  setSelectedFiat(null);
-                }}
-                placeholder="USD, Euro, Japanese Yen..."
-                className="w-full bg-[#0F0F0F] border border-[#2A2A2A] rounded-lg px-3 py-2 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-indigo-600"
-              />
+              <label className="block text-xs text-gray-400 mb-1">{t("assetType.foreign_currency")}</label>
+              <input value={subtypeQuery} onChange={(e) => { setSubtypeQuery(e.target.value); setSelectedFiat(null); }} placeholder="USD, EUR, GBP..." className={inputClass} />
               <div className="mt-2 max-h-36 overflow-y-auto rounded-lg border border-[#2A2A2A]">
                 {fiatMatches.map((entry) => (
-                  <button
-                    key={entry.code}
-                    type="button"
-                    onClick={() => {
-                      setSelectedFiat(entry);
-                      setCurrency(entry.code);
-                      setSubtypeQuery(`${entry.code} — ${entry.name}`);
-                      setNameIfEmpty(entry.name);
-                    }}
-                    className={`w-full flex items-center justify-between px-3 py-2 text-left text-xs hover:bg-[#111] ${
-                      selectedFiat?.code === entry.code ? "bg-indigo-950/40 text-indigo-300" : "text-gray-300"
-                    }`}
-                  >
+                  <button key={entry.code} type="button"
+                    onClick={() => { setSelectedFiat(entry); setCurrency(entry.code); setSubtypeQuery(`${entry.code} — ${entry.name}`); setNameIfEmpty(entry.name); }}
+                    className={`w-full flex items-center justify-between px-3 py-2 text-left text-xs hover:bg-[#111] ${selectedFiat?.code === entry.code ? "bg-indigo-950/40 text-indigo-300" : "text-gray-300"}`}>
                     <span className="font-semibold">{entry.code}</span>
                     <span className="text-gray-500 truncate ml-3">{entry.name}</span>
                   </button>
@@ -348,31 +210,13 @@ export default function AddAssetModal({ onClose, onAdded }: Props) {
 
           {assetType === "commodity" && (
             <div>
-              <label className="block text-xs text-gray-400 mb-1">Emtia</label>
-              <input
-                value={subtypeQuery}
-                onChange={(e) => {
-                  setSubtypeQuery(e.target.value);
-                  setSelectedCommodity(null);
-                }}
-                placeholder="Gold, silver, brent..."
-                className="w-full bg-[#0F0F0F] border border-[#2A2A2A] rounded-lg px-3 py-2 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-indigo-600"
-              />
+              <label className="block text-xs text-gray-400 mb-1">{t("assetType.commodity")}</label>
+              <input value={subtypeQuery} onChange={(e) => { setSubtypeQuery(e.target.value); setSelectedCommodity(null); }} placeholder="Gold, silver, brent..." className={inputClass} />
               <div className="mt-2 max-h-36 overflow-y-auto rounded-lg border border-[#2A2A2A]">
                 {commodityMatches.map((entry) => (
-                  <button
-                    key={entry.code}
-                    type="button"
-                    onClick={() => {
-                      setSelectedCommodity(entry);
-                      setCurrency(entry.code);
-                      setSubtypeQuery(`${entry.code} — ${entry.name}`);
-                      setNameIfEmpty(entry.name);
-                    }}
-                    className={`w-full flex items-center justify-between px-3 py-2 text-left text-xs hover:bg-[#111] ${
-                      selectedCommodity?.code === entry.code ? "bg-indigo-950/40 text-indigo-300" : "text-gray-300"
-                    }`}
-                  >
+                  <button key={entry.code} type="button"
+                    onClick={() => { setSelectedCommodity(entry); setCurrency(entry.code); setSubtypeQuery(`${entry.code} — ${entry.name}`); setNameIfEmpty(entry.name); }}
+                    className={`w-full flex items-center justify-between px-3 py-2 text-left text-xs hover:bg-[#111] ${selectedCommodity?.code === entry.code ? "bg-indigo-950/40 text-indigo-300" : "text-gray-300"}`}>
                     <span className="font-semibold">{entry.code}</span>
                     <span className="text-gray-500 truncate ml-3">{entry.name}</span>
                   </button>
@@ -383,19 +227,9 @@ export default function AddAssetModal({ onClose, onAdded }: Props) {
 
           {assetType === "gold" && (
             <div>
-              <label className="block text-xs text-gray-400 mb-1">Altın Birimi</label>
-              <select
-                value={goldUnit}
-                onChange={(e) => {
-                  setGoldUnit(e.target.value);
-                  const unit = GOLD_UNITS.find((item) => item.code === e.target.value);
-                  if (unit) setNameIfEmpty(unit.label);
-                }}
-                className="w-full bg-[#0F0F0F] border border-[#2A2A2A] rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-600"
-              >
-                {GOLD_UNITS.map((unit) => (
-                  <option key={unit.code} value={unit.code}>{unit.label}</option>
-                ))}
+              <label className="block text-xs text-gray-400 mb-1">{t("assetType.gold")}</label>
+              <select value={goldUnit} onChange={(e) => { setGoldUnit(e.target.value); const unit = GOLD_UNITS.find((item) => item.code === e.target.value); if (unit) setNameIfEmpty(unit.label); }} className={inputClass}>
+                {GOLD_UNITS.map((unit) => <option key={unit.code} value={unit.code}>{unit.label}</option>)}
               </select>
             </div>
           )}
@@ -403,33 +237,12 @@ export default function AddAssetModal({ onClose, onAdded }: Props) {
           {(assetType === "stock" || assetType === "fund") && (
             <div className="grid grid-cols-1 gap-3">
               <div>
-                <label className="block text-xs text-gray-400 mb-1">
-                  {assetType === "stock" ? "Ticker / Sembol" : "ISIN / Fon Kodu"}
-                </label>
-                <input
-                  value={marketSymbol}
-                  onChange={(e) => {
-                    setMarketSymbol(e.target.value);
-                    setNameIfEmpty(e.target.value.toUpperCase());
-                  }}
-                  placeholder={assetType === "stock" ? "AAPL, MSFT, 7203.T..." : "ISIN veya fon kodu"}
-                  required
-                  className="w-full bg-[#0F0F0F] border border-[#2A2A2A] rounded-lg px-3 py-2 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-indigo-600 uppercase"
-                />
+                <label className="block text-xs text-gray-400 mb-1">{assetType === "stock" ? "Ticker / Symbol" : "ISIN / Fund Code"}</label>
+                <input value={marketSymbol} onChange={(e) => { setMarketSymbol(e.target.value); setNameIfEmpty(e.target.value.toUpperCase()); }} required className={inputClass + " uppercase"} />
               </div>
               <div className="grid grid-cols-2 gap-3">
-                <input
-                  value={marketName}
-                  onChange={(e) => setMarketName(e.target.value)}
-                  placeholder="Ad (opsiyonel)"
-                  className="w-full bg-[#0F0F0F] border border-[#2A2A2A] rounded-lg px-3 py-2 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-indigo-600"
-                />
-                <input
-                  value={marketVenue}
-                  onChange={(e) => setMarketVenue(e.target.value)}
-                  placeholder="Borsa / sağlayıcı"
-                  className="w-full bg-[#0F0F0F] border border-[#2A2A2A] rounded-lg px-3 py-2 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-indigo-600"
-                />
+                <input value={marketName} onChange={(e) => setMarketName(e.target.value)} placeholder={t("common.name") + " (" + t("common.optional") + ")"} className={inputClass} />
+                <input value={marketVenue} onChange={(e) => setMarketVenue(e.target.value)} placeholder="Exchange / provider" className={inputClass} />
               </div>
             </div>
           )}
@@ -438,97 +251,43 @@ export default function AddAssetModal({ onClose, onAdded }: Props) {
             <div className="grid grid-cols-1 gap-3">
               <div>
                 <label className="block text-xs text-gray-400 mb-1">{manualConfig.primary}</label>
-                <input
-                  value={manualPrimary}
-                  onChange={(e) => {
-                    setManualPrimary(e.target.value);
-                    setNameIfEmpty(e.target.value);
-                  }}
-                  required={manualConfig.required}
-                  placeholder={manualConfig.primary}
-                  className="w-full bg-[#0F0F0F] border border-[#2A2A2A] rounded-lg px-3 py-2 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-indigo-600"
-                />
+                <input value={manualPrimary} onChange={(e) => { setManualPrimary(e.target.value); setNameIfEmpty(e.target.value); }} required={manualConfig.required} placeholder={manualConfig.primary} className={inputClass} />
               </div>
               {(manualConfig.secondary || manualConfig.tertiary) && (
                 <div className="grid grid-cols-2 gap-3">
-                  {manualConfig.secondary && (
-                    <input
-                      value={manualSecondary}
-                      onChange={(e) => setManualSecondary(e.target.value)}
-                      placeholder={manualConfig.secondary}
-                      className="w-full bg-[#0F0F0F] border border-[#2A2A2A] rounded-lg px-3 py-2 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-indigo-600"
-                    />
-                  )}
-                  {manualConfig.tertiary && (
-                    <input
-                      value={manualTertiary}
-                      onChange={(e) => setManualTertiary(e.target.value)}
-                      placeholder={manualConfig.tertiary}
-                      className="w-full bg-[#0F0F0F] border border-[#2A2A2A] rounded-lg px-3 py-2 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-indigo-600"
-                    />
-                  )}
+                  {manualConfig.secondary && <input value={manualSecondary} onChange={(e) => setManualSecondary(e.target.value)} placeholder={manualConfig.secondary + " (" + t("common.optional") + ")"} className={inputClass} />}
+                  {manualConfig.tertiary && <input value={manualTertiary} onChange={(e) => setManualTertiary(e.target.value)} placeholder={manualConfig.tertiary + " (" + t("common.optional") + ")"} className={inputClass} />}
                 </div>
               )}
             </div>
           )}
 
           <div>
-            <label className="block text-xs text-gray-400 mb-1">Para Birimi</label>
+            <label className="block text-xs text-gray-400 mb-1">{t("common.currency")}</label>
             <CurrencySelect value={currency} onChange={setCurrency} />
           </div>
 
           <div>
-            <label className="block text-xs text-gray-400 mb-1">
-              {usesQuantityInput ? "Miktar / Adet" : "Güncel Değer"}
-            </label>
-            <input
-              type="number"
-              min="0"
-              step="0.01"
-              value={value}
-              onChange={(e) => setValue(e.target.value)}
-              placeholder="0.00"
-              required
-              className="w-full bg-[#0F0F0F] border border-[#2A2A2A] rounded-lg px-3 py-2 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-indigo-600"
-            />
+            <label className="block text-xs text-gray-400 mb-1">{usesQuantityInput ? "Qty / Amount" : t("common.amount")}</label>
+            <input type="number" min="0" step="0.01" value={value} onChange={(e) => setValue(e.target.value)} placeholder="0.00" required className={inputClass} />
           </div>
 
           <div>
-            <label className="block text-xs text-gray-400 mb-1">Değerleme Tarihi</label>
-            <input
-              type="date"
-              value={asOfDate}
-              onChange={(e) => setAsOfDate(e.target.value)}
-              className="w-full bg-[#0F0F0F] border border-[#2A2A2A] rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-600"
-            />
+            <label className="block text-xs text-gray-400 mb-1">{t("common.date")}</label>
+            <input type="date" value={asOfDate} onChange={(e) => setAsOfDate(e.target.value)} className={inputClass} />
           </div>
 
           <div>
-            <label className="block text-xs text-gray-400 mb-1">Not (opsiyonel)</label>
-            <input
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              placeholder="ör. IBAN, kurum adı..."
-              className="w-full bg-[#0F0F0F] border border-[#2A2A2A] rounded-lg px-3 py-2 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-indigo-600"
-            />
+            <label className="block text-xs text-gray-400 mb-1">{t("common.notes")} ({t("common.optional")})</label>
+            <input value={notes} onChange={(e) => setNotes(e.target.value)} className={inputClass} />
           </div>
 
           {error && <p className="text-red-400 text-xs">{error}</p>}
 
           <div className="flex gap-3 pt-1">
-            <button
-              type="button"
-              onClick={onClose}
-              className="flex-1 px-4 py-2 rounded-lg border border-[#2A2A2A] text-sm text-gray-400 hover:text-gray-200 transition-colors"
-            >
-              İptal
-            </button>
-            <button
-              type="submit"
-              disabled={loading || !name || !value || subtypeRequiredMissing}
-              className="flex-1 px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed text-sm font-medium text-white transition-colors"
-            >
-              {loading ? "Ekleniyor..." : "Ekle"}
+            <button type="button" onClick={onClose} className="flex-1 px-4 py-2 rounded-lg border border-[#2A2A2A] text-sm text-gray-400 hover:text-gray-200 transition-colors">{t("common.cancel")}</button>
+            <button type="submit" disabled={loading || !name || !value || subtypeRequiredMissing} className="flex-1 px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed text-sm font-medium text-white transition-colors">
+              {loading ? t("common.loading") : t("common.add")}
             </button>
           </div>
         </form>

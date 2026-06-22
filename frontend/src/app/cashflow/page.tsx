@@ -13,16 +13,12 @@ import {
   CashFlowItem,
   CashFlowSummary,
 } from "@/lib/api";
+import { useLanguage } from "@/lib/i18n";
 
 const DAYS_OPTIONS = [7, 14, 30, 60, 90];
 
-const TR_MONTHS = ["Oca", "Şub", "Mar", "Nis", "May", "Haz", "Tem", "Ağu", "Eyl", "Eki", "Kas", "Ara"];
-const TR_MONTHS_FULL = ["Ocak", "Şubat", "Mart", "Nisan", "Mayıs", "Haziran",
-  "Temmuz", "Ağustos", "Eylül", "Ekim", "Kasım", "Aralık"];
-
 function formatDate(iso: string): string {
-  const d = new Date(iso + "T00:00:00");
-  return `${d.getDate()} ${TR_MONTHS[d.getMonth()]} ${d.getFullYear()}`;
+  return new Date(iso + "T00:00:00").toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" });
 }
 
 function isToday(iso: string): boolean {
@@ -35,21 +31,15 @@ function isTomorrow(iso: string): boolean {
   return iso === t.toISOString().slice(0, 10);
 }
 
-function dateBadge(iso: string): string | null {
-  if (isToday(iso)) return "Bugün";
-  if (isTomorrow(iso)) return "Yarın";
-  return null;
-}
-
 function fmt(value: number, currency = "TRY"): string {
   try {
-    return new Intl.NumberFormat("tr-TR", {
+    return new Intl.NumberFormat(undefined, {
       style: "currency",
       currency,
       maximumFractionDigits: 2,
     }).format(value);
   } catch {
-    return `${new Intl.NumberFormat("tr-TR", { maximumFractionDigits: 2 }).format(value)} ${currency}`;
+    return `${new Intl.NumberFormat(undefined, { maximumFractionDigits: 2 }).format(value)} ${currency}`;
   }
 }
 
@@ -57,49 +47,6 @@ function fmtAmount(amount: string, currency: string): string {
   const n = parseFloat(amount);
   if (isNaN(n)) return `${amount} ${currency}`;
   return fmt(n, currency);
-}
-
-const TYPE_CONFIG: Record<string, { label: string; color: string; icon: React.ReactNode; sign: string }> = {
-  liability_payment: {
-    label: "Ödeme",
-    color: "text-red-400",
-    icon: <ArrowDown size={14} className="text-red-400" />,
-    sign: "−",
-  },
-  subscription: {
-    label: "Abonelik",
-    color: "text-orange-400",
-    icon: <RefreshCw size={14} className="text-orange-400" />,
-    sign: "−",
-  },
-  income: {
-    label: "Gelir",
-    color: "text-emerald-400",
-    icon: <ArrowUp size={14} className="text-emerald-400" />,
-    sign: "+",
-  },
-  recurring_income: {
-    label: "Düz. Gelir",
-    color: "text-emerald-400",
-    icon: <ArrowUp size={14} className="text-emerald-400" />,
-    sign: "+",
-  },
-};
-
-function ItemIcon({ type, urgent }: { type: string; urgent: boolean }) {
-  const cfg = TYPE_CONFIG[type] ?? TYPE_CONFIG.subscription;
-  return (
-    <div className={`relative flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center ${
-      type === "liability_payment" ? "bg-red-950/40" :
-      type === "subscription" ? "bg-orange-950/40" :
-      "bg-emerald-950/40"
-    }`}>
-      {cfg.icon}
-      {urgent && (
-        <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-red-500 animate-ping" />
-      )}
-    </div>
-  );
 }
 
 interface AddPaymentFormData {
@@ -112,9 +59,11 @@ interface AddPaymentFormData {
 function AddPaymentModal({
   onClose,
   onAdded,
+  t,
 }: {
   onClose: () => void;
   onAdded: () => void;
+  t: (key: string) => string;
 }) {
   const [form, setForm] = useState<AddPaymentFormData>({
     name: "",
@@ -127,12 +76,12 @@ function AddPaymentModal({
 
   const handleSubmit = async () => {
     if (!form.name.trim() || !form.amount || !form.due_date) {
-      setError("Tüm alanları doldurun.");
+      setError(t("common.error"));
       return;
     }
     const amt = parseFloat(form.amount);
     if (isNaN(amt) || amt <= 0) {
-      setError("Geçerli bir tutar girin.");
+      setError(t("common.error"));
       return;
     }
     setLoading(true);
@@ -150,7 +99,7 @@ function AddPaymentModal({
       onAdded();
       onClose();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Eklenemedi.");
+      setError(e instanceof Error ? e.message : t("common.error"));
     } finally {
       setLoading(false);
     }
@@ -160,7 +109,7 @@ function AddPaymentModal({
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm px-4">
       <div className="bg-[#1A1A1A] border border-[#2A2A2A] rounded-2xl p-6 w-full max-w-sm shadow-xl">
         <div className="flex items-center justify-between mb-5">
-          <h3 className="text-white font-semibold">Yaklaşan Ödeme Ekle</h3>
+          <h3 className="text-white font-semibold">{t("cashflow.addPaymentTitle")}</h3>
           <button onClick={onClose} className="text-gray-500 hover:text-gray-300 transition-colors">
             <X size={18} />
           </button>
@@ -168,10 +117,10 @@ function AddPaymentModal({
 
         <div className="space-y-3">
           <div>
-            <label className="text-xs text-gray-400 mb-1 block">Ödeme adı</label>
+            <label className="text-xs text-gray-400 mb-1 block">{t("cashflow.paymentName")}</label>
             <input
               type="text"
-              placeholder="Kira, sigorta, vb."
+              placeholder={t("cashflow.paymentNamePlaceholder")}
               value={form.name}
               onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))}
               className="w-full bg-[#0F0F0F] border border-[#2A2A2A] rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-indigo-600"
@@ -179,7 +128,7 @@ function AddPaymentModal({
           </div>
           <div className="flex gap-3">
             <div className="flex-1">
-              <label className="text-xs text-gray-400 mb-1 block">Tutar</label>
+              <label className="text-xs text-gray-400 mb-1 block">{t("common.amount")}</label>
               <input
                 type="number"
                 min="0"
@@ -191,12 +140,12 @@ function AddPaymentModal({
               />
             </div>
             <div className="w-28">
-              <label className="text-xs text-gray-400 mb-1 block">Para birimi</label>
+              <label className="text-xs text-gray-400 mb-1 block">{t("common.currency")}</label>
               <CurrencySelect value={form.currency} onChange={(v) => setForm((p) => ({ ...p, currency: v })) } />
             </div>
           </div>
           <div>
-            <label className="text-xs text-gray-400 mb-1 block">Ödeme tarihi</label>
+            <label className="text-xs text-gray-400 mb-1 block">{t("common.date")}</label>
             <input
               type="date"
               value={form.due_date}
@@ -213,14 +162,14 @@ function AddPaymentModal({
             onClick={onClose}
             className="flex-1 px-4 py-2 rounded-lg border border-[#2A2A2A] text-gray-400 hover:text-gray-200 text-sm transition-colors"
           >
-            İptal
+            {t("common.cancel")}
           </button>
           <button
             onClick={handleSubmit}
             disabled={loading}
             className="flex-1 px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white text-sm font-medium transition-colors"
           >
-            {loading ? "Ekleniyor…" : "Ekle"}
+            {loading ? t("cashflow.addingBtn") : t("common.add")}
           </button>
         </div>
       </div>
@@ -228,7 +177,26 @@ function AddPaymentModal({
   );
 }
 
+function ItemIcon({ type, urgent }: { type: string; urgent: boolean }) {
+  const icon =
+    type === "liability_payment" ? <ArrowDown size={14} className="text-red-400" /> :
+    (type === "income" || type === "recurring_income") ? <ArrowUp size={14} className="text-emerald-400" /> :
+    <RefreshCw size={14} className="text-orange-400" />;
+
+  return (
+    <div className={`relative flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center ${
+      type === "liability_payment" ? "bg-red-950/40" :
+      (type === "income" || type === "recurring_income") ? "bg-emerald-950/40" :
+      "bg-orange-950/40"
+    }`}>
+      {icon}
+      {urgent && <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-red-500 animate-ping" />}
+    </div>
+  );
+}
+
 export default function CashFlowPage() {
+  const { t } = useLanguage();
   const router = useRouter();
   const [days, setDays] = useState(30);
   const [displayCurrency, setDisplayCurrency] = useState("TRY");
@@ -237,11 +205,15 @@ export default function CashFlowPage() {
   const [loading, setLoading] = useState(true);
   const [showAddPayment, setShowAddPayment] = useState(false);
 
+  const TYPE_CONFIG = {
+    liability_payment: { label: t("cashflow.types.liabilityPayment"), color: "text-red-400", sign: "−" },
+    subscription: { label: t("cashflow.types.subscription"), color: "text-orange-400", sign: "−" },
+    income: { label: t("cashflow.types.income"), color: "text-emerald-400", sign: "+" },
+    recurring_income: { label: t("cashflow.types.recurringIncome"), color: "text-emerald-400", sign: "+" },
+  } as Record<string, { label: string; color: string; sign: string }>;
+
   useEffect(() => {
-    if (!getToken()) {
-      router.push("/login");
-      return;
-    }
+    if (!getToken()) { router.push("/login"); return; }
     loadAll();
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -265,7 +237,6 @@ export default function CashFlowPage() {
     }
   }, [days, displayCurrency]);
 
-  // Group items by date
   const grouped: Record<string, CashFlowItem[]> = {};
   for (const item of items) {
     if (!grouped[item.date]) grouped[item.date] = [];
@@ -280,10 +251,16 @@ export default function CashFlowPage() {
 
   const urgentCount = items.filter((i) => i.urgent).length;
 
+  function dateBadge(iso: string): string | null {
+    if (isToday(iso)) return t("cashflow.today");
+    if (isTomorrow(iso)) return t("cashflow.tomorrow");
+    return null;
+  }
+
   return (
     <PageLayout
-      title="Nakit Akışı Takvimi"
-      subtitle="Yaklaşan ödemeler ve beklenen gelirler"
+      title={t("cashflow.title")}
+      subtitle={t("cashflow.subtitle")}
       maxWidth="lg"
       action={
         <button
@@ -291,7 +268,7 @@ export default function CashFlowPage() {
           className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[#2A2A2A] text-indigo-400 hover:text-indigo-300 text-sm transition-colors"
         >
           <Plus size={14} />
-          Ödeme Ekle
+          {t("cashflow.addPayment")}
         </button>
       }
     >
@@ -299,6 +276,7 @@ export default function CashFlowPage() {
         <AddPaymentModal
           onClose={() => setShowAddPayment(false)}
           onAdded={loadAll}
+          t={t}
         />
       )}
 
@@ -310,12 +288,10 @@ export default function CashFlowPage() {
               key={d}
               onClick={() => setDays(d)}
               className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${
-                days === d
-                  ? "bg-indigo-600 text-white"
-                  : "text-gray-400 hover:text-gray-200"
+                days === d ? "bg-indigo-600 text-white" : "text-gray-400 hover:text-gray-200"
               }`}
             >
-              {d}g
+              {d}{t("cashflow.days")}
             </button>
           ))}
         </div>
@@ -324,7 +300,7 @@ export default function CashFlowPage() {
         </div>
         {urgentCount > 0 && (
           <span className="px-2.5 py-1 rounded-full bg-red-950/50 border border-red-800/40 text-red-400 text-xs font-medium animate-pulse">
-            {urgentCount} urgent
+            {urgentCount} {t("cashflow.urgent")}
           </span>
         )}
       </div>
@@ -334,37 +310,31 @@ export default function CashFlowPage() {
         <div className="h-32 bg-[#1A1A1A] border border-[#2A2A2A] rounded-2xl animate-pulse mb-6" />
       ) : summary && (
         <div className="bg-[#1A1A1A] border border-[#2A2A2A] rounded-2xl p-6 mb-6">
-          <p className="text-gray-500 text-xs mb-4">Önümüzdeki {days} gün</p>
+          <p className="text-gray-500 text-xs mb-4">{t("cashflow.upcomingPrefix")} {days} {t("cashflow.days")}</p>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <div>
-              <p className="text-gray-500 text-xs mb-1">Beklenen Gelir</p>
-              <p className="text-emerald-400 font-semibold tabular-nums">
-                {fmt(incomeTotal, displayCurrency)}
-              </p>
+              <p className="text-gray-500 text-xs mb-1">{t("cashflow.expectedIncome")}</p>
+              <p className="text-emerald-400 font-semibold tabular-nums">{fmt(incomeTotal, displayCurrency)}</p>
             </div>
             <div>
-              <p className="text-gray-500 text-xs mb-1">Beklenen Ödeme</p>
-              <p className="text-red-400 font-semibold tabular-nums">
-                {fmt(paymentsTotal, displayCurrency)}
-              </p>
+              <p className="text-gray-500 text-xs mb-1">{t("cashflow.expectedPayments")}</p>
+              <p className="text-red-400 font-semibold tabular-nums">{fmt(paymentsTotal, displayCurrency)}</p>
             </div>
             <div>
-              <p className="text-gray-500 text-xs mb-1">Tahmini Net</p>
+              <p className="text-gray-500 text-xs mb-1">{t("cashflow.projectedNet")}</p>
               <p className={`font-semibold tabular-nums ${netTotal >= 0 ? "text-emerald-400" : "text-red-400"}`}>
                 {netTotal >= 0 ? "+" : ""}{fmt(netTotal, displayCurrency)}
               </p>
             </div>
             <div>
-              <p className="text-gray-500 text-xs mb-1">Likit Varlıklar</p>
-              <p className="text-gray-200 font-semibold tabular-nums">
-                {fmt(liquidAssets, displayCurrency)}
-              </p>
+              <p className="text-gray-500 text-xs mb-1">{t("cashflow.liquidAssets")}</p>
+              <p className="text-gray-200 font-semibold tabular-nums">{fmt(liquidAssets, displayCurrency)}</p>
               {summary.liquid_to_payments_ratio !== null && (
                 <p className={`text-xs mt-0.5 ${
                   summary.liquid_to_payments_ratio < 1 ? "text-red-400" :
                   summary.liquid_to_payments_ratio < 2 ? "text-amber-400" : "text-gray-500"
                 }`}>
-                  {(summary.liquid_to_payments_ratio * 100).toFixed(0)}% karşılama
+                  {(summary.liquid_to_payments_ratio * 100).toFixed(0)}{t("cashflow.coveragePct")}
                 </p>
               )}
             </div>
@@ -392,12 +362,8 @@ export default function CashFlowPage() {
       ) : sortedDates.length === 0 ? (
         <div className="bg-[#1A1A1A] border border-[#2A2A2A] border-dashed rounded-2xl p-12 text-center">
           <Calendar size={32} className="text-gray-700 mx-auto mb-3" />
-          <p className="text-gray-500 text-sm">
-            Önümüzdeki {days} günde bekleyen ödeme veya gelir yok.
-          </p>
-          <p className="text-gray-600 text-xs mt-2">
-            Borç kaydı, alacak veya ekstre yüklediğinizde burada görünür.
-          </p>
+          <p className="text-gray-500 text-sm">{t("cashflow.noItems")}</p>
+          <p className="text-gray-600 text-xs mt-2">{t("cashflow.noItemsHint")}</p>
         </div>
       ) : (
         <div className="space-y-6">
@@ -408,12 +374,11 @@ export default function CashFlowPage() {
 
             return (
               <div key={dateStr}>
-                {/* Date header */}
                 <div className="flex items-center gap-2 mb-2">
                   <span className="text-xs font-semibold text-gray-400">{formatDate(dateStr)}</span>
                   {badge && (
                     <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                      badge === "Bugün"
+                      badge === t("cashflow.today")
                         ? "bg-indigo-900/50 text-indigo-300 border border-indigo-700/40"
                         : "bg-[#2A2A2A] text-gray-400"
                     }`}>
@@ -422,19 +387,16 @@ export default function CashFlowPage() {
                   )}
                   {hasUrgent && !badge && (
                     <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-red-950/50 text-red-400 border border-red-800/30">
-                      acil
+                      {t("cashflow.urgent")}
                     </span>
                   )}
                 </div>
 
-                {/* Items for this date */}
                 <div className={`bg-[#1A1A1A] border rounded-xl overflow-hidden ${
                   hasUrgent ? "border-red-800/30" : "border-[#2A2A2A]"
                 }`}>
                   {dayItems.map((item, idx) => {
                     const cfg = TYPE_CONFIG[item.type] ?? TYPE_CONFIG.subscription;
-                    const isIncome = item.type === "income" || item.type === "recurring_income";
-
                     return (
                       <div
                         key={`${dateStr}-${idx}`}
@@ -454,10 +416,10 @@ export default function CashFlowPage() {
                               {cfg.label}
                             </span>
                             {item.source === "subscription" && (
-                              <span className="text-[10px] text-gray-600">Geçmiş veriden</span>
+                              <span className="text-[10px] text-gray-600">{t("cashflow.fromHistory")}</span>
                             )}
                             {item.source === "recurring_income" && (
-                              <span className="text-[10px] text-gray-600">Düzenli gelir</span>
+                              <span className="text-[10px] text-gray-600">{t("cashflow.types.recurringIncome")}</span>
                             )}
                           </div>
                         </div>
@@ -477,10 +439,10 @@ export default function CashFlowPage() {
       {/* Legend */}
       {!loading && sortedDates.length > 0 && (
         <div className="mt-8 flex flex-wrap gap-4 text-xs text-gray-600">
-          <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-red-500" />Kredi/borç ödemesi</span>
-          <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-orange-500" />Abonelik tahmini</span>
-          <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-emerald-500" />Gelir/alacak</span>
-          <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-red-500 animate-ping inline-block" />3 gün içinde</span>
+          <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-red-500" />{t("cashflow.legend.creditPayment")}</span>
+          <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-orange-500" />{t("cashflow.legend.subscriptionEstimate")}</span>
+          <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-emerald-500" />{t("cashflow.legend.incomeReceivable")}</span>
+          <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-red-500 animate-ping inline-block" />{t("cashflow.legend.withinDays")}</span>
         </div>
       )}
     </PageLayout>

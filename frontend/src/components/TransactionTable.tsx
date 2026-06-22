@@ -3,9 +3,9 @@
 import { Fragment, useState } from "react";
 import type { Transaction, NoteResponse } from "@/lib/api";
 import { correctCategory, getNotes } from "@/lib/api";
-import { CATEGORY_LABELS } from "@/lib/categories";
 import CategoryBadge from "@/components/CategoryBadge";
 import NoteInput from "@/components/NoteInput";
+import { useLanguage } from "@/lib/i18n";
 
 const CATEGORIES = [
   "market", "restoran", "ulasim", "eglence", "saglik",
@@ -20,7 +20,7 @@ interface TransactionTableProps {
 
 function formatAmount(amount: string, type: string): string {
   const num = parseFloat(amount);
-  const formatted = new Intl.NumberFormat("tr-TR", {
+  const formatted = new Intl.NumberFormat(undefined, {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   }).format(num);
@@ -29,7 +29,7 @@ function formatAmount(amount: string, type: string): string {
 
 function formatDate(raw: string): string {
   const d = new Date(`${raw}T00:00:00`);
-  return d.toLocaleDateString("tr-TR", { day: "2-digit", month: "short", year: "numeric" });
+  return d.toLocaleDateString(undefined, { day: "2-digit", month: "short", year: "numeric" });
 }
 
 interface RowState {
@@ -60,10 +60,11 @@ function ChevronIcon({ open }: { open: boolean }) {
 }
 
 export default function TransactionTable({ transactions, onCategoryCorrection }: TransactionTableProps) {
+  const { t } = useLanguage();
   const [rows, setRows] = useState<Record<string, RowState>>(() => {
     const init: Record<string, RowState> = {};
-    for (const t of transactions) {
-      init[t.id] = { category: t.category, notes: [], notesLoaded: false, expanded: false, saving: false, error: null };
+    for (const tx of transactions) {
+      init[tx.id] = { category: tx.category, notes: [], notesLoaded: false, expanded: false, saving: false, error: null };
     }
     return init;
   });
@@ -71,8 +72,8 @@ export default function TransactionTable({ transactions, onCategoryCorrection }:
   if (transactions.length === 0) {
     return (
       <div className="text-center py-16 bg-[#1A1A1A] border border-[#2A2A2A] rounded-xl">
-        <p className="text-gray-500 text-sm">Henüz işlem yok.</p>
-        <p className="text-gray-700 text-xs mt-1">Bir banka ekstresi yükleyin.</p>
+        <p className="text-gray-500 text-sm">{t("tx.empty")}</p>
+        <p className="text-gray-700 text-xs mt-1">{t("tx.emptyHint")}</p>
       </div>
     );
   }
@@ -100,7 +101,7 @@ export default function TransactionTable({ transactions, onCategoryCorrection }:
     } catch (err) {
       setRows((prev) => ({
         ...prev,
-        [id]: { ...prev[id], saving: false, error: err instanceof Error ? err.message : "Kaydedilemedi" },
+        [id]: { ...prev[id], saving: false, error: err instanceof Error ? err.message : t("common.error") },
       }));
     }
   };
@@ -114,60 +115,41 @@ export default function TransactionTable({ transactions, onCategoryCorrection }:
       <table className="w-full text-sm">
         <thead>
           <tr className="bg-[#1A1A1A] border-b border-[#2A2A2A]">
-            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wide w-28">Tarih</th>
-            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wide">Açıklama</th>
-            <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wide w-36">Tutar</th>
-            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wide w-36">Kategori</th>
+            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wide w-28">{t("tx.date")}</th>
+            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wide">{t("tx.description")}</th>
+            <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wide w-36">{t("common.amount")}</th>
+            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wide w-36">{t("goals.category")}</th>
             <th className="px-4 py-3 w-8" />
           </tr>
         </thead>
         <tbody>
-          {transactions.map((t, i) => {
-            const row = rows[t.id] ?? {
-              category: t.category, notes: [], notesLoaded: false, expanded: false, saving: false, error: null,
+          {transactions.map((tx, i) => {
+            const row = rows[tx.id] ?? {
+              category: tx.category, notes: [], notesLoaded: false, expanded: false, saving: false, error: null,
             };
             const isOdd = i % 2 !== 0;
             const rowBg = isOdd ? "bg-[#111]" : "bg-[#0F0F0F]";
 
             return (
-              <Fragment key={t.id}>
-                {/* Main row */}
+              <Fragment key={tx.id}>
                 <tr
                   className={`${rowBg} hover:bg-[#1A1A1A] transition-colors duration-100 cursor-pointer group border-b border-[#2A2A2A] last:border-0`}
-                  onClick={() => void toggleExpand(t.id)}
+                  onClick={() => void toggleExpand(tx.id)}
                 >
-                  {/* Date */}
                   <td className="px-4 py-3.5 whitespace-nowrap">
-                    <span className="text-xs text-gray-500">{formatDate(t.transaction_date)}</span>
+                    <span className="text-xs text-gray-500">{formatDate(tx.transaction_date)}</span>
                   </td>
-
-                  {/* Description */}
                   <td className="px-4 py-3.5 max-w-0">
-                    <p
-                      className="text-gray-200 text-sm truncate"
-                      title={t.description}
-                    >
-                      {t.description}
-                    </p>
+                    <p className="text-gray-200 text-sm truncate" title={tx.description}>{tx.description}</p>
                   </td>
-
-                  {/* Amount */}
                   <td className="px-4 py-3.5 text-right whitespace-nowrap">
-                    <span
-                      className={`text-sm font-semibold tabular-nums ${
-                        t.transaction_type === "credit" ? "text-emerald-400" : "text-red-400"
-                      }`}
-                    >
-                      {formatAmount(t.amount, t.transaction_type)}
+                    <span className={`text-sm font-semibold tabular-nums ${tx.transaction_type === "credit" ? "text-emerald-400" : "text-red-400"}`}>
+                      {formatAmount(tx.amount, tx.transaction_type)}
                     </span>
                   </td>
-
-                  {/* Category badge */}
                   <td className="px-4 py-3.5" onClick={(e) => e.stopPropagation()}>
                     <CategoryBadge category={row.category} />
                   </td>
-
-                  {/* Expand chevron */}
                   <td className="px-3 py-3.5">
                     <span className={`flex items-center justify-center transition-colors ${row.expanded ? "text-indigo-400" : "text-gray-600 group-hover:text-gray-400"}`}>
                       <ChevronIcon open={row.expanded} />
@@ -175,45 +157,42 @@ export default function TransactionTable({ transactions, onCategoryCorrection }:
                   </td>
                 </tr>
 
-                {/* Expanded detail panel */}
                 {row.expanded && (
-                  <tr key={`${t.id}-detail`} className="bg-[#1A1A1A] border-b border-[#2A2A2A]">
+                  <tr key={`${tx.id}-detail`} className="bg-[#1A1A1A] border-b border-[#2A2A2A]">
                     <td colSpan={5} className="px-5 py-4">
-                      {/* Panel header */}
                       <div className="flex items-start justify-between mb-4 pb-3 border-b border-[#2A2A2A]">
                         <div>
-                          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-0.5">İşlem Detayı</p>
-                          <p className="text-sm text-gray-300 leading-relaxed">{t.description}</p>
+                          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-0.5">{t("tx.detail")}</p>
+                          <p className="text-sm text-gray-300 leading-relaxed">{tx.description}</p>
                         </div>
                         <div className="text-right shrink-0 ml-4">
-                          <p className={`text-base font-bold tabular-nums ${t.transaction_type === "credit" ? "text-emerald-400" : "text-red-400"}`}>
-                            {formatAmount(t.amount, t.transaction_type)} ₺
+                          <p className={`text-base font-bold tabular-nums ${tx.transaction_type === "credit" ? "text-emerald-400" : "text-red-400"}`}>
+                            {formatAmount(tx.amount, tx.transaction_type)}
                           </p>
-                          <p className="text-xs text-gray-600 mt-0.5">{formatDate(t.transaction_date)}</p>
+                          <p className="text-xs text-gray-600 mt-0.5">{formatDate(tx.transaction_date)}</p>
                         </div>
                       </div>
 
-                      {/* Category correction */}
                       <div className="mb-5">
                         <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
-                          Kategoriyi Düzelt
-                          {row.saving && <span className="ml-2 text-indigo-400 normal-case font-normal">kaydediliyor…</span>}
+                          {t("tx.fixCategory")}
+                          {row.saving && <span className="ml-2 text-indigo-400 normal-case font-normal">{t("common.saving")}</span>}
                         </p>
                         <div className="flex gap-1.5 overflow-x-auto pb-1 -mx-1 px-1">
                           {CATEGORIES.map((cat) => {
                             const isActive = row.category === cat;
+                            const key = `category.${cat}`;
+                            const label = t(key) !== key ? t(key) : cat;
                             return (
                               <button
                                 key={cat}
                                 disabled={row.saving}
-                                onClick={() => void handleCategoryChange(t.id, cat)}
+                                onClick={() => void handleCategoryChange(tx.id, cat)}
                                 className={`shrink-0 px-3 py-1 rounded-full text-xs font-medium transition-colors disabled:opacity-40 ${
-                                  isActive
-                                    ? "bg-indigo-600 text-white"
-                                    : "bg-[#2A2A2A] text-gray-400 hover:bg-[#333] hover:text-gray-200"
+                                  isActive ? "bg-indigo-600 text-white" : "bg-[#2A2A2A] text-gray-400 hover:bg-[#333] hover:text-gray-200"
                                 }`}
                               >
-                                {CATEGORY_LABELS[cat] ?? cat}
+                                {label}
                               </button>
                             );
                           })}
@@ -221,13 +200,12 @@ export default function TransactionTable({ transactions, onCategoryCorrection }:
                         {row.error && <p className="text-xs text-red-400 mt-2">{row.error}</p>}
                       </div>
 
-                      {/* Notes */}
                       <div>
-                        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Notlar</p>
+                        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">{t("common.notes")}</p>
                         <NoteInput
-                          transactionId={t.id}
+                          transactionId={tx.id}
                           existingNotes={row.notes}
-                          onNoteAdded={(note) => handleNoteAdded(t.id, note)}
+                          onNoteAdded={(note) => handleNoteAdded(tx.id, note)}
                         />
                       </div>
                     </td>

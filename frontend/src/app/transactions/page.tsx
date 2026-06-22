@@ -13,11 +13,12 @@ import AddTransactionModal from "@/components/AddTransactionModal";
 import ChatPanel from "@/components/ChatPanel";
 import PageLayout from "@/components/ui/PageLayout";
 import { Plus } from "@/components/ui/Icons";
+import { useLanguage } from "@/lib/i18n";
 
 type LoadState = "loading" | "ready" | "error";
 
-function formatDate(iso: string): string {
-  return new Date(iso).toLocaleDateString("tr-TR", { day: "2-digit", month: "short", year: "numeric" });
+function formatDate(iso: string, lang: string): string {
+  return new Date(iso).toLocaleDateString(lang === "tr" ? "tr-TR" : undefined, { day: "2-digit", month: "short", year: "numeric" });
 }
 
 function CalendarIcon() {
@@ -35,16 +36,24 @@ function EmailToggle({
   enabled,
   toggling,
   onToggle,
+  labelOn,
+  labelOff,
+  title,
+  subtitle,
 }: {
   enabled: boolean;
   toggling: boolean;
   onToggle: () => void;
+  labelOn: string;
+  labelOff: string;
+  title: string;
+  subtitle: string;
 }) {
   return (
     <div className="flex items-center gap-3 bg-[#1A1A1A] border border-[#2A2A2A] rounded-xl px-4 py-2.5">
       <div className="flex-1 min-w-0">
-        <p className="text-xs font-medium text-gray-300 leading-none">Haftalık Özet E-postası</p>
-        <p className="text-[10px] text-gray-600 mt-0.5">Her Pazartesi gelen kutunuza</p>
+        <p className="text-xs font-medium text-gray-300 leading-none">{title}</p>
+        <p className="text-[10px] text-gray-600 mt-0.5">{subtitle}</p>
       </div>
       <button
         onClick={onToggle}
@@ -52,7 +61,6 @@ function EmailToggle({
         className={`relative shrink-0 w-10 h-5 rounded-full transition-colors duration-200 disabled:opacity-50 focus:outline-none ${
           enabled ? "bg-indigo-600" : "bg-[#2A2A2A]"
         }`}
-        title={enabled ? "E-posta özetini kapat" : "E-posta özetini aç"}
       >
         <span
           className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform duration-200 ${
@@ -61,13 +69,14 @@ function EmailToggle({
         />
       </button>
       <span className={`text-xs font-medium w-10 shrink-0 ${enabled ? "text-indigo-400" : "text-gray-600"}`}>
-        {enabled ? "Açık" : "Kapalı"}
+        {enabled ? labelOn : labelOff}
       </span>
     </div>
   );
 }
 
 export default function TransactionsPage() {
+  const { t, lang } = useLanguage();
   const router = useRouter();
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [batches, setBatches] = useState<BatchSummary[]>([]);
@@ -85,11 +94,7 @@ export default function TransactionsPage() {
     if (!user) { router.replace("/login"); return; }
 
     getBatches().then(setBatches).catch(() => {});
-
-    getEmailPreferences()
-      .then((prefs) => setEmailEnabled(prefs.email_weekly_enabled))
-      .catch(() => {});
-
+    getEmailPreferences().then((prefs) => setEmailEnabled(prefs.email_weekly_enabled)).catch(() => {});
     getInsights()
       .then((data) => { setInsight(data); setInsightState("ready"); })
       .catch(() => setInsightState("error"));
@@ -103,9 +108,7 @@ export default function TransactionsPage() {
   }, [showAll]);
 
   const handleCategoryCorrection = (txId: string, newCategory: string) => {
-    setTransactions((prev) =>
-      prev.map((t) => (t.id === txId ? { ...t, category: newCategory } : t))
-    );
+    setTransactions((prev) => prev.map((tx) => (tx.id === txId ? { ...tx, category: newCategory } : tx)));
   };
 
   const handleEmailToggle = async () => {
@@ -130,87 +133,81 @@ export default function TransactionsPage() {
 
   const latestBatch = batches[0] ?? null;
 
-  // Transaction count badge
   const titleBadge = txState === "ready" && transactions.length > 0 ? (
     <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-[#2A2A2A] text-gray-400">
       {transactions.length}
     </span>
   ) : undefined;
 
-  // Page-level actions: outlined "+ Ekle" only
   const pageActions = (
     <button
       onClick={() => setShowAddModal(true)}
       className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-[#2A2A2A] hover:border-[#3A3A3A] hover:bg-[#1A1A1A] text-sm text-gray-400 hover:text-gray-200 transition-colors"
     >
       <Plus size={14} />
-      Manuel Ekle
+      {t("tx.addManual")}
     </button>
   );
 
   return (
-    <PageLayout title="İşlemler" titleBadge={titleBadge} action={pageActions}>
+    <PageLayout title={t("tx.title")} titleBadge={titleBadge} action={pageActions}>
 
-      {/* Email preference toggle card */}
       {emailEnabled !== null && (
         <div className="mb-5">
           <EmailToggle
             enabled={emailEnabled}
             toggling={emailToggling}
             onToggle={handleEmailToggle}
+            labelOn={t("tx.emailOn")}
+            labelOff={t("tx.emailOff")}
+            title={t("tx.emailToggle")}
+            subtitle={t("tx.emailSubtitle")}
           />
         </div>
       )}
 
-      {/* Batch selector */}
       {batches.length > 0 && (
         <div className="mb-6 bg-[#1A1A1A] border border-[#2A2A2A] rounded-xl p-4">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-            {/* Info side */}
             <div className="flex items-center gap-2 text-sm min-w-0">
               <CalendarIcon />
               <span className="text-gray-500 shrink-0">
-                {!showAll ? "Son ekstre:" : "Tüm ekstreler:"}
+                {!showAll ? `${t("tx.latestBatch")}:` : `${t("tx.allBatches")}:`}
               </span>
               {!showAll && latestBatch ? (
                 <>
                   <span className="text-gray-200 font-medium">
-                    {formatDate(latestBatch.min_date)} – {formatDate(latestBatch.max_date)}
+                    {formatDate(latestBatch.min_date, lang)} – {formatDate(latestBatch.max_date, lang)}
                   </span>
-                  <span className="text-gray-600 shrink-0">·&nbsp;{latestBatch.transaction_count} işlem</span>
+                  <span className="text-gray-600 shrink-0">·&nbsp;{latestBatch.transaction_count}</span>
                 </>
               ) : (
                 <>
-                  <span className="text-gray-200 font-medium">{batches.length} yükleme</span>
+                  <span className="text-gray-200 font-medium">{batches.length}</span>
                   <span className="text-gray-600 shrink-0">
-                    ·&nbsp;{batches.reduce((s, b) => s + b.transaction_count, 0)} ham işlem
+                    ·&nbsp;{batches.reduce((s, b) => s + b.transaction_count, 0)}
                   </span>
                 </>
               )}
             </div>
 
-            {/* Controls */}
             <div className="flex items-center gap-2 shrink-0">
               <div className="flex rounded-full overflow-hidden border border-[#2A2A2A] text-xs">
                 <button
                   onClick={() => setShowAll(false)}
                   className={`px-3.5 py-1.5 transition-colors font-medium ${
-                    !showAll
-                      ? "bg-indigo-600 text-white"
-                      : "bg-transparent text-gray-500 hover:text-gray-300"
+                    !showAll ? "bg-indigo-600 text-white" : "bg-transparent text-gray-500 hover:text-gray-300"
                   }`}
                 >
-                  Son Ekstre
+                  {t("tx.latestBatch")}
                 </button>
                 <button
                   onClick={() => setShowAll(true)}
                   className={`px-3.5 py-1.5 transition-colors font-medium ${
-                    showAll
-                      ? "bg-indigo-600 text-white"
-                      : "bg-transparent text-gray-500 hover:text-gray-300"
+                    showAll ? "bg-indigo-600 text-white" : "bg-transparent text-gray-500 hover:text-gray-300"
                   }`}
                 >
-                  Tüm Ekstreler
+                  {t("tx.allBatches")}
                 </button>
               </div>
               {batches.length > 1 && (
@@ -218,13 +215,12 @@ export default function TransactionsPage() {
                   onClick={() => setShowBatchHistory((v) => !v)}
                   className="px-3 py-1.5 rounded-full border border-[#2A2A2A] hover:border-[#3A3A3A] hover:bg-[#2A2A2A] text-xs text-gray-500 hover:text-gray-300 transition-colors"
                 >
-                  {showBatchHistory ? "Kapat" : "Geçmiş"}
+                  {showBatchHistory ? t("common.close") : t("tx.batchHistory")}
                 </button>
               )}
             </div>
           </div>
 
-          {/* Batch history list */}
           {showBatchHistory && (
             <div className="mt-4 border-t border-[#2A2A2A] pt-4 space-y-1.5">
               {batches.map((b, i) => (
@@ -235,16 +231,16 @@ export default function TransactionsPage() {
                   <div className="flex items-center gap-2">
                     {i === 0 && (
                       <span className="px-1.5 py-0.5 rounded-full bg-indigo-950 border border-indigo-900 text-indigo-400 text-[10px] font-medium">
-                        Son
+                        {t("tx.newest")}
                       </span>
                     )}
                     <span className="text-gray-300 font-medium">
-                      {formatDate(b.min_date)} – {formatDate(b.max_date)}
+                      {formatDate(b.min_date, lang)} – {formatDate(b.max_date, lang)}
                     </span>
                   </div>
                   <div className="flex items-center gap-3 text-gray-600">
-                    <span className="text-gray-400">{b.transaction_count} işlem</span>
-                    <span>Yüklendi: {formatDate(b.uploaded_at)}</span>
+                    <span className="text-gray-400">{b.transaction_count}</span>
+                    <span>{formatDate(b.uploaded_at, lang)}</span>
                   </div>
                 </div>
               ))}
@@ -253,49 +249,37 @@ export default function TransactionsPage() {
         </div>
       )}
 
-      {/* Chat coach */}
       {insightState === "loading" && (
         <div className="mb-8 bg-[#1A1A1A] border border-[#2A2A2A] rounded-xl flex items-center justify-center" style={{ height: 380 }}>
-          <p className="text-gray-600 text-sm animate-pulse">Koç hazırlanıyor...</p>
+          <p className="text-gray-600 text-sm animate-pulse">{t("common.loading")}</p>
         </div>
       )}
       {insightState !== "loading" && (
         <ChatPanel initialInsight={insight?.insight ?? null} />
       )}
 
-      {/* Spending chart */}
       {txState === "ready" && transactions.length > 0 && (
         <SpendingChart transactions={transactions} />
       )}
 
-      {/* Transaction table */}
       {txState === "loading" && (
         <div className="space-y-px mt-8 rounded-xl overflow-hidden border border-[#2A2A2A]">
           {[1, 2, 3, 4, 5].map((i) => (
-            <div
-              key={i}
-              className={`h-14 animate-pulse ${i % 2 !== 0 ? "bg-[#111]" : "bg-[#0F0F0F]"}`}
-            />
+            <div key={i} className={`h-14 animate-pulse ${i % 2 !== 0 ? "bg-[#111]" : "bg-[#0F0F0F]"}`} />
           ))}
         </div>
       )}
       {txState === "error" && (
         <div className="mt-8 bg-red-950/40 border border-red-900/40 rounded-xl p-6 text-center">
-          <p className="text-red-400 text-sm">İşlemler yüklenemedi. Backend bağlantısını kontrol edin.</p>
+          <p className="text-red-400 text-sm">{t("common.error")}</p>
         </div>
       )}
       {txState === "ready" && (
-        <TransactionTable
-          transactions={transactions}
-          onCategoryCorrection={handleCategoryCorrection}
-        />
+        <TransactionTable transactions={transactions} onCategoryCorrection={handleCategoryCorrection} />
       )}
 
       {showAddModal && (
-        <AddTransactionModal
-          onClose={() => setShowAddModal(false)}
-          onSuccess={handleTransactionAdded}
-        />
+        <AddTransactionModal onClose={() => setShowAddModal(false)} onSuccess={handleTransactionAdded} />
       )}
     </PageLayout>
   );

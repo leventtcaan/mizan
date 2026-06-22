@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { getGoalStatus, upsertGoal, deleteGoal, getGoals, type GoalStatusItem } from "@/lib/api";
-import { CATEGORY_LABELS } from "@/lib/categories";
+import { useLanguage } from "@/lib/i18n";
 
 const CATEGORIES = [
   "market", "restoran", "ulasim", "eglence", "saglik",
@@ -10,9 +10,9 @@ const CATEGORIES = [
   "vergi", "teknoloji", "diger",
 ] as const;
 
-function formatTL(value: string | number): string {
+function formatAmount(value: string | number): string {
   const n = typeof value === "string" ? parseFloat(value) : value;
-  return new Intl.NumberFormat("tr-TR", { minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(n) + " ₺";
+  return new Intl.NumberFormat(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(n);
 }
 
 function statusColor(s: string): { bar: string; text: string; bg: string } {
@@ -21,13 +21,8 @@ function statusColor(s: string): { bar: string; text: string; bg: string } {
   return { bar: "bg-emerald-500", text: "text-emerald-400", bg: "" };
 }
 
-function statusLabel(s: string): string {
-  if (s === "exceeded") return "Aşıldı";
-  if (s === "warning")  return "Yaklaşıyor";
-  return "İyi";
-}
-
 export default function GoalsPanel() {
+  const { t } = useLanguage();
   const [items, setItems] = useState<GoalStatusItem[]>([]);
   const [goalCategories, setGoalCategories] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
@@ -44,7 +39,7 @@ export default function GoalsPanel() {
       setItems(statusData);
       setGoalCategories(new Set(goalsData.map((g) => g.category)));
     } catch {
-      setError("Hedefler yüklenemedi.");
+      setError(t("common.error"));
     } finally {
       setLoading(false);
     }
@@ -63,7 +58,7 @@ export default function GoalsPanel() {
       setLoading(true);
       await load();
     } catch (err) {
-      setFormError(err instanceof Error ? err.message : "Kaydedilemedi");
+      setFormError(err instanceof Error ? err.message : t("common.error"));
     } finally {
       setFormSaving(false);
     }
@@ -82,13 +77,13 @@ export default function GoalsPanel() {
   return (
     <div className="mb-6 bg-[#1A1A1A] border border-[#2A2A2A] rounded-xl p-6">
       <div className="flex items-center justify-between mb-4">
-        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Bütçe Hedefleri</p>
+        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">{t("goals.title")}</p>
         {availableCategories.length > 0 && (
           <button
             onClick={() => { setShowForm((v) => !v); setFormCategory(availableCategories[0]); setFormError(null); }}
             className="px-3 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-xs font-medium text-white transition-colors"
           >
-            {showForm ? "İptal" : "+ Hedef Ekle"}
+            {showForm ? t("common.cancel") : t("goals.addGoal")}
           </button>
         )}
       </div>
@@ -97,19 +92,21 @@ export default function GoalsPanel() {
         <form onSubmit={handleAddGoal} className="mb-4 p-4 rounded-lg bg-[#0F0F0F] border border-[#2A2A2A] space-y-3">
           <div className="flex gap-3 flex-wrap">
             <div className="flex-1 min-w-[140px]">
-              <label className="block text-xs text-gray-500 mb-1">Kategori</label>
+              <label className="block text-xs text-gray-500 mb-1">{t("goals.category")}</label>
               <select
                 value={formCategory}
                 onChange={(e) => setFormCategory(e.target.value)}
                 className="w-full bg-[#1A1A1A] border border-[#2A2A2A] rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-indigo-600"
               >
-                {availableCategories.map((c) => (
-                  <option key={c} value={c}>{CATEGORY_LABELS[c] ?? c}</option>
-                ))}
+                {availableCategories.map((c) => {
+                  const key = `category.${c}`;
+                  const label = t(key) !== key ? t(key) : c;
+                  return <option key={c} value={c}>{label}</option>;
+                })}
               </select>
             </div>
             <div className="flex-1 min-w-[120px]">
-              <label className="block text-xs text-gray-500 mb-1">Aylık Limit (₺)</label>
+              <label className="block text-xs text-gray-500 mb-1">{t("goals.monthlyLimit")}</label>
               <input
                 type="number"
                 min="1"
@@ -128,17 +125,15 @@ export default function GoalsPanel() {
             disabled={formSaving}
             className="px-4 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-sm font-medium text-white transition-colors"
           >
-            {formSaving ? "Kaydediliyor..." : "Kaydet"}
+            {formSaving ? t("common.loading") : t("goals.save")}
           </button>
         </form>
       )}
 
-      {loading && <p className="text-gray-600 text-sm animate-pulse py-4 text-center">Yükleniyor...</p>}
+      {loading && <p className="text-gray-600 text-sm animate-pulse py-4 text-center">{t("common.loading")}</p>}
       {!loading && error && <p className="text-red-400 text-sm py-4 text-center">{error}</p>}
       {!loading && !error && items.length === 0 && (
-        <p className="text-gray-600 text-sm py-4 text-center">
-          Henüz hedef yok. &quot;+ Hedef Ekle&quot; ile başlayın.
-        </p>
+        <p className="text-gray-600 text-sm py-4 text-center">{t("goals.noGoals")}</p>
       )}
 
       {!loading && items.length > 0 && (
@@ -146,24 +141,26 @@ export default function GoalsPanel() {
           {items.map((item) => {
             const { bar, text, bg } = statusColor(item.status);
             const pct = Math.min(item.pct_used, 100);
+            const catKey = `category.${item.category}`;
+            const catLabel = t(catKey) !== catKey ? t(catKey) : item.category;
+            const statusKey = `goals.status.${item.status}` as const;
+            const statusText = t(statusKey) !== statusKey ? t(statusKey) : item.status;
             return (
               <div key={item.category} className={`rounded-lg p-3.5 border border-[#2A2A2A] ${bg}`}>
                 <div className="flex items-center justify-between mb-2">
                   <div className="flex items-center gap-2">
-                    <span className="text-sm font-medium text-gray-200">
-                      {CATEGORY_LABELS[item.category] ?? item.category}
-                    </span>
-                    <span className={`text-xs font-semibold ${text}`}>{statusLabel(item.status)}</span>
+                    <span className="text-sm font-medium text-gray-200">{catLabel}</span>
+                    <span className={`text-xs font-semibold ${text}`}>{statusText}</span>
                   </div>
                   <div className="flex items-center gap-3">
                     <span className="text-xs text-gray-400 font-mono">
-                      {formatTL(item.spent_this_month)}
-                      <span className="text-gray-600"> / {formatTL(item.monthly_limit)}</span>
+                      {formatAmount(item.spent_this_month)}
+                      <span className="text-gray-600"> / {formatAmount(item.monthly_limit)}</span>
                     </span>
                     <button
                       onClick={() => void handleDelete(item.category)}
                       className="text-gray-700 hover:text-red-500 text-sm leading-none transition-colors"
-                      title="Hedefi sil"
+                      title={t("common.delete")}
                     >
                       ×
                     </button>
@@ -175,9 +172,9 @@ export default function GoalsPanel() {
                 <div className="flex justify-between mt-1.5">
                   <span className={`text-xs ${text}`}>{item.pct_used}%</span>
                   {parseFloat(item.remaining) >= 0 ? (
-                    <span className="text-xs text-gray-600">{formatTL(item.remaining)} kaldı</span>
+                    <span className="text-xs text-gray-600">{formatAmount(item.remaining)} {t("goals.remaining")}</span>
                   ) : (
-                    <span className="text-xs text-red-500">{formatTL(Math.abs(parseFloat(item.remaining)))} aşıldı</span>
+                    <span className="text-xs text-red-500">{formatAmount(Math.abs(parseFloat(item.remaining)))} {t("goals.exceeded")}</span>
                   )}
                 </div>
               </div>

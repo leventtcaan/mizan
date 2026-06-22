@@ -27,6 +27,7 @@ export interface StoredUser {
   id: string;
   email: string;
   onboarding_completed: boolean;
+  language: string;
 }
 
 export function getStoredUser(): StoredUser | null {
@@ -79,6 +80,37 @@ export interface TokenResponse {
   user_id: string;
   email: string;
   onboarding_completed: boolean;
+  language: string;
+}
+
+export interface UserResponse {
+  user_id: string;
+  email: string;
+  onboarding_completed: boolean;
+  language: string;
+  email_weekly_enabled: boolean;
+}
+
+export async function getMe(): Promise<UserResponse> {
+  const response = await fetch(`${API_BASE_URL}/auth/me`, { headers: authHeaders() });
+  if (!response.ok) throw new Error(`Failed to fetch user: ${response.status}`);
+  return response.json() as Promise<UserResponse>;
+}
+
+export async function updatePreferences(prefs: {
+  language?: string;
+  email_weekly_enabled?: boolean;
+}): Promise<UserResponse> {
+  const response = await fetch(`${API_BASE_URL}/auth/preferences`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...authHeaders() },
+    body: JSON.stringify(prefs),
+  });
+  if (!response.ok) {
+    const err = await response.json().catch(() => null);
+    throw new Error(extractErrorMessage(err, "Failed to update preferences"));
+  }
+  return response.json() as Promise<UserResponse>;
 }
 
 export interface SuggestionItem {

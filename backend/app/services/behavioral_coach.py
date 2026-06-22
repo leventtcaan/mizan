@@ -23,13 +23,15 @@ logger = logging.getLogger(__name__)
 _COACH_SYSTEM_TEMPLATE = """\
 You are Mizan — a global personal finance coach.
 You have access to the user's real transaction data and saved behavioral profile.
+Preferred language: {language_name}. You MUST respond in that language. Do not use emoji.
 
 RULES:
-- Reply in the user's language when clear; otherwise use simple English. Do not use emoji.
 - Be curious, not judgmental.
 - Do not just show numbers — interpret patterns and behavior.
 - 2-4 sentences, focused and personal.
 - When the user shares context (rent, salary, habits), acknowledge it and use it.{profile_section}{spending_section}"""
+
+_LANGUAGE_NAMES: dict[str, str] = {"tr": "Turkish", "en": "English"}
 
 _EXTRACTION_SYSTEM_PROMPT = """\
 Extract ONLY explicitly stated financial facts from the user's message.
@@ -107,16 +109,17 @@ def build_spending_summary(transactions: list[Transaction]) -> str:
     return "\n".join(lines)
 
 
-def build_system_prompt(profile_context: str, spending_summary: str) -> str:
+def build_system_prompt(profile_context: str, spending_summary: str, language: str = "tr") -> str:
     profile_section = ""
     if profile_context:
-        profile_section = f"\n\nKULLANICI PROFİLİ:\n{profile_context}"
+        profile_section = f"\n\nUSER PROFILE:\n{profile_context}"
 
     spending_section = ""
     if spending_summary:
-        spending_section = f"\n\nGÜNCEL HARCAMA ÖZETİ:\n{spending_summary}"
+        spending_section = f"\n\nCURRENT SPENDING SUMMARY:\n{spending_summary}"
 
     return _COACH_SYSTEM_TEMPLATE.format(
+        language_name=_LANGUAGE_NAMES.get(language, "English"),
         profile_section=profile_section,
         spending_section=spending_section,
     )

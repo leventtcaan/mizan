@@ -13,17 +13,19 @@ from app.services.llm_provider import LLMProvider
 
 logger = logging.getLogger(__name__)
 
-_COACH_SYSTEM_PROMPT = """\
+_COACH_SYSTEM_PROMPT_TEMPLATE = """\
 You are Mizan, a global personal finance coach.
 Analyze the user's transaction data and give warm, practical, non-judgmental feedback.
+Preferred language: {language_name}. You MUST respond in that language.
 
 Rules:
-- Use the user's language when it is clear from context; otherwise use simple English
 - Be curious, not judgmental
 - Do not only report data — explain likely behavior patterns
 - 2-4 sentences, focused and personal
 - Emphasize patterns, not raw numbers
 """
+
+_LANGUAGE_NAMES = {"tr": "Turkish", "en": "English"}
 
 _COACH_USER_TEMPLATE = """\
 Kullanıcının son {count} işlemi:
@@ -106,9 +108,10 @@ async def generate_insight(
     provider: LLMProvider,
     user_id: uuid.UUID | None = None,
     session: AsyncSession | None = None,
+    language: str = "tr",
 ) -> str:
     if not transactions:
-        return "Henüz analiz edilecek işlem yok. Bir banka ekstresi yükleyin."
+        return "No transactions to analyze yet. Upload a bank statement." if language == "en" else "Henüz analiz edilecek işlem yok. Bir banka ekstresi yükleyin."
 
     debits = [t for t in transactions if t.transaction_type == "debit"]
     credits = [t for t in transactions if t.transaction_type == "credit"]
@@ -140,20 +143,24 @@ async def generate_insight(
         notes_section=notes_section,
     )
 
+    system_prompt = _COACH_SYSTEM_PROMPT_TEMPLATE.format(
+        language_name=_LANGUAGE_NAMES.get(language, "English")
+    )
+
     try:
-        insight = _call_with_coach_prompt(provider, prompt)
+        insight = _call_with_coach_prompt(provider, system_prompt, prompt)
         logger.info("Coaching insight generated — %d chars", len(insight))
         return insight
     except Exception as exc:
         logger.error("Coaching LLM call failed: %s", exc)
-        return "Analiz şu anda mevcut değil. Lütfen daha sonra tekrar deneyin."
+        return "Analysis unavailable. Please try again later." if language == "en" else "Analiz şu anda mevcut değil. Lütfen daha sonra tekrar deneyin."
 
 
-def _call_with_coach_prompt(provider: LLMProvider, user_prompt: str) -> str:
+def _call_with_coach_prompt(provider: LLMProvider, system_prompt: str, user_prompt: str) -> str:
     response = provider.client.chat.completions.create(
         model=provider.model,
         messages=[
-            {"role": "system", "content": _COACH_SYSTEM_PROMPT},
+            {"role": "system", "content": system_prompt},
             {"role": "user", "content": user_prompt},
         ],
         temperature=0.7,

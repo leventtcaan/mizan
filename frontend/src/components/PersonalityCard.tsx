@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { getPersonality, PersonalityData } from "@/lib/api";
+import { useLanguage } from "@/lib/i18n";
 
 const TYPE_CONFIG: Record<string, {
   accent: string;
@@ -56,6 +57,7 @@ const DEFAULT_CONFIG = {
 };
 
 export default function PersonalityCard() {
+  const { t } = useLanguage();
   const [data, setData] = useState<PersonalityData | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -86,14 +88,14 @@ export default function PersonalityCard() {
         <div className="flex items-center gap-3">
           <div className="text-2xl">{cfg.icon}</div>
           <div>
-            <p className="text-xs text-gray-500 uppercase tracking-wider mb-1">Finansal Kişilik Tipin</p>
+            <p className="text-xs text-gray-500 uppercase tracking-wider mb-1">{t("progress.personality")}</p>
             <span className={`inline-flex items-center gap-1.5 text-sm font-semibold px-3 py-1 rounded-full border ${cfg.badgeBg} ${cfg.badgeText}`}>
               <span className={`w-1.5 h-1.5 rounded-full ${cfg.dotColor}`} />
               {data.type}
             </span>
           </div>
         </div>
-        {data.cached && <span className="text-xs text-gray-600 shrink-0">önbellekten</span>}
+        {data.cached && <span className="text-xs text-gray-600 shrink-0">{t("progress.cached")}</span>}
       </div>
 
       <p className="text-gray-300 text-sm leading-relaxed mb-5">{data.description}</p>
@@ -101,7 +103,7 @@ export default function PersonalityCard() {
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-5">
         {data.strengths.length > 0 && (
           <div>
-            <p className="text-xs font-semibold text-emerald-500 uppercase tracking-wider mb-2">Güçlü Yönlerin</p>
+            <p className="text-xs font-semibold text-emerald-500 uppercase tracking-wider mb-2">✓</p>
             <ul className="space-y-1.5">
               {data.strengths.map((s, i) => (
                 <li key={i} className="flex gap-2 text-sm text-gray-300 items-start">
@@ -114,7 +116,7 @@ export default function PersonalityCard() {
         )}
         {data.watch_out.length > 0 && (
           <div>
-            <p className="text-xs font-semibold text-amber-500 uppercase tracking-wider mb-2">Dikkat Et</p>
+            <p className="text-xs font-semibold text-amber-500 uppercase tracking-wider mb-2">!</p>
             <ul className="space-y-1.5">
               {data.watch_out.map((w, i) => (
                 <li key={i} className="flex gap-2 text-sm text-gray-300 items-start">
@@ -129,7 +131,6 @@ export default function PersonalityCard() {
 
       {data.tip && (
         <div className="bg-indigo-950/30 border border-indigo-900/40 rounded-lg p-3">
-          <p className="text-xs font-semibold text-indigo-400 uppercase tracking-wider mb-1">İpucu</p>
           <p className="text-sm text-gray-300">{data.tip}</p>
         </div>
       )}

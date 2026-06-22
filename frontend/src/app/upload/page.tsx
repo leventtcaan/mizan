@@ -6,11 +6,13 @@ import Link from "next/link";
 import { uploadStatement, acceptSuggestion, dismissSuggestion, getStoredUser, type UploadResponse, type SuggestionItem } from "@/lib/api";
 import PageLayout from "@/components/ui/PageLayout";
 import { FileText, ArrowRight, Zap } from "@/components/ui/Icons";
+import { useLanguage } from "@/lib/i18n";
 
 type UploadState = "idle" | "uploading" | "success" | "error";
 
 export default function UploadPage() {
   const router = useRouter();
+  const { t } = useLanguage();
   const [state, setState] = useState<UploadState>("idle");
   const [dragOver, setDragOver] = useState(false);
   const [result, setResult] = useState<UploadResponse | null>(null);
@@ -53,10 +55,10 @@ export default function UploadPage() {
         setPendingSuggestions(response.suggestions.filter((s) => s.status === "pending"));
       }
     } catch (err) {
-      setErrorMsg(err instanceof Error ? err.message : "Yükleme başarısız oldu.");
+      setErrorMsg(err instanceof Error ? err.message : t("upload.error"));
       setState("error");
     }
-  }, [selectedFile]);
+  }, [selectedFile, t]);
 
   const handleAcceptSuggestion = async (id: string) => {
     await acceptSuggestion(id).catch(() => {});
@@ -69,7 +71,7 @@ export default function UploadPage() {
   };
 
   return (
-    <PageLayout title="Ekstre Yükle" subtitle="PDF veya CSV formatındaki banka ekstrenizi yükleyin" maxWidth="sm">
+    <PageLayout title={t("upload.title")} subtitle={t("upload.subtitle")} maxWidth="sm">
       <div
         onDrop={handleDrop}
         onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
@@ -95,16 +97,15 @@ export default function UploadPage() {
             </div>
             <p className="text-white font-medium">{selectedFile.name}</p>
             <p className="text-gray-500 text-sm mt-1">{(selectedFile.size / 1024).toFixed(1)} KB</p>
-            <p className="text-gray-600 text-xs mt-2">Değiştirmek için tıklayın</p>
           </div>
         ) : (
           <div>
             <div className="w-12 h-12 rounded-xl bg-[#2A2A2A] flex items-center justify-center mx-auto mb-3">
               <FileText size={22} className="text-gray-400" />
             </div>
-            <p className="text-gray-300 font-medium">Dosyayı buraya sürükleyin</p>
-            <p className="text-gray-600 text-sm mt-1">veya seçmek için tıklayın</p>
-            <p className="text-gray-700 text-xs mt-3">PDF · CSV · Maks 10 MB</p>
+            <p className="text-gray-300 font-medium">{t("upload.dropHint")}</p>
+            <p className="text-gray-600 text-sm mt-1">{t("upload.or")} {t("upload.browse")}</p>
+            <p className="text-gray-700 text-xs mt-3">{t("upload.formats")} · {t("upload.maxSize")}</p>
           </div>
         )}
       </div>
@@ -117,30 +118,29 @@ export default function UploadPage() {
         {state === "uploading" ? (
           <span className="flex items-center justify-center gap-2">
             <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-            Yükleniyor ve analiz ediliyor...
+            {t("upload.uploading")}
           </span>
-        ) : "Yükle ve Analiz Et"}
+        ) : t("upload.title")}
       </button>
 
       {state === "success" && result && (
         <div className="mt-5 space-y-3">
           <div className="bg-emerald-950/40 border border-emerald-800/60 rounded-xl p-5">
-            <p className="text-emerald-300 font-semibold text-lg">{result.transaction_count} işlem bulundu</p>
+            <p className="text-emerald-300 font-semibold text-lg">{result.transaction_count} {t("upload.success")}</p>
             <p className="text-emerald-500 text-sm mt-1">{result.message}</p>
             <Link
               href="/transactions"
               className="mt-4 inline-flex items-center gap-2 text-indigo-400 hover:text-indigo-300 text-sm transition-colors"
             >
-              İşlemleri görüntüle <ArrowRight size={14} />
+              {t("upload.viewTransactions")} <ArrowRight size={14} />
             </Link>
           </div>
 
-          {/* Networth suggestions from upload */}
           {pendingSuggestions.length > 0 && (
             <div className="bg-[#1A1A1A] border border-amber-900/30 rounded-xl p-4">
               <div className="flex items-center gap-2 mb-3">
                 <Zap size={14} className="text-amber-400" />
-                <p className="text-amber-300 text-sm font-semibold">Net Değer Önerileri</p>
+                <p className="text-amber-300 text-sm font-semibold">{t("nw.suggestions")}</p>
               </div>
               <div className="space-y-2">
                 {pendingSuggestions.map((s) => (
@@ -149,7 +149,7 @@ export default function UploadPage() {
                       <p className="text-gray-300 text-xs">{s.reason}</p>
                       <p className="text-amber-400 text-xs font-semibold mt-0.5">
                         {parseFloat(s.suggested_change) >= 0 ? "+" : ""}
-                        {parseFloat(s.suggested_change).toLocaleString("tr-TR")} {s.currency}
+                        {parseFloat(s.suggested_change).toLocaleString()} {s.currency}
                       </p>
                     </div>
                     <div className="flex gap-1.5 shrink-0">
@@ -157,13 +157,13 @@ export default function UploadPage() {
                         onClick={() => handleAcceptSuggestion(s.id)}
                         className="px-2.5 py-1 rounded-lg bg-indigo-600/20 text-indigo-400 border border-indigo-800/40 text-xs font-medium hover:bg-indigo-600/30 transition-colors"
                       >
-                        Uygula
+                        {t("nw.accept")}
                       </button>
                       <button
                         onClick={() => handleDismissSuggestion(s.id)}
                         className="px-2.5 py-1 rounded-lg bg-[#2A2A2A] text-gray-400 text-xs hover:text-gray-200 transition-colors"
                       >
-                        Yoksay
+                        {t("nw.rejectSuggestion")}
                       </button>
                     </div>
                   </div>
@@ -176,7 +176,7 @@ export default function UploadPage() {
 
       {state === "error" && (
         <div className="mt-5 bg-red-950/40 border border-red-800/60 rounded-xl p-5">
-          <p className="text-red-400 font-medium">Yükleme başarısız</p>
+          <p className="text-red-400 font-medium">{t("common.error")}</p>
           <p className="text-red-500 text-sm mt-1">{errorMsg}</p>
         </div>
       )}

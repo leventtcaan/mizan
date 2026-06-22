@@ -3,17 +3,12 @@
 import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { getAlerts, dismissAlert, Alert } from "@/lib/api";
+import { useLanguage } from "@/lib/i18n";
 
 const TYPE_ACCENT: Record<string, string> = {
   forgotten_subscription: "border-l-purple-500",
   recurring: "border-l-blue-500",
   post_salary_spike: "border-l-amber-500",
-};
-
-const TYPE_LABEL: Record<string, string> = {
-  forgotten_subscription: "Unutulan Abonelik",
-  recurring: "Düzenli Ödeme",
-  post_salary_spike: "Maaş Sonrası Harcama",
 };
 
 const TYPE_ICON: Record<string, string> = {
@@ -24,6 +19,7 @@ const TYPE_ICON: Record<string, string> = {
 
 export default function AlertsPanel() {
   const router = useRouter();
+  const { t } = useLanguage();
   const [alerts, setAlerts] = useState<Alert[]>([]);
   const [loading, setLoading] = useState(true);
   const [dismissing, setDismissing] = useState<Set<string>>(new Set());
@@ -81,11 +77,13 @@ export default function AlertsPanel() {
   return (
     <div className="mb-6">
       <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">
-        Dikkat Çeken Örüntüler
+        {t("alerts.title")}
       </p>
       <div className="space-y-2">
         {alerts.map((alert) => {
           const accent = TYPE_ACCENT[alert.type] ?? "border-l-gray-600";
+          const typeKey = `alerts.types.${alert.type}` as const;
+          const typeLabel = t(typeKey) !== typeKey ? t(typeKey) : alert.type;
           return (
             <div
               key={alert.dismiss_key}
@@ -94,9 +92,7 @@ export default function AlertsPanel() {
               <span className="text-base mt-0.5 shrink-0">{TYPE_ICON[alert.type] ?? "⚠"}</span>
 
               <div className="flex-1 min-w-0">
-                <p className="text-xs font-medium text-gray-500 mb-0.5">
-                  {TYPE_LABEL[alert.type] ?? alert.type}
-                </p>
+                <p className="text-xs font-medium text-gray-500 mb-0.5">{typeLabel}</p>
                 <p className="text-sm text-gray-200 leading-snug">{alert.message}</p>
               </div>
 
@@ -106,7 +102,7 @@ export default function AlertsPanel() {
                     onClick={() => handleAskCoach(alert.message)}
                     className="text-xs text-indigo-400 hover:text-indigo-300 whitespace-nowrap transition-colors"
                   >
-                    Sohbete sor →
+                    {t("alerts.askCoach")}
                   </button>
                 )}
                 <button
@@ -114,7 +110,7 @@ export default function AlertsPanel() {
                   disabled={dismissing.has(alert.dismiss_key)}
                   className="text-xs text-gray-600 hover:text-gray-400 transition-colors disabled:opacity-50"
                 >
-                  {dismissing.has(alert.dismiss_key) ? "..." : "Kapat"}
+                  {dismissing.has(alert.dismiss_key) ? "…" : t("alerts.dismiss")}
                 </button>
               </div>
             </div>

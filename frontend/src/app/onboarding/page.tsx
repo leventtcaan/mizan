@@ -4,18 +4,12 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { getStoredUser, setStoredUser, uploadStatement, completeOnboarding, type UploadResponse } from "@/lib/api";
 import { FileText, ArrowRight } from "@/components/ui/Icons";
+import { useLanguage } from "@/lib/i18n";
 
 type Step = 1 | 2 | 3;
 
-const STATEMENT_INSTRUCTIONS = [
-  "Open your bank, wallet, card, broker, or payment app.",
-  "Find statements, activity, transactions, history, or export.",
-  "Choose a recent date range. Three months is enough to start.",
-  "Export as PDF or CSV when possible.",
-  "Upload the file here. Mizan will try to detect institution and account details.",
-];
-
 export default function OnboardingPage() {
+  const { t } = useLanguage();
   const router = useRouter();
   const [step, setStep] = useState<Step>(1);
   const [institutionName, setInstitutionName] = useState("");
@@ -41,7 +35,7 @@ export default function OnboardingPage() {
       const result = await uploadStatement(file);
       setUploadResult(result);
     } catch (err) {
-      setUploadError(err instanceof Error ? err.message : "Yükleme başarısız oldu.");
+      setUploadError(err instanceof Error ? err.message : t("common.error"));
     } finally {
       setUploading(false);
     }
@@ -73,6 +67,8 @@ export default function OnboardingPage() {
   };
 
   const progressPct = step === 1 ? 33 : step === 2 ? 66 : 100;
+  const stepLabels = [t("onboarding.stepSource"), t("onboarding.stepInstructions"), t("onboarding.stepUpload")];
+  const instructions = t("onboarding.step2Instructions") as unknown as string[];
 
   return (
     <div className="min-h-screen bg-[#0F0F0F] text-white flex flex-col items-center justify-center px-4 py-12">
@@ -88,9 +84,9 @@ export default function OnboardingPage() {
             />
           </div>
           <div className="flex justify-between mt-2">
-            {[1,2,3].map(n => (
-              <span key={n} className={`text-xs ${step >= n ? "text-indigo-400" : "text-gray-700"}`}>
-                {n === 1 ? "Kaynak" : n === 2 ? "Talimatlar" : "Yükleme"}
+            {stepLabels.map((label, i) => (
+              <span key={i} className={`text-xs ${step > i ? "text-indigo-400" : "text-gray-700"}`}>
+                {label}
               </span>
             ))}
           </div>
@@ -99,22 +95,22 @@ export default function OnboardingPage() {
         {/* Step 1: Source select */}
         {step === 1 && (
           <div>
-            <h1 className="text-3xl font-bold mb-2">Hoş geldiniz</h1>
+            <h1 className="text-3xl font-bold mb-2">{t("onboarding.welcome")}</h1>
             {userEmail && <p className="text-gray-500 text-sm mb-6">{userEmail}</p>}
-            <p className="text-gray-300 mb-6">Start with any financial source you use.</p>
+            <p className="text-gray-300 mb-6">{t("onboarding.step1CTA")}</p>
 
             <div className="mb-8">
               <label className="block text-xs text-gray-500 mb-2 uppercase tracking-wide">
-                Institution name
+                {t("onboarding.step1Label")}
               </label>
               <input
                 value={institutionName}
                 onChange={(e) => setInstitutionName(e.target.value)}
-                placeholder="Bank, card, wallet, broker..."
+                placeholder={t("onboarding.step1Placeholder")}
                 className="w-full bg-[#1A1A1A] border border-[#2A2A2A] rounded-xl px-4 py-3 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-indigo-600"
               />
               <p className="text-gray-600 text-xs mt-2">
-                Optional. You can also skip and let Mizan detect it from the uploaded file.
+                {t("common.optional")}
               </p>
             </div>
 
@@ -122,7 +118,7 @@ export default function OnboardingPage() {
               onClick={() => setStep(2)}
               className="w-full py-3.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 font-semibold transition-colors flex items-center justify-center gap-2"
             >
-              İleri <ArrowRight size={18} />
+              {t("onboarding.continue")} <ArrowRight size={18} />
             </button>
           </div>
         )}
@@ -130,13 +126,13 @@ export default function OnboardingPage() {
         {/* Step 2: Instructions */}
         {step === 2 && (
           <div>
-            <h2 className="text-2xl font-bold mb-2">How to export a statement</h2>
+            <h2 className="text-2xl font-bold mb-2">{t("onboarding.step2Title")}</h2>
             <p className="text-gray-500 text-sm mb-8">
-              {institutionName.trim() || "Your financial institution"}
+              {institutionName.trim() || t("onboarding.step1Subtitle")}
             </p>
 
             <div className="space-y-3 mb-8">
-              {STATEMENT_INSTRUCTIONS.map((instruction, i) => (
+              {Array.isArray(instructions) && instructions.map((instruction, i) => (
                 <div key={i} className="flex items-start gap-4 p-4 bg-[#1A1A1A] border border-[#2A2A2A] rounded-xl">
                   <span className="w-6 h-6 rounded-full bg-indigo-950 border border-indigo-800 text-indigo-400 text-xs font-bold flex items-center justify-center shrink-0">
                     {i + 1}
@@ -148,8 +144,8 @@ export default function OnboardingPage() {
 
             <div className="bg-[#1A1A1A] border border-[#2A2A2A] rounded-xl p-4 mb-8">
               <p className="text-gray-400 text-xs leading-relaxed">
-                <span className="text-gray-300 font-medium">İpucu: </span>
-                PDF and CSV work best. Images and scanned PDFs may need OCR and can be less accurate.
+                <span className="text-gray-300 font-medium">{t("onboarding.tipLabel")} </span>
+                {t("onboarding.tipText")}
               </p>
             </div>
 
@@ -158,13 +154,13 @@ export default function OnboardingPage() {
                 onClick={() => setStep(1)}
                 className="flex-1 py-3.5 rounded-xl bg-[#1A1A1A] border border-[#2A2A2A] hover:bg-[#2A2A2A] font-semibold transition-colors text-gray-300"
               >
-                ← Geri
+                ← {t("common.back")}
               </button>
               <button
                 onClick={() => setStep(3)}
                 className="flex-[2] py-3.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 font-semibold transition-colors flex items-center justify-center gap-2"
               >
-                İleri <ArrowRight size={18} />
+                {t("onboarding.continue")} <ArrowRight size={18} />
               </button>
             </div>
           </div>
@@ -173,8 +169,8 @@ export default function OnboardingPage() {
         {/* Step 3: Upload */}
         {step === 3 && (
           <div>
-            <h2 className="text-2xl font-bold mb-2">Ekstrenizi yükleyin</h2>
-            <p className="text-gray-500 text-sm mb-8">ve analize başlayalım</p>
+            <h2 className="text-2xl font-bold mb-2">{t("onboarding.step3Title")}</h2>
+            <p className="text-gray-500 text-sm mb-8">{t("onboarding.step3Subtitle")}</p>
 
             {!uploadResult ? (
               <>
@@ -199,16 +195,16 @@ export default function OnboardingPage() {
                   {uploading ? (
                     <div>
                       <div className="w-8 h-8 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin mx-auto mb-3" />
-                      <p className="text-gray-400 text-sm">Yükleniyor ve analiz ediliyor...</p>
+                      <p className="text-gray-400 text-sm">{t("onboarding.uploading")}</p>
                     </div>
                   ) : (
                     <div>
                       <div className="w-12 h-12 rounded-xl bg-[#2A2A2A] flex items-center justify-center mx-auto mb-3">
                         <FileText size={22} className="text-gray-400" />
                       </div>
-                      <p className="text-gray-300 font-medium mb-1">Dosyayı buraya sürükleyin</p>
-                      <p className="text-gray-600 text-sm">veya tıklayarak seçin</p>
-                      <p className="text-gray-700 text-xs mt-3">PDF veya CSV · Maks 10 MB</p>
+                      <p className="text-gray-300 font-medium mb-1">{t("onboarding.dropHere")}</p>
+                      <p className="text-gray-600 text-sm">{t("onboarding.orClick")}</p>
+                      <p className="text-gray-700 text-xs mt-3">{t("onboarding.pdfCsvMax")}</p>
                     </div>
                   )}
                 </div>
@@ -224,13 +220,13 @@ export default function OnboardingPage() {
                     onClick={() => setStep(2)}
                     className="flex-1 py-3.5 rounded-xl bg-[#1A1A1A] border border-[#2A2A2A] hover:bg-[#2A2A2A] font-semibold transition-colors text-gray-300"
                   >
-                    ← Geri
+                    ← {t("common.back")}
                   </button>
                   <button
                     onClick={handleSkip}
                     className="flex-1 py-3.5 rounded-xl border border-[#2A2A2A] hover:border-[#3A3A3A] font-semibold transition-colors text-gray-500 hover:text-gray-300 text-sm"
                   >
-                    Şimdi değil, atla
+                    {t("onboarding.skip")}
                   </button>
                 </div>
               </>
@@ -241,15 +237,15 @@ export default function OnboardingPage() {
                     <span className="text-emerald-400 text-2xl">✓</span>
                   </div>
                   <h3 className="text-xl font-semibold text-emerald-300 mb-2">
-                    {uploadResult.transaction_count} işlem bulundu
+                    {uploadResult.transaction_count} {t("onboarding.uploadSuccess")}
                   </h3>
-                  <p className="text-gray-500 text-sm">Ekstreniniz başarıyla analiz edildi.</p>
+                  <p className="text-gray-500 text-sm">{t("onboarding.analysisSuccess")}</p>
                 </div>
                 <button
                   onClick={handleFinish}
                   className="w-full py-4 rounded-xl bg-indigo-600 hover:bg-indigo-500 font-semibold transition-colors flex items-center justify-center gap-2"
                 >
-                  Hadi Başlayalım <ArrowRight size={18} />
+                  {t("onboarding.finish")} <ArrowRight size={18} />
                 </button>
               </div>
             )}

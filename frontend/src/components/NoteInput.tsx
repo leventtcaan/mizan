@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { addNote, type NoteResponse } from "@/lib/api";
+import { useLanguage } from "@/lib/i18n";
 
 const MAX_CHARS = 300;
 
@@ -13,10 +14,11 @@ interface NoteInputProps {
 
 function timeAgo(iso: string): string {
   const d = new Date(iso);
-  return d.toLocaleDateString("tr-TR", { day: "numeric", month: "short", year: "numeric" });
+  return d.toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" });
 }
 
 export default function NoteInput({ transactionId, existingNotes, onNoteAdded }: NoteInputProps) {
+  const { t } = useLanguage();
   const [text, setText] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -32,7 +34,7 @@ export default function NoteInput({ transactionId, existingNotes, onNoteAdded }:
       onNoteAdded(note);
       setText("");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Kaydedemedik");
+      setError(err instanceof Error ? err.message : t("common.error"));
     } finally {
       setSaving(false);
     }
@@ -65,19 +67,19 @@ export default function NoteInput({ transactionId, existingNotes, onNoteAdded }:
               void handleSave();
             }
           }}
-          placeholder="Bu işlem hakkında not ekle... (Enter ile kaydet)"
+          placeholder={t("common.notes") + "..."}
           className="w-full resize-none rounded-lg bg-[#0F0F0F] border border-[#2A2A2A] text-xs text-gray-200 placeholder-gray-700 px-3 py-2 focus:outline-none focus:border-indigo-600 transition-colors leading-relaxed"
         />
         <div className="flex items-center justify-between">
           <span className={`text-xs ${remaining < 50 ? "text-amber-500" : "text-gray-700"}`}>
-            {remaining} karakter kaldı
+            {remaining}
           </span>
           <button
             onClick={() => void handleSave()}
             disabled={saving || !text.trim()}
             className="px-3 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 text-xs font-medium text-white transition-colors"
           >
-            {saving ? "Kaydediliyor…" : "Kaydet"}
+            {saving ? t("common.loading") : t("common.save")}
           </button>
         </div>
       </div>
