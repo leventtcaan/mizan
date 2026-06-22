@@ -80,6 +80,15 @@ class Transaction(Base):
         index=True,
     )
 
+    # Currency of this transaction. Statement uploads have no reliable per-row currency,
+    # so they default to TRY (the legacy base); manual entries set it explicitly.
+    currency: Mapped[str] = mapped_column(
+        String(10),
+        nullable=False,
+        default="TRY",
+        server_default="TRY",
+    )
+
     # WHY: Nullable — LLM enrichment happens asynchronously after insert.
     # Row exists with raw data immediately; category is filled by the enrichment job.
     category: Mapped[str | None] = mapped_column(

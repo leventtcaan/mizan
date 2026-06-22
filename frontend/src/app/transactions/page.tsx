@@ -3,16 +3,15 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
-  getTransactions, getInsights, getBatches, getStoredUser,
-  getEmailPreferences, setEmailPreferences,
-  type Transaction, type InsightResponse, type BatchSummary,
+  getTransactions, getBatches, getStoredUser,
+  type Transaction, type BatchSummary,
 } from "@/lib/api";
 import TransactionTable from "@/components/TransactionTable";
 import SpendingChart from "@/components/SpendingChart";
 import AddTransactionModal from "@/components/AddTransactionModal";
-import ChatPanel from "@/components/ChatPanel";
 import PageLayout from "@/components/ui/PageLayout";
 import MoneyTabs from "@/components/ui/MoneyTabs";
+import { CATEGORY_COLORS } from "@/lib/categories";
 import { Plus } from "@/components/ui/Icons";
 import { useLanguage } from "@/lib/i18n";
 
@@ -33,72 +32,29 @@ function CalendarIcon() {
   );
 }
 
-function EmailToggle({
-  enabled,
-  toggling,
-  onToggle,
-  labelOn,
-  labelOff,
-  title,
-  subtitle,
-}: {
-  enabled: boolean;
-  toggling: boolean;
-  onToggle: () => void;
-  labelOn: string;
-  labelOff: string;
-  title: string;
-  subtitle: string;
-}) {
-  return (
-    <div className="flex items-center gap-3 bg-[#1A1A1A] border border-[#2A2A2A] rounded-xl px-4 py-2.5">
-      <div className="flex-1 min-w-0">
-        <p className="text-xs font-medium text-gray-300 leading-none">{title}</p>
-        <p className="text-[10px] text-gray-600 mt-0.5">{subtitle}</p>
-      </div>
-      <button
-        onClick={onToggle}
-        disabled={toggling}
-        className={`relative shrink-0 w-10 h-5 rounded-full transition-colors duration-200 disabled:opacity-50 focus:outline-none ${
-          enabled ? "bg-indigo-600" : "bg-[#2A2A2A]"
-        }`}
-      >
-        <span
-          className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform duration-200 ${
-            enabled ? "translate-x-5" : "translate-x-0"
-          }`}
-        />
-      </button>
-      <span className={`text-xs font-medium w-10 shrink-0 ${enabled ? "text-indigo-400" : "text-gray-600"}`}>
-        {enabled ? labelOn : labelOff}
-      </span>
-    </div>
-  );
-}
+const TX_CATEGORIES = [
+  "market", "restoran", "ulasim", "eglence", "saglik", "fatura",
+  "giyim", "nakit_atm", "transfer", "iade", "vergi", "teknoloji", "diger",
+];
 
 export default function TransactionsPage() {
   const { t, lang } = useLanguage();
   const router = useRouter();
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [batches, setBatches] = useState<BatchSummary[]>([]);
-  const [insight, setInsight] = useState<InsightResponse | null>(null);
   const [txState, setTxState] = useState<LoadState>("loading");
-  const [insightState, setInsightState] = useState<LoadState>("loading");
   const [showAll, setShowAll] = useState(false);
   const [showBatchHistory, setShowBatchHistory] = useState(false);
   const [showAddModal, setShowAddModal] = useState(false);
-  const [emailEnabled, setEmailEnabled] = useState<boolean | null>(null);
-  const [emailToggling, setEmailToggling] = useState(false);
+  // Filters
+  const [search, setSearch] = useState("");
+  const [typeFilter, setTypeFilter] = useState<"all" | "debit" | "credit">("all");
+  const [catFilter, setCatFilter] = useState<string>("all");
 
   useEffect(() => {
     const user = getStoredUser();
     if (!user) { router.replace("/login"); return; }
-
     getBatches().then(setBatches).catch(() => {});
-    getEmailPreferences().then((prefs) => setEmailEnabled(prefs.email_weekly_enabled)).catch(() => {});
-    getInsights()
-      .then((data) => { setInsight(data); setInsightState("ready"); })
-      .catch(() => setInsightState("error"));
   }, []);
 
   useEffect(() => {
@@ -112,7 +68,6 @@ export default function TransactionsPage() {
   useEffect(() => {
     const handler = () => {
       getTransactions(showAll).then(setTransactions).catch(() => {});
-      getInsights().then((data) => { setInsight(data); setInsightState("ready"); }).catch(() => {});
     };
     window.addEventListener("mizan-data-changed", handler);
     return () => window.removeEventListener("mizan-data-changed", handler);
@@ -122,19 +77,12 @@ export default function TransactionsPage() {
     setTransactions((prev) => prev.map((tx) => (tx.id === txId ? { ...tx, category: newCategory } : tx)));
   };
 
-  const handleEmailToggle = async () => {
-    if (emailEnabled === null || emailToggling) return;
-    const next = !emailEnabled;
-    setEmailToggling(true);
-    try {
-      await setEmailPreferences(next);
-      setEmailEnabled(next);
-    } catch {
-      // silent
-    } finally {
-      setEmailToggling(false);
-    }
-  };
+  const filtered = transactions.filter((tx) => {
+    if (typeFilter !== "all" && tx.transaction_type !== typeFilter) return false;
+    if (catFilter !== "all" && (tx.category ?? "diger") !== catFilter) return false;
+    if (search.trim() && !tx.description.toLowerCase().includes(search.trim().toLowerCase())) return false;
+    return true;
+  });
 
   const handleTransactionAdded = (tx: Transaction) => {
     setTransactions((prev) => [tx, ...prev]);
@@ -163,20 +111,6 @@ export default function TransactionsPage() {
   return (
     <PageLayout title={t("tx.title")} titleBadge={titleBadge} action={pageActions}>
       <MoneyTabs />
-
-      {emailEnabled !== null && (
-        <div className="mb-5">
-          <EmailToggle
-            enabled={emailEnabled}
-            toggling={emailToggling}
-            onToggle={handleEmailToggle}
-            labelOn={t("tx.emailOn")}
-            labelOff={t("tx.emailOff")}
-            title={t("tx.emailToggle")}
-            subtitle={t("tx.emailSubtitle")}
-          />
-        </div>
-      )}
 
       {batches.length > 0 && (
         <div className="mb-6 bg-[#1A1A1A] border border-[#2A2A2A] rounded-xl p-4">
@@ -261,21 +195,47 @@ export default function TransactionsPage() {
         </div>
       )}
 
-      {insightState === "loading" && (
-        <div className="mb-8 bg-[#1A1A1A] border border-[#2A2A2A] rounded-xl flex items-center justify-center" style={{ height: 380 }}>
-          <p className="text-gray-600 text-sm animate-pulse">{t("common.loading")}</p>
-        </div>
-      )}
-      {insightState !== "loading" && (
-        <ChatPanel initialInsight={insight?.insight ?? null} />
-      )}
-
       {txState === "ready" && transactions.length > 0 && (
         <SpendingChart transactions={transactions} />
       )}
 
+      {/* Filter bar */}
+      {txState === "ready" && transactions.length > 0 && (
+        <div className="flex flex-wrap items-center gap-2 mb-3">
+          <input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder={t("tx.searchPlaceholder")}
+            className="flex-1 min-w-[160px] bg-[#1A1A1A] border border-[#2A2A2A] rounded-lg px-3 py-2 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-indigo-600"
+          />
+          <div className="flex rounded-lg overflow-hidden border border-[#2A2A2A] text-xs">
+            {(["all", "debit", "credit"] as const).map((tf) => (
+              <button
+                key={tf}
+                onClick={() => setTypeFilter(tf)}
+                className={`px-3 py-2 font-medium transition-colors ${typeFilter === tf ? "bg-indigo-600 text-white" : "text-gray-500 hover:text-gray-300"}`}
+              >
+                {t(`tx.filter.${tf}`)}
+              </button>
+            ))}
+          </div>
+          <select
+            value={catFilter}
+            onChange={(e) => setCatFilter(e.target.value)}
+            className="bg-[#1A1A1A] border border-[#2A2A2A] rounded-lg px-3 py-2 text-sm text-gray-300 focus:outline-none focus:border-indigo-600"
+          >
+            <option value="all">{t("tx.filter.allCategories")}</option>
+            {TX_CATEGORIES.map((c) => (
+              <option key={c} value={c} style={{ color: CATEGORY_COLORS[c] }}>
+                {t(`category.${c}`) !== `category.${c}` ? t(`category.${c}`) : c}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
+
       {txState === "loading" && (
-        <div className="space-y-px mt-8 rounded-xl overflow-hidden border border-[#2A2A2A]">
+        <div className="space-y-px mt-4 rounded-xl overflow-hidden border border-[#2A2A2A]">
           {[1, 2, 3, 4, 5].map((i) => (
             <div key={i} className={`h-14 animate-pulse ${i % 2 !== 0 ? "bg-[#111]" : "bg-[#0F0F0F]"}`} />
           ))}
@@ -286,8 +246,13 @@ export default function TransactionsPage() {
           <p className="text-red-400 text-sm">{t("common.error")}</p>
         </div>
       )}
-      {txState === "ready" && (
-        <TransactionTable transactions={transactions} onCategoryCorrection={handleCategoryCorrection} />
+      {txState === "ready" && filtered.length > 0 && (
+        <TransactionTable transactions={filtered} onCategoryCorrection={handleCategoryCorrection} />
+      )}
+      {txState === "ready" && filtered.length === 0 && transactions.length > 0 && (
+        <div className="mt-4 bg-[#1A1A1A] border border-[#2A2A2A] rounded-xl p-8 text-center text-gray-500 text-sm">
+          {t("tx.noMatches")}
+        </div>
       )}
 
       {showAddModal && (

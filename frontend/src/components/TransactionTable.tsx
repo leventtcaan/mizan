@@ -18,13 +18,17 @@ interface TransactionTableProps {
   onCategoryCorrection?: (txId: string, newCategory: string) => void;
 }
 
-function formatAmount(amount: string, type: string): string {
+function formatAmount(amount: string, type: string, currency = "TRY"): string {
   const num = parseFloat(amount);
-  const formatted = new Intl.NumberFormat(undefined, {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  }).format(num);
-  return type === "credit" ? `+${formatted}` : `-${formatted}`;
+  try {
+    const formatted = new Intl.NumberFormat(undefined, {
+      style: "currency", currency, minimumFractionDigits: 2, maximumFractionDigits: 2,
+    }).format(num);
+    return type === "credit" ? `+${formatted}` : `-${formatted}`;
+  } catch {
+    const formatted = new Intl.NumberFormat(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(num);
+    return `${type === "credit" ? "+" : "-"}${formatted} ${currency}`;
+  }
 }
 
 function formatDate(raw: string): string {
@@ -144,7 +148,7 @@ export default function TransactionTable({ transactions, onCategoryCorrection }:
                   </td>
                   <td className="px-4 py-3.5 text-right whitespace-nowrap">
                     <span className={`text-sm font-semibold tabular-nums ${tx.transaction_type === "credit" ? "text-emerald-400" : "text-red-400"}`}>
-                      {formatAmount(tx.amount, tx.transaction_type)}
+                      {formatAmount(tx.amount, tx.transaction_type, tx.currency)}
                     </span>
                   </td>
                   <td className="px-4 py-3.5" onClick={(e) => e.stopPropagation()}>
@@ -167,7 +171,7 @@ export default function TransactionTable({ transactions, onCategoryCorrection }:
                         </div>
                         <div className="text-right shrink-0 ml-4">
                           <p className={`text-base font-bold tabular-nums ${tx.transaction_type === "credit" ? "text-emerald-400" : "text-red-400"}`}>
-                            {formatAmount(tx.amount, tx.transaction_type)}
+                            {formatAmount(tx.amount, tx.transaction_type, tx.currency)}
                           </p>
                           <p className="text-xs text-gray-600 mt-0.5">{formatDate(tx.transaction_date)}</p>
                         </div>

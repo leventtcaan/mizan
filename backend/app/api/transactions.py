@@ -38,6 +38,7 @@ class TransactionResponse(BaseModel):
     user_id: str
     upload_batch_id: str | None
     amount: str
+    currency: str
     transaction_type: str
     description: str
     transaction_date: date
@@ -74,6 +75,15 @@ class ManualTransactionRequest(BaseModel):
     description: str
     transaction_date: date
     category: str | None = None
+    currency: str = "TRY"
+
+    @field_validator("currency")
+    @classmethod
+    def valid_currency(cls, v: str) -> str:
+        code = v.strip().upper()
+        if not (1 <= len(code) <= 10) or not code.isalnum():
+            raise ValueError("currency must be a 1-10 char code")
+        return code
 
     @field_validator("transaction_type")
     @classmethod
@@ -136,6 +146,7 @@ async def list_transactions(
             user_id=str(t.user_id),
             upload_batch_id=t.upload_batch_id,
             amount=str(t.amount),
+            currency=t.currency,
             transaction_type=t.transaction_type,
             description=t.description,
             transaction_date=t.transaction_date,
@@ -163,6 +174,7 @@ async def create_transaction(
     tx = Transaction(
         user_id=current_user.id,
         amount=amount,
+        currency=body.currency,
         transaction_type=body.transaction_type,
         description=body.description,
         transaction_date=body.transaction_date,
@@ -195,6 +207,7 @@ async def create_transaction(
         user_id=str(tx.user_id),
         upload_batch_id=tx.upload_batch_id,
         amount=str(tx.amount),
+        currency=tx.currency,
         transaction_type=tx.transaction_type,
         description=tx.description,
         transaction_date=tx.transaction_date,

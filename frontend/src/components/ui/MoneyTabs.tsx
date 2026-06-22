@@ -2,23 +2,25 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { PieChart, Calendar, CreditCard, Layers } from "@/components/ui/Icons";
+import { PieChart, Calendar, RefreshCw } from "@/components/ui/Icons";
 import { useLanguage } from "@/lib/i18n";
+import MoneyOverview from "@/components/ui/MoneyOverview";
 
 const TABS = [
-  { href: "/transactions", labelKey: "nav.transactions", icon: PieChart },
-  { href: "/cashflow", labelKey: "nav.calendar", icon: Calendar },
-  { href: "/subscriptions", labelKey: "nav.subscriptions", icon: CreditCard },
-  { href: "/installments", labelKey: "nav.installments", icon: Layers },
+  { href: "/transactions", labelKey: "money.activity", icon: PieChart },
+  { href: "/cashflow", labelKey: "money.upcoming", icon: Calendar },
+  { href: "/recurring", labelKey: "money.recurring", icon: RefreshCw },
 ];
 
-/** Shared sub-navigation that makes the four money pages read as one surface. */
+/** Shared sub-navigation: the Money Flow section reads as one surface (past / future / recurring). */
 export default function MoneyTabs() {
   const pathname = usePathname();
   const { t } = useLanguage();
 
   return (
-    <div className="flex items-center gap-1 mb-6 overflow-x-auto -mx-1 px-1 pb-1">
+    <>
+      <MoneyOverview />
+      <div className="flex items-center gap-1 mb-6 overflow-x-auto -mx-1 px-1 pb-1">
       {TABS.map((tab) => {
         const active = pathname === tab.href || pathname.startsWith(tab.href + "/");
         const Icon = tab.icon;
@@ -37,6 +39,7 @@ export default function MoneyTabs() {
           </Link>
         );
       })}
-    </div>
+      </div>
+    </>
   );
 }

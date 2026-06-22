@@ -157,6 +157,7 @@ export interface Transaction {
   id: string;
   user_id: string;
   amount: string;
+  currency: string;
   transaction_type: string;
   description: string;
   transaction_date: string;
@@ -457,6 +458,7 @@ export interface CreateTransactionRequest {
   description: string;
   transaction_date: string;
   category?: string;
+  currency?: string;
 }
 
 export async function createTransaction(body: CreateTransactionRequest): Promise<Transaction> {
@@ -692,6 +694,61 @@ export interface InstallmentSummary {
   total_remaining_nominal: number;
   total_opportunity_loss: number;
   income_pct: number | null;
+}
+
+// --- Unified recurring commitments (subscriptions + installments, de-duplicated) ---
+
+export interface RecurringSubscription {
+  merchant_key: string;
+  merchant: string;
+  avg_amount: string;
+  frequency: string;
+  last_seen: string;
+  total_paid_all_time: string;
+  months_active: number;
+  category: string;
+  flag: string | null;
+}
+
+export interface RecurringInstallment {
+  merchant_key: string;
+  merchant: string;
+  monthly_amount: number;
+  months_detected: number;
+  estimated_remaining: number;
+  total_plan_months: number;
+  total_paid: number;
+  estimated_total: number;
+  first_seen: string;
+  last_seen: string;
+  category: string;
+  source: string;
+  total_nominal: number;
+  opportunity_loss: number;
+  real_cost_with_opportunity: number;
+}
+
+export interface RecurringSummary {
+  monthly_total: string;
+  subscription_monthly: string;
+  installment_monthly: string;
+  subscription_count: number;
+  installment_count: number;
+  potential_savings: string;
+  months_until_debt_free: number;
+  total_opportunity_loss: number;
+}
+
+export interface RecurringResponse {
+  subscriptions: RecurringSubscription[];
+  installments: RecurringInstallment[];
+  summary: RecurringSummary;
+}
+
+export async function getRecurring(): Promise<RecurringResponse> {
+  const response = await fetch(`${API_BASE_URL}/recurring`, { headers: authHeaders() });
+  if (!response.ok) throw new Error(`Failed to fetch recurring: ${response.status}`);
+  return response.json() as Promise<RecurringResponse>;
 }
 
 export async function getInstallments(): Promise<InstallmentResponse> {

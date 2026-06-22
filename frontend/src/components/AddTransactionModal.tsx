@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { createTransaction, type Transaction } from "@/lib/api";
+import { createTransaction, getDefaultCurrency, type Transaction } from "@/lib/api";
 import { X } from "@/components/ui/Icons";
 import { useLanguage } from "@/lib/i18n";
 
@@ -34,6 +34,7 @@ export default function AddTransactionModal({ onClose, onSuccess, initialValues 
   const [description, setDescription] = useState(initialValues?.description ?? "");
   const [date, setDate] = useState(initialValues?.transaction_date ?? new Date().toISOString().slice(0, 10));
   const [category, setCategory] = useState(initialValues?.category ?? "");
+  const [currency, setCurrency] = useState(getDefaultCurrency());
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -48,6 +49,7 @@ export default function AddTransactionModal({ onClose, onSuccess, initialValues 
         description,
         transaction_date: date,
         category: category || undefined,
+        currency: currency || undefined,
       });
       onSuccess(tx);
     } catch (err) {
@@ -94,13 +96,23 @@ export default function AddTransactionModal({ onClose, onSuccess, initialValues 
             </div>
           </div>
 
-          <div>
-            <label className="block text-xs text-gray-500 mb-1.5 uppercase tracking-wide">{t("common.amount")}</label>
-            <input
-              type="number" min="0.01" step="0.01"
-              value={amount} onChange={(e) => setAmount(e.target.value)}
-              required placeholder="0.00" className={inputClass}
-            />
+          <div className="flex gap-3">
+            <div className="flex-1">
+              <label className="block text-xs text-gray-500 mb-1.5 uppercase tracking-wide">{t("common.amount")}</label>
+              <input
+                type="number" min="0.01" step="0.01"
+                value={amount} onChange={(e) => setAmount(e.target.value)}
+                required placeholder="0.00" className={inputClass}
+              />
+            </div>
+            <div className="w-24">
+              <label className="block text-xs text-gray-500 mb-1.5 uppercase tracking-wide">{t("common.currency")}</label>
+              <input
+                type="text" value={currency}
+                onChange={(e) => setCurrency(e.target.value.toUpperCase().slice(0, 10))}
+                maxLength={10} placeholder="TRY" className={inputClass}
+              />
+            </div>
           </div>
 
           <div>

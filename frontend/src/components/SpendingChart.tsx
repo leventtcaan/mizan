@@ -1,24 +1,8 @@
 "use client";
 
-import {
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  Tooltip,
-  ResponsiveContainer,
-  Cell,
-} from "recharts";
 import type { Transaction } from "@/lib/api";
 import { CATEGORY_COLORS, DEFAULT_CATEGORY_COLOR } from "@/lib/categories";
 import { useLanguage } from "@/lib/i18n";
-
-interface ChartDatum {
-  slug: string;
-  label: string;
-  amount: number;
-  color: string;
-}
 
 interface Props {
   transactions: Transaction[];
@@ -28,62 +12,73 @@ export default function SpendingChart({ transactions }: Props) {
   const { t } = useLanguage();
 
   const totals: Record<string, number> = {};
+  const currencyCount: Record<string, number> = {};
+  let totalSpend = 0;
   for (const tx of transactions) {
     if (tx.transaction_type !== "debit") continue;
     const cat = tx.category ?? "diger";
-    totals[cat] = (totals[cat] ?? 0) + parseFloat(tx.amount);
+    const amt = parseFloat(tx.amount) || 0;
+    totals[cat] = (totals[cat] ?? 0) + amt;
+    totalSpend += amt;
+    currencyCount[tx.currency || "TRY"] = (currencyCount[tx.currency || "TRY"] ?? 0) + 1;
   }
 
-  const data: ChartDatum[] = Object.entries(totals)
+  const rows = Object.entries(totals)
     .sort((a, b) => b[1] - a[1])
     .map(([slug, amount]) => {
       const key = `category.${slug}`;
       const label = t(key) !== key ? t(key) : slug;
-      return {
-        slug,
-        label,
-        amount: Math.round(amount),
-        color: CATEGORY_COLORS[slug] ?? DEFAULT_CATEGORY_COLOR,
-      };
+      return { slug, label, amount, color: CATEGORY_COLORS[slug] ?? DEFAULT_CATEGORY_COLOR };
     });
 
-  if (data.length === 0) return null;
+  if (rows.length === 0 || totalSpend === 0) return null;
+
+  // Dominant currency for the symbol (most data is single-currency).
+  const currency = Object.entries(currencyCount).sort((a, b) => b[1] - a[1])[0]?.[0] ?? "TRY";
+  const mixed = Object.keys(currencyCount).length > 1;
+  const fmt = (v: number) => {
+    try {
+      return new Intl.NumberFormat(undefined, { style: "currency", currency, maximumFractionDigits: 0 }).format(v);
+    } catch {
+      return `${new Intl.NumberFormat(undefined, { maximumFractionDigits: 0 }).format(v)} ${currency}`;
+    }
+  };
+
+  const max = rows[0].amount;
 
   return (
     <div className="mb-8 p-5 rounded-xl bg-[#1A1A1A] border border-[#2A2A2A]">
-      <p className="text-xs text-gray-500 uppercase tracking-wide mb-4 font-semibold">
-        {t("tx.spending")}
-      </p>
-      <ResponsiveContainer width="100%" height={220}>
-        <BarChart data={data} margin={{ top: 0, right: 8, left: 8, bottom: 40 }}>
-          <XAxis
-            dataKey="label"
-            tick={{ fill: "#9ca3af", fontSize: 11 }}
-            axisLine={false}
-            tickLine={false}
-            angle={-35}
-            textAnchor="end"
-            interval={0}
-          />
-          <YAxis
-            tick={{ fill: "#6b7280", fontSize: 10 }}
-            axisLine={false}
-            tickLine={false}
-            tickFormatter={(v: number) => v >= 1000 ? `${(v / 1000).toFixed(0)}k` : String(v)}
-          />
-          <Tooltip
-            contentStyle={{ backgroundColor: "#1A1A1A", border: "1px solid #2A2A2A", borderRadius: 8 }}
-            labelStyle={{ color: "#e5e7eb", fontSize: 12 }}
-            itemStyle={{ color: "#d1d5db", fontSize: 12 }}
-            formatter={(value: number) => [value.toLocaleString(), t("progress.spending")]}
-          />
-          <Bar dataKey="amount" radius={[4, 4, 0, 0]}>
-            {data.map((entry) => (
-              <Cell key={entry.slug} fill={entry.color} />
-            ))}
-          </Bar>
-        </BarChart>
-      </ResponsiveContainer>
+      <div className="flex items-baseline justify-between mb-4">
+        <p className="text-xs text-gray-500 uppercase tracking-wide font-semibold">{t("tx.spending")}</p>
+        <p className="text-sm text-white font-semibold tabular-nums">
+          {fmt(totalSpend)}
+          {mixed && <span className="ml-1 text-[10px] text-amber-500 font-normal">≈</span>}
+        </p>
+      </div>
+
+      <div className="space-y-2.5">
+        {rows.map((r) => {
+          const share = (r.amount / totalSpend) * 100;
+          return (
+            <div key={r.slug} className="flex items-center gap-3">
+              <div className="flex items-center gap-2 w-28 shrink-0 min-w-0">
+                <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: r.color }} />
+                <span className="text-xs text-gray-300 truncate">{r.label}</span>
+              </div>
+              <div className="flex-1 h-2 rounded-full bg-[#0F0F0F] overflow-hidden">
+                <div
+                  className="h-full rounded-full transition-all"
+                  style={{ width: `${Math.max(3, (r.amount / max) * 100)}%`, backgroundColor: r.color }}
+                />
+              </div>
+              <div className="w-28 shrink-0 text-right">
+                <span className="text-xs text-gray-200 tabular-nums">{fmt(r.amount)}</span>
+                <span className="text-[10px] text-gray-600 ml-1.5 tabular-nums">{share.toFixed(0)}%</span>
+              </div>
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }

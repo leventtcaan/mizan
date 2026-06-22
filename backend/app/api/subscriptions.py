@@ -14,107 +14,14 @@ from app.core.database import get_session
 from app.core.dependencies import get_current_user
 from app.models.subscription_flag import SubscriptionFlag
 from app.models.user import User
+from app.services.subscription_detect import detect_subscriptions as _detect_subscriptions
 from app.services.transaction_service import get_transactions_for_user
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/subscriptions", tags=["subscriptions"])
 
-# Same thresholds as patterns.py for consistency
-_MIN_AMOUNT = Decimal("10")
-_AMOUNT_VARIANCE = Decimal("0.10")   # ±10% (looser than patterns.py ±5%)
-_MIN_MONTHS = 2
-
 _VALID_FLAGS = {"essential", "review", "cancelled"}
-
-
-def _normalize_key(description: str) -> str:
-    return description.strip().lower()[:30]
-
-
-def _clean_merchant_name(description: str) -> str:
-    """Best-effort display name from raw transaction description."""
-    name = description.strip()
-    # Strip common card/banking prefixes seen in statement descriptions.
-    for prefix in ("POS ALIŞVERİŞİ ", "SANAL POS ", "YURT DIŞI SANAL POS ", "İNTERNET ", "MOBİL "):
-        if name.upper().startswith(prefix):
-            name = name[len(prefix):]
-            break
-    return name[:45]
-
-
-def _detect_subscriptions(transactions) -> list[dict]:
-    """
-    Groups debit transactions by normalized description.
-    If the same merchant appears in ≥2 distinct calendar months with
-    monthly totals within ±10% of the median → subscription candidate.
-    Returns list sorted by avg_amount descending.
-    """
-    # Use all history, not just 90-day window, to catch annual subscriptions
-    debits = [t for t in transactions if t.transaction_type == "debit"]
-
-    by_key: dict[str, list] = defaultdict(list)
-    for t in debits:
-        by_key[_normalize_key(t.description)].append(t)
-
-    results = []
-    for key, group in by_key.items():
-        by_month: dict[str, list[Decimal]] = defaultdict(list)
-        for t in group:
-            by_month[t.transaction_date.strftime("%Y-%m")].append(t.amount)
-
-        if len(by_month) < _MIN_MONTHS:
-            continue
-
-        monthly_totals = [sum(amounts) for amounts in by_month.values()]
-        monthly_totals_sorted = sorted(monthly_totals)
-        median = monthly_totals_sorted[len(monthly_totals_sorted) // 2]
-
-        if median < _MIN_AMOUNT:
-            continue
-
-        consistent = all(
-            abs(total - median) / median <= _AMOUNT_VARIANCE
-            for total in monthly_totals
-            if median > 0
-        )
-        if not consistent:
-            continue
-
-        all_dates = sorted(t.transaction_date for t in group)
-        last_seen = all_dates[-1]
-        oldest = all_dates[0]
-        total_paid = sum(t.amount for t in group)
-        months_active = len(by_month)
-
-        # Infer frequency: if avg gap between occurrences is <15 days → weekly
-        if len(all_dates) >= 2:
-            gaps = [
-                (all_dates[i + 1] - all_dates[i]).days
-                for i in range(len(all_dates) - 1)
-            ]
-            avg_gap = sum(gaps) / len(gaps)
-            frequency = "weekly" if avg_gap < 15 else "monthly"
-        else:
-            frequency = "monthly"
-
-        # Use category from the most recent transaction
-        latest_tx = max(group, key=lambda t: t.transaction_date)
-        category = latest_tx.category or "diger"
-
-        results.append({
-            "merchant_key": key,
-            "merchant": _clean_merchant_name(group[0].description),
-            "avg_amount": str(median),
-            "frequency": frequency,
-            "last_seen": last_seen.isoformat(),
-            "total_paid_all_time": str(total_paid),
-            "months_active": months_active,
-            "category": category,
-        })
-
-    results.sort(key=lambda x: Decimal(x["avg_amount"]), reverse=True)
-    return results
 
 
 # --- Response models ---
