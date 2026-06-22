@@ -162,6 +162,16 @@ export default function HomePage() {
 
   const hasAssets = summary != null && (summary.total_assets_try > 0 || summary.total_liabilities_try > 0);
 
+  // Cold-start completion signals for the getting-started checklist.
+  const hasBank = !!summary && Object.entries(summary.assets_by_type || {}).some(([k, v]) => (k === "bank_account" || k === "cash") && v > 0);
+  const hasDebt = !!summary && (summary.total_liabilities_try > 0 || Object.keys(summary.liabilities_by_type || {}).length > 0);
+  const hasStatement = !!progress && ((progress.total_transactions ?? 0) > 0 || progress.months.length > 0);
+  const checklist = [
+    { done: hasBank, label: t("home.checklist.bank"), href: "/networth" },
+    { done: hasDebt, label: t("home.checklist.debt"), href: "/networth" },
+    { done: hasStatement, label: t("home.checklist.statement"), href: "/upload" },
+  ];
+
   // --- derived: net worth delta ---
   const nwDelta = (() => {
     if (!snapshots || snapshots.length < 2 || !summary) return null;
@@ -310,16 +320,28 @@ export default function HomePage() {
               <Skeleton className="h-12 w-full" />
             </div>
           ) : !hasAssets ? (
-            <Link href="/networth" className="flex items-center justify-between group">
-              <div>
-                <p className={sectionHeading}>{t("home.netWorth")}</p>
-                <p className="text-xl font-bold text-white mt-2 group-hover:text-indigo-400 transition-colors">
-                  {t("home.addNetWorth")} <ArrowRight size={18} className="inline -mt-1" />
-                </p>
-                <p className="text-gray-500 text-sm mt-1">{t("home.addNetWorthSub")}</p>
+            <div>
+              <p className={sectionHeading}>{t("home.netWorth")}</p>
+              <p className="text-lg font-bold text-white mt-2">{t("home.addNetWorth")}</p>
+              <p className="text-gray-500 text-sm mt-1 mb-4">{t("home.addNetWorthSub")}</p>
+              <div className="space-y-2">
+                {checklist.map((item, i) => (
+                  <Link
+                    key={i}
+                    href={item.href}
+                    className="flex items-center gap-3 p-3 rounded-lg bg-[#0F0F0F] border border-[#2A2A2A] hover:border-indigo-700 transition-colors group"
+                  >
+                    {item.done ? (
+                      <CheckCircle size={18} className="text-emerald-400 shrink-0" />
+                    ) : (
+                      <span className="w-[18px] h-[18px] rounded-full border-2 border-[#3A3A3A] shrink-0" />
+                    )}
+                    <span className={`flex-1 text-sm ${item.done ? "text-gray-500 line-through" : "text-white"}`}>{item.label}</span>
+                    {!item.done && <ArrowRight size={14} className="text-gray-700 group-hover:text-indigo-400 transition-colors shrink-0" />}
+                  </Link>
+                ))}
               </div>
-              <Scale size={28} className="text-gray-700 shrink-0" />
-            </Link>
+            </div>
           ) : (
             <div>
               {/* headline */}
@@ -417,10 +439,21 @@ export default function HomePage() {
           {actionsLoading ? (
             <div className="space-y-2">{[1, 2, 3].map((i) => <Skeleton key={i} className="h-14 w-full" />)}</div>
           ) : sortedActions.length === 0 ? (
-            <div className="flex items-center gap-3 py-3">
-              <CheckCircle size={20} className="text-emerald-400 shrink-0" />
-              <p className="text-white text-sm font-medium">{t("home.allClear")}</p>
-            </div>
+            !hasAssets && !hasStatement ? (
+              <Link href="/networth" className="flex items-center gap-3 p-3 rounded-lg bg-[#0F0F0F] border border-[#2A2A2A] hover:border-indigo-700 transition-colors group">
+                <Scale size={18} className="text-emerald-400 shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-white text-sm font-medium">{t("home.firstActionTitle")}</p>
+                  <p className="text-gray-500 text-xs">{t("home.firstActionSub")}</p>
+                </div>
+                <ArrowRight size={14} className="text-gray-700 group-hover:text-indigo-400 transition-colors shrink-0" />
+              </Link>
+            ) : (
+              <div className="flex items-center gap-3 py-3">
+                <CheckCircle size={20} className="text-emerald-400 shrink-0" />
+                <p className="text-white text-sm font-medium">{t("home.allClear")}</p>
+              </div>
+            )
           ) : (
             <div className="space-y-3">
               {URGENCY_ORDER.filter((u) => groupedActions[u].length > 0).map((u) => (
@@ -467,7 +500,17 @@ export default function HomePage() {
           {pulseLoading ? (
             <div className="space-y-3"><Skeleton className="h-8 w-full" /><Skeleton className="h-16 w-full" /></div>
           ) : !monthLine ? (
-            <p className="text-gray-500 text-sm">{t("home.noMonthData")}</p>
+            <div>
+              <p className="text-gray-400 text-sm mb-3">{t("home.noMonthData")}</p>
+              <div className="flex flex-wrap gap-2">
+                <Link href="/upload" className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#0F0F0F] border border-[#2A2A2A] hover:border-indigo-700 text-xs text-white transition-colors">
+                  <Upload size={13} className="text-indigo-400" /> {t("home.uploadStatement")}
+                </Link>
+                <button onClick={() => setTxModalOpen(true)} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#0F0F0F] border border-[#2A2A2A] hover:border-indigo-700 text-xs text-white transition-colors">
+                  <Plus size={13} className="text-amber-400" /> {t("home.addTransaction")}
+                </button>
+              </div>
+            </div>
           ) : (
             <div className="space-y-4">
               {/* income / expense / net + trend */}

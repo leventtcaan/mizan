@@ -38,13 +38,14 @@ interface Props {
   onUpdated?: (asset: AssetItem) => void;
   displayCurrency: string;
   editData?: AssetItem | null;
+  initialType?: string;
 }
 
-export default function AddAssetModal({ onClose, onAdded, onUpdated, displayCurrency, editData }: Props) {
+export default function AddAssetModal({ onClose, onAdded, onUpdated, displayCurrency, editData, initialType }: Props) {
   const { t } = useLanguage();
   const isEdit = !!editData;
 
-  const [assetType, setAssetType] = useState<string | null>(editData?.asset_type ?? null);
+  const [assetType, setAssetType] = useState<string | null>(editData?.asset_type ?? initialType ?? null);
   const [draft, setDraft] = useState<AssetDraft | null>(null);
   const [notes, setNotes] = useState(editData?.notes ?? "");
   const [asOfDate, setAsOfDate] = useState(editData?.as_of_date ?? todayISO());

@@ -238,6 +238,7 @@ export default function NetWorthPage() {
   const [cooldownSec, setCooldownSec] = useState(0);
 
   const [showAddAsset, setShowAddAsset] = useState(false);
+  const [addAssetInitialType, setAddAssetInitialType] = useState<string | undefined>(undefined);
   const [showAddLiability, setShowAddLiability] = useState(false);
   const [showAddReceivable, setShowAddReceivable] = useState(false);
 
@@ -783,6 +784,30 @@ export default function NetWorthPage() {
         )}
       </div>
 
+      {/* Empty state — guide first asset */}
+      {!loading && assets.length === 0 && liabilities.length === 0 && receivables.length === 0 && (
+        <div className="bg-[#1A1A1A] border border-[#2A2A2A] rounded-2xl p-6 mb-6">
+          <p className="text-white font-semibold mb-1">{t("nw.empty.title")}</p>
+          <p className="text-gray-500 text-sm mb-5">{t("nw.empty.subtitle")}</p>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            {[
+              { type: "bank_account", emoji: "💰", label: t("nw.empty.cashBank") },
+              { type: "stock", emoji: "📈", label: t("nw.empty.investment") },
+              { type: "real_estate", emoji: "🏠", label: t("nw.empty.realEstate") },
+            ].map((c) => (
+              <button
+                key={c.type}
+                onClick={() => { setAddAssetInitialType(c.type); setShowAddAsset(true); }}
+                className="flex flex-col items-center gap-2 p-5 rounded-xl bg-[#0F0F0F] border border-[#2A2A2A] hover:border-indigo-600 transition-colors"
+              >
+                <span className="text-2xl">{c.emoji}</span>
+                <span className="text-white text-sm font-medium">{c.label}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* AI insight card */}
       {summary?.ai_insight && (
         <div className="mb-4 bg-[#1A1A1A] border border-indigo-900/30 rounded-xl p-4">
@@ -1305,7 +1330,7 @@ export default function NetWorthPage() {
       )}
 
       {showAddAsset && (
-        <AddAssetModal displayCurrency={displayCurrency} onClose={() => setShowAddAsset(false)} onAdded={(asset) => { setAssets((prev) => [...prev, asset]); setShowAddAsset(false); void reloadSummary(); }} />
+        <AddAssetModal displayCurrency={displayCurrency} initialType={addAssetInitialType} onClose={() => { setShowAddAsset(false); setAddAssetInitialType(undefined); }} onAdded={(asset) => { setAssets((prev) => [...prev, asset]); setShowAddAsset(false); setAddAssetInitialType(undefined); void reloadSummary(); }} />
       )}
       {editingAsset && (
         <AddAssetModal displayCurrency={displayCurrency} editData={editingAsset} onClose={() => setEditingAsset(null)} onAdded={() => setEditingAsset(null)} onUpdated={handleUpdateAsset} />

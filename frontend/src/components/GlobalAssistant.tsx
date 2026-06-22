@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation";
 import { Brain, MessageCircle, Send, X as XIcon, CheckCircle } from "@/components/ui/Icons";
 import { useLanguage } from "@/lib/i18n";
 import {
-  getToken, getStoredUser,
+  getToken, getStoredUser, getNetWorthSummary,
   assistantChat, confirmAssistantAction, rejectAssistantAction,
   type AssistantPageContext, type ActionProposal,
 } from "@/lib/api";
@@ -37,6 +37,7 @@ export default function GlobalAssistant() {
   const [messages, setMessages] = useState<Msg[]>([]);
   const [input, setInput] = useState("");
   const [pending, setPending] = useState(false);
+  const [hasData, setHasData] = useState<boolean | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -49,6 +50,15 @@ export default function GlobalAssistant() {
     window.addEventListener("mizan-open-assistant", openHandler);
     return () => window.removeEventListener("mizan-open-assistant", openHandler);
   }, []);
+
+  // On first open, detect whether the user has any data yet (for the greeting).
+  useEffect(() => {
+    if (open && hasData === null) {
+      getNetWorthSummary("TRY")
+        .then((s) => setHasData(s.total_assets_try > 0 || s.total_liabilities_try > 0 || s.pending_receivables_try > 0))
+        .catch(() => setHasData(true)); // assume not-empty on error → neutral greeting
+    }
+  }, [open, hasData]);
 
   useEffect(() => {
     if (open) {
@@ -132,7 +142,7 @@ export default function GlobalAssistant() {
             {/* Messages */}
             <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-3 space-y-3 min-h-0">
               {messages.length === 0 && (
-                <p className="text-gray-500 text-sm text-center py-6">{t("assistant.greeting")}</p>
+                <p className="text-gray-500 text-sm text-center py-6">{hasData === false ? t("assistant.emptyGreeting") : t("assistant.greeting")}</p>
               )}
               {messages.map((m, i) => (
                 <div key={i} className="space-y-2">
