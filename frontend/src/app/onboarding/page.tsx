@@ -24,7 +24,7 @@ export default function OnboardingPage() {
     const user = getStoredUser();
     if (!user) { router.replace("/login"); return; }
     setUserEmail(user.email);
-    if (user.onboarding_completed) router.replace("/transactions");
+    if (user.onboarding_completed) router.replace("/home");
   }, [router]);
 
   const handleFile = async (file: File) => {
@@ -54,7 +54,7 @@ export default function OnboardingPage() {
       const user = getStoredUser();
       if (user) setStoredUser({ ...user, onboarding_completed: true });
     } catch {}
-    router.push("/transactions");
+    router.push("/home");
   };
 
   const handleSkip = async () => {
@@ -63,7 +63,7 @@ export default function OnboardingPage() {
       const user = getStoredUser();
       if (user) setStoredUser({ ...user, onboarding_completed: true });
     } catch {}
-    router.push("/transactions");
+    router.push("/home");
   };
 
   const progressPct = step === 1 ? 33 : step === 2 ? 66 : 100;

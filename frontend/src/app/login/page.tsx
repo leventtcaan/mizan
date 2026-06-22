@@ -36,7 +36,7 @@ export default function LoginPage() {
       if (mode === "register" || !result.onboarding_completed) {
         router.push("/onboarding");
       } else {
-        router.push("/transactions");
+        router.push("/home");
       }
     } catch (err) {
       setErrorMsg(err instanceof Error ? err.message : t("common.error"));
