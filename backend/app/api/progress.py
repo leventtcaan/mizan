@@ -14,7 +14,7 @@ from collections import defaultdict
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
@@ -26,6 +26,7 @@ from app.models.progress_insight import ProgressInsight
 from app.models.transaction import Transaction
 from app.models.user import User
 from app.services.llm_provider import get_provider
+from app.services.scorecard import build_scorecard
 from app.services.transaction_service import dedup_transactions_orm, get_batch_summaries
 
 logger = logging.getLogger(__name__)
@@ -328,6 +329,21 @@ async def get_comparison(
     )
     await session.commit()
     return response
+
+
+@router.get("/scorecard")
+async def get_scorecard(
+    display_currency: str = Query(default="TRY"),
+    current_user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
+) -> dict:
+    """
+    WHAT: Financial Health scorecard — the redesigned Progress page payload.
+    WHY:  A single, decomposed 0-100 verdict over *time* plus trajectory, drivers,
+          forward milestones and goal streaks. Computed fresh (read-only, no LLM)
+          so it always reflects the latest data.
+    """
+    return await build_scorecard(current_user.id, display_currency, session)
 
 
 def _llm_insight(provider, cat: str, last: Decimal, this: Decimal, pct: float, trend: str) -> str:

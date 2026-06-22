@@ -213,6 +213,69 @@ export interface ComparisonResponse {
   cached: boolean;
 }
 
+// ── Financial Health scorecard (Progress page) ──────────────────────────────
+export type PillarKey = "savings" | "debt" | "discipline" | "growth";
+export type PillarTrend = "up" | "down" | "flat" | "none";
+
+export interface ScorecardPillar {
+  key: PillarKey;
+  score: number;
+  max: number;
+  trend: PillarTrend;
+  value: number;
+  value2?: number;
+  status: "ok" | "no_data" | "set_goals" | "need_history";
+}
+
+export interface TrajectoryPoint {
+  date: string;
+  net_worth: number;
+}
+
+export interface ScorecardAnnotation {
+  date: string;
+  direction: "up" | "down";
+  amount: number;
+  mover: string | null;
+}
+
+export interface ScorecardDriver {
+  kind: "category" | "debt" | "income";
+  name: string | null;
+  amount: number;
+}
+
+export interface ScorecardMilestone {
+  key: "debt_free" | "nw_target";
+  status: "on_track" | "no_plan" | "stalled";
+  date: string | null;
+  months: number | null;
+  target?: number;
+}
+
+export interface ScorecardStreak {
+  category: string;
+  months: number;
+  current_pct: number;
+  limit: number;
+  spent: number;
+}
+
+export interface Scorecard {
+  has_data: boolean;
+  currency: string;
+  score: number;
+  score_delta: number | null;
+  band: "strong" | "steady" | "fragile" | "at_risk";
+  top_mover: { key: PillarKey; direction: "up" | "down" } | null;
+  pillars: ScorecardPillar[];
+  trajectory: TrajectoryPoint[];
+  annotations: ScorecardAnnotation[];
+  drivers: { best: ScorecardDriver | null; worst: ScorecardDriver | null };
+  milestones: ScorecardMilestone[];
+  streaks: ScorecardStreak[];
+}
+
 export interface NoteResponse {
   id: string;
   transaction_id: string;
@@ -335,6 +398,15 @@ export async function getProgress(): Promise<ProgressResponse> {
   });
   if (!response.ok) throw new Error(`Failed to fetch progress: ${response.status}`);
   return response.json() as Promise<ProgressResponse>;
+}
+
+export async function getScorecard(displayCurrency = "TRY"): Promise<Scorecard> {
+  const response = await fetch(
+    `${API_BASE_URL}/insights/scorecard?display_currency=${displayCurrency}`,
+    { headers: authHeaders() },
+  );
+  if (!response.ok) throw new Error(`Failed to fetch scorecard: ${response.status}`);
+  return response.json() as Promise<Scorecard>;
 }
 
 export async function getComparison(): Promise<ComparisonResponse> {
