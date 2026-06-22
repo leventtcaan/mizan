@@ -964,15 +964,20 @@ export async function getCurrencyRates(base = "TRY"): Promise<Record<string, num
 
 export interface MarketQuote {
   symbol: string;
-  price_usd: number | null;
+  yahoo_symbol: string;
+  price: number | null;
+  currency: string | null;
+  name: string | null;
 }
 
 /**
- * Live USD price for a stock ticker / Yahoo-listed ETF or fund.
- * Returns price_usd = null on any lookup failure (caller falls back to manual entry).
+ * Live price for a stock ticker / ETF / fund.
+ * exchange: AUTO | BIST | LSE | XETRA | TSX | ASX
+ * Returns price = null on any lookup failure; caller falls back to manual entry.
  */
-export async function getMarketQuote(symbol: string): Promise<MarketQuote> {
-  const response = await fetch(`${API_BASE_URL}/currency/quote?symbol=${encodeURIComponent(symbol)}`);
+export async function getMarketQuote(symbol: string, exchange = "AUTO"): Promise<MarketQuote> {
+  const url = `${API_BASE_URL}/currency/quote?symbol=${encodeURIComponent(symbol)}&exchange=${encodeURIComponent(exchange)}`;
+  const response = await fetch(url);
   if (!response.ok) throw new Error(`Failed to fetch quote: ${response.status}`);
   return response.json() as Promise<MarketQuote>;
 }

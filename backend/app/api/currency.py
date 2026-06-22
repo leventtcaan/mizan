@@ -7,7 +7,7 @@ import logging
 
 from fastapi import APIRouter
 
-from app.services.asset_prices import fetch_stock_price
+from app.services.asset_prices import fetch_stock_quote
 from app.services.currency import (
     get_fiat_list,
     get_crypto_list,
@@ -70,18 +70,30 @@ async def currency_rates(base: str = "TRY") -> dict:
 
 
 @router.get("/quote")
-async def currency_quote(symbol: str) -> dict:
+async def currency_quote(symbol: str, exchange: str = "AUTO") -> dict:
     """
-    Live per-share/unit price in USD for a market symbol (stock ticker or
-    Yahoo-listed ETF/fund). No auth required — used by the add-asset modal
-    to pre-fill stock/fund value as the user types a quantity.
+    Live quote for a stock/fund ticker via Yahoo Finance.
+    No auth required — used by add-asset modal.
 
-    Returns {"symbol": <upper>, "price_usd": float | null}. Never raises:
-    on lookup failure price_usd is null and the frontend falls back to
-    manual value entry.
+    exchange values: AUTO | BIST | LSE | XETRA | TSX | ASX | (bare = as-is)
+
+    Returns:
+      {"symbol": str, "yahoo_symbol": str, "price": float|null,
+       "currency": str|null, "name": str|null}
+    Never raises — on failure all nullable fields are null.
     """
     sym = symbol.strip().upper()
     if not sym:
-        return {"symbol": "", "price_usd": None}
-    price = await fetch_stock_price(sym)
-    return {"symbol": sym, "price_usd": price}
+        return {"symbol": "", "yahoo_symbol": "", "price": None, "currency": None, "name": None}
+
+    result = await fetch_stock_quote(sym, exchange=exchange)
+    if result is None:
+        return {"symbol": sym, "yahoo_symbol": sym, "price": None, "currency": None, "name": None}
+
+    return {
+        "symbol": sym,
+        "yahoo_symbol": result["yahoo_symbol"],
+        "price": result["price"],
+        "currency": result["currency"],
+        "name": result["name"],
+    }

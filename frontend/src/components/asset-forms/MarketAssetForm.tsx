@@ -5,22 +5,45 @@ import { getMarketQuote } from "@/lib/api";
 import { useLanguage } from "@/lib/i18n";
 import { AssetFormProps, buildSourceDetail, previewLine, sharedInputClass, useUsdRates } from "./shared";
 
-/** Handles stock and fund. Live USD quote via Yahoo, graceful manual fallback. */
+const EXCHANGES = [
+  { value: "AUTO",  labelKey: "assetForm.exchange.auto" },
+  { value: "BIST",  labelKey: "assetForm.exchange.bist" },
+  { value: "NASDAQ",labelKey: "assetForm.exchange.nasdaq" },
+  { value: "NYSE",  labelKey: "assetForm.exchange.nyse" },
+  { value: "LSE",   labelKey: "assetForm.exchange.lse" },
+  { value: "XETRA", labelKey: "assetForm.exchange.xetra" },
+  { value: "OTHER", labelKey: "assetForm.exchange.other" },
+] as const;
+
+/** Handles stock and fund. Live quote via Yahoo Finance; BIST (.IS) suffix handled automatically. */
 export default function MarketAssetForm({ assetType, onDraftChange }: AssetFormProps) {
   const { t } = useLanguage();
-  const { tryPerUsd } = useUsdRates();
+  const { tryPerUsd, usdPriceOf } = useUsdRates();
   const isFund = assetType === "fund";
 
+  const [exchange, setExchange] = useState("AUTO");
   const [symbol, setSymbol] = useState("");
   const [name, setName] = useState("");
   const [venue, setVenue] = useState("");
   const [quoting, setQuoting] = useState(false);
-  const [quote, setQuote] = useState<number | null>(null);
+  const [quotePrice, setQuotePrice] = useState<number | null>(null);
+  const [quoteCurrency, setQuoteCurrency] = useState<string>("USD");
+  const [quoteName, setQuoteName] = useState<string>("");
+  const [yahooSymbol, setYahooSymbol] = useState<string>("");
   const [tried, setTried] = useState(false);
   const [shares, setShares] = useState("");
   const [manualValue, setManualValue] = useState("");
 
-  const quoteFailed = tried && quote === null;
+  const quoteFailed = tried && quotePrice === null;
+  const hasQuote = quotePrice !== null;
+
+  function resetQuote() {
+    setQuotePrice(null);
+    setQuoteCurrency("USD");
+    setQuoteName("");
+    setYahooSymbol("");
+    setTried(false);
+  }
 
   async function lookup() {
     const sym = symbol.trim().toUpperCase();
@@ -28,58 +51,141 @@ export default function MarketAssetForm({ assetType, onDraftChange }: AssetFormP
     setQuoting(true);
     setTried(true);
     try {
-      const res = await getMarketQuote(sym);
-      setQuote(res.price_usd);
+      const res = await getMarketQuote(sym, exchange);
+      setQuotePrice(res.price);
+      setQuoteCurrency(res.currency ?? "USD");
+      setYahooSymbol(res.yahoo_symbol ?? sym);
+      if (res.name && !name.trim()) setName(res.name);
+      if (res.name) setQuoteName(res.name);
     } catch {
-      setQuote(null);
+      setQuotePrice(null);
     } finally {
       setQuoting(false);
     }
   }
 
+  // Compute USD value of the quoted price for storage + preview
+  const priceInUsd = (() => {
+    if (quotePrice === null) return null;
+    if (quoteCurrency.toUpperCase() === "USD") return quotePrice;
+    const fxRate = usdPriceOf(quoteCurrency);
+    return fxRate !== null ? quotePrice * fxRate : null;
+  })();
+
   useEffect(() => {
-    const sym = symbol.trim().toUpperCase();
-    const sd = buildSourceDetail({
-      subtype: assetType, symbol: sym, code: sym, name: name.trim(), venue: venue.trim(),
-      ...(quote !== null ? { last_price_usd: quote, quantity: shares } : {}),
-    });
-    if (quote !== null && parseFloat(shares) > 0) {
-      const total = quote * parseFloat(shares);
-      onDraftChange({ name: name.trim() || sym, asset_type: assetType, currency: "USD", current_value: total.toFixed(2), source_detail: sd });
-    } else if (quoteFailed && parseFloat(manualValue) > 0 && sym) {
-      onDraftChange({ name: name.trim() || sym, asset_type: assetType, currency: "USD", current_value: manualValue, source_detail: sd });
+    const sym = (yahooSymbol || symbol).trim().toUpperCase();
+    const sharesN = parseFloat(shares);
+    const manualN = parseFloat(manualValue);
+
+    if (hasQuote && sharesN > 0 && priceInUsd !== null) {
+      const totalUsd = priceInUsd * sharesN;
+      const sd = buildSourceDetail({
+        subtype: assetType,
+        symbol: sym,
+        code: sym,
+        name: name.trim() || quoteName,
+        venue: venue.trim() || exchange,
+        shares,
+        last_price_usd: priceInUsd,
+        quote_currency: quoteCurrency,
+        quote_price: quotePrice ?? undefined,
+      });
+      onDraftChange({
+        name: name.trim() || quoteName || sym,
+        asset_type: assetType,
+        currency: "USD",
+        current_value: totalUsd.toFixed(2),
+        source_detail: sd,
+      });
+    } else if (quoteFailed && manualN > 0 && sym) {
+      const sd = buildSourceDetail({ subtype: assetType, symbol: sym, code: sym, name: name.trim(), venue: venue.trim() || exchange });
+      onDraftChange({
+        name: name.trim() || sym,
+        asset_type: assetType,
+        currency: "USD",
+        current_value: manualValue,
+        source_detail: sd,
+      });
     } else {
       onDraftChange(null);
     }
-  }, [symbol, name, venue, quote, shares, manualValue, quoteFailed, assetType]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [symbol, name, venue, exchange, quotePrice, quoteCurrency, yahooSymbol, shares, manualValue, quoteFailed]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const total = quote !== null && shares ? quote * parseFloat(shares || "0") : null;
-  const preview = total !== null ? previewLine(total, tryPerUsd) : null;
+  // Preview: convert native price to TRY equivalent if we have exchange rates
+  const totalUsd = hasQuote && priceInUsd !== null && shares ? priceInUsd * parseFloat(shares || "0") : null;
+  const preview = totalUsd !== null ? previewLine(totalUsd, tryPerUsd) : null;
+
+  // Show native price if it isn't already USD
+  const nativePriceStr = (() => {
+    if (quotePrice === null) return null;
+    if (quoteCurrency.toUpperCase() === "USD") {
+      return `$${new Intl.NumberFormat("en-US", { maximumFractionDigits: 4 }).format(quotePrice)}`;
+    }
+    return `${new Intl.NumberFormat("en-US", { maximumFractionDigits: 4 }).format(quotePrice)} ${quoteCurrency}`;
+  })();
 
   return (
     <div className="space-y-4">
+      {/* Exchange selector */}
       <div>
-        <label className="block text-xs text-gray-400 mb-1.5">{isFund ? t("assetForm.fundCodeLabel") : t("assetForm.tickerLabel")}</label>
+        <label className="block text-xs text-gray-400 mb-1.5">{t("assetForm.exchangeLabel")}</label>
+        <div className="flex flex-wrap gap-1.5">
+          {EXCHANGES.map((ex) => {
+            const label = t(ex.labelKey) !== ex.labelKey ? t(ex.labelKey) : ex.value;
+            return (
+              <button key={ex.value} type="button"
+                onClick={() => { setExchange(ex.value); resetQuote(); }}
+                className={`px-2.5 py-1 rounded-full text-xs border transition-colors ${
+                  exchange === ex.value
+                    ? "bg-indigo-600/20 border-indigo-600/50 text-indigo-300"
+                    : "bg-[#0F0F0F] border-[#2A2A2A] text-gray-400 hover:border-indigo-700"
+                }`}>
+                {label}
+              </button>
+            );
+          })}
+        </div>
+        {exchange === "BIST" && (
+          <p className="text-[11px] text-gray-600 mt-1.5">{t("assetForm.bistHint")}</p>
+        )}
+      </div>
+
+      {/* Ticker / symbol + lookup */}
+      <div>
+        <label className="block text-xs text-gray-400 mb-1.5">
+          {isFund ? t("assetForm.fundCodeLabel") : t("assetForm.tickerLabel")}
+        </label>
         <div className="flex gap-2">
           <input value={symbol}
-            onChange={(e) => { setSymbol(e.target.value.toUpperCase()); setQuote(null); setTried(false); }}
-            onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); lookup(); } }}
-            placeholder={isFund ? t("assetForm.fundCodeHint") : t("assetForm.tickerHint")}
+            onChange={(e) => { setSymbol(e.target.value.toUpperCase()); resetQuote(); }}
+            onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); void lookup(); } }}
+            placeholder={
+              exchange === "BIST"
+                ? t("assetForm.bistTickerHint")
+                : isFund
+                  ? t("assetForm.fundCodeHint")
+                  : t("assetForm.tickerHint")
+            }
             className={sharedInputClass + " uppercase"} />
-          <button type="button" onClick={lookup} disabled={!symbol.trim() || quoting}
+          <button type="button" onClick={() => void lookup()} disabled={!symbol.trim() || quoting}
             className="shrink-0 px-3 py-2 rounded-lg bg-indigo-600/20 text-indigo-300 border border-indigo-800/40 hover:bg-indigo-600/30 disabled:opacity-40 text-xs font-medium transition-colors">
             {quoting ? t("assetForm.fetching") : t("assetForm.lookup")}
           </button>
         </div>
       </div>
 
-      {quote !== null && (
+      {/* Quote result */}
+      {hasQuote && (
         <>
-          <div className="rounded-lg bg-emerald-950/20 border border-emerald-900/30 px-3 py-2 flex items-center justify-between">
-            <span className="text-xs text-gray-400">{t("assetForm.livePrice")}</span>
-            <span className="text-sm text-emerald-300 font-semibold tabular-nums">
-              ${new Intl.NumberFormat("en-US", { maximumFractionDigits: 2 }).format(quote)}
-            </span>
+          <div className="rounded-lg bg-emerald-950/20 border border-emerald-900/30 px-3 py-2 space-y-0.5">
+            <div className="flex items-center justify-between">
+              <span className="text-xs text-gray-400">{t("assetForm.livePrice")}</span>
+              <span className="text-sm text-emerald-300 font-semibold tabular-nums">{nativePriceStr}</span>
+            </div>
+            {quoteName && <p className="text-xs text-gray-500 truncate">{quoteName}</p>}
+            {yahooSymbol && yahooSymbol !== symbol.toUpperCase() && (
+              <p className="text-[10px] text-gray-600">Yahoo: {yahooSymbol}</p>
+            )}
           </div>
           <div>
             <label className="block text-xs text-gray-400 mb-1.5">{t("assetForm.shares")}</label>
@@ -90,6 +196,7 @@ export default function MarketAssetForm({ assetType, onDraftChange }: AssetFormP
         </>
       )}
 
+      {/* Manual fallback */}
       {quoteFailed && (
         <div>
           <p className="text-amber-400/80 text-xs mb-2">{t("assetForm.marketManualNote")}</p>
@@ -99,6 +206,7 @@ export default function MarketAssetForm({ assetType, onDraftChange }: AssetFormP
         </div>
       )}
 
+      {/* Optional name + venue */}
       <div className="grid grid-cols-2 gap-3">
         <input value={name} onChange={(e) => setName(e.target.value)}
           placeholder={t("assetForm.nameOptional")} className={sharedInputClass} />

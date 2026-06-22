@@ -89,16 +89,16 @@ async def fetch_fiat_price(code: str) -> float | None:
         return None
 
 
-async def fetch_stock_price(ticker: str) -> float | None:
+async def _yahoo_fetch(sym: str) -> dict | None:
     """
-    USD price per share via Yahoo Finance chart API (no API key needed).
-    Cached per ticker with _STOCK_TTL.
+    Raw Yahoo Finance chart fetch. Returns dict with price, currency, name or None.
+    Caches result in _stock_cache keyed by exact Yahoo symbol.
     """
-    sym = ticker.upper()
-
+    sym = sym.upper()
     cached = _stock_cache.get(sym)
     if cached and (time.time() - cached[1]) < _STOCK_TTL:
-        return cached[0]
+        price, _, currency, name = cached
+        return {"price": price, "currency": currency, "name": name}
 
     try:
         url = f"https://query1.finance.yahoo.com/v8/finance/chart/{sym}"
@@ -110,26 +110,102 @@ async def fetch_stock_price(ticker: str) -> float | None:
             resp = await client.get(url, params={"interval": "1d", "range": "1d"})
             if resp.status_code == 200:
                 data = resp.json()
-                price = (
+                meta = (
                     data.get("chart", {})
                     .get("result", [{}])[0]
                     .get("meta", {})
-                    .get("regularMarketPrice")
                 )
+                price = meta.get("regularMarketPrice")
                 if price is not None:
                     p = float(price)
-                    _stock_cache[sym] = (p, time.time())
-                    logger.info("Stock price fetched: %s = %.4f USD", sym, p)
-                    return p
+                    currency = str(meta.get("currency", "USD"))
+                    name = str(meta.get("longName") or meta.get("shortName") or sym)
+                    _stock_cache[sym] = (p, time.time(), currency, name)
+                    logger.info("Stock price fetched: %s = %.4f %s", sym, p, currency)
+                    return {"price": p, "currency": currency, "name": name}
     except Exception as exc:
         logger.warning("Stock price fetch failed (%s): %s", sym, exc)
 
-    # Return stale cached value rather than failing
     if sym in _stock_cache:
         logger.info("Using stale cache for %s", sym)
-        return _stock_cache[sym][0]
+        price, _, currency, name = _stock_cache[sym]
+        return {"price": price, "currency": currency, "name": name}
 
     return None
+
+
+# Exchange suffix map: our exchange key → Yahoo suffix to append.
+_EXCHANGE_SUFFIX: dict[str, str] = {
+    "BIST": ".IS",
+    "LSE": ".L",
+    "XETRA": ".DE",
+    "TSX": ".TO",
+    "ASX": ".AX",
+}
+
+
+async def fetch_stock_quote(
+    ticker: str,
+    exchange: str = "AUTO",
+) -> dict | None:
+    """
+    Fetch live stock/fund quote from Yahoo Finance.
+    Returns {"price": float, "currency": str, "name": str, "yahoo_symbol": str} or None.
+
+    exchange values:
+      AUTO  — try ticker as-is; if no result and ticker has no dot, also try .IS suffix
+      BIST  — prepend .IS suffix (Turkish stocks)
+      any other key in _EXCHANGE_SUFFIX — prepend that suffix
+      (anything else) — use ticker as-is
+    """
+    sym = ticker.strip().upper()
+    if not sym:
+        return None
+
+    suffix = _EXCHANGE_SUFFIX.get(exchange.upper(), "")
+
+    # Build candidate list
+    if suffix:
+        # Explicit exchange: try suffixed first, then bare
+        candidates = [f"{sym}{suffix}", sym]
+    elif exchange.upper() == "AUTO":
+        # Auto: try bare first; if ticker has no dot (not already exchange-qualified), also try .IS
+        candidates = [sym]
+        if "." not in sym:
+            candidates.append(f"{sym}.IS")
+    else:
+        candidates = [sym]
+
+    for candidate in candidates:
+        result = await _yahoo_fetch(candidate)
+        if result is not None:
+            return {**result, "yahoo_symbol": candidate}
+
+    return None
+
+
+async def fetch_stock_price(ticker: str) -> float | None:
+    """
+    Backward-compatible wrapper used by fetch_all_for_user.
+    Returns USD price per share, converting from native currency if needed.
+    """
+    result = await fetch_stock_quote(ticker, exchange="AUTO")
+    if result is None:
+        return None
+
+    price = result["price"]
+    currency = result.get("currency", "USD")
+
+    if currency.upper() == "USD":
+        return price
+
+    # Convert native currency → USD via fiat rates
+    try:
+        from app.services.currency import get_exchange_rate
+        rate = await get_exchange_rate(currency.upper(), "USD")
+        return price * rate
+    except Exception:
+        return price  # return native price as fallback
 
 
 async def _price_for_asset(asset: Asset) -> float | None:
