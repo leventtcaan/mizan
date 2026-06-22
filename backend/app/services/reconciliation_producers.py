@@ -214,6 +214,9 @@ async def _produce_duplicate_transaction_items(user_id: uuid.UUID, session: Asyn
 
 
 async def _produce_large_transaction_items(user_id: uuid.UUID, session: AsyncSession) -> int:
+    # Only flag uncategorised (diger / None) transactions above 20 000 TRY.
+    # If a transaction is already categorised it is a known operation and
+    # needs no review regardless of size.
     result = await session.execute(
         select(Transaction)
         .where(Transaction.user_id == user_id)
@@ -221,24 +224,12 @@ async def _produce_large_transaction_items(user_id: uuid.UUID, session: AsyncSes
         .limit(180)
     )
     transactions = result.scalars().all()
-    if len(transactions) < 8:
-        return 0
-
-    amounts = sorted(abs(txn.amount) for txn in transactions if txn.amount is not None)
-    if not amounts:
-        return 0
-    median = amounts[len(amounts) // 2]
-    threshold = max(median * Decimal("3"), Decimal("8000"))
-
-    _TRANSFER_KEYWORDS = ("FAST", "Havale", "EFT", "Virman", "Gönd")
 
     created = 0
     for txn in transactions:
-        if abs(txn.amount) < threshold:
+        if abs(txn.amount) < Decimal("20000"):
             continue
-        if txn.category == "transfer":
-            continue
-        if txn.transaction_type == "credit" and any(kw in txn.description for kw in _TRANSFER_KEYWORDS):
+        if txn.category not in (None, "diger"):
             continue
         created += int(
             await _ensure_item(

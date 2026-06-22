@@ -564,6 +564,43 @@ export default function NetWorthPage() {
                   </button>
                 );
 
+                // Translated title — keyed by issue_type, ignores backend English string.
+                const itemTitle = (() => {
+                  if (item.issue_type === "overdue_receivable") return t("nw.recon.overdueTitle");
+                  if (item.issue_type === "received_receivable_missing_asset") return t("nw.recon.missingAssetTitle");
+                  if (item.issue_type === "possible_duplicate_transaction") return t("nw.recon.duplicateTitle");
+                  if (item.issue_type === "large_transaction_review") return t("nw.recon.largeTxTitle");
+                  return item.title;
+                })();
+
+                // Context line — built from proposed_action values, not from backend description.
+                const contextLine = (() => {
+                  if (item.issue_type === "overdue_receivable" && pa?.amount) {
+                    return `${String(pa.amount)} ${String(pa.currency ?? "")} ${t("nw.recon.overdueContext")} ${String(pa.expected_date ?? "")}`;
+                  }
+                  if (item.issue_type === "received_receivable_missing_asset" && pa?.amount) {
+                    return `${String(pa.amount)} ${String(pa.currency ?? "")} — ${t("nw.recon.missingAssetContext")}`;
+                  }
+                  if (item.issue_type === "possible_duplicate_transaction" && pa?.description) {
+                    const count = (pa.transaction_ids as string[] | undefined)?.length ?? 2;
+                    return `×${count} — "${String(pa.description).slice(0, 50)}"`;
+                  }
+                  if (item.issue_type === "large_transaction_review" && pa?.amount) {
+                    const sign = String(pa.transaction_type) === "debit" ? "−" : "+";
+                    return `${sign}${String(pa.amount)}${pa.description ? ` · "${String(pa.description).slice(0, 40)}"` : ""}`;
+                  }
+                  return null;
+                })();
+
+                // Subtitle — user-facing plain-language explanation.
+                const subtitle = (() => {
+                  if (item.issue_type === "overdue_receivable") return t("nw.recon.overdueSubtitle");
+                  if (item.issue_type === "received_receivable_missing_asset") return t("nw.recon.missingAssetSubtitle");
+                  if (item.issue_type === "possible_duplicate_transaction") return t("nw.recon.duplicateSubtitle");
+                  if (item.issue_type === "large_transaction_review") return t("nw.recon.largeTxSubtitle");
+                  return null;
+                })();
+
                 let actionButtons: ReactNode;
                 if (item.issue_type === "overdue_receivable") {
                   actionButtons = (<>
@@ -580,8 +617,8 @@ export default function NetWorthPage() {
                 } else if (item.issue_type === "possible_duplicate_transaction") {
                   const batchIds = (pa?.upload_batch_ids as string[] | undefined) ?? [];
                   actionButtons = (<>
-                    {batchIds.length >= 2 && btn("delete_duplicate_batch", "Delete Older Duplicate", "bg-red-600/10 text-red-400 border border-red-800/30 hover:bg-red-600/20")}
-                    {btn("keep_all", "Keep All", "bg-emerald-600/20 text-emerald-400 border border-emerald-800/40 hover:bg-emerald-600/30")}
+                    {batchIds.length >= 2 && btn("delete_duplicate_batch", t("nw.recon.deleteOlderDuplicate"), "bg-red-600/10 text-red-400 border border-red-800/30 hover:bg-red-600/20")}
+                    {btn("keep_all", t("nw.recon.keepAll"), "bg-emerald-600/20 text-emerald-400 border border-emerald-800/40 hover:bg-emerald-600/30")}
                     {btn("dismiss", t("common.dismiss"), "bg-[#2A2A2A] text-gray-400 hover:text-gray-200")}
                   </>);
                 } else if (item.issue_type === "large_transaction_review") {
@@ -601,7 +638,7 @@ export default function NetWorthPage() {
                     <div className="flex items-start justify-between gap-3 flex-wrap">
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2 flex-wrap">
-                          <p className="text-gray-100 text-sm font-medium">{item.title}</p>
+                          <p className="text-gray-100 text-sm font-medium">{itemTitle}</p>
                           <span className={`px-2 py-0.5 rounded-full text-xs ${
                             item.severity === "high" ? "bg-red-950/50 text-red-400 border border-red-800/30"
                               : item.severity === "medium" ? "bg-amber-950/50 text-amber-400 border border-amber-800/30"
@@ -610,15 +647,11 @@ export default function NetWorthPage() {
                             {item.severity}
                           </span>
                         </div>
-                        <p className="text-gray-400 text-xs leading-relaxed mt-1">{item.description}</p>
-                        {item.issue_type === "possible_duplicate_transaction" && !!pa?.description && (
-                          <p className="text-cyan-300/70 text-xs mt-1 truncate">"{String(pa.description)}"</p>
+                        {contextLine && (
+                          <p className="text-cyan-300/70 text-xs mt-1 truncate">{contextLine}</p>
                         )}
-                        {item.issue_type === "large_transaction_review" && !!pa?.amount && (
-                          <p className="text-cyan-300/70 text-xs mt-1">
-                            {String(pa.transaction_type) === "debit" ? "−" : "+"}{String(pa.amount)}
-                            {pa.description ? ` · "${String(pa.description).slice(0, 40)}"` : ""}
-                          </p>
+                        {subtitle && (
+                          <p className="text-gray-500 text-xs leading-relaxed mt-1">{subtitle}</p>
                         )}
                       </div>
                     </div>
