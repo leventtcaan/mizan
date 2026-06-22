@@ -298,25 +298,61 @@ When context reaches ~70% capacity:
 - [x] **Currency assumption documented**: visible note on transactions page (uploaded tx kept in recorded currency, default ₺; summaries/charts converted). Home subscription action item → /recurring (was redirect-stub /subscriptions).
 - [x] Verified: all 5 assistant executors schema-safe vs new quantity/unit_code/account_id/currency cols; fixed latent `_parse_as_of_date` bug (returned None for valid ISO dates).
 
+### Phase 54 — Progress page rebuild: Financial Health scorecard (2026-06-22)
+- [x] **Thesis**: Progress = the only page about TIME (trajectory), not a present-moment snapshot. Answers "am I getting better + the one move that helps most." Inflation panel removed (Turkey-legacy); category-comparison table moved off (redundant with Home).
+- [x] `services/scorecard.py` — `build_scorecard(user_id, ccy, session)`. **Financial Health score 0–100 = 4 transparent pillars × 25**: savings rate, debt load (liab/assets), spending discipline (goals met), net-worth growth. Step-function scoring (honest, no black box). Score_delta = best-effort last-month recompute. `top_mover` = pillar that changed most → drives verdict.
+- [x] Also computes: **trajectory** (real snapshots, else reconstructed from monthly cash flow anchored to true net worth, flagged `estimated`), **annotations** (biggest NW jumps named by diffing snapshot breakdown_json), **drivers** (biggest win/setback this vs last month), **milestones** (debt-free date, next round NW target projected from growth), **streaks** (consecutive months under each budget goal). Returns numbers+keys → frontend composes all text (i18n-correct).
+- [x] `GET /insights/scorecard?display_currency&lang` (progress.py) — read-only, no LLM, computed fresh. `has_data` gate.
+- [x] `app/progress/page.tsx` full rewrite: hero verdict (score+band color+delta+mover) → pillars (4 bars, own trend arrows) → annotated net-worth AreaChart w/ 3M/6M/1Y/All range → drivers cards → milestones → streaks (🔥) w/ collapsible **GoalsPanel** for add/edit → AlertsPanel kept → PersonalityCard demoted to collapsible footnote. `Scorecard` types + `getScorecard()` in api.ts; full `scorecard.*` locale block TR+EN; new `Flame` icon.
+
+### Phase 55 — Net Worth AI guidance: rule engine + LLM narrator (2026-06-22)
+- [x] **Architecture**: deterministic rule engine PROPOSES findings, LLM only NARRATES within guardrails (keep numbers, no new recommendations, no securities advice). Templates are the offline-safe fallback + seed. Replaces dead-end warnings ("debt is 84% of assets") with ranked, benchmarked, action-linked findings.
+- [x] `services/networth_guidance.py` — 8 play types: negative_net_worth, debt_load (debt-to-asset), high_interest_debt (APR>25%), emergency_fund (liquid months <3), concentration (single volatile asset >40%), fx_concentration (foreign ccy >60%), savings_rate, stale_prices. Each finding = `{play, severity, observation/context/why/move, action}`. Sorted by severity, capped 4.
+- [x] Each finding has 4 beats (observation → context/benchmark → why-it-matters → move) + an **executable hook**: refresh_prices, create_alert, set_goal, add_liability, or discuss (opens GlobalAssistant prefilled). Benchmarks = general financial-hygiene norms, not securities advice. Persistent disclaimer.
+- [x] `GET /networth/guidance?display_currency&lang` (networth.py) — cached 24h in ProgressInsight `data_type=networth_guidance`, **busted on every asset/liability mutation** (`bust_networth_insight_cache` now clears both insight+guidance). Summary stopped spending an LLM call on the now-unused `ai_insight` (returns null).
+- [x] `components/GuidancePanel.tsx` — under hero, replaces ai_insight blurb + warning banners. Severity accents, expandable cards. `GlobalAssistant` accepts `prefill` via open event. Types + `getNetWorthGuidance()`; `nw.guidance.*` locale TR+EN.
+
+### Phase 56 — Net Worth polish + fixes (2026-06-22 → 06-23)
+- [x] **AllocationChart** (`components/AllocationChart.tsx`): interactive recharts donut (hover expands active slice w/ soft ring, center readout, clickable legend) + per-currency exposure bars. Replaces text-only FX breakdown. Premium palette.
+- [x] **Asset cards readable**: `assetDetailLabel(asset, t)` replaces `sourceDetailLabel` which leaked raw JSON for vehicle/bank_account. Per-type human text: vehicle "Opel Corsa 2021", bank "Vadeli · %3.5 · Vade: Mar 2027", stock "GARAN.IS · 9.99 adet", crypto "BTC · 0.05", gold "Gram (24 ayar) · 10". Default branch shows captured fields, NEVER JSON.
+- [x] **History chart removed** from NW page (estimated/reconstructed data was misleading; real trajectory lives on Progress). Snapshots still recorded. `nwDelta` hero badge also removed (same estimated source). Dead recharts/snapshot imports cleaned.
+- [x] **Honest price UX**: removed "Fiyatları Güncelle" button (false expectations; scheduler refreshes every 12h) → replaced with `Güncellendi HH:MM` badge (locale-aware 24h TR / 12h EN). Per-card "Son fiyat: $X · anlık değil" for priced types (not FX where $1.00 is noise). Refresh now single-flight (`refreshInFlightRef`) — fixed 10+ parallel calls from one click. Wealth-alert eval skips `foreign_currency` (USD/USD=$1.00 false alert); alert modal = %-drop picker off live price.
+- [x] **Hero currency race FIXED**: `displayCurrency` now lazy-inits from `getDefaultCurrency()` BEFORE first fetch (`useState(() => ...)`); removed mount-time setDisplayCurrency that raced loadAll's TRY fetch + clobbered the USD refetch. Was: hero showed TRY values under USD until manual currency change.
+- [x] **Guidance overspend logic FIXED**: a $100K-net-worth user got "harcaman geliri aştı" as primary. Bug = scorecard single-month `rate=-59%` fired while 90d avg showed income≥expenses. Fix: suppress when 90d trend contradicts the one bad month; suppress when "very cushioned" (net worth ≥10yr of gap); demote to low when cushioned. Now primary finding = real one (Bitcoin concentration). Refresh-prices stock back-fill: derive shares from value÷price when quantity missing.
+
+### Phase 57 — Activation hardening (2026-06-23)
+- [x] **Activation audit** (3 parallel subagents): onboarding, parser reliability, first-session payoff. Found two killers: (1) zero/failed parse rendered as GREEN "✓ 0 transactions" success → user thinks broken, bails; (2) user's entered number never echoed + statement/spending-goal users land on cold-start "Add your net worth" checklist (the thing they just declined).
+- [x] **TIER 1 — fail loudly**: `parse_statement` wrapped in try/except in upload.py (no raw 500s ever). ParseResult gains `status` (success|empty|failed) + `reason` (encrypted_pdf|scanned_image|ocr_unavailable|unrecognized_format|parse_error) + `detected_currency`. Encrypted/password PDFs caught (PDFPasswordIncorrect / "password"/"encrypt" in msg). `/upload` returns `{status, reason, transaction_count}`. Frontend (upload + onboarding) shows zero/failed as AMBER actionable warning, not green check.
+- [x] **TIER 2 — close the loop**: onboarding Step 3 echoes entered value ("₺X kaydettik"). Home hero: `hasData = hasAssets || hasStatement`; `statementOnly` user LEADS with Cash Flow Pulse (order-1) + AI insight (order-2), checklist hidden, redundant "add bank account" CTA only shows for truly-empty user. Asset users unaffected.
+- [x] **TIER 3 — global parser**: LLM extraction prompt rewritten global (any date/currency/amount, ISO output, infers debit/credit from context, no debit default). `_DATE_RE` global (DD.MM.YYYY / MM/DD/YYYY / YYYY-MM-DD / DD-MM-YYYY / "MMM DD YYYY"). `_normalise_amount` handles both `1.234,56` (TR) and `1,234.56` (US) by detecting decimal separator + negatives/parens. Sign inference bilingual + **word-boundary matched** (fixed "pos" matching inside "de-pos-it" → PAYROLL DEPOSIT now credit). Currency carries through `insert_transactions(default_currency=user.display_currency)` — never silent TRY. transaction_service `_DATE_FORMATS` expanded (ISO first, US added).
+- [x] Verified: amount normaliser all formats, date regex all formats, US-CSV→success w/ correct signs, garbage→empty, corrupt→failed/parse_error. Build clean, i18n 835/835.
+
 ---
 
 ## Current Status
 
-**Phases 1–53 complete. Alembic head = 0031.**
+**Phases 1–57 complete. Alembic head = 0031.**
 
 ### App structure (current)
 - **Nav**: Home · Money Flow · Net Değer · İlerleme · Settings (+ currency dropdown, notification bell, global assistant FAB)
 - **Money Flow tabs**: Activity (/transactions) · Upcoming (/cashflow) · Recurring (/recurring) — shared MoneyOverview header
+- **Progress page** (Phase 54): Financial Health scorecard (0–100, 4 pillars) → annotated trajectory chart → drivers → milestones → goal streaks (+ GoalsPanel) → AlertsPanel → demoted PersonalityCard. Inflation panel GONE.
+- **Net Worth page** (Phase 55–56): hero (NW number, currency race fixed) → **GuidancePanel** (rule-engine+LLM findings, replaces warning banners) → **AllocationChart** donut + currency bars → asset/liability/receivable sections (readable cards, no raw JSON) → Action Queue. History chart REMOVED. Price freshness = `Güncellendi HH:MM` badge (no refresh button); scheduler refreshes 12h.
+- **Upload** (Phase 57): `/upload` returns `{status: success|empty|failed, reason, transaction_count}`. Parser is global (multi-format dates/amounts, currency carry-through, bilingual sign inference). Zero/failed → amber actionable message (never green "0").
 - **Display currency**: user-level `User.display_currency`, switched via navbar dropdown, broadcast via `mizan-currency-change`, persisted to prefs
-- **Assistant**: one global `GlobalAssistant` (FAB everywhere), 5 structured actions (mark_receivable_received, create_asset, dismiss_reconciliation_item, categorize_transaction, add_liability), confirms → `mizan-data-changed` → all data pages refresh
+- **Assistant**: one global `GlobalAssistant` (FAB everywhere; accepts `prefill` via open event), 5 structured actions (mark_receivable_received, create_asset, dismiss_reconciliation_item, categorize_transaction, add_liability), confirms → `mizan-data-changed` → all data pages refresh
 - **Schedulers** (APScheduler, in-process): reconciliation 6h, daily notifications 09:00 UTC, price refresh 12h
 
-### Known deferred (post-53)
-- **P1-deep**: full `quantity`/`unit_code`/`manual_value` canonical valuation migration + data backfill. LOW priority — crypto precision bug already fixed by Numeric(28,8); rest is internal hygiene w/ migration risk.
-- **P2-reconciliation**: link transactions↔accounts so Net Worth balances reconcile w/ Money Flow. Wait for real multi-account usage data before building.
+### Known deferred (post-57)
+- `_generate_networth_suggestions` (upload.py) still has Turkish-hardcoded bank keywords + Turkish reason text — last Turkish-hardcoding thread to pull for full global readiness.
+- **Account connectivity** (Plaid/TrueLayer/SaltEdge) — DEFERRED. Regional/paid/heavy + clashes with global no-hardcoded-bank design. Chose global manual-first activation instead (Phase 57). The decay-vs-spreadsheet problem this would solve is the long-term moat.
+- CSV with **unquoted** comma-thousands amounts (`1,234.56` as bare cells) splits the description oddly — amount/sign still correct; most real CSVs quote such fields.
+- **Scorecard shows a synthetic ~57** built from neutral pillar defaults when data is thin — looks authoritative but isn't real. Consider gating the headline number until ≥2 pillars have real `status:ok`.
+- **Real historical snapshots need time to accumulate** — NW trajectory + Progress trajectory are *estimated* (cash-flow reconstruction) until ~2+ days of real daily snapshots exist; clearly badged.
+- **P1-deep**: full `quantity`/`unit_code`/`manual_value` canonical valuation migration (LOW — crypto precision already fixed by Numeric(28,8)).
+- **P2-reconciliation**: link transactions↔accounts. Wait for real multi-account usage.
 - Assistant-created assets write `source_detail={created_by:assistant}` w/o subtype → don't auto-reprice (minor).
-- `POST /networth/analyze` backend endpoint unused (frontend caller removed). Harmless; remove later.
-- Recurring/spending amounts: per-tx currency now carried, but transactions are still effectively single-currency (TRY) until multi-currency tx data exists.
+- `POST /networth/analyze` backend endpoint unused; harmless, remove later.
 
 Full stack: register/login → JWT → upload (rate-limited, busts caches) → 3-layer OCR → LLM extract → OCR cleanup → dedup → zero-amount filter → persist → LLM categorize (13 categories) → insight cache → globalized LLM coach with corrections+notes injected → spending chart + progress page (LineChart 3-month trend + cross-batch-deduped category comparison + LLM one-liners, 24h cached) → PersonalityCard (5 types, cached per batch) → AlertsPanel (3 algorithmic detectors, dismiss persisted, stale dismissals auto-cleaned) → GoalsPanel (monthly budget vs actual) → ChatPanel (globalized conversational coaching, behavioral profile memory, voice input, chat-based tx entry with confirmation card, sessionStorage prefill from alerts) → weekly email summary (Resend HTML, preferences toggle) → inflation-adjusted analysis (TUFE 2023-2026, real vs nominal per category, ProgressInsight cache) → net worth asset subtype capture (all asset types have specific fields; crypto/fiat/commodity live picker; gold unit picker; stock/fund code fields; manual categories store structured metadata in `Asset.source_detail` JSON) → net worth display currency searchable via live `CurrencySelect` → receivable collection creates linked cash asset, repeated collection is idempotent, delete/write-off removes linked asset → stale received receivables and processed suggestions are hidden/cleaned after 30 days → onboarding accepts any institution/export source instead of hardcoded Turkish banks → financial event log + reconciliation item backend skeleton exists → net worth page shows Action Queue with open reconciliation items and recent financial events → reconciliation producers (overdue receivables, missing receivable assets, cross-batch duplicate detection) → Action Queue real action handlers per issue_type → net worth history AreaChart (daily USD snapshots, converted to display currency) → asset allocation donut PieChart (5 groups, click to highlight) → proactive threshold alerts (WealthAlert model, asset_price_drop / net_worth_drop / payment_coverage_risk, bell icon on auto-priced asset cards, triggered alerts banner).
 
@@ -1165,12 +1201,12 @@ Full stack: register/login → JWT → upload (rate-limited, busts caches) → 3
 
 ## Next Session — Start Here
 
-**Phases 1–53 complete. Alembic head = 0031.**
+**Phases 1–57 complete. Alembic head = 0031.**
 
 ### Next session setup:
 - Use claude-opus-4-8 model
-- First task: ask model for its genuine highest-leverage recommendation (audit-then-build cadence has worked well; cohesion pass just done). Candidates: P2-reconciliation (only if real multi-account data exists), deployment (user said "far away"), or a fresh audit of Insights/Progress + onboarding.
-- Deferred items live in "Known deferred (post-53)" under Current Status.
+- **First task: end-to-end activation test with a REAL bank statement from a fresh user account.** Register new user → onboarding → upload a real statement → confirm honest result (success/empty/failed amber) → land on Home and verify a statement-only user leads with Cash Flow Pulse + sees a meaningful insight in <10 min. Instrument what breaks/confuses with real (messy, possibly non-Turkish) data.
+- Deferred items live in "Known deferred (post-57)" under Current Status.
 
 ### Product vision (updated):
 - Target: global users replacing manual Excel tracking of complete financial life

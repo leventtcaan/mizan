@@ -283,11 +283,23 @@ When context reaches ~70% capacity:
 ### Phase 53 — Cohesion + Hardening (2026-06-22)
 - [x] Removed ChatPanel, installments API, subscriptions GET endpoints, dead networth analyze modal, analyzeNetWorth fn; transactions empty state; progress mizan-data-changed listener; currency-assumption note; fixed _parse_as_of_date bug. All 5 assistant executors verified schema-safe.
 
+### Phase 54 — Progress rebuild: Financial Health scorecard (2026-06-22)
+- [x] `services/scorecard.py` + `GET /insights/scorecard`. Score 0–100 = 4 transparent pillars × 25 (savings, debt, discipline, growth). Also trajectory (real snapshots OR cash-flow reconstruction flagged `estimated`), annotations, drivers, milestones, goal streaks. Returns numbers+keys; frontend composes text. Progress page rewritten (hero verdict → pillars → trajectory chart → drivers → milestones → streaks + GoalsPanel → AlertsPanel → demoted PersonalityCard). Inflation panel removed. `Flame` icon; `scorecard.*` locale TR+EN.
+
+### Phase 55 — Net Worth AI guidance (2026-06-22)
+- [x] `services/networth_guidance.py` + `GET /networth/guidance` — rule engine PROPOSES, LLM NARRATES (guardrails). 8 plays (negative_nw, debt_load, high_interest_debt, emergency_fund, concentration, fx_concentration, savings_rate, stale_prices). 4-beat findings (observation→context→why→move) + executable hooks (refresh_prices/create_alert/set_goal/add_liability/discuss). Cached 24h, busted on asset/liability mutation. `GuidancePanel` replaces ai_insight blurb + warning banners; GlobalAssistant accepts `prefill`. Summary stopped generating unused ai_insight.
+
+### Phase 56 — Net Worth polish + fixes (2026-06-22→06-23)
+- [x] AllocationChart (interactive recharts donut + currency bars, replaces text FX breakdown). `assetDetailLabel` — readable per-type cards, NEVER raw JSON. History chart + nwDelta removed (estimated/misleading). "Fiyatları Güncelle" button removed → `Güncellendi HH:MM` badge (locale 24h/12h) + per-card "Son fiyat · anlık değil"; refresh single-flight (fixed parallel calls); wealth-alert skips foreign_currency. Hero currency race FIXED (lazy-init displayCurrency before first fetch). Guidance overspend FIXED (suppress when 90d trend contradicts single month / very-cushioned). Stock share back-fill on refresh.
+
+### Phase 57 — Activation hardening (2026-06-23)
+- [x] Audit (3 subagents). TIER 1: parse_statement try/except (no 500s); ParseResult `status`(success|empty|failed)+`reason`(encrypted_pdf|scanned_image|ocr_unavailable|unrecognized_format|parse_error)+`detected_currency`; `/upload` returns status/reason; frontend shows amber actionable msg, not green "0". TIER 2: onboarding Step 3 echoes entered value; Home `hasData=hasAssets||hasStatement`, statement-only user leads with Cash Flow Pulse. TIER 3: global LLM prompt + multi-format dates + `_normalise_amount` (TR `1.234,56` & US `1,234.56`) + bilingual word-boundary sign inference (fixed "pos" in "deposit") + currency carry-through (no silent TRY).
+
 ---
 
 ## Current Status
 
-**Phases 1–53 complete. Alembic head = 0031.** (App: Nav = Home · Money Flow · Net Değer · İlerleme · Settings; Money Flow tabs = Activity · Upcoming · Recurring. Deferred: P1-deep valuation migration, P2 tx↔account reconciliation, assistant-created assets don't auto-reprice, unused POST /networth/analyze.)
+**Phases 1–57 complete. Alembic head = 0031.** (CLAUDE.md is authoritative for detail.) Progress = Financial Health scorecard. Net Worth = GuidancePanel + AllocationChart (no history chart). Upload returns status/reason; parser is global. Deferred: `_generate_networth_suggestions` Turkish bank keywords; account connectivity (Plaid — deferred, manual-first chosen); CSV unquoted comma-thousands edge case; scorecard synthetic score when thin; real snapshots need time (trajectory estimated until then); P1-deep valuation migration; P2 tx↔account reconciliation.
 
 **(historical, Phase 34) Phases 1–34 complete. Alembic head = 0022. No new migrations since Phase 32.**
 
@@ -741,7 +753,7 @@ Full stack: register/login → JWT → upload (rate-limited, busts caches) → 3
 
 ## Next Session — Start Here
 
-**Phases 1–53 complete. Alembic head = 0031.** (Older Phase 42/head-0022 notes below are historical — CLAUDE.md is authoritative.) Next: ask model for genuine highest-leverage recommendation; deferred items in Current Status.
+**Phases 1–57 complete. Alembic head = 0031.** (Older Phase 42/head-0022 notes below are historical — CLAUDE.md is authoritative.) Next: **end-to-end activation test with a real bank statement from a fresh user account** (register → onboarding → upload → honest result → Home in <10 min; instrument what breaks with real messy/non-Turkish data). Deferred items in Current Status.
 
 Pre-flight (if docker was restarted):
 ```bash
