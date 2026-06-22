@@ -1141,6 +1141,30 @@ export async function getNetWorthHistory(days = 90): Promise<NetworthSnapshot[]>
   return response.json() as Promise<NetworthSnapshot[]>;
 }
 
+// --- Net Worth Change Attribution ("why did it move") ---
+
+export interface AttributionDriver {
+  label: string;
+  kind: string;
+  amount: number;
+  direction: "up" | "down";
+}
+
+export interface NetWorthAttribution {
+  period_days: number;
+  delta: number;
+  currency: string;
+  drivers: AttributionDriver[];
+}
+
+export async function getNetWorthAttribution(displayCurrency = "TRY"): Promise<NetWorthAttribution | null> {
+  const response = await fetch(`${API_BASE_URL}/networth/attribution?display_currency=${displayCurrency}`, {
+    headers: authHeaders(),
+  });
+  if (!response.ok) return null;
+  return response.json() as Promise<NetWorthAttribution | null>;
+}
+
 // --- Wealth Alerts ---
 
 export interface WealthAlertItem {

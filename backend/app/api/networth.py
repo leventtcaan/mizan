@@ -1206,58 +1206,9 @@ async def create_snapshot(
     session: AsyncSession = Depends(get_session),
 ) -> SnapshotResponse:
     """Upserts today's net-worth snapshot in USD (one per day)."""
-    from app.models.networth_snapshot import NetworthSnapshot
+    from app.services.networth_snapshot_service import upsert_snapshot
 
-    assets_result = await session.execute(select(Asset).where(Asset.user_id == current_user.id))
-    assets = assets_result.scalars().all()
-    liabilities_result = await session.execute(select(Liability).where(Liability.user_id == current_user.id))
-    liabilities = liabilities_result.scalars().all()
-
-    assets_usd = Decimal("0")
-    for a in assets:
-        try:
-            assets_usd += Decimal(str(await convert(float(a.current_value), a.currency, "USD")))
-        except Exception:
-            pass
-
-    liabilities_usd = Decimal("0")
-    for l in liabilities:
-        try:
-            liabilities_usd += Decimal(str(await convert(float(l.remaining_amount), l.currency, "USD")))
-        except Exception:
-            pass
-
-    net_worth_usd = assets_usd - liabilities_usd
-    now = datetime.now(timezone.utc)
-    today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
-    tomorrow_start = today_start + timedelta(days=1)
-
-    existing = await session.execute(
-        select(NetworthSnapshot).where(
-            NetworthSnapshot.user_id == current_user.id,
-            NetworthSnapshot.recorded_at >= today_start,
-            NetworthSnapshot.recorded_at < tomorrow_start,
-        )
-    )
-    snap = existing.scalar_one_or_none()
-
-    if snap:
-        snap.net_worth_usd = net_worth_usd
-        snap.assets_usd = assets_usd
-        snap.liabilities_usd = liabilities_usd
-        snap.recorded_at = now
-    else:
-        snap = NetworthSnapshot(
-            user_id=current_user.id,
-            net_worth_usd=net_worth_usd,
-            assets_usd=assets_usd,
-            liabilities_usd=liabilities_usd,
-            recorded_at=now,
-        )
-        session.add(snap)
-
-    await session.commit()
-    await session.refresh(snap)
+    snap = await upsert_snapshot(current_user.id, session)
     return SnapshotResponse(
         id=str(snap.id),
         net_worth_usd=str(snap.net_worth_usd),
@@ -1265,6 +1216,36 @@ async def create_snapshot(
         liabilities_usd=str(snap.liabilities_usd),
         recorded_at=snap.recorded_at.isoformat(),
     )
+
+
+class AttributionDriver(BaseModel):
+    label: str
+    kind: str
+    amount: float
+    direction: str
+
+
+class AttributionResponse(BaseModel):
+    period_days: int
+    delta: float
+    currency: str
+    drivers: list[AttributionDriver]
+
+
+@router.get("/attribution", response_model=AttributionResponse | None)
+async def networth_attribution(
+    display_currency: str = "TRY",
+    current_user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
+) -> AttributionResponse | None:
+    """Explains why net worth moved since the previous snapshot. Null until two
+    breakdown-bearing snapshots exist."""
+    from app.services.networth_attribution import build_attribution
+
+    data = await build_attribution(current_user.id, session, display_currency)
+    if data is None:
+        return None
+    return AttributionResponse(**data)
 
 
 @router.get("/history", response_model=list[SnapshotResponse])

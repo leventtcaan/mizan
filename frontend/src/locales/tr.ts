@@ -27,6 +27,7 @@ export const tr = {
     grew: "Net değeriniz arttı",
     shrank: "Net değeriniz azaldı",
     driver: "başlıca etken",
+    story: { title: "BU DEĞİŞİMİN NEDENİ" },
     needsAttention: "Şimdi Dikkat Gerektirenler",
     today: "BUGÜN",
     thisWeekGroup: "BU HAFTA",

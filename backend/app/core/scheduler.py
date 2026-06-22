@@ -32,10 +32,12 @@ scheduler = AsyncIOScheduler(timezone="UTC")
 LAST_RUN: dict[str, str | None] = {
     "reconciliation": None,
     "daily_notifications": None,
+    "price_refresh": None,
 }
 
 JOB_RECONCILIATION = "reconciliation_all_users"
 JOB_NOTIFICATIONS = "daily_notifications_all_users"
+JOB_PRICE_REFRESH = "price_refresh_all_users"
 
 
 async def _all_user_ids() -> list:
@@ -59,6 +61,32 @@ async def run_reconciliation_for_all_users() -> None:
             continue
     LAST_RUN["reconciliation"] = datetime.now(timezone.utc).isoformat()
     logger.info("Reconciliation scan: %d users, %d items created", len(user_ids), total_created)
+
+
+async def run_price_refresh_for_all_users() -> None:
+    """Refresh live asset prices for every user, then snapshot their net worth.
+
+    This keeps the Home heartbeat current without any user action, and the fresh
+    snapshot (with per-entity breakdown) is what powers change attribution.
+    Per-user failures are isolated.
+    """
+    from app.services.asset_prices import fetch_all_for_user
+    from app.services.networth_snapshot_service import upsert_snapshot
+
+    user_ids = await _all_user_ids()
+    total_updated = 0
+    for uid in user_ids:
+        try:
+            async with AsyncSessionLocal() as session:
+                result = await fetch_all_for_user(uid, session)
+                total_updated += int(result.get("updated", 0))
+                # Snapshot afterwards so attribution has fresh, breakdown-bearing data.
+                await upsert_snapshot(uid, session)
+        except Exception:
+            logger.exception("Price refresh failed for user=%s", uid)
+            continue
+    LAST_RUN["price_refresh"] = datetime.now(timezone.utc).isoformat()
+    logger.info("Price refresh: %d users, %d assets updated", len(user_ids), total_updated)
 
 
 async def run_daily_notifications_for_all_users() -> None:
@@ -106,8 +134,16 @@ def start_scheduler() -> None:
         coalesce=True,
         max_instances=1,
     )
+    scheduler.add_job(
+        run_price_refresh_for_all_users,
+        trigger=IntervalTrigger(hours=12),  # twice daily — keeps the heartbeat fresh
+        id=JOB_PRICE_REFRESH,
+        replace_existing=True,
+        coalesce=True,
+        max_instances=1,
+    )
     scheduler.start()
-    logger.info("Scheduler started — reconciliation every 6h, daily notifications at 09:00 UTC.")
+    logger.info("Scheduler started — reconciliation 6h, notifications 09:00 UTC, price refresh 12h.")
 
 
 def shutdown_scheduler() -> None:
@@ -119,7 +155,7 @@ def shutdown_scheduler() -> None:
 def scheduler_status() -> dict:
     """Snapshot for the dev status endpoint."""
     jobs = {}
-    for job_id in (JOB_RECONCILIATION, JOB_NOTIFICATIONS):
+    for job_id in (JOB_RECONCILIATION, JOB_NOTIFICATIONS, JOB_PRICE_REFRESH):
         job = scheduler.get_job(job_id)
         jobs[job_id] = {
             "next_run": job.next_run_time.isoformat() if job and job.next_run_time else None,

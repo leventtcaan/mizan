@@ -27,6 +27,7 @@ export const en = {
     grew: "Your net worth grew",
     shrank: "Your net worth shrank",
     driver: "main driver",
+    story: { title: "WHAT MOVED IT" },
     needsAttention: "Needs You Right Now",
     today: "TODAY",
     thisWeekGroup: "THIS WEEK",

@@ -15,10 +15,11 @@ import {
   getToken, getStoredUser,
   getNetWorthSummary, getNetWorthHistory, getCashFlowSummary, getCashFlowUpcoming,
   getReconciliationItems, scanReconciliation, getNotifications, getReceivables,
-  getProgress, getInsights, generateDailyNotifications,
+  getProgress, getInsights, generateDailyNotifications, getNetWorthAttribution,
   markNotificationRead, updateReconciliationItemStatus,
   type NetWorthSummary, type NetworthSnapshot, type CashFlowSummary, type CashFlowItem,
   type ReconciliationItem, type AppNotification, type ReceivableItem, type ProgressResponse,
+  type NetWorthAttribution,
 } from "@/lib/api";
 
 const CCY = "TRY";
@@ -85,6 +86,7 @@ export default function HomePage() {
   const [summary, setSummary] = useState<NetWorthSummary | null>(null);
   const [snapshots, setSnapshots] = useState<NetworthSnapshot[] | null>(null);
   const [cashflow, setCashflow] = useState<CashFlowSummary | null>(null);
+  const [attribution, setAttribution] = useState<NetWorthAttribution | null>(null);
   const [snapshotLoading, setSnapshotLoading] = useState(true);
 
   // Action center
@@ -116,6 +118,8 @@ export default function HomePage() {
       getCashFlowSummary(30, CCY).catch(() => null),
     ]).then(([s, h, cf]) => { setSummary(s); setSnapshots(h); setCashflow(cf); })
       .finally(() => setSnapshotLoading(false));
+
+    getNetWorthAttribution(CCY).then(setAttribution).catch(() => setAttribution(null));
 
     // On event-driven refresh, skip the heavy scan/generate (avoids re-creating items);
     // just re-read the current open items.
@@ -349,6 +353,27 @@ export default function HomePage() {
                   </div>
                 )}
               </div>
+
+              {/* why it moved — change attribution */}
+              {attribution && attribution.drivers.length > 0 && (
+                <div className="mt-3 pt-3 border-t border-[#2A2A2A]">
+                  <p className="text-[10px] font-bold tracking-wider text-gray-600 mb-2">{t("home.story.title")}</p>
+                  <div className="flex flex-wrap gap-2">
+                    {attribution.drivers.map((d, i) => (
+                      <span
+                        key={i}
+                        className={`inline-flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-medium ${
+                          d.direction === "up" ? "bg-emerald-950/40 text-emerald-300" : "bg-red-950/40 text-red-300"
+                        }`}
+                      >
+                        {d.direction === "up" ? <TrendingUp size={11} /> : <TrendingDown size={11} />}
+                        <span className="text-gray-400 font-normal">{d.label}</span>
+                        {d.direction === "up" ? "+" : "−"}{fmt(d.amount)}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               {/* ratios */}
               <div className="grid grid-cols-2 gap-3 mt-4">

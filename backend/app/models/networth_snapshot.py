@@ -2,7 +2,7 @@ import uuid
 from datetime import datetime, timezone
 from decimal import Decimal
 
-from sqlalchemy import DateTime, ForeignKey, Numeric
+from sqlalchemy import DateTime, ForeignKey, Numeric, Text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -30,3 +30,6 @@ class NetworthSnapshot(Base):
         default=lambda: datetime.now(timezone.utc),
         index=True,
     )
+    # Per-asset / per-liability USD values at snapshot time, for change attribution.
+    # JSON: {"assets": {id: {"name","type","usd"}}, "liabilities": {id: {"name","usd"}}}
+    breakdown_json: Mapped[str | None] = mapped_column(Text, nullable=True)
