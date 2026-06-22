@@ -7,6 +7,7 @@ import {
   type InstallmentPlan, type InstallmentSummary,
 } from "@/lib/api";
 import PageLayout from "@/components/ui/PageLayout";
+import MoneyTabs from "@/components/ui/MoneyTabs";
 import { ChevronDown, ChevronUp } from "@/components/ui/Icons";
 import { useLanguage } from "@/lib/i18n";
 
@@ -65,6 +66,7 @@ export default function InstallmentsPage() {
 
   return (
     <PageLayout title={t("installments.title")} subtitle={t("installments.subtitle")}>
+      <MoneyTabs />
 
       {loading && (
         <div className="space-y-3">

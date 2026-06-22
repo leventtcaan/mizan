@@ -12,6 +12,7 @@ import SpendingChart from "@/components/SpendingChart";
 import AddTransactionModal from "@/components/AddTransactionModal";
 import ChatPanel from "@/components/ChatPanel";
 import PageLayout from "@/components/ui/PageLayout";
+import MoneyTabs from "@/components/ui/MoneyTabs";
 import { Plus } from "@/components/ui/Icons";
 import { useLanguage } from "@/lib/i18n";
 
@@ -161,6 +162,7 @@ export default function TransactionsPage() {
 
   return (
     <PageLayout title={t("tx.title")} titleBadge={titleBadge} action={pageActions}>
+      <MoneyTabs />
 
       {emailEnabled !== null && (
         <div className="mb-5">

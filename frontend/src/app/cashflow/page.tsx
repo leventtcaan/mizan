@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import PageLayout from "@/components/ui/PageLayout";
+import MoneyTabs from "@/components/ui/MoneyTabs";
 import CurrencySelect from "@/components/CurrencySelect";
 import { Calendar, ArrowDown, ArrowUp, RefreshCw, Plus, X } from "@/components/ui/Icons";
 import {
@@ -279,6 +280,7 @@ export default function CashFlowPage() {
         </button>
       }
     >
+      <MoneyTabs />
       {showAddPayment && (
         <AddPaymentModal
           onClose={() => setShowAddPayment(false)}

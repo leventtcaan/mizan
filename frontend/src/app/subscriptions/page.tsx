@@ -7,6 +7,7 @@ import {
   type SubscriptionItem, type SubscriptionSummary,
 } from "@/lib/api";
 import PageLayout from "@/components/ui/PageLayout";
+import MoneyTabs from "@/components/ui/MoneyTabs";
 import { useLanguage } from "@/lib/i18n";
 
 function fmt(amount: string, locale?: string): string {
@@ -86,6 +87,7 @@ export default function SubscriptionsPage() {
 
   return (
     <PageLayout title={t("subscriptions.title")} subtitle={t("subscriptions.subtitle")}>
+      <MoneyTabs />
 
       {loading && (
         <div className="space-y-3">

@@ -1,6 +1,7 @@
 export const en = {
   nav: {
     transactions: "Transactions",
+    money: "Money Flow",
     networth: "Net Worth",
     progress: "Progress",
     calendar: "Calendar",

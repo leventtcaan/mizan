@@ -1,6 +1,7 @@
 export const tr = {
   nav: {
     transactions: "İşlemler",
+    money: "Para Akışı",
     networth: "Net Değer",
     progress: "İlerleme",
     calendar: "Takvim",

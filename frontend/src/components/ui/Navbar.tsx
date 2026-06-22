@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import Link from "next/link";
 import { getToken, getStoredUser, clearToken, getNetWorthSuggestions, updatePreferences } from "@/lib/api";
-import { BarChart2, Calendar, CreditCard, Layers, Upload, LogOut, Menu, X, Scale, Home } from "@/components/ui/Icons";
+import { BarChart2, Upload, LogOut, Menu, X, Scale, Home } from "@/components/ui/Icons";
 import { useLanguage, type Lang } from "@/lib/i18n";
 import NotificationDropdown from "@/components/NotificationDropdown";
 
@@ -27,14 +27,14 @@ export default function Navbar() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [suggestionCount, setSuggestionCount] = useState(0);
 
+  // The four money pages (transactions / cashflow / subscriptions / installments)
+  // are unified under one "Money Flow" entry; they share the MoneyTabs sub-nav.
+  const MONEY_PATHS = ["/transactions", "/cashflow", "/subscriptions", "/installments"];
   const NAV_LINKS = [
-    { href: "/home", label: t("nav.home"), icon: <Home size={16} /> },
-    { href: "/transactions", label: t("nav.transactions"), icon: <PieChartMini /> },
-    { href: "/networth", label: t("nav.networth"), icon: <Scale size={16} /> },
-    { href: "/progress", label: t("nav.progress"), icon: <BarChart2 size={16} /> },
-    { href: "/cashflow", label: t("nav.calendar"), icon: <Calendar size={16} /> },
-    { href: "/subscriptions", label: t("nav.subscriptions"), icon: <CreditCard size={16} /> },
-    { href: "/installments", label: t("nav.installments"), icon: <Layers size={16} /> },
+    { href: "/home", label: t("nav.home"), icon: <Home size={16} />, match: ["/home"] },
+    { href: "/transactions", label: t("nav.money"), icon: <PieChartMini />, match: MONEY_PATHS },
+    { href: "/networth", label: t("nav.networth"), icon: <Scale size={16} />, match: ["/networth"] },
+    { href: "/progress", label: t("nav.progress"), icon: <BarChart2 size={16} />, match: ["/progress"] },
   ];
 
   useEffect(() => {
@@ -80,7 +80,7 @@ export default function Navbar() {
           {/* Desktop nav links */}
           <div className="hidden md:flex items-center gap-1 flex-1 justify-center">
             {NAV_LINKS.map((link) => {
-              const isActive = pathname === link.href || pathname.startsWith(link.href + "/");
+              const isActive = link.match.some((p) => pathname === p || pathname.startsWith(p + "/"));
               const showBadge = link.href === "/networth" && suggestionCount > 0;
               return (
                 <Link
@@ -159,7 +159,7 @@ export default function Navbar() {
           />
           <div className="absolute top-14 left-0 right-0 bg-[#0F0F0F] border-b border-[#2A2A2A] px-4 py-4 space-y-1">
             {NAV_LINKS.map((link) => {
-              const isActive = pathname === link.href;
+              const isActive = link.match.some((p) => pathname === p || pathname.startsWith(p + "/"));
               return (
                 <Link
                   key={link.href}
