@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback, type ReactNode } from "react";
+import { useEffect, useState, useCallback, useRef, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import PageLayout from "@/components/ui/PageLayout";
 import AddAssetModal from "@/components/AddAssetModal";
@@ -348,6 +348,15 @@ export default function NetWorthPage() {
       setLoading(false);
     }
   };
+
+  // Refresh after the global assistant confirms an action that mutates net worth data.
+  const loadAllRef = useRef(loadAll);
+  loadAllRef.current = loadAll;
+  useEffect(() => {
+    const handler = () => { void loadAllRef.current(); };
+    window.addEventListener("mizan-data-changed", handler);
+    return () => window.removeEventListener("mizan-data-changed", handler);
+  }, []);
 
   const reloadSummary = useCallback(async () => {
     setSummaryLoading(true);

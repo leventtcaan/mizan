@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import PageLayout from "@/components/ui/PageLayout";
@@ -109,9 +109,7 @@ export default function HomePage() {
 
   const [txModalOpen, setTxModalOpen] = useState(false);
 
-  useEffect(() => {
-    if (!getToken() || !getStoredUser()) { router.replace("/login"); return; }
-
+  const loadAll = useCallback((scan: boolean) => {
     Promise.all([
       getNetWorthSummary(CCY).catch(() => null),
       getNetWorthHistory(90).catch(() => null),
@@ -119,8 +117,12 @@ export default function HomePage() {
     ]).then(([s, h, cf]) => { setSummary(s); setSnapshots(h); setCashflow(cf); })
       .finally(() => setSnapshotLoading(false));
 
-    scanReconciliation().catch(() => null)
-      .then(() => generateDailyNotifications(lang).catch(() => null))
+    // On event-driven refresh, skip the heavy scan/generate (avoids re-creating items);
+    // just re-read the current open items.
+    const prep = scan
+      ? scanReconciliation().catch(() => null).then(() => generateDailyNotifications(lang).catch(() => null))
+      : Promise.resolve();
+    prep
       .then(() => Promise.all([
         getReconciliationItems("open").catch(() => []),
         getNotifications().catch(() => []),
@@ -140,7 +142,19 @@ export default function HomePage() {
     getCashFlowUpcoming(30).then((f) => setUpcoming(f)).catch(() => null).finally(() => setUpcomingLoading(false));
 
     getInsights().then((r) => setInsight(r.insight?.trim() || null)).catch(() => null).finally(() => setInsightLoading(false));
-  }, [router, lang]);
+  }, [lang]);
+
+  useEffect(() => {
+    if (!getToken() || !getStoredUser()) { router.replace("/login"); return; }
+    loadAll(true);
+  }, [router, loadAll]);
+
+  // Refresh after the global assistant confirms an action.
+  useEffect(() => {
+    const handler = () => loadAll(false);
+    window.addEventListener("mizan-data-changed", handler);
+    return () => window.removeEventListener("mizan-data-changed", handler);
+  }, [loadAll]);
 
   const hasAssets = summary != null && (summary.total_assets_try > 0 || summary.total_liabilities_try > 0);
 

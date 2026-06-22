@@ -107,6 +107,16 @@ export default function TransactionsPage() {
       .catch(() => setTxState("error"));
   }, [showAll]);
 
+  // Refresh after the global assistant confirms an action (e.g. re-categorize).
+  useEffect(() => {
+    const handler = () => {
+      getTransactions(showAll).then(setTransactions).catch(() => {});
+      getInsights().then((data) => { setInsight(data); setInsightState("ready"); }).catch(() => {});
+    };
+    window.addEventListener("mizan-data-changed", handler);
+    return () => window.removeEventListener("mizan-data-changed", handler);
+  }, [showAll]);
+
   const handleCategoryCorrection = (txId: string, newCategory: string) => {
     setTransactions((prev) => prev.map((tx) => (tx.id === txId ? { ...tx, category: newCategory } : tx)));
   };

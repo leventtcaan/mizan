@@ -237,6 +237,13 @@ export default function CashFlowPage() {
     }
   }, [days, displayCurrency]);
 
+  // Refresh after the global assistant confirms an action (e.g. add_liability).
+  useEffect(() => {
+    const handler = () => { void loadAll(); };
+    window.addEventListener("mizan-data-changed", handler);
+    return () => window.removeEventListener("mizan-data-changed", handler);
+  }, [loadAll]);
+
   const grouped: Record<string, CashFlowItem[]> = {};
   for (const item of items) {
     if (!grouped[item.date]) grouped[item.date] = [];
