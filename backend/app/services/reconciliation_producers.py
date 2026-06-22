@@ -228,11 +228,17 @@ async def _produce_large_transaction_items(user_id: uuid.UUID, session: AsyncSes
     if not amounts:
         return 0
     median = amounts[len(amounts) // 2]
-    threshold = max(median * Decimal("3"), Decimal("5000"))
+    threshold = max(median * Decimal("3"), Decimal("8000"))
+
+    _TRANSFER_KEYWORDS = ("FAST", "Havale", "EFT", "Virman", "Gönd")
 
     created = 0
     for txn in transactions:
         if abs(txn.amount) < threshold:
+            continue
+        if txn.category == "transfer":
+            continue
+        if txn.transaction_type == "credit" and any(kw in txn.description for kw in _TRANSFER_KEYWORDS):
             continue
         created += int(
             await _ensure_item(
