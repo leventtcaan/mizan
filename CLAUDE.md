@@ -265,7 +265,7 @@ When context reaches ~70% capacity:
 
 ## Current Status
 
-**Phases 1–43 complete. Alembic head = 0025. Last migrations: 0024 (networth_snapshots), 0025 (wealth_alerts).**
+**Phases 1–44 complete. Alembic head = 0026. Last migrations: 0025 (wealth_alerts), 0026 (app_notifications).**
 
 Full stack: register/login → JWT → upload (rate-limited, busts caches) → 3-layer OCR → LLM extract → OCR cleanup → dedup → zero-amount filter → persist → LLM categorize (13 categories) → insight cache → globalized LLM coach with corrections+notes injected → spending chart + progress page (LineChart 3-month trend + cross-batch-deduped category comparison + LLM one-liners, 24h cached) → PersonalityCard (5 types, cached per batch) → AlertsPanel (3 algorithmic detectors, dismiss persisted, stale dismissals auto-cleaned) → GoalsPanel (monthly budget vs actual) → ChatPanel (globalized conversational coaching, behavioral profile memory, voice input, chat-based tx entry with confirmation card, sessionStorage prefill from alerts) → weekly email summary (Resend HTML, preferences toggle) → inflation-adjusted analysis (TUFE 2023-2026, real vs nominal per category, ProgressInsight cache) → net worth asset subtype capture (all asset types have specific fields; crypto/fiat/commodity live picker; gold unit picker; stock/fund code fields; manual categories store structured metadata in `Asset.source_detail` JSON) → net worth display currency searchable via live `CurrencySelect` → receivable collection creates linked cash asset, repeated collection is idempotent, delete/write-off removes linked asset → stale received receivables and processed suggestions are hidden/cleaned after 30 days → onboarding accepts any institution/export source instead of hardcoded Turkish banks → financial event log + reconciliation item backend skeleton exists → net worth page shows Action Queue with open reconciliation items and recent financial events → reconciliation producers (overdue receivables, missing receivable assets, cross-batch duplicate detection) → Action Queue real action handlers per issue_type → net worth history AreaChart (daily USD snapshots, converted to display currency) → asset allocation donut PieChart (5 groups, click to highlight) → proactive threshold alerts (WealthAlert model, asset_price_drop / net_worth_drop / payment_coverage_risk, bell icon on auto-priced asset cards, triggered alerts banner).
 
@@ -297,6 +297,7 @@ Full stack: register/login → JWT → upload (rate-limited, busts caches) → 3
 | 0023 | ADD language to users |
 | 0024 | CREATE networth_snapshots |
 | 0025 | CREATE wealth_alerts |
+| 0026 | CREATE app_notifications |
 
 ### Known Issues (open)
 - **History chart needs data** — `NetworthSnapshot` only populates on page load; <2 snapshots shows placeholder. Will self-populate after 2 visits.
@@ -981,6 +982,38 @@ Full stack: register/login → JWT → upload (rate-limited, busts caches) → 3
 
 ---
 
+### Phase 44 — Net Worth Page Polish: Edit Modals, Analyze Chat, Notifications (2026-06-22)
+
+#### Backend
+- [x] `backend/app/models/app_notification.py` — AppNotification: id UUID, user_id FK CASCADE, title String(200), message Text, type String(20) (info|warning|alert), is_read bool default false, created_at tz-aware indexed.
+- [x] `backend/alembic/versions/0026_create_app_notifications.py` — idempotent via inspector.has_table guard, chains 0025→0026, has downgrade.
+- [x] `backend/app/api/notifications.py` — GET /notifications (limit 30 desc), GET /notifications/unread-count, PATCH /notifications/{id}/read, POST /notifications/mark-all-read, POST /notifications/generate-daily (LLM + rule-based: overdue receivables, upcoming liability payments, budget goals >90%, triggered wealth alerts, LLM daily insight; UTC-day dedup prevents repeat generation; prunes >30d old rows).
+- [x] `backend/app/api/networth.py` — PUT /receivables/{id}: was missing; added using existing ReceivableRequest model. POST /analyze: session-only LLM chat with full asset/liability context, returns reply string, NOT persisted.
+- [x] `backend/app/main.py` — notifications_router registered; AppNotification imported for create_all.
+
+#### Frontend
+- [x] `frontend/src/lib/api.ts` — updateReceivable (PUT), analyzeNetWorth (POST /networth/analyze), AppNotification interface, getNotifications, getUnreadCount, markNotificationRead, markAllNotificationsRead, generateDailyNotifications.
+- [x] `frontend/src/components/NotificationDropdown.tsx` — bell icon + unread badge (9+); dropdown on click; per-type dot color (alert=red/warning=amber/info=indigo); mark-read on click; mark-all-read button; closes on outside click.
+- [x] `frontend/src/components/ui/Navbar.tsx` — NotificationDropdown added to right side.
+- [x] `frontend/src/components/ui/Icons.tsx` — added Pencil, CheckCircle, MessageCircle.
+- [x] `frontend/src/components/AddAssetModal.tsx` — full edit support: editData prop, isEdit flag, pre-populates draft, calls updateAsset on submit, onUpdated callback.
+- [x] `frontend/src/components/AddLiabilityModal.tsx` — full edit support: same pattern, calls updateLiability.
+- [x] `frontend/src/components/AddReceivableModal.tsx` — full edit support: same pattern, calls updateReceivable.
+- [x] `frontend/src/app/networth/page.tsx`:
+  - REMOVED: PieChart donut (asset allocation); highlightedGroup state.
+  - ADDED: nwDelta computed from last 2 history snapshots → shown as badge in hero (green/red).
+  - ADDED: 15-min refresh cooldown with countdown display ("X:XX" while cooling); lastRefreshAt derived from max(asset.source_detail.price_fetched_at).
+  - ADDED: handleUpdateAsset/handleUpdateLiability/handleUpdateReceivable handlers update local state without full reload.
+  - ADDED: Pencil icon on every asset/liability/receivable card → sets editingAsset/Liability/Receivable state.
+  - ADDED: Edit modals wired (editingAsset → AddAssetModal with editData, etc).
+  - ADDED: analyzeOpen state → focused chat modal over page; calls POST /networth/analyze; message thread with typing indicator; non-persistent.
+  - ADDED: generateDailyNotifications() fire-and-forget on page load.
+  - REORDERED sections: header → hero → AI insight → warning banners → triggered alerts → history chart → assets → liabilities → receivables → suggestions → action queue.
+- [x] `frontend/src/locales/{en,tr}.ts` — added nw.analyzeTitle/analyzePlaceholder/analyzeSend/analyzeClose/minAgo; notifications.title/empty/markAllRead/types.
+- [x] Build: 13 pages, clean.
+
+### Phase 43 — TEFAS Fund Lookup, Real Estate Simplified, BES Smart Form (see git log)
+
 ### Phase 42 — Asset Card Currency Conversion (2026-06-22)
 - [x] `frontend/src/app/networth/page.tsx` — asset card values now display in page display currency. Added `convertAmount(amount, from, to, rates)` using USD pivot. `getCurrencyRates("USD")` fetched once on `loadAll()`. Converted value shown in green; native currency always shown as subtitle.
 - [x] No backend changes. No migration.
@@ -1076,27 +1109,31 @@ Full stack: register/login → JWT → upload (rate-limited, busts caches) → 3
 
 ## Next Session — Start Here
 
-**Phases 1–43 complete. Alembic head = 0025. Last migrations: 0024 (networth_snapshots), 0025 (wealth_alerts).**
+**Phases 1–44 complete. Alembic head = 0026. Last migrations: 0025 (wealth_alerts), 0026 (app_notifications).**
 
-### Verified working (do NOT re-investigate):
-- **"Fiyatları Güncelle" button** — confirmed working end-to-end: calls POST /networth/assets/refresh-prices (200 OK), fetches live prices, then GET /networth/assets reloads state. CLAUDE.md known-issue was stale.
+### Next session setup:
+- Use claude-opus-4-8 model (switch in settings)
+- First task: propose full site architecture and page structure for broader global audience
+- Then implement page by page per model's proposal
 
-### Open known issues (priority order):
-1. **History chart needs 2+ snapshots** — NetworthSnapshot only populates on page load. Renders placeholder until user visits twice on different days. Will self-populate. No code fix needed; UX explanation only.
-2. **Donut chart placement** — asset allocation donut floats above AI insight. Consider moving to collapsible sidebar or secondary tab.
-3. **Wealth alert bell needs refresh-prices run first** — `last_price_usd` only exists in `source_detail` after at least one price refresh. Alert check skips assets with no price data. Fix: hint on alert creation UI if asset has no price data yet.
-4. **Proactive scheduled alerts** — wealth alerts only evaluate on page load. Need Redis + Celery or cron for true push notifications.
+### Product vision (updated):
+- Target: global users replacing manual Excel tracking of complete financial life
+- Revenue: freemium subscription
+- NOT Turkey-specific. Full global audience. Any bank, currency, language.
+- Founder's reference user: brother who tracks everything in Excel manually
 
-### Next features (priority order):
-1. **Dashboard/overview page** — single landing page after login. Shows: net worth hero number + sparkline, top spending categories, upcoming cash flow (next 7 days), active alerts count, recent events. Consolidates best pieces of transactions/networth/cashflow pages.
-2. **Proactive scheduled alerts** — background job evaluates wealth alerts on schedule (every 6h). Celery + Redis or simple cron. Sends email via Resend on trigger.
-3. **Transactions SpendingChart redesign** — replace bar chart with area or cash-flow panel.
+### Open known issues (minor, fix later):
+1. **History chart needs 2+ snapshots** — NetworthSnapshot only populates on page load. Will self-populate after 2 visits.
+2. **Wealth alert bell needs refresh-prices first** — `last_price_usd` only exists after price refresh. Alert check skips assets with no price data.
+3. **Proactive scheduled alerts** — wealth alerts only check on page load. Redis + Celery or cron needed for push notifications.
+4. **i18n coverage incomplete** — some components still have hardcoded TR strings.
+5. **Edit flow edge cases** — minor edge cases in networth page edit modal wiring.
 
 Pre-flight (if docker was restarted):
 ```bash
 docker compose up -d
 docker compose exec backend alembic upgrade head
-docker compose exec backend alembic current   # must say 0025 (head)
+docker compose exec backend alembic current   # must say 0026 (head)
 ```
 
 Quick smoke-test:
