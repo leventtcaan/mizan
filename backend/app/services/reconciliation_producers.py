@@ -170,12 +170,19 @@ async def _produce_duplicate_transaction_items(user_id: uuid.UUID, session: Asyn
         groups[key].append(txn)
 
     created = 0
+    seen_id_sets: set[frozenset] = set()
     for rows in groups.values():
         if len(rows) < 2:
             continue
+        id_set = frozenset(row.id for row in rows)
+        if id_set in seen_id_sets:
+            continue
+        seen_id_sets.add(id_set)
+        # Use the minimum UUID as a stable anchor so repeated scans always
+        # resolve to the same related_entity_id and _ensure_item deduplicates.
+        anchor = min(rows, key=lambda r: r.id)
         batch_ids = {row.upload_batch_id for row in rows if row.upload_batch_id}
         severity = "high" if len(batch_ids) > 1 else "medium"
-        first = rows[0]
         created += int(
             await _ensure_item(
                 session,
@@ -184,16 +191,16 @@ async def _produce_duplicate_transaction_items(user_id: uuid.UUID, session: Asyn
                 severity=severity,
                 title="Possible duplicate transaction",
                 description=(
-                    f"{len(rows)} matching transactions found on {first.transaction_date.isoformat()} "
-                    f"for amount {first.amount}. Review before these rows affect insights twice."
+                    f"{len(rows)} matching transactions found on {anchor.transaction_date.isoformat()} "
+                    f"for amount {anchor.amount}. Review before these rows affect insights twice."
                 ),
                 related_entity_type="transaction",
-                related_entity_id=first.id,
+                related_entity_id=anchor.id,
                 proposed_action={
                     "actions": ["review_duplicates", "delete_duplicate_batch", "keep_all"],
                     "transaction_ids": [str(row.id) for row in rows],
                     "upload_batch_ids": sorted(batch_ids),
-                    "description": first.description,
+                    "description": anchor.description,
                 },
             )
         )
@@ -215,7 +222,7 @@ async def _produce_large_transaction_items(user_id: uuid.UUID, session: AsyncSes
     if not amounts:
         return 0
     median = amounts[len(amounts) // 2]
-    threshold = max(median * Decimal("5"), Decimal("1000"))
+    threshold = max(median * Decimal("3"), Decimal("5000"))
 
     created = 0
     for txn in transactions:
