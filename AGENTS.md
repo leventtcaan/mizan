@@ -322,11 +322,29 @@ When context reaches ~70% capacity:
 ### Phase 64 — Onboarding routes through review (2026-06-23)
 - [x] Onboarding has-statement "continue" → `/review?batch_ids={all successful}` (was /brief) → review hands off to /brief. Both entry points share Upload → Review → Brief. **Full loop verified: Upload → Review → Brief → Home.**
 
+### Phase 64.5 — Weekly Money Brief email (2026-06-23)
+- [x] `services/email_brief.py` `generate_email_brief` (reuses brief engine; leads with what's NEW; meaningful-change gate → None when nothing crossed 5%). `api/email.py send_email_brief` (HTML+text, `RESEND_FROM_EMAIL`). `POST /notifications/send-email-brief` + scheduler **Sun 09:00 UTC** → shared `run_email_briefs()` (per-user isolated sessions — fixed MissingGreenlet; LLM narration off-loop). **Migration 0033** `last_email_brief_sent`; cadence skip <6d. Deferred: Resend domain verification.
+
+### Phase 65 — Financial Simulator (2026-06-24)
+- [x] `services/simulator.py` deterministic engine (baseline NW/liquid/90d surplus/debt schedule → month-by-month `_project`, frees debt payment after payoff). 5 levers (cancel_recurring/save_monthly/income_change/one_time_expense/prepay_debt). `GET /simulator/levers`, `POST /run` (structured), `POST /ask` (NL→LLM parse→run). `app/simulator/page.tsx`: NL box + builder + baseline-vs-scenario chart + delta cards. **Post-test**: narration deterministic (LLM removed), **uncertainty cone** (no fake precision), income direction toggle, "What I understood" lever chips, tightened NL parse. Navbar Sparkles, TR/EN. No new tables.
+
+### Phase 66 — Landing redesign + navbar declutter (2026-06-24)
+- [x] Landing reframed (chief-of-staff; product-preview mock; 4-beat loop; simulator spotlight; global stats); `landing.*` rewritten TR/EN. Navbar right side 7→4 items (currency · notifications · Upload · **account avatar dropdown** = email+lang+Settings+Reports+Logout).
+
+### Phase 67 — Financial report export (2026-06-24)
+- [x] `services/report.py build_report` (period-scoped, deterministic text, reuses NW-summary conversion) + `build_transactions_csv`. `GET /reports/financial` + `/reports/transactions.csv`. `app/reports/page.tsx`: light **print-optimized** doc (cover, hero verdict, KPI cards, **inline-SVG donut + area + bars**, statement, tables, recs); PDF via `window.print()` + `print-color-adjust:exact`; CSV download. No PDF backend dep. Discoverable via account dropdown. TR/EN.
+
+### Phase 68 — Brazilian/Portuguese categorizer (2026-06-24)
+- [x] Prompt rewritten language-agnostic + semantic (was Turkish keyword-match); international patterns (iFood/Rappi→restoran, etc.); PIX rail nuance. **New `faiz`** (interest income) wired everywhere. Language-gated BR pre-processing (`_looks_brazilian` ≥2 PT-distinct markers → `_expand_brazilian` bracketed hints). **Deterministic `_force_categories`** (LLM ignored hints): DA LIGHT/CEG/GÁS/ÁGUA/ENERGIA→fatura, SEGURO CART*/AP→fatura, ON IFD SUB→restoran, force-override + applied on LLM failure. Verified vs hostile/failing LLM.
+
+### Phase 69 — Home redesign: subtraction mode (2026-06-24)
+- [x] Removed 6+ panels (snapshot/ratios, action center, cash-flow pulse, upcoming, insight, quick-actions, checklist, tour). New Home (7.96kB→**4.7kB**): greeting + **one deterministic sentence** (tone dot) + "Ask Mizan about this →" (assistant prefill) + **"Needs you"** max-2 ranked + **3 soul tiles** (Money/Net Worth/Simulate) + tiny capture row; cold start = one line + Upload. `home.daily.*` TR/EN. Coach not spreadsheet; dashboards = doorways.
+
 ---
 
 ## Current Status
 
-**Phases 1–64 complete. Alembic head = 0032.** (CLAUDE.md is authoritative for detail.) Loop: Upload → Review → Brief → Home (Phases 61–64). Brief reuses ProgressInsight `data_type="brief"` (no new table). Progress = Financial Health scorecard. Net Worth = GuidancePanel + AllocationChart (no history chart). Upload returns status/reason; parser is global. Deferred: `_generate_networth_suggestions` Turkish bank keywords; account connectivity (Plaid — deferred, manual-first chosen); CSV unquoted comma-thousands edge case; scorecard synthetic score when thin; real snapshots need time (trajectory estimated until then); P1-deep valuation migration; P2 tx↔account reconciliation.
+**Phases 1–69 complete. Alembic head = 0033.** (CLAUDE.md is authoritative for detail.) **Vision: chief of staff, not dashboard. Brief + Simulator = soul; dashboards = doorways. One sentence + everything behind a tap; subtraction > addition.** Home (69) is now a one-sentence coach. Most of 65–69 verified by build/py_compile only (no live LLM key here). Loop: Upload → Review → Brief → Home (Phases 61–64). Brief reuses ProgressInsight `data_type="brief"` (no new table). Progress = Financial Health scorecard. Net Worth = GuidancePanel + AllocationChart (no history chart). Upload returns status/reason; parser is global. Deferred: `_generate_networth_suggestions` Turkish bank keywords; account connectivity (Plaid — deferred, manual-first chosen); CSV unquoted comma-thousands edge case; scorecard synthetic score when thin; real snapshots need time (trajectory estimated until then); P1-deep valuation migration; P2 tx↔account reconciliation.
 
 **(historical, Phase 34) Phases 1–34 complete. Alembic head = 0022. No new migrations since Phase 32.**
 
@@ -780,13 +798,13 @@ Full stack: register/login → JWT → upload (rate-limited, busts caches) → 3
 
 ## Next Session — Start Here
 
-**Phases 1–64 complete. Alembic head = 0032.** (Older Phase 42/head-0022 notes below are historical — CLAUDE.md is authoritative.) Loop verified: Upload → Review → Brief → Home (Phases 61–64). Next: **commit + merge `feat/onboarding-conflict-aware-flow` → main** (Phases 58–64 live there, uncommitted) to checkpoint the working loop. Then model recommendation, in order: (1) **periodic "money brief" via email** — reuse `services/brief.py` + Resend (`api/email.py`) → retention loop; (2) **decision simulator** — brief's "one move" → simulate it (cancel X / pay off Y early), reuses recurring/installment data; (3) **landing page update** (acquisition, last). Plus 3 fresh known issues (XLSX income 57k≠47k reconcile vs footer Borç/Alacak; Home full-statement-period cash flow; PDF scanned-OCR limits). Deferred items in Current Status.
+**Phases 1–69 complete. Alembic head = 0033.** (Older Phase 42/head-0022 notes below are historical — CLAUDE.md is authoritative.) Shipped since last update: weekly money brief (64.5, migration 0033), simulator (65), landing+navbar (66), report export (67), BR/PT categorizer+faiz+forced overrides (68), Home subtraction redesign (69). **Next: ask the model what's highest-leverage now** (user's standing pattern). **Hold the line on SUBTRACTION** (brother's "too complex" feedback drove 69 — don't re-add panels). Candidate threads: dogfood with the real user; verify untested surfaces live (most of 65–69 build/py_compile-only, no live LLM key here); same subtraction pass on Net Worth / Progress / Money Flow (still multi-panel); Resend domain verification so weekly brief delivers. Deferred items in Current Status.
 
 Pre-flight (if docker was restarted):
 ```bash
 docker compose up -d
 docker compose exec backend alembic upgrade head
-docker compose exec backend alembic current   # must say 0031 (head)
+docker compose exec backend alembic current   # must say 0033 (head)
 ```
 
 ### Immediate fixes (do first, in order):

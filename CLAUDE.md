@@ -374,11 +374,40 @@ When context reaches ~70% capacity:
 - [x] Onboarding has-statement "continue" → `/review?batch_ids={all successful job_ids}` (was → /brief). Review hands off to /brief on confirm. Both upload entry points now share Upload → Review → Brief. No-statement still → step-2 plain welcome.
 - [x] **Full loop verified working: Upload → Review → Brief → Home.**
 
+### Phase 64.5 — Weekly Money Brief email (retention loop) (2026-06-23)
+- [x] **Thesis**: brief is one-shot; this is the recurring counterpart that reaches OUT. `services/email_brief.py` `generate_email_brief()` reuses brief engine; leads with what's NEW (spend swing, NW move, goal breach, receivable due ≤7d); **meaningful-change gate** → returns None (skip) when nothing crossed 5%/fired, so no same-every-week spam.
+- [x] `api/email.py` `send_email_brief()` — dark HTML + text, sender `RESEND_FROM_EMAIL` (default `onboarding@resend.dev` sandbox). `POST /notifications/send-email-brief` + scheduler **Sunday 09:00 UTC** both call shared `run_email_briefs()` (per-user isolated `AsyncSessionLocal` — fixed a MissingGreenlet from reusing one request session across a commit loop; LLM narration also moved off-loop via `asyncio.to_thread`). Cadence: `User.last_email_brief_sent` skip <6d.
+- [x] **Migration 0033** ADD `last_email_brief_sent` to users (idempotent). Settings toggle relabeled "Weekly Money Brief". Deferred: Resend domain verification (sandbox only sends to account owner).
+
+### Phase 65 — Financial Simulator (2026-06-24)
+- [x] **Thesis**: mirror → chief of staff. "What happens if I do X?" across the COMPLETE picture. Architecture = guidance-engine pattern: deterministic math, LLM only parses NL + (was) narrates. No new tables.
+- [x] `services/simulator.py`: `build_baseline` (NW, liquid, 90d monthly surplus, debt schedule — reuses `convert`, works for unit-priced assets) → month-by-month `_project` (applies interest; **frees a debt's payment after payoff so the curve bends up**; tracks min-liquidity). 5 levers: cancel_recurring · save_monthly · income_change(±) · one_time_expense · prepay_debt. `run_simulation` returns baseline vs scenario curves + deltas (NW end, monthly cash, debt-free months, interest saved) + warnings + assumptions + narrative.
+- [x] `GET /simulator/levers` (personalized: their subs+debts), `POST /simulator/run` (structured), `POST /simulator/ask` (NL → LLM parse to levers → run; parsed=False if unmapped). `app/simulator/page.tsx`: NL ask box + lever builder + horizon + baseline-vs-scenario area chart + delta cards. Navbar `Sparkles` link, TR/EN.
+- [x] **Polish (post-test fixes)**: narration made **deterministic** (LLM removed — was confidently-wrong/contradictory); **uncertainty cone** added (band widens √time → kills fake-precision straight line, `print-adjust` n/a here); income = direction toggle (no bare-minus typing); subscription section always shown w/ empty hint; **"What I understood"** chips render parsed levers so a misparse is visible/correctable; NL parse prompt tightened (evaluate arithmetic→one total, only monthly levers when cadence explicit, no double-count).
+
+### Phase 66 — Landing redesign + navbar declutter (2026-06-24)
+- [x] **Landing** (`app/page.tsx`) reframed around the real product (was selling old transaction-categorizer + deprecated inflation): hero "See everything. Decide anything." + **product-preview mock** (NW card + sparkline + asset rows + brief snippet, CSS/SVG); 4-beat loop (Capture→Understand→Decide→Stay on track); features = complete NW / brief / simulator / coach-that-acts / weekly brief / private+global; **simulator spotlight** w/ sample questions + mini cone chart; global stats (270+ ccy / 100+ crypto / TR·EN). Full `landing.*` locale rewrite TR+EN.
+- [x] **Navbar declutter**: right side was 7 items → **4** (currency · notifications · Upload · **account avatar**). Avatar dropdown folds email + TR/EN toggle + Settings + **Reports** (Phase 67) + Logout (outside-click + route-change close). Center nav links unchanged.
+
+### Phase 67 — Financial report export (2026-06-24)
+- [x] `services/report.py` `build_report(user_id, session, period_key, ccy, lang)` — period-scoped (this_month/last_month/quarter/ytd/last_30/all), **all text deterministic** (reports must be correct, no LLM), reuses NW-summary conversion logic. Returns: exec-summary verdict, NW statement (opening→closing→change from snapshots, flagged estimated when sparse), cash flow (income/expenses/net + top cats), assets/liabilities/receivables, allocation + currency mix, trajectory, **ranked deterministic recommendations** (overspend/debt/liquidity/concentration), assumptions. `build_transactions_csv` = CSV appendix.
+- [x] `GET /reports/financial` + `GET /reports/transactions.csv` (PlainTextResponse, Content-Disposition). `app/reports/page.tsx`: dark controls bar (period · Download PDF · Export CSV) over a **light print-optimized "paper"** document — cover band, hero (NW + change chip + verdict), KPI cards, **SVG charts** (donut allocation, gradient area trajectory, flow + category bars — all inline SVG, print-safe), statement pills, holdings/debts tables, numbered recs, assumptions footer. PDF = `window.print()` w/ `@media print` hiding chrome + `print-color-adjust:exact` so colors render. Discoverable via account-dropdown "Reports". No PDF backend dep. TR/EN.
+
+### Phase 68 — Brazilian/Portuguese categorizer (2026-06-24)
+- [x] **Prompt rewritten language-agnostic + semantic** (was 100% Turkish keyword-match): infers statement language, expands abbreviations mentally, maps by MEANING. International patterns: iFood/Uber Eats/Rappi/Deliveroo→restoran, Uber/Bolt/99→ulasim, pharmacies→saglik, streaming subs→fatura, cloud/SaaS→teknoloji. PIX/Zelle rail nuance (person→transfer, merchant→by-merchant). User prompt now English/neutral.
+- [x] **New `faiz` category** (interest income) wired first-class everywhere (categorizer + transactions + corrections + upload-review acceptance sets; label maps in brief/report/weekly_summary; frontend categories.ts label+teal color; `category.faiz` TR/EN; review picker).
+- [x] **Language-gated BR pre-processing**: `_looks_brazilian` (≥2 Portuguese-distinct markers, avoids Turkish collisions like "fatura"/"da") → `_expand_brazilian` appends bracketed hints to prompt text (original description untouched). Examples + NEGATIVE rules added (SEGURO=insurance→fatura NOT faiz; DA LIGHT=electricity→fatura).
+- [x] **Deterministic overrides** (`_force_categories`): LLM kept ignoring hints, so DA LIGHT/CEG/GÁS/ÁGUA/ENERGIA→fatura, SEGURO CARTÃO/CART/AP→fatura, ON IFD SUB→restoran are **forced in code** (override LLM output, applied even if LLM fails). Verified deterministically vs hostile + failing LLM.
+
+### Phase 69 — Home redesign: subtraction mode (2026-06-24)
+- [x] **Thesis** (founder's-brother feedback: too complex/repetitive): coach not spreadsheet; one sentence + everything behind a tap; dashboards are doorways. **Removed** snapshot/ratios card, grouped action center, full cash-flow pulse, upcoming list, separate insight panel, quick-actions grid, checklist, tour card.
+- [x] **New Home** (`app/home/page.tsx`, 7.96kB→**4.7kB**): time-aware greeting + **one synthesized sentence** (deterministic verdict from month income/expenses, tone-colored pulsing dot) + "Ask Mizan about this →" (opens GlobalAssistant prefilled) + **"Needs you"** max-2 ranked items (overdue receivable > urgent payment > reconciliation; else "Nothing needs you today ✓") + **3 quiet soul tiles** (Money/Net Worth/Simulate, one number each → their pages) + tiny capture row. Cold start = one warm line + Upload CTA (no checklist). Staggered entrance animation. `home.daily.*` locale TR/EN.
+
 ---
 
 ## Current Status
 
-**Phases 1–64 complete. Alembic head = 0032.**
+**Phases 1–69 complete. Alembic head = 0033.**
 
 ### App structure (current)
 - **Nav**: Home · Money Flow · Net Değer · İlerleme · Settings (+ currency dropdown, notification bell, global assistant FAB)
@@ -403,7 +432,7 @@ When context reaches ~70% capacity:
 
 Full stack: register/login → JWT → upload (rate-limited, busts caches) → 3-layer OCR → LLM extract → OCR cleanup → dedup → zero-amount filter → persist → LLM categorize (13 categories) → insight cache → globalized LLM coach with corrections+notes injected → spending chart + progress page (LineChart 3-month trend + cross-batch-deduped category comparison + LLM one-liners, 24h cached) → PersonalityCard (5 types, cached per batch) → AlertsPanel (3 algorithmic detectors, dismiss persisted, stale dismissals auto-cleaned) → GoalsPanel (monthly budget vs actual) → ChatPanel (globalized conversational coaching, behavioral profile memory, voice input, chat-based tx entry with confirmation card, sessionStorage prefill from alerts) → weekly email summary (Resend HTML, preferences toggle) → inflation-adjusted analysis (TUFE 2023-2026, real vs nominal per category, ProgressInsight cache) → net worth asset subtype capture (all asset types have specific fields; crypto/fiat/commodity live picker; gold unit picker; stock/fund code fields; manual categories store structured metadata in `Asset.source_detail` JSON) → net worth display currency searchable via live `CurrencySelect` → receivable collection creates linked cash asset, repeated collection is idempotent, delete/write-off removes linked asset → stale received receivables and processed suggestions are hidden/cleaned after 30 days → onboarding accepts any institution/export source instead of hardcoded Turkish banks → financial event log + reconciliation item backend skeleton exists → net worth page shows Action Queue with open reconciliation items and recent financial events → reconciliation producers (overdue receivables, missing receivable assets, cross-batch duplicate detection) → Action Queue real action handlers per issue_type → net worth history AreaChart (daily USD snapshots, converted to display currency) → asset allocation donut PieChart (5 groups, click to highlight) → proactive threshold alerts (WealthAlert model, asset_price_drop / net_worth_drop / payment_coverage_risk, bell icon on auto-priced asset cards, triggered alerts banner).
 
-### Migrations (head = 0032)
+### Migrations (head = 0033)
 | Migration | What |
 |---|---|
 | 0001 | CREATE users + transactions |
@@ -438,6 +467,7 @@ Full stack: register/login → JWT → upload (rate-limited, busts caches) → 3
 | 0030 | ADD currency to transactions |
 | 0031 | assets current_value→Numeric(28,8) + quantity + unit_code + account_id; CREATE accounts |
 | 0032 | ADD source to transactions (statement_parsed/user_estimate/user_confirmed/user_supplementary/manual) |
+| 0033 | ADD last_email_brief_sent to users (weekly money brief cadence) |
 
 ### Known Issues (open)
 - **PDF extraction not perfect** — scanned/image PDFs hit inherent OCR limits. Vision LLM (gpt-4o-mini, Phase 59) + strip tiling fixed column/sign/format errors and gets income exact on the Ziraat scan, but residual amount/count drift remains = pixel-level digit misreads on poor scans. gpt-4o is more accurate (swap `_VISION_MODEL`) at ~10x cost.
@@ -1252,22 +1282,20 @@ Full stack: register/login → JWT → upload (rate-limited, busts caches) → 3
 
 ## Next Session — Start Here
 
-**Phases 1–64 complete. Alembic head = 0032.**
+**Phases 1–69 complete. Alembic head = 0033.**
 
 ### Next session setup:
 - Use claude-opus-4-8 model
-- **Loop is built + verified: Upload → Review → Brief → Home.** Phases 58–64 live on branch `feat/onboarding-conflict-aware-flow`, uncommitted/unpushed. **First task: commit + merge → main** to checkpoint the working loop (no new tables since 0032; brief reuses ProgressInsight `data_type="brief"`).
-- **Next priority (model recommendation, in order):**
-  1. **Periodic "money brief" via email** — reuse `services/brief.py` + existing Resend path (`api/email.py`) → recurring brief on a cadence. Turns the one-shot post-upload payoff into a RETENTION loop (the gap we haven't touched).
-  2. **Decision simulator** — brief ends on "your one move" but it only links to a page; let the user simulate it ("what if I cancel X / pay off Y early"). Reuses recurring/installment data. Observation → agency.
-  3. **Landing page update** — outdated; acquisition-stage, after retention.
+- **Shipped since last doc update**: weekly money brief (64.5, migration 0033), simulator (65), landing+navbar (66), report export (67), BR/PT categorizer + faiz + forced overrides (68), Home subtraction redesign (69). Loop intact: Upload → Review → Brief → Home (now a one-sentence coach).
+- **First task: ask the model what's highest-leverage now** (the user's standing pattern). Hold the line on SUBTRACTION — the brother's feedback (too complex/repetitive) drove Phase 69; resist re-adding panels. Candidate threads: dogfood with the real user; verify untested surfaces live (most of 65–69 verified by build/py_compile only, no live LLM key here); apply the same subtraction pass to Net Worth / Progress / Money Flow (still multi-panel); Resend domain verification so the weekly brief actually delivers.
 - Deferred items live in "Known deferred (post-57)" under Current Status.
 
-### Product vision (updated):
-- Target: global users replacing manual Excel tracking of complete financial life
-- Revenue: freemium subscription
-- NOT Turkey-specific. Full global audience. Any bank, currency, language.
-- Founder's reference user: brother who tracks everything in Excel manually
+### Product vision (updated 2026-06-24):
+- **Mizan is a financial chief of staff, not a dashboard.**
+- **Brief and Simulator are the soul.** Dashboards are doorways, not destinations.
+- **One sentence tells the user everything; everything else is behind a tap.** AI reduces friction, never adds it. Subtraction > addition.
+- Target: global users replacing manual Excel tracking of complete financial life. Freemium. NOT Turkey-specific — any bank, currency, language.
+- Founder's reference user: brother who tracks everything in Excel manually (his "too complex" feedback is the product compass).
 
 ### Open known issues (minor, fix later):
 1. **History chart needs 2+ snapshots** — NetworthSnapshot only populates on page load. Will self-populate after 2 visits.
