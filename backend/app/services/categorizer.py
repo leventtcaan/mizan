@@ -67,8 +67,11 @@ WHAT EACH SLUG MEANS (match by meaning, in any language):
 - transfer — money moved between PEOPLE via any rail (PIX, Zelle, FAST, Havale, EFT, wire,
   SEPA). IMPORTANT: a payment rail alone is NOT a transfer — if the counterparty is a
   MERCHANT or marketplace (e.g. "PIX ... Marketplace"), categorize by the merchant instead.
-- faiz — interest / yield / finance income the bank pays the USER: "REND PAGO",
-  "rendimento", "interest", "yield", "dividend", "faiz geliri", automatic-investment returns.
+- faiz — ONLY investment return the bank PAYS YOU: yield/interest on deposits or funds.
+  Brazilian: "REND PAGO", "REND PAGO APLIC", "RENDIMENTO". English: "interest", "yield",
+  "dividend". If it is something you PAY (a bill, insurance, subscription, purchase, transfer)
+  it is NEVER faiz. The words "automatic" / "AUT" / "débito automático" do NOT mean faiz —
+  those are usually automatic BILL payments.
 - iade — refunds, reversals, chargebacks ("estorno", "devolução", "refund", "iade", "İPTAL").
 - vergi — taxes & bank levies ("imposto", "IOF", "tax", "BSMV", "stopaj", "vergi").
 - teknoloji — cloud / SaaS / developer & business software: AWS, Google Cloud, Azure,
@@ -77,17 +80,24 @@ WHAT EACH SLUG MEANS (match by meaning, in any language):
 
 BRAZILIAN / PORTUGUESE STATEMENTS — common bank patterns and their correct slug:
 - "PAY IFD" → iFood, food delivery → restoran
-- "PAY DL" / "ON DL ..." → delivery/courier; judge by the merchant (e.g. "ON DL UberRide" → ulasim, food → restoran)
-- "REND PAGO" / "REND PAGO APLIC" / "RENDIMENTO" → investment yield / interest income → faiz
+- "ON IFD SUB" → iFood subscription → restoran (a subscription to a food app is still restoran)
+- "PAY DL" / "ON DL ..." → delivery/courier; judge by the merchant ("ON DL UberRide" → ulasim, food → restoran)
+- "REND PAGO" / "REND PAGO APLIC" / "REND PAGO APLIC AUT MAIS" / "RENDIMENTO" → investment yield → faiz (ALWAYS)
 - "PAY CEA" → C&A department store → diger
 - "RSHOP" / "RSCSS" → generic card retail purchase → diger
 - "FATURA PAGA" → credit-card bill payment → transfer
-- "SEGURO" → insurance → fatura
-- "DA LIGHT" → electricity bill (débito automático) → fatura
-- "DA CEG-GAS" / "CEG" → gas bill → fatura
 - "PIX TRANSF <person name>" → person-to-person transfer → transfer
 - "ESTORNO" → refund / reversal → iade
-A bracketed hint like "[iFood — food delivery]" may be appended to a description to help you — trust it.
+
+faiz is the most over-used mistake — apply these NEGATIVE rules strictly:
+- "SEGURO" / "SEGURO CARTAO" → insurance premium you PAY → fatura, NOT faiz
+- "DA LIGHT" → electricity utility bill → fatura, NOT faiz
+- "DA CEG-GAS" / "CEG" → gas utility bill → fatura, NOT faiz
+- "ON IFD SUB" → iFood subscription → restoran, NOT faiz
+- "débito automático" (a "DA …" prefix) or anything with "AUT"/"automatic" is an automatic BILL
+  payment, NOT investment yield. faiz is ONLY "REND PAGO" / "RENDIMENTO".
+
+A bracketed hint like "[... → fatura]" may be appended to a description to help you — trust it.
 
 Return ONLY a JSON array of slugs, one per transaction, in the SAME order. Nothing else.
 """
@@ -118,21 +128,23 @@ _BR_MARKERS = (
 
 # (pattern, hint). Ordered: most specific first. Each hint appended at most once.
 _BR_PATTERNS = [
-    (re.compile(r"REND\s+PAGO(\s+APLIC\w*)?", re.I), "Rendimento — investment yield / interest income"),
-    (re.compile(r"\bRENDIMENTO\b", re.I), "investment yield / interest income"),
-    (re.compile(r"FATURA\s+PAGA", re.I), "Pagamento de fatura — credit-card bill payment"),
-    (re.compile(r"\bESTORNO\b", re.I), "Estorno — refund / reversal"),
-    (re.compile(r"\bSEGURO\b", re.I), "Seguro — insurance"),
-    (re.compile(r"\bDA\s+LIGHT\b", re.I), "conta de luz — electricity bill"),
-    (re.compile(r"\bCEG\b", re.I), "CEG — gas utility bill"),
-    (re.compile(r"\bIFD\b", re.I), "iFood — food delivery"),
+    # Specific/multi-word first. Ambiguous ones carry the target slug to stop faiz bleed.
+    (re.compile(r"REND\s+PAGO(\s+APLIC\w*)?", re.I), "Rendimento — investment yield / interest income → faiz"),
+    (re.compile(r"\bRENDIMENTO\b", re.I), "investment yield / interest income → faiz"),
+    (re.compile(r"FATURA\s+PAGA", re.I), "Pagamento de fatura — credit-card bill payment → transfer"),
+    (re.compile(r"\bESTORNO\b", re.I), "Estorno — refund / reversal → iade"),
+    (re.compile(r"\bSEGURO\b", re.I), "Seguro — insurance premium (recurring bill) → fatura, NOT faiz"),
+    (re.compile(r"\bDA\s+LIGHT\b", re.I), "conta de luz — electricity utility bill → fatura, NOT faiz"),
+    (re.compile(r"\bCEG\b", re.I), "CEG — gas utility bill → fatura, NOT faiz"),
+    (re.compile(r"\bIFD\b", re.I), "iFood — food delivery → restoran"),
+    (re.compile(r"\bSUB\b", re.I), "subscription (categorize by the merchant, not faiz)"),
     (re.compile(r"\bDL\b", re.I), "Delivery / courier"),
     (re.compile(r"\bTRANSF\b", re.I), "Transferência — transfer"),
     (re.compile(r"\bPIX\b", re.I), "PIX — instant payment rail"),
-    (re.compile(r"\bRSHOP\b", re.I), "card retail purchase"),
-    (re.compile(r"\bRSCSS\b", re.I), "card retail purchase"),
-    (re.compile(r"\bCEA\b", re.I), "C&A — clothing / department store"),
-    (re.compile(r"^\s*DA\s+", re.I), "débito automático — automatic recurring bill"),
+    (re.compile(r"\bRSHOP\b", re.I), "card retail purchase → diger"),
+    (re.compile(r"\bRSCSS\b", re.I), "card retail purchase → diger"),
+    (re.compile(r"\bCEA\b", re.I), "C&A — clothing / department store → diger"),
+    (re.compile(r"^\s*DA\s+", re.I), "direct debit — recurring bill payment (NOT investment yield)"),
 ]
 
 
