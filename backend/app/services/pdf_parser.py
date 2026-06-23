@@ -204,19 +204,36 @@ def _layer2_ocr(contents: bytes, page_count: int) -> str:
 # SEES the columns, so it reliably picks the transaction amount over the balance and
 # recovers rows whose glyphs Tesseract garbles. This is the right path for scans.
 
-# gpt-4o-mini is vision-capable and cheap (~$0.003/page at high detail). DeepSeek's
-# deepseek-chat is NOT vision-capable, so vision always routes to OpenAI regardless of
-# which provider is primary for text.
-_VISION_MODEL = "gpt-4o-mini"
+# Vision model for reading scanned statement pages. DeepSeek's deepseek-chat is NOT
+# vision-capable, so vision always routes to OpenAI regardless of which provider is
+# primary for text.
+# WHY gpt-4o and not gpt-4o-mini: tested side-by-side on a dense 2-page scanned Turkish
+# statement, gpt-4o-mini consistently mis-aligned columns (reported the running BALANCE
+# as the amount), misparsed Turkish number format ("19.486,57" → 19.48657), and dropped
+# ~25% of rows (37/49). gpt-4o extracted all 49/49 rows, kept the amount/balance columns
+# straight, and classified transfers correctly. Extraction runs once per upload, so the
+# extra cost (~$0.01-0.03/page) is justified for correct financial data. The remaining
+# small amount errors are pixel-level digit misreads inherent to the scan quality.
+_VISION_MODEL = "gpt-4o"
 
-# WHY: 150 DPI → ~1650px long edge for a letter/A4 page. gpt-4o-mini caps the long edge
-# at 2048px and tiles at 512px internally, so going higher than this just inflates the
-# base64 payload without giving the model more detail. 150 DPI reads dense 8-9pt rows
-# while keeping each page well under OpenAI's 20MB image limit.
+# WHY: 150 DPI → ~1650px long edge for a letter/A4 page. The vision model caps the long
+# edge at 2048px and downsamples the short edge to ~768px, so rendering much higher just
+# inflates the base64 payload without giving the model more detail. 150 DPI reads dense
+# 8-9pt rows while keeping each strip well under OpenAI's 20MB image limit.
 _VISION_DPI = 150
 
 # Cap pages sent to vision so a 100-page statement can't blow up cost/latency.
 _MAX_VISION_PAGES = 25
+
+# Each page is split into a top and a bottom strip before being sent to the vision model.
+# WHY: the model downsamples its input to ~768px on the short edge. A full portrait page
+# becomes ~768px wide, so the dense numeric columns shrink and digits get misread
+# (25.000 → 5.000). Halving the page height roughly doubles the effective width after
+# downsampling, so digits are larger and read more accurately. Cost is 2 calls/page.
+# A small vertical overlap means a row sitting on the split line still appears whole in
+# at least one strip; the per-strip "skip rows cut off at the edge" instruction plus
+# full-description dedup keep boundary rows from being double-counted.
+_STRIP_OVERLAP_FRAC = 0.05
 
 _VISION_SYSTEM = (
     "You are a precise bank-statement parser that reads statement page images. "
@@ -224,47 +241,116 @@ _VISION_SYSTEM = (
 )
 
 _VISION_USER = (
-    "This is an image of one page of a bank statement. Extract EVERY transaction row.\n\n"
-    "Return a JSON array with one object per transaction, fields:\n"
+    "This is an image of a horizontal STRIP (a section) of a bank statement page. Extract "
+    "EVERY transaction row visible in this strip — do NOT skip rows, summarise, or stop "
+    "early.\n\n"
+    "NUMBER FORMAT (critical): amounts are in Turkish/European format where '.' is the "
+    "THOUSANDS separator and ',' is the DECIMAL separator. Read them as:\n"
+    "    826,77      = 826.77\n"
+    "    10.000,00   = 10000.00   (ten thousand)\n"
+    "    19.486,57   = 19486.57\n"
+    "    1.234,56    = 1234.56\n"
+    "Output every amount as a plain number with a '.' decimal and NO thousands separator. "
+    "NEVER turn '10.000,00' into 10.0 and NEVER turn '19.486,57' into 19.48657.\n\n"
+    "COLUMNS (critical): each transaction row ends with TWO numbers in this order:\n"
+    "    ...<description>   <TRANSACTION AMOUNT>   <RUNNING BALANCE>\n"
+    "The TRANSACTION AMOUNT is the FIRST of the two numbers; the RUNNING BALANCE is the "
+    "LAST (rightmost) number. Use ONLY the transaction amount. NEVER report the running "
+    "balance as the amount.\n\n"
+    "DIRECTION (critical): the transaction amount carries a sign / direction.\n"
+    "- A NEGATIVE amount (e.g. '-873,09'), or a purchase / POS / withdrawal / fee, is a "
+    '"debit" (money out, an EXPENSE).\n'
+    "- A POSITIVE amount (money in) is a \"credit\" (INCOME).\n"
+    "- Money RECEIVED from someone — a row showing a sender such as 'Gönd:' / 'Gönderen "
+    "<name>', or an incoming FAST / Havale / EFT — is \"credit\" (income).\n"
+    "- A transfer you SEND OUT is \"debit\". In particular a 'Virman' to another account "
+    "(wording like '... Nolu Hesaba ... Virman', i.e. \"to account\") is an OUTGOING "
+    'transfer → "debit", NOT income.\n'
+    "- Always include transfers; never report a transfer amount as 0. Use the +/- sign "
+    "and the wording to decide direction.\n\n"
+    "Return a JSON array, one object per row, with fields:\n"
     '- "date": ISO "YYYY-MM-DD" (convert from whatever format is shown).\n'
     '- "description": the merchant / counterparty text.\n'
-    '- "amount": the TRANSACTION amount as a plain positive number, dot decimal, NO '
-    "thousands separators, NO currency symbol.\n"
-    '- "transaction_type": "credit" if money came IN, "debit" if money went OUT.\n'
+    '- "amount": the TRANSACTION amount as a POSITIVE plain number (no sign), dot decimal, '
+    "no thousands separator, no currency symbol.\n"
+    '- "transaction_type": "credit" or "debit" per the DIRECTION rules above.\n'
     '- "currency": the ISO 4217 code if shown, otherwise null.\n\n'
-    "Rules:\n"
-    "- The table has a TRANSACTION AMOUNT column and a separate RUNNING BALANCE column "
-    "(usually the rightmost). Use ONLY the transaction amount column; IGNORE the running "
-    "balance entirely.\n"
-    "- Incoming transfers (FAST, Havale, Virman, EFT, incoming wire), deposits, salary, "
-    "refunds and interest are credits. Purchases, withdrawals, fees and outgoing "
-    "transfers are debits.\n"
-    "- Skip header rows and summary/total rows (e.g. 'Borç:', 'Alacak:', 'Toplam', "
-    "'Bakiye').\n"
-    "- Output one object per real row; never invent or duplicate rows.\n\n"
+    "If a transaction row is CUT OFF at the very top or bottom edge of this image (you "
+    "cannot read its full description AND amount), SKIP it — it appears complete in the "
+    "adjacent strip. Only extract rows you can read in full.\n"
+    "Skip header rows and summary/total rows ('Borç:', 'Alacak:', 'Toplam', 'Bakiye'). "
     "Respond with ONLY the JSON array."
 )
 
 
 def _has_vision() -> bool:
-    """Vision requires an OpenAI key (gpt-4o-mini). DeepSeek can't do vision."""
+    """Vision requires an OpenAI key (gpt-4o). DeepSeek can't do vision."""
     return len(settings.OPENAI_API_KEY) > 0
 
 
-def _render_page_png_b64(page, dpi: int = _VISION_DPI) -> str:
-    """Render a single pymupdf page to a base64-encoded PNG string."""
+def _render_clip_png_b64(page, clip, dpi: int = _VISION_DPI) -> str:
+    """Render a clipped region of a pymupdf page to a base64-encoded PNG string."""
     import fitz  # pymupdf
     mat = fitz.Matrix(dpi / 72, dpi / 72)
-    pix = page.get_pixmap(matrix=mat)
+    pix = page.get_pixmap(matrix=mat, clip=clip)
     return base64.b64encode(pix.tobytes("png")).decode("ascii")
+
+
+def _page_strips(page):
+    """
+    Split a page into a top and a bottom strip (with a small vertical overlap) so each
+    strip, after the vision model downsamples it, has larger/clearer digits.
+    Returns a list of (label, clip_rect).
+    """
+    import fitz  # pymupdf
+    r = page.rect
+    mid = (r.y0 + r.y1) / 2.0
+    overlap = (r.y1 - r.y0) * _STRIP_OVERLAP_FRAC
+    return [
+        ("top", fitz.Rect(r.x0, r.y0, r.x1, mid + overlap)),
+        ("bottom", fitz.Rect(r.x0, mid - overlap, r.x1, r.y1)),
+    ]
+
+
+def _vision_call(client, b64: str) -> list[RawTransaction]:
+    """One vision API call for a single strip image → parsed transactions."""
+    response = client.chat.completions.create(
+        model=_VISION_MODEL,
+        messages=[
+            {"role": "system", "content": _VISION_SYSTEM},
+            {
+                "role": "user",
+                "content": [
+                    {"type": "text", "text": _VISION_USER},
+                    {
+                        "type": "image_url",
+                        "image_url": {
+                            "url": f"data:image/png;base64,{b64}",
+                            "detail": "high",
+                        },
+                    },
+                ],
+            },
+        ],
+        temperature=0,
+        # WHY: a dense strip can hold 20+ rows; without a high cap the JSON array gets
+        # truncated and the strip is lost. 8000 tokens is ample and within gpt-4o's limit.
+        max_tokens=8000,
+    )
+    choice = response.choices[0]
+    if getattr(choice, "finish_reason", None) == "length":
+        logger.warning("Layer 3: vision response hit the token cap — output may be truncated")
+    return _parse_llm_json(choice.message.content or "[]")
 
 
 def _layer3_vision_extract(contents: bytes) -> list[RawTransaction]:
     """
-    WHAT: Renders each PDF page to an image and asks a vision LLM to read the
-          transactions straight off the page. One call per page; results aggregated.
-    WHY: Vision preserves the column layout that OCR-to-text destroys, so the model
-         can distinguish the transaction-amount column from the running-balance column.
+    WHAT: Renders each PDF page as two horizontal strips (top + bottom) and asks a vision
+          LLM to read the transactions off each strip. Results from all strips/pages are
+          aggregated; the caller deduplicates.
+    WHY: Vision preserves the column layout that OCR-to-text destroys, so the model can
+         tell the transaction-amount column from the running-balance column. Splitting
+         into strips enlarges the digits after the model's downsampling, cutting misreads.
     BREAKS IF REMOVED: Scanned/image statements fall back to the less accurate
          Tesseract OCR path.
     """
@@ -278,35 +364,22 @@ def _layer3_vision_extract(contents: bytes) -> list[RawTransaction]:
     try:
         n_pages = min(len(doc), _MAX_VISION_PAGES)
         for page_num in range(n_pages):
-            b64 = _render_page_png_b64(doc[page_num])
-            try:
-                response = client.chat.completions.create(
-                    model=_VISION_MODEL,
-                    messages=[
-                        {"role": "system", "content": _VISION_SYSTEM},
-                        {
-                            "role": "user",
-                            "content": [
-                                {"type": "text", "text": _VISION_USER},
-                                {
-                                    "type": "image_url",
-                                    "image_url": {
-                                        "url": f"data:image/png;base64,{b64}",
-                                        "detail": "high",
-                                    },
-                                },
-                            ],
-                        },
-                    ],
-                    temperature=0,
+            page = doc[page_num]
+            for label, clip in _page_strips(page):
+                b64 = _render_clip_png_b64(page, clip)
+                try:
+                    strip_txs = _vision_call(client, b64)
+                except Exception as exc:
+                    logger.error(
+                        "Layer 3: vision call failed on page %d %s strip: %s",
+                        page_num + 1, label, exc,
+                    )
+                    continue
+                logger.info(
+                    "Layer 3: page %d %s strip → %d transactions",
+                    page_num + 1, label, len(strip_txs),
                 )
-                raw = response.choices[0].message.content or "[]"
-            except Exception as exc:
-                logger.error("Layer 3: vision API call failed on page %d: %s", page_num + 1, exc)
-                continue
-            page_txs = _parse_llm_json(raw)
-            logger.info("Layer 3: page %d → %d transactions", page_num + 1, len(page_txs))
-            results.extend(page_txs)
+                results.extend(strip_txs)
     finally:
         doc.close()
 
@@ -396,26 +469,67 @@ def _call_llm_for_extraction(text: str) -> list[RawTransaction]:
     return _parse_llm_json(raw)
 
 
+def _salvage_truncated_json_array(text: str) -> list | None:
+    """
+    WHAT: Recovers as many complete objects as possible from a truncated JSON array.
+    WHY: A long page can produce a response that gets cut off mid-array; json.loads then
+         fails on the whole thing and we'd lose every transaction on that page. Trimming
+         to the last complete '}' and closing the bracket salvages the rest.
+    Returns the parsed list, or None if nothing usable can be recovered.
+    """
+    start = text.find("[")
+    if start == -1:
+        return None
+    last_obj_end = text.rfind("}")
+    if last_obj_end == -1 or last_obj_end < start:
+        return None
+    candidate = text[start:last_obj_end + 1] + "]"
+    try:
+        parsed = json.loads(candidate)
+        if isinstance(parsed, list):
+            logger.warning(
+                "Salvaged %d object(s) from truncated JSON array (response was cut off)",
+                len(parsed),
+            )
+            return parsed
+    except json.JSONDecodeError:
+        return None
+    return None
+
+
 def _parse_llm_json(raw: str) -> list[RawTransaction]:
     """
     WHAT: Parses the LLM's JSON response, strips markdown fences, validates fields.
-    WHY: LLMs occasionally wrap JSON in code fences or add explanatory prose —
-         strip-and-retry is more robust than crashing on formatting noise.
+    WHY: LLMs occasionally wrap JSON in code fences, wrap the array in an object, or get
+         truncated — each is handled so one formatting quirk doesn't drop a whole page.
     BREAKS IF REMOVED: Any LLM formatting variation silently drops all transactions.
     """
     cleaned = raw.strip()
     if cleaned.startswith("```"):
         lines = cleaned.splitlines()
         cleaned = "\n".join(l for l in lines if not l.strip().startswith("```"))
+    cleaned = cleaned.strip()
 
     try:
         parsed = json.loads(cleaned)
     except json.JSONDecodeError:
-        logger.warning("LLM returned non-JSON for extraction: %r", raw[:300])
-        return []
+        # Salvage a truncated array (model hit max_tokens or stopped mid-list): keep
+        # everything up to the last complete object and close the array. Without this,
+        # ONE oversized/cut-off response silently drops an entire page of transactions.
+        parsed = _salvage_truncated_json_array(cleaned)
+        if parsed is None:
+            logger.warning("LLM returned non-JSON for extraction: %r", raw[:300])
+            return []
+
+    # Some models wrap the array in an object, e.g. {"transactions": [...]}. Unwrap the
+    # first list value instead of dropping the whole response.
+    if isinstance(parsed, dict):
+        list_vals = [v for v in parsed.values() if isinstance(v, list)]
+        if list_vals:
+            parsed = list_vals[0]
 
     if not isinstance(parsed, list):
-        logger.warning("LLM extraction response was not a list")
+        logger.warning("LLM extraction response was not a list (type=%s)", type(parsed).__name__)
         return []
 
     results = []
@@ -868,19 +982,46 @@ def _finalize(
     )
 
 
+def _canon_date_key(raw: str) -> str:
+    """
+    Canonicalise a date string to 'YYYY-MM-DD' for dedup-key purposes ONLY (the stored
+    transaction date is left untouched). The vision model is inconsistent about format
+    across strips — ISO here, DD.MM.YYYY there — and without this the same row would key
+    differently and survive as a duplicate.
+    """
+    s = raw.strip()
+    m = re.match(r"^(\d{4})-(\d{1,2})-(\d{1,2})$", s)
+    if m:
+        return f"{m.group(1)}-{int(m.group(2)):02d}-{int(m.group(3)):02d}"
+    m = re.match(r"^(\d{1,2})[./-](\d{1,2})[./-](\d{2,4})$", s)
+    if m:
+        day, mon, yr = int(m.group(1)), int(m.group(2)), m.group(3)
+        if len(yr) == 2:
+            yr = "20" + yr
+        return f"{yr}-{mon:02d}-{day:02d}"
+    return s
+
+
 def _deduplicate(transactions: list[RawTransaction]) -> list[RawTransaction]:
     """
-    WHAT: Removes duplicate transactions using (date, amount, description[:30]) as key.
-    WHY: OCR occasionally renders the same line twice from adjacent pixels; LLM may
-         also repeat entries when the same text appears in header and body. A 30-char
-         description prefix is enough to distinguish real same-day same-amount entries
-         at different merchants while collapsing true duplicates.
+    WHAT: Removes duplicate transactions using (date, amount, FULL description) as key.
+    WHY: OCR occasionally renders the same line twice; the LLM may repeat entries. We key
+         on the FULL normalised description, NOT a 30-char prefix: statement rows routinely
+         share a long generic prefix ("POS ALIŞVERİŞ KART NO: 6500 **** **** 7028 İŞYERİ:")
+         with the distinguishing merchant name only appearing AFTER ~30 chars. A short
+         prefix key wrongly merged distinct same-day same-amount purchases at different
+         merchants, silently dropping real transactions.
     BREAKS IF REMOVED: Duplicate rows inflate transaction counts and skew coaching analysis.
     """
     seen: set[tuple[str, str, str]] = set()
     result: list[RawTransaction] = []
     for t in transactions:
-        key = (t.date, t.amount, t.description[:30])
+        # Normalise the description (collapse whitespace + casefold) and the date (the
+        # model emits ISO in one strip but DD.MM.YYYY in another for the same row) so the
+        # SAME row read twice across the top/bottom strip boundary collapses to one entry,
+        # without merging genuinely distinct merchants.
+        norm_desc = re.sub(r"\s+", " ", t.description).strip().casefold()
+        key = (_canon_date_key(t.date), t.amount, norm_desc)
         if key not in seen:
             seen.add(key)
             result.append(t)
@@ -911,8 +1052,12 @@ def _filter_zero_amount(transactions: list[RawTransaction]) -> list[RawTransacti
 
 # WHY: These keywords appear in the raw description (from OCR or LLM) and override
 # the generic _infer_type_from_line heuristic. Checked case-insensitively.
+# NOTE: "virman" is intentionally NOT a credit signal — an inter-account virman is
+# directionally ambiguous and is usually OUTGOING ("... Nolu Hesaba ... Virman" = "to
+# account"), so forcing it to credit double-counted it as income. Direction for virman
+# is left to the per-row sign/context (vision prompt + _infer_type_from_line).
 _EXPENSE_KEYWORDS = {"pos alışveriş", "sanal pos", "atm p.ç"}
-_INCOME_KEYWORDS  = {"gönd:", "fast işlemi", "havale", "virman"}
+_INCOME_KEYWORDS  = {"gönd:", "fast işlemi", "havale"}
 
 
 def _apply_sign_correction(transactions: list[RawTransaction]) -> list[RawTransaction]:
