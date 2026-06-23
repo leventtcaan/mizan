@@ -1024,9 +1024,12 @@ def _identify_xlsx_columns(
 
 
 def _row_has_date_header(row: tuple) -> bool:
-    """True if any cell in the row names a date column (tarih/date/… — multilingual)."""
+    """True if any cell in the row names a date column (tarih/date/… — multilingual).
+    Only SHORT cells qualify: a real header label like 'Tarih' is brief, whereas a
+    preamble sentence ('… tarihleri arasındaki hesap hareketleri …') also contains the
+    word but is not a header."""
     for c in row:
-        if isinstance(c, str) and c.strip():
+        if isinstance(c, str) and c.strip() and len(c.strip()) <= 30:
             cl = c.strip().lower()
             if any(k in cl for k in _XLSX_DATE_HINTS):
                 return True
@@ -1190,20 +1193,33 @@ def _read_xlsx_rows_raw(contents: bytes) -> list[tuple]:
             if localname(row.tag) != "row":
                 continue
             cells: dict[int, object] = {}
+            # Excel may OMIT the cell ref (`r="C5"`): then cells are positional, in order.
+            # Track a running column cursor; an explicit ref resets it (so sparse rows that
+            # skip empty columns still land correctly). Advance the cursor for EVERY <c>,
+            # including empties, or following cells shift left.
+            col_cursor = 0
             for c in row:
                 if localname(c.tag) != "c":
                     continue
-                col = _col_index_from_ref(c.get("r", ""))
+                ref = c.get("r")
+                if ref:
+                    col = _col_index_from_ref(ref)
+                    col_cursor = col
+                else:
+                    col = col_cursor
+                col_cursor += 1
+                max_col = max(max_col, col)
+
                 ctype = c.get("t")
                 style = c.get("s")
                 if ctype == "inlineStr":
                     txt = "".join(x.text or "" for x in c.iter() if localname(x.tag) == "t")
-                    cells[col] = txt
-                    max_col = max(max_col, col)
+                    if txt:
+                        cells[col] = txt
                     continue
                 v = next((x for x in c if localname(x.tag) == "v"), None)
                 if v is None or v.text is None:
-                    continue
+                    continue  # empty cell — cursor already advanced
                 raw = v.text
                 if ctype == "s":
                     i = int(raw)
@@ -1217,13 +1233,11 @@ def _read_xlsx_rows_raw(contents: bytes) -> list[tuple]:
                         num = float(raw)
                     except ValueError:
                         cells[col] = raw
-                        max_col = max(max_col, col)
                         continue
                     if style is not None and style.isdigit() and int(style) in date_style_idx:
                         cells[col] = _excel_serial_to_dt(num)
                     else:
                         cells[col] = num
-                max_col = max(max_col, col)
             parsed.append(cells)
 
     width = max_col + 1
