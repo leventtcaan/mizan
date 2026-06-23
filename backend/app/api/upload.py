@@ -252,8 +252,8 @@ async def upload_statement(
     filename = file.filename or "unknown"
 
     logger.info(
-        "Upload started — job_id=%s user_id=%s filename=%s size=%d bytes",
-        job_id, current_user.id, filename, len(contents),
+        "Upload started — job_id=%s user_id=%s filename=%r content_type=%r size=%d bytes",
+        job_id, current_user.id, filename, file.content_type, len(contents),
     )
 
     # Never let a corrupt/encrypted/unsupported file surface as a raw 500 — parse
