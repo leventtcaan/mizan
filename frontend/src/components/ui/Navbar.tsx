@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import Link from "next/link";
 import { getToken, getStoredUser, clearToken, updatePreferences } from "@/lib/api";
-import { BarChart2, Upload, LogOut, Menu, X, Scale, Home, Settings, Sparkles } from "@/components/ui/Icons";
+import { BarChart2, Upload, LogOut, Menu, X, Scale, Home, Settings, Sparkles, FileText } from "@/components/ui/Icons";
 import { useLanguage, type Lang } from "@/lib/i18n";
 import NotificationDropdown from "@/components/NotificationDropdown";
 import CurrencyMenu from "@/components/ui/CurrencyMenu";
@@ -141,6 +141,9 @@ export default function Navbar() {
                       <button onClick={() => handleLangSwitch("en")} className={`px-2 py-1 transition-colors ${lang === "en" ? "bg-indigo-600 text-white" : "text-gray-400 hover:text-gray-200"}`}>EN</button>
                     </div>
                   </div>
+                  <Link href="/reports" className="flex items-center gap-2 px-3 py-2 text-sm text-gray-300 hover:bg-[#1A1A1A] transition-colors">
+                    <FileText size={15} /> {t("report.title")}
+                  </Link>
                   <Link href="/settings" className="flex items-center gap-2 px-3 py-2 text-sm text-gray-300 hover:bg-[#1A1A1A] transition-colors">
                     <Settings size={15} /> {t("settings.title")}
                   </Link>

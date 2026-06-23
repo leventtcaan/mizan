@@ -498,6 +498,54 @@ export async function askSimulator(
   return r.json() as Promise<SimAskResponse>;
 }
 
+// ── Financial report ─────────────────────────────────────────────────────────
+export interface FinancialReport {
+  meta: { generated_at: string; period_key: string; period_label: string; currency: string; lang: string };
+  summary: string;
+  net_worth: {
+    total_assets: number; total_liabilities: number; net_worth: number; pending_receivables: number;
+    opening: number | null; closing: number | null; change: number | null; estimated: boolean;
+  };
+  cash_flow: {
+    income: number; expenses: number; net: number;
+    top_categories: { name: string; amount: number; share: number }[];
+  };
+  assets: { name: string; type: string; value: number }[];
+  liabilities: { name: string; remaining: number; monthly_payment: number; rate: number | null }[];
+  receivables: { from_person: string; amount: number; expected_date: string | null }[];
+  allocation: { name: string; value: number; share: number }[];
+  currency_mix: { code: string; value: number; share: number }[];
+  trajectory: { date: string; net_worth: number }[];
+  recommendations: { title: string; detail: string }[];
+  assumptions: string[];
+}
+
+export async function getFinancialReport(period: string, displayCurrency = "TRY", lang = "tr"): Promise<FinancialReport> {
+  const r = await fetch(
+    `${API_BASE_URL}/reports/financial?period=${period}&display_currency=${displayCurrency}&lang=${lang}`,
+    { headers: authHeaders() },
+  );
+  if (!r.ok) throw new Error(`Failed to build report: ${r.status}`);
+  return r.json() as Promise<FinancialReport>;
+}
+
+export async function downloadTransactionsCsv(period: string, displayCurrency = "TRY"): Promise<void> {
+  const r = await fetch(
+    `${API_BASE_URL}/reports/transactions.csv?period=${period}&display_currency=${displayCurrency}`,
+    { headers: authHeaders() },
+  );
+  if (!r.ok) throw new Error(`Failed to export CSV: ${r.status}`);
+  const blob = await r.blob();
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `mizan-transactions-${period}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+
 export async function getBatches(): Promise<BatchSummary[]> {
   const response = await fetch(`${API_BASE_URL}/transactions/batches`, {
     headers: authHeaders(),
