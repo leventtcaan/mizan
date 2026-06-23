@@ -394,6 +394,40 @@ export async function uploadStatement(file: File): Promise<UploadResponse> {
   return response.json() as Promise<UploadResponse>;
 }
 
+// Review & edit — one row of a parsed batch the user can correct before committing.
+export interface ReviewTransaction {
+  id: string | null;            // null → a new manual row to insert
+  transaction_date: string;     // ISO yyyy-mm-dd
+  description: string;
+  amount: string;
+  transaction_type: "debit" | "credit";
+  category: string | null;
+  currency: string;
+}
+
+export async function getReviewBatch(batchId: string): Promise<ReviewTransaction[]> {
+  const response = await fetch(`${API_BASE_URL}/upload/review/${encodeURIComponent(batchId)}`, {
+    headers: authHeaders(),
+  });
+  if (!response.ok) throw new Error(`Failed to load batch: ${response.status}`);
+  return response.json() as Promise<ReviewTransaction[]>;
+}
+
+export async function saveReviewBatch(
+  batchId: string, transactions: ReviewTransaction[],
+): Promise<ReviewTransaction[]> {
+  const response = await fetch(`${API_BASE_URL}/upload/review/${encodeURIComponent(batchId)}`, {
+    method: "PATCH",
+    headers: { ...authHeaders(), "Content-Type": "application/json" },
+    body: JSON.stringify({ transactions }),
+  });
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ detail: "Save failed" }));
+    throw new Error((error as { detail: string }).detail ?? "Save failed");
+  }
+  return response.json() as Promise<ReviewTransaction[]>;
+}
+
 export async function getBrief(jobId: string, lang = "tr"): Promise<Brief> {
   const response = await fetch(
     `${API_BASE_URL}/upload/brief?job_id=${encodeURIComponent(jobId)}&lang=${lang}`,

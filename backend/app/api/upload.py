@@ -10,12 +10,12 @@ BREAKS IF REMOVED: No way for the frontend to submit bank statements.
 import json
 import uuid
 import logging
-from datetime import datetime, timezone
-from decimal import Decimal
+from datetime import date, datetime, timezone
+from decimal import Decimal, InvalidOperation
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile, status
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 from sqlalchemy import select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -27,6 +27,7 @@ from app.core.rate_limiter import upload_ip_limiter, upload_user_limiter
 from app.models.networth_suggestion import NetworthSuggestion
 from app.models.progress_insight import ProgressInsight
 from app.models.reconciliation_item import ReconciliationItem
+from app.models.transaction import Transaction
 from app.models.user import User
 from app.services.brief import build_brief
 from app.services.categorizer import categorize_batch
@@ -34,10 +35,17 @@ from app.services.llm_provider import get_provider
 from app.services.pdf_parser import parse_statement
 from app.services.conflict_detection import BatchInfo, find_duplicate_batch
 from app.services.transaction_service import (
+    bust_insight_cache,
     bust_progress_cache,
     get_batch_summaries,
     insert_transactions,
 )
+
+# Categories the review table is allowed to assign (mirrors transactions.VALID_CATEGORIES).
+_VALID_CATEGORIES = {
+    "market", "restoran", "ulasim", "eglence", "saglik", "fatura",
+    "giyim", "nakit_atm", "transfer", "iade", "vergi", "teknoloji", "diger", "egitim",
+}
 
 logger = logging.getLogger(__name__)
 
@@ -481,3 +489,172 @@ async def upload_brief(
     await _brief_cache_set(current_user.id, cache_key, response.model_dump_json(), session)
     await session.commit()
     return response
+
+
+# ── Review & edit a parsed batch before it becomes "truth" ───────────────────
+# Lets the user inspect/correct extracted transactions before the brief narrates
+# them. Catches parse errors (wrong amount, bad sign, duplicate) up front so the
+# brief never confidently presents garbage as fact.
+
+
+class ReviewTransaction(BaseModel):
+    """One row in the review table. `id` absent → a new manual row to insert."""
+    id: str | None = None
+    transaction_date: date
+    description: str
+    amount: str
+    transaction_type: str
+    category: str | None = None
+    currency: str = "TRY"
+
+    @field_validator("transaction_type")
+    @classmethod
+    def _valid_type(cls, v: str) -> str:
+        if v not in ("debit", "credit"):
+            raise ValueError("transaction_type must be 'debit' or 'credit'")
+        return v
+
+    @field_validator("category")
+    @classmethod
+    def _valid_category(cls, v: str | None) -> str | None:
+        if v is not None and v != "" and v not in _VALID_CATEGORIES:
+            raise ValueError(f"Invalid category: {v}")
+        return v or None
+
+    @field_validator("amount")
+    @classmethod
+    def _valid_amount(cls, v: str) -> str:
+        try:
+            val = Decimal(v.replace(",", "."))
+        except (InvalidOperation, AttributeError):
+            raise ValueError("amount must be a valid number")
+        if val <= 0:
+            raise ValueError("amount must be positive")
+        return v
+
+    @field_validator("description")
+    @classmethod
+    def _valid_description(cls, v: str) -> str:
+        cleaned = (v or "").strip()
+        if not cleaned:
+            raise ValueError("description cannot be empty")
+        return cleaned
+
+
+class ReviewRequest(BaseModel):
+    transactions: list[ReviewTransaction]
+
+
+class ReviewTransactionOut(BaseModel):
+    id: str
+    transaction_date: date
+    description: str
+    amount: str
+    transaction_type: str
+    category: str | None
+    currency: str
+
+
+async def _fetch_batch_rows(
+    batch_id: str, user_id: uuid.UUID, session: AsyncSession
+) -> list[Transaction]:
+    result = await session.execute(
+        select(Transaction)
+        .where(Transaction.user_id == user_id)
+        .where(Transaction.upload_batch_id == batch_id)
+        .order_by(Transaction.transaction_date.asc())
+    )
+    return list(result.scalars().all())
+
+
+def _row_out(t: Transaction) -> ReviewTransactionOut:
+    return ReviewTransactionOut(
+        id=str(t.id),
+        transaction_date=t.transaction_date,
+        description=t.description,
+        amount=str(t.amount),
+        transaction_type=t.transaction_type,
+        category=t.category,
+        currency=t.currency,
+    )
+
+
+@router.get("/review/{batch_id}", response_model=list[ReviewTransactionOut])
+async def get_review_batch(
+    batch_id: str,
+    current_user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
+) -> list[ReviewTransactionOut]:
+    """Current transactions for one upload batch, oldest-first, for the review table."""
+    rows = await _fetch_batch_rows(batch_id, current_user.id, session)
+    return [_row_out(t) for t in rows]
+
+
+@router.patch("/review/{batch_id}", response_model=list[ReviewTransactionOut])
+async def save_review_batch(
+    batch_id: str,
+    body: ReviewRequest,
+    current_user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
+) -> list[ReviewTransactionOut]:
+    """
+    WHAT: Applies the user's review of a batch — updates edited rows, inserts new manual
+          rows, deletes rows the user removed. Reviewed rows become source=user_confirmed.
+    WHY: Ownership is enforced by only ever matching ids within the user's own batch; a
+         forged id from another batch simply won't match and is ignored.
+    BREAKS IF REMOVED: The /review page can't commit corrections before the brief.
+    """
+    existing = {str(t.id): t for t in await _fetch_batch_rows(batch_id, current_user.id, session)}
+
+    # Currency for new rows: the batch's dominant currency, else the user's display ccy.
+    if existing:
+        from collections import Counter
+        default_ccy = Counter(t.currency or "TRY" for t in existing.values()).most_common(1)[0][0]
+    else:
+        default_ccy = current_user.display_currency or "TRY"
+
+    seen: set[str] = set()
+    for item in body.transactions:
+        amount = Decimal(item.amount.replace(",", "."))
+        if item.id and item.id in existing:
+            t = existing[item.id]
+            t.transaction_date = item.transaction_date
+            t.description = item.description
+            t.amount = amount
+            t.transaction_type = item.transaction_type
+            t.category = item.category
+            t.source = "user_confirmed"   # user has reviewed/corrected this row
+            seen.add(item.id)
+        elif not item.id:
+            session.add(Transaction(
+                user_id=current_user.id,
+                upload_batch_id=batch_id,
+                amount=amount,
+                currency=item.currency or default_ccy,
+                transaction_type=item.transaction_type,
+                description=item.description,
+                transaction_date=item.transaction_date,
+                category=item.category,
+                source="user_confirmed",
+            ))
+        # id present but not owned → ignored
+
+    # Rows the user removed from the table are deleted.
+    for tid, t in existing.items():
+        if tid not in seen:
+            await session.delete(t)
+
+    # Corrections change every downstream view — bust insight, progress AND the brief
+    # cache (bust_progress_cache clears all ProgressInsight rows, incl. data_type=brief),
+    # so the brief regenerates from the corrected data.
+    await bust_insight_cache(current_user.id, session)
+    await bust_progress_cache(current_user.id, session)
+    await session.commit()
+
+    logger.info(
+        "Batch reviewed — user=%s batch_id=%s final_rows=%d",
+        current_user.id, batch_id, len(body.transactions),
+    )
+
+    rows = await _fetch_batch_rows(batch_id, current_user.id, session)
+    return [_row_out(t) for t in rows]
