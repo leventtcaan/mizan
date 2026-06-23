@@ -29,14 +29,16 @@ export default function Navbar() {
   const [accountOpen, setAccountOpen] = useState(false);
   const accountRef = useRef<HTMLDivElement>(null);
 
-  // The four money pages (transactions / cashflow / subscriptions / installments)
-  // are unified under one "Money Flow" entry; they share the MoneyTabs sub-nav.
-  const MONEY_PATHS = ["/transactions", "/cashflow", "/subscriptions", "/installments"];
+  // The money pages (transactions / cashflow / recurring) are unified under one
+  // "Money Flow" entry; they share the MoneyTabs sub-nav.
+  const MONEY_PATHS = ["/transactions", "/cashflow", "/recurring"];
+  // Reports is a top-level destination (the artifact someone replacing Excel wants);
+  // the Simulator lives in the account menu as a power-user tool.
   const NAV_LINKS = [
     { href: "/home", label: t("nav.home"), icon: <Home size={16} />, match: ["/home"] },
     { href: "/transactions", label: t("nav.money"), icon: <PieChartMini />, match: MONEY_PATHS },
     { href: "/networth", label: t("nav.networth"), icon: <Scale size={16} />, match: ["/networth"] },
-    { href: "/simulator", label: t("nav.simulator"), icon: <Sparkles size={16} />, match: ["/simulator"] },
+    { href: "/reports", label: t("report.title"), icon: <FileText size={16} />, match: ["/reports"] },
     { href: "/progress", label: t("nav.progress"), icon: <BarChart2 size={16} />, match: ["/progress"] },
   ];
 
@@ -141,8 +143,8 @@ export default function Navbar() {
                       <button onClick={() => handleLangSwitch("en")} className={`px-2 py-1 transition-colors ${lang === "en" ? "bg-indigo-600 text-white" : "text-gray-400 hover:text-gray-200"}`}>EN</button>
                     </div>
                   </div>
-                  <Link href="/reports" className="flex items-center gap-2 px-3 py-2 text-sm text-gray-300 hover:bg-[#1A1A1A] transition-colors">
-                    <FileText size={15} /> {t("report.title")}
+                  <Link href="/simulator" className="flex items-center gap-2 px-3 py-2 text-sm text-gray-300 hover:bg-[#1A1A1A] transition-colors">
+                    <Sparkles size={15} /> {t("nav.simulator")}
                   </Link>
                   <Link href="/settings" className="flex items-center gap-2 px-3 py-2 text-sm text-gray-300 hover:bg-[#1A1A1A] transition-colors">
                     <Settings size={15} /> {t("settings.title")}
@@ -191,14 +193,28 @@ export default function Navbar() {
               );
             })}
             <Link
+              href="/simulator"
+              className={`flex items-center gap-3 px-3 py-3 rounded-lg text-sm transition-colors ${pathname === "/simulator" ? "text-white bg-[#2A2A2A]" : "text-gray-300 hover:text-white hover:bg-[#1A1A1A]"}`}
+            >
+              <Sparkles size={16} />
+              {t("nav.simulator")}
+            </Link>
+            <Link
               href="/settings"
               className={`flex items-center gap-3 px-3 py-3 rounded-lg text-sm transition-colors ${pathname === "/settings" ? "text-white bg-[#2A2A2A]" : "text-gray-300 hover:text-white hover:bg-[#1A1A1A]"}`}
             >
               <Settings size={16} />
               {t("settings.title")}
             </Link>
-            <div className="pt-3 border-t border-[#2A2A2A] flex items-center justify-between">
-              <span className="text-gray-500 text-xs">{userEmail}</span>
+            <div className="pt-3 border-t border-[#2A2A2A] space-y-3">
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-gray-500 text-xs truncate">{userEmail}</span>
+                {/* Currency + notifications — parity with the desktop top bar */}
+                <div className="flex items-center gap-2 shrink-0">
+                  <CurrencyMenu />
+                  <NotificationDropdown />
+                </div>
+              </div>
               <div className="flex gap-2 items-center">
                 {/* Language toggle (mobile) */}
                 <div className="flex rounded-lg overflow-hidden border border-[#2A2A2A] text-xs font-medium">
