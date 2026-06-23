@@ -94,6 +94,14 @@ class User(Base):
         server_default=text("'TRY'"),
     )
 
+    # WHY: Last time the weekly "money brief" email was sent — enforces the ~weekly
+    # cadence (skip if sent within the last 6 days) so a re-run of the job/endpoint
+    # can't double-send. Nullable: a user who has never received one.
+    last_email_brief_sent: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
+
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         nullable=False,

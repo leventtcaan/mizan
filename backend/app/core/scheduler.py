@@ -33,11 +33,13 @@ LAST_RUN: dict[str, str | None] = {
     "reconciliation": None,
     "daily_notifications": None,
     "price_refresh": None,
+    "email_briefs": None,
 }
 
 JOB_RECONCILIATION = "reconciliation_all_users"
 JOB_NOTIFICATIONS = "daily_notifications_all_users"
 JOB_PRICE_REFRESH = "price_refresh_all_users"
+JOB_EMAIL_BRIEFS = "email_briefs_all_users"
 
 
 async def _all_user_ids() -> list:
@@ -114,6 +116,40 @@ async def run_daily_notifications_for_all_users() -> None:
     logger.info("Daily notifications: %d users, %d notifications created", len(user_ids), total_created)
 
 
+async def run_email_briefs_for_all_users() -> None:
+    """Send the weekly money-brief email to every due, opted-in user.
+
+    Cadence (last_email_brief_sent + 6d) and the meaningful-change gate are enforced
+    per user, so a re-run won't double-send and quiet weeks are skipped. Per-user
+    failures are isolated, each in its own session.
+    """
+    from datetime import datetime as _dt
+    from app.api.email import send_email_brief
+    from app.services.email_brief import generate_email_brief, due_for_brief
+
+    user_ids = await _all_user_ids()
+    sent = 0
+    for uid in user_ids:
+        try:
+            async with AsyncSessionLocal() as session:
+                user = await session.get(User, uid)
+                if user is None or not due_for_brief(user):
+                    continue
+                brief = await generate_email_brief(uid, session)
+                if brief is None:
+                    continue
+                await send_email_brief(user.email, brief, brief["lang"])
+                user.last_email_brief_sent = _dt.now(timezone.utc)
+                session.add(user)
+                await session.commit()
+                sent += 1
+        except Exception:
+            logger.exception("Email brief failed for user=%s", uid)
+            continue
+    LAST_RUN["email_briefs"] = datetime.now(timezone.utc).isoformat()
+    logger.info("Email briefs: %d users scanned, %d sent", len(user_ids), sent)
+
+
 def start_scheduler() -> None:
     """Register jobs and start. Safe to call once on app startup."""
     if scheduler.running:
@@ -142,8 +178,16 @@ def start_scheduler() -> None:
         coalesce=True,
         max_instances=1,
     )
+    scheduler.add_job(
+        run_email_briefs_for_all_users,
+        trigger=CronTrigger(day_of_week="sun", hour=9, minute=0),  # Sunday 09:00 UTC
+        id=JOB_EMAIL_BRIEFS,
+        replace_existing=True,
+        coalesce=True,
+        max_instances=1,
+    )
     scheduler.start()
-    logger.info("Scheduler started — reconciliation 6h, notifications 09:00 UTC, price refresh 12h.")
+    logger.info("Scheduler started — reconciliation 6h, notifications 09:00 UTC, price refresh 12h, email briefs Sun 09:00 UTC.")
 
 
 def shutdown_scheduler() -> None:
@@ -155,7 +199,7 @@ def shutdown_scheduler() -> None:
 def scheduler_status() -> dict:
     """Snapshot for the dev status endpoint."""
     jobs = {}
-    for job_id in (JOB_RECONCILIATION, JOB_NOTIFICATIONS, JOB_PRICE_REFRESH):
+    for job_id in (JOB_RECONCILIATION, JOB_NOTIFICATIONS, JOB_PRICE_REFRESH, JOB_EMAIL_BRIEFS):
         job = scheduler.get_job(job_id)
         jobs[job_id] = {
             "next_run": job.next_run_time.isoformat() if job and job.next_run_time else None,

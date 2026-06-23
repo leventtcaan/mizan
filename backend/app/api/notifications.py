@@ -8,7 +8,7 @@ POST /notifications/generate-daily — LLM analysis, one run per UTC day per use
 
 import logging
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel
@@ -20,6 +20,7 @@ from app.core.database import get_session
 from app.models.user import User
 from app.models.app_notification import AppNotification
 from app.services.notification_service import generate_for_user
+from app.services.email_brief import generate_email_brief, due_for_brief
 
 logger = logging.getLogger(__name__)
 
@@ -131,3 +132,45 @@ async def generate_daily(
     Shares one implementation with the APScheduler job (notification_service).
     """
     return await generate_for_user(current_user.id, lang, session)
+
+
+@router.post("/send-email-brief")
+async def send_email_briefs(
+    current_user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
+) -> dict:
+    """
+    Sends the weekly "money brief" email to every opted-in user who is due (cadence
+    enforced by last_email_brief_sent + a meaningful-change gate in generate_email_brief).
+    Manual trigger that shares its core with the Sunday scheduler job. Per-user failures
+    are isolated. Returns {sent, skipped}.
+    """
+    from app.api.email import send_email_brief  # local import avoids module-load cycle
+
+    result = await session.execute(select(User).where(User.email_weekly_enabled == True))  # noqa: E712
+    users = list(result.scalars().all())
+
+    sent = 0
+    skipped = 0
+    now = datetime.now(timezone.utc)
+    for user in users:
+        if not due_for_brief(user, now):
+            skipped += 1
+            continue
+        try:
+            brief = await generate_email_brief(user.id, session)
+            if brief is None:
+                skipped += 1
+                continue
+            await send_email_brief(user.email, brief, brief["lang"])
+            user.last_email_brief_sent = datetime.now(timezone.utc)
+            session.add(user)
+            await session.commit()
+            sent += 1
+        except Exception:
+            logger.exception("Email brief failed — user=%s", user.id)
+            await session.rollback()
+            skipped += 1
+
+    logger.info("Email briefs (manual trigger): sent=%d skipped=%d", sent, skipped)
+    return {"sent": sent, "skipped": skipped}

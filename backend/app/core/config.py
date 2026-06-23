@@ -29,6 +29,10 @@ class Settings(BaseSettings):
     # Default is safe for dev only; prod must override this via environment variable.
     RESEND_API_KEY: str = ""
 
+    # WHY: From-address for outbound email. Default is Resend's shared sandbox sender
+    # (works without domain verification); prod must set a verified domain sender.
+    RESEND_FROM_EMAIL: str = "Mizan <onboarding@resend.dev>"
+
     SECRET_KEY: str = "change-me-in-production-use-openssl-rand-hex-32"
     JWT_ALGORITHM: str = "HS256"
     JWT_EXPIRE_MINUTES: int = 60 * 24 * 7  # 7 days

@@ -102,3 +102,91 @@ async def weekly_send(
             status_code=status.HTTP_502_BAD_GATEWAY,
             detail="E-posta gönderilemedi. Lütfen daha sonra tekrar deneyin.",
         ) from exc
+
+
+# ── Weekly "money brief" email — recurring counterpart to the Post-Upload Brief ──
+
+def _render_brief_html(brief: dict) -> str:
+    """Dark-theme HTML email: one headline, up to 3 bullets, one CTA button."""
+    headline: str = brief["headline"]
+    bullets: list[str] = brief.get("bullets", [])
+    cta_label: str = brief["cta_label"]
+    cta_url: str = brief["cta_url"]
+
+    bullet_rows = "".join(
+        f"""
+        <tr>
+          <td style="padding:10px 0;border-bottom:1px solid #2A2A2A;color:#d1d5db;font-size:15px;line-height:1.6;">
+            <span style="color:#818cf8;margin-right:8px;">•</span>{b}
+          </td>
+        </tr>"""
+        for b in bullets
+    )
+
+    return f"""<!DOCTYPE html>
+<html>
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0;padding:0;background:#0F0F0F;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#0F0F0F;">
+    <tr><td align="center" style="padding:40px 16px;">
+      <table width="560" cellpadding="0" cellspacing="0" style="max-width:560px;width:100%;">
+
+        <tr><td style="padding:0 0 20px;text-align:center;">
+          <span style="font-size:22px;font-weight:800;color:#ffffff;letter-spacing:-0.5px;">⚖ Mizan</span>
+        </td></tr>
+
+        <tr><td style="background:#1A1A1A;border:1px solid #2A2A2A;border-radius:16px;padding:28px;">
+          <p style="margin:0 0 20px;font-size:17px;line-height:1.6;color:#f3f4f6;">{headline}</p>
+          <table width="100%" cellpadding="0" cellspacing="0">{bullet_rows}</table>
+          <div style="text-align:center;margin-top:24px;">
+            <a href="{cta_url}" style="display:inline-block;background:#6366f1;color:#ffffff;text-decoration:none;padding:13px 28px;border-radius:10px;font-weight:700;font-size:15px;">{cta_label}</a>
+          </div>
+        </td></tr>
+
+        <tr><td style="padding:20px 8px 0;text-align:center;">
+          <p style="margin:0;font-size:12px;color:#6b7280;line-height:1.6;">
+            Mizan · Settings → Weekly Money Brief to turn this off.
+          </p>
+        </td></tr>
+
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>"""
+
+
+def _render_brief_text(brief: dict) -> str:
+    lines = [brief["headline"], ""]
+    lines += [f"- {b}" for b in brief.get("bullets", [])]
+    lines += ["", f"{brief['cta_label']} {brief['cta_url']}", "", "Mizan"]
+    return "\n".join(lines)
+
+
+async def send_email_brief(to_email: str, brief: dict, lang: str = "tr") -> str:
+    """
+    Render and send the weekly money-brief email. Returns the Resend email id.
+    Raises RuntimeError if RESEND_API_KEY is missing; re-raises Resend errors.
+    """
+    if not len(settings.RESEND_API_KEY) > 0:
+        raise RuntimeError("RESEND_API_KEY not configured")
+
+    html = _render_brief_html(brief)
+    text = _render_brief_text(brief)
+    subject = brief["subject"]
+
+    def _send() -> str:
+        import resend  # local import — only when actually sending
+        resend.api_key = settings.RESEND_API_KEY
+        response = resend.Emails.send({
+            "from": settings.RESEND_FROM_EMAIL,
+            "to": [to_email],
+            "subject": subject,
+            "html": html,
+            "text": text,
+        })
+        return response.get("id", "") if isinstance(response, dict) else str(response)
+
+    email_id = await asyncio.to_thread(_send)
+    logger.info("Money brief sent — to=%s email_id=%s lang=%s", to_email, email_id, lang)
+    return email_id
