@@ -53,6 +53,18 @@
 /* While speaking, breathe a touch faster and livelier. */
 .mim-speaking .mim-breathe { animation-duration: 2.2s; }
 
+/* Mim's speech bubble drifts up gently, then waits. */
+@keyframes mim-bubble-in {
+  0%   { opacity: 0; transform: translateY(8px) scale(0.94); }
+  60%  { opacity: 1; }
+  100% { opacity: 1; transform: translateY(0) scale(1); }
+}
+.mim-bubble {
+  animation: mim-bubble-in 0.4s cubic-bezier(0.22, 1, 0.36, 1) both;
+  transform-origin: bottom right;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .mim-breathe, .mim-float, .mim-glow, .mim-eyes { animation: none; }
+  .mim-bubble { animation-duration: 0.01s; }
 }

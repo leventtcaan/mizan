@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
 import { Send, X as XIcon, CheckCircle } from "@/components/ui/Icons";
 import Mim from "@/components/companion/Mim";
+import { observe, contextFromPath, type Observation } from "@/components/companion/voice";
 import { useLanguage } from "@/lib/i18n";
 import {
   getToken, getStoredUser, getNetWorthSummary,
@@ -39,8 +40,11 @@ export default function GlobalAssistant() {
   const [input, setInput] = useState("");
   const [pending, setPending] = useState(false);
   const [hasData, setHasData] = useState<boolean | null>(null);
+  const [bubble, setBubble] = useState<Observation | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const spokenPathRef = useRef<string | null>(null);
+  const bubbleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     setAuthed(!!getToken() && !!getStoredUser());
@@ -58,6 +62,27 @@ export default function GlobalAssistant() {
     window.addEventListener("mizan-open-assistant", openHandler);
     return () => window.removeEventListener("mizan-open-assistant", openHandler);
   }, []);
+
+  // Mim notices one specific thing about the page you just landed on — then waits.
+  // Speaks once per page visit, after a gentle beat, and fades on its own.
+  useEffect(() => {
+    if (!authed || open) { setBubble(null); return; }
+    const ctx = contextFromPath(pathname);
+    if (!ctx) { spokenPathRef.current = pathname; setBubble(null); return; }
+    if (spokenPathRef.current === pathname) return; // already spoke here
+    spokenPathRef.current = pathname;
+    let cancelled = false;
+    const intro = setTimeout(async () => {
+      const obs = await observe(ctx, t);
+      if (cancelled || !obs) return;
+      setBubble(obs);
+      if (bubbleTimerRef.current) clearTimeout(bubbleTimerRef.current);
+      bubbleTimerRef.current = setTimeout(() => setBubble(null), 9000);
+    }, 700);
+    return () => { cancelled = true; clearTimeout(intro); };
+  }, [pathname, authed, open, t]);
+
+  useEffect(() => () => { if (bubbleTimerRef.current) clearTimeout(bubbleTimerRef.current); }, []);
 
   // On first open, detect whether the user has any data yet (for the greeting).
   useEffect(() => {
@@ -118,16 +143,35 @@ export default function GlobalAssistant() {
 
   return (
     <>
-      {/* Mim — the companion, present on every page. Tap to talk. */}
+      {/* Mim — the companion, present on every page. Notices things, then waits. Tap to talk. */}
       {!open && (
-        <button
-          onClick={() => setOpen(true)}
-          className="fixed bottom-5 right-5 z-50 flex items-center justify-center transition-transform hover:scale-110"
-          title={t("assistant.askMizan")}
-          aria-label={t("assistant.askMizan")}
-        >
-          <Mim mood="calm" size={56} speaking />
-        </button>
+        <div className="fixed bottom-5 right-5 z-50 flex flex-col items-end gap-2.5">
+          {bubble && (
+            <div className="mim-bubble flex items-start gap-2 max-w-[270px] rounded-2xl rounded-br-md bg-[#1B1B1B] border border-[#2E2E2E] shadow-xl shadow-black/40 pl-3.5 pr-2 py-2.5">
+              <button
+                onClick={() => { setInput(bubble.prefill); setBubble(null); setOpen(true); }}
+                className="text-left text-[13px] leading-snug text-gray-200 hover:text-white transition-colors"
+              >
+                {bubble.line}
+              </button>
+              <button
+                onClick={() => setBubble(null)}
+                aria-label={t("assistant.close")}
+                className="shrink-0 text-gray-600 hover:text-gray-400 transition-colors -mt-0.5"
+              >
+                <XIcon size={14} />
+              </button>
+            </div>
+          )}
+          <button
+            onClick={() => setOpen(true)}
+            className="flex items-center justify-center transition-transform hover:scale-110"
+            title={t("assistant.askMizan")}
+            aria-label={t("assistant.askMizan")}
+          >
+            <Mim mood={bubble?.mood ?? "calm"} size={56} speaking />
+          </button>
+        </div>
       )}
 
       {/* Slide-up panel */}
