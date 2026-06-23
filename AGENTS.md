@@ -295,11 +295,25 @@ When context reaches ~70% capacity:
 ### Phase 57 — Activation hardening (2026-06-23)
 - [x] Audit (3 subagents). TIER 1: parse_statement try/except (no 500s); ParseResult `status`(success|empty|failed)+`reason`(encrypted_pdf|scanned_image|ocr_unavailable|unrecognized_format|parse_error)+`detected_currency`; `/upload` returns status/reason; frontend shows amber actionable msg, not green "0". TIER 2: onboarding Step 3 echoes entered value; Home `hasData=hasAssets||hasStatement`, statement-only user leads with Cash Flow Pulse. TIER 3: global LLM prompt + multi-format dates + `_normalise_amount` (TR `1.234,56` & US `1,234.56`) + bilingual word-boundary sign inference (fixed "pos" in "deposit") + currency carry-through (no silent TRY).
 
+### Phase 58 — Onboarding conflict-aware flow (2026-06-23) [branch feat/onboarding-conflict-aware-flow]
+- [x] `transaction.source` (0032): statement_parsed|user_estimate|user_confirmed|user_supplementary|manual. Threaded through insert_transactions + manual POST; coach notes estimates as approximate.
+- [x] Multi-statement upload (running count, per-file list, cumulative income/expenses). Income step REMOVED (caused conflicts/confusion) → onboarding = statement → AI impression → Home; no manual income/spending; asset/liability moved to one-time Home tour card (`mizan_tour_shown`, deep-link `/networth?add=asset`).
+- [x] `conflict_detection.py` simplified to ONLY `find_duplicate_batch` (date range + source/count); wired into upload → `duplicate_statement` reconciliation item. `POST /onboarding/analyze` returns ONLY `{summary}` (statement→2-sentence LLM read; none→null→welcome). No conflict-resolution UI.
+
+### Phase 59 — PDF Layer 3 vision LLM (2026-06-23)
+- [x] Image-only PDFs (pdfplumber+pymupdf=0 chars) route to vision BEFORE Tesseract. `_layer3_vision_extract`: per-page render→base64 PNG→vision→JSON; fallback to Layer 2 if no key/0 rows. `_parse_llm_json` hardened (dict-unwrap, truncated-array salvage, `type`/`transaction_type`).
+- [x] `_VISION_MODEL=gpt-4o-mini` (gpt-4o tested 49/49 exact but cost). max_tokens=8000. **Page strip tiling** (`_STRIP_OVERLAP_FRAC=0.02`, top/bottom) — bigger digits after model's ~768px downsample → fewer misreads. Prompt: rightmost number=running balance NEVER amount; TR number format explicit; incoming Gönd/FAST/Havale/EFT=credit, **Virman to-account=debit** (removed "virman" from `_INCOME_KEYWORDS`). Ziraat scan: income exactly 47,000; residual = pixel-level digit misreads (scan-quality limit).
+
+### Phase 60 — XLSX upload support (2026-06-23)
+- [x] upload.py accepts xlsx MIME + `.xlsx` ext (octet-stream → ext is reliable signal); requirements += `openpyxl==3.1.5`; frontend pickers accept `.xlsx`.
+- [x] `parse_xlsx`: (1) openpyxl read_only+data_only+keep_vba=False; (2) **raw zip/XML fallback** `_read_xlsx_rows_raw` when openpyxl crashes on styles ("expected Fill") — parses sharedStrings+styles+sheet via zipfile+ElementTree. **Cursor-based column tracking** (real bug: Ziraat cells omit `r` attr → all collapsed to col 0 → `(None,)` rows; cursor advances per `<c>`, explicit `r` resets). Inline strings, string dates, serial-date convert handled.
+- [x] `_find_xlsx_table` global: header=first SHORT cell (≤30c) naming a date col; map by name + value-inference fallback (datetime→date, numeric-w-negatives→amount, longest-text→desc, other numeric→balance). Negative=debit/positive=credit. Verified: real 63-row Ziraat xlsx → raw reader → 43 tx, HTTP upload success.
+
 ---
 
 ## Current Status
 
-**Phases 1–57 complete. Alembic head = 0031.** (CLAUDE.md is authoritative for detail.) Progress = Financial Health scorecard. Net Worth = GuidancePanel + AllocationChart (no history chart). Upload returns status/reason; parser is global. Deferred: `_generate_networth_suggestions` Turkish bank keywords; account connectivity (Plaid — deferred, manual-first chosen); CSV unquoted comma-thousands edge case; scorecard synthetic score when thin; real snapshots need time (trajectory estimated until then); P1-deep valuation migration; P2 tx↔account reconciliation.
+**Phases 1–60 complete. Alembic head = 0032.** (CLAUDE.md is authoritative for detail.) Progress = Financial Health scorecard. Net Worth = GuidancePanel + AllocationChart (no history chart). Upload returns status/reason; parser is global. Deferred: `_generate_networth_suggestions` Turkish bank keywords; account connectivity (Plaid — deferred, manual-first chosen); CSV unquoted comma-thousands edge case; scorecard synthetic score when thin; real snapshots need time (trajectory estimated until then); P1-deep valuation migration; P2 tx↔account reconciliation.
 
 **(historical, Phase 34) Phases 1–34 complete. Alembic head = 0022. No new migrations since Phase 32.**
 
@@ -753,7 +767,7 @@ Full stack: register/login → JWT → upload (rate-limited, busts caches) → 3
 
 ## Next Session — Start Here
 
-**Phases 1–57 complete. Alembic head = 0031.** (Older Phase 42/head-0022 notes below are historical — CLAUDE.md is authoritative.) Next: **end-to-end activation test with a real bank statement from a fresh user account** (register → onboarding → upload → honest result → Home in <10 min; instrument what breaks with real messy/non-Turkish data). Deferred items in Current Status.
+**Phases 1–60 complete. Alembic head = 0032.** (Older Phase 42/head-0022 notes below are historical — CLAUDE.md is authoritative.) Next: **merge `feat/onboarding-conflict-aware-flow` → main** (Phases 58/59/60 live there), then continue product improvements + chip at 3 fresh known issues (XLSX income 57k≠47k reconcile vs footer Borç/Alacak; Home full-statement-period cash flow; PDF scanned-OCR limits). Deferred items in Current Status.
 
 Pre-flight (if docker was restarted):
 ```bash

@@ -327,11 +327,33 @@ When context reaches ~70% capacity:
 - [x] **TIER 3 — global parser**: LLM extraction prompt rewritten global (any date/currency/amount, ISO output, infers debit/credit from context, no debit default). `_DATE_RE` global (DD.MM.YYYY / MM/DD/YYYY / YYYY-MM-DD / DD-MM-YYYY / "MMM DD YYYY"). `_normalise_amount` handles both `1.234,56` (TR) and `1,234.56` (US) by detecting decimal separator + negatives/parens. Sign inference bilingual + **word-boundary matched** (fixed "pos" matching inside "de-pos-it" → PAYROLL DEPOSIT now credit). Currency carries through `insert_transactions(default_currency=user.display_currency)` — never silent TRY. transaction_service `_DATE_FORMATS` expanded (ISO first, US added).
 - [x] Verified: amount normaliser all formats, date regex all formats, US-CSV→success w/ correct signs, garbage→empty, corrupt→failed/parse_error. Build clean, i18n 835/835.
 
+### Phase 58 — Onboarding conflict-aware flow (2026-06-23) [branch: feat/onboarding-conflict-aware-flow]
+- [x] **Source tracking**: `transaction.source` String(30) (migration 0032): statement_parsed | user_estimate | user_confirmed | user_supplementary | manual. Threaded through `insert_transactions(source=)` (uploads→statement_parsed) + manual POST /transactions (validated). Coach prompt notes estimate-sourced figures as approximate.
+- [x] **Multi-statement upload**: onboarding accepts MANY statements, running count ("N ekstre · M işlem"), per-file list, cumulative income/expenses seen. Motivating copy.
+- [x] **Income step REMOVED** (v2, user testing): manual "aylık gelir"/spending entry caused conflicts + confusion. Onboarding now = statement upload → AI first impression → Home. No manual income/spending, no asset/liability form (moved to one-time Home tour card, localStorage `mizan_tour_shown`, deep-links `/networth?add=asset`). Skip = straight to Home.
+- [x] **Conflict detection SIMPLIFIED** (`services/conflict_detection.py`): removed income/spending "same money?" rules. Now ONLY `find_duplicate_batch` (same date range + same source/count). Wired into upload: re-uploaded statement → `duplicate_statement` reconciliation item (delete_batch action). Replaced dead `_flag_estimate_conflicts`.
+- [x] **"Mizan'ın ilk izlenimi"** (`POST /onboarding/analyze`): returns ONLY `{summary}`. Statement → 2-sentence LLM read of parsed income/expenses; no statement → null → frontend shows plain welcome → Home. No conflict-resolution UI. UploadResponse gains parsed_income/parsed_expenses/currency.
+
+### Phase 59 — PDF Layer 3 vision LLM (2026-06-23)
+- [x] **Layer 3 wired** (`pdf_parser.py`): image-only PDFs (pdfplumber+pymupdf both 0 chars) now route to vision LLM BEFORE Tesseract. `_layer3_vision_extract`: renders each page → base64 PNG → vision model → JSON. Falls back to Layer 2 OCR if no OpenAI key / vision returns 0. `_parse_llm_json` hardened: unwrap `{"transactions":[...]}` dict, salvage truncated arrays, accept `type` or `transaction_type`.
+- [x] **Model = gpt-4o-mini** (`_VISION_MODEL`). gpt-4o tested (49/49 exact, cleaner) but mini chosen for cost; swap constant if accuracy critical. `max_tokens=8000` prevents truncation drop.
+- [x] **Page strip tiling**: each page split top/bottom (`_STRIP_OVERLAP_FRAC=0.02`) before vision — the model downsamples short-edge to ~768px, so halving page height ~doubles effective digit width → far fewer amount misreads (25,000 was read as 5,000 full-page). Prompt: "skip rows cut off at edge" + full-desc/substring/date-canon dedup kills boundary dups.
+- [x] **Balance-column fix**: prompt is explicit — rightmost number = running balance (NEVER the amount); use the amount column. Turkish number format spelled out (`10.000,00`=10000.00, never 19.48657). Fixed model grabbing balance for transfer rows.
+- [x] **Transfer sign**: incoming Gönd:/FAST/Havale/EFT = credit; **Virman to-account = debit** (removed "virman" from `_INCOME_KEYWORDS` — it's outgoing; was double-counting as income). Bank's Alacak total confirmed = 4 incoming transfers exactly.
+- [x] On the Ziraat test scan: income exactly 47,000; count + expense within scan-quality limit (residual = pixel-level digit misreads inherent to the scan, not a logic bug).
+
+### Phase 60 — XLSX upload support (2026-06-23)
+- [x] **Accept xlsx**: upload.py adds `application/vnd.openxmlformats-officedocument.spreadsheetml.sheet` MIME + `.xlsx` extension acceptance (browsers send octet-stream → extension is the reliable signal). `parse_statement` dispatches xlsx by ext/MIME. requirements.txt += `openpyxl==3.1.5`. Frontend pickers accept `.xlsx`.
+- [x] **Two readers** (`parse_xlsx`): (1) openpyxl `read_only+data_only+keep_vba=False`; (2) **raw zip/XML fallback** (`_read_xlsx_rows_raw`) when openpyxl crashes — Ziraat's file trips openpyxl's eager style parse ("expected Fill"). Raw reader parses sharedStrings + styles (date-fmt detect) + first sheet via zipfile+ElementTree, bypassing styles entirely.
+- [x] **Cursor-based column tracking** (the real bug): Ziraat cells OMIT the `r` ref attr → ref-based indexing collapsed all cells to col 0 → `(None,)` rows. Fix: running column cursor advances per `<c>` (incl. empties), explicit `r` resets it. Handles both with-`r` (openpyxl) and without-`r` (Ziraat). Inline strings (`t="str"`, no sharedStrings), string dates (`23.06.2026`), serial-date conversion all handled.
+- [x] **Global column detection** (`_find_xlsx_table`): header = first SHORT cell (≤30 chars, skips preamble sentences) naming a date col (tarih/date/… multilingual); map by name (Tarih→date, Açıklama→desc, İşlem Tutarı→amount), value-inference fallback (datetime col→date, numeric-with-negatives→amount, longest-text→desc, other numeric→balance/ignore). Negative=debit, positive=credit. NOT Ziraat-hardcoded.
+- [x] Verified end-to-end: real 63-row Ziraat xlsx → openpyxl Fill-fail → raw reader → header row 11, 43 transactions, HTTP upload status=success count=43.
+
 ---
 
 ## Current Status
 
-**Phases 1–57 complete. Alembic head = 0031.**
+**Phases 1–60 complete. Alembic head = 0032.**
 
 ### App structure (current)
 - **Nav**: Home · Money Flow · Net Değer · İlerleme · Settings (+ currency dropdown, notification bell, global assistant FAB)
@@ -356,7 +378,7 @@ When context reaches ~70% capacity:
 
 Full stack: register/login → JWT → upload (rate-limited, busts caches) → 3-layer OCR → LLM extract → OCR cleanup → dedup → zero-amount filter → persist → LLM categorize (13 categories) → insight cache → globalized LLM coach with corrections+notes injected → spending chart + progress page (LineChart 3-month trend + cross-batch-deduped category comparison + LLM one-liners, 24h cached) → PersonalityCard (5 types, cached per batch) → AlertsPanel (3 algorithmic detectors, dismiss persisted, stale dismissals auto-cleaned) → GoalsPanel (monthly budget vs actual) → ChatPanel (globalized conversational coaching, behavioral profile memory, voice input, chat-based tx entry with confirmation card, sessionStorage prefill from alerts) → weekly email summary (Resend HTML, preferences toggle) → inflation-adjusted analysis (TUFE 2023-2026, real vs nominal per category, ProgressInsight cache) → net worth asset subtype capture (all asset types have specific fields; crypto/fiat/commodity live picker; gold unit picker; stock/fund code fields; manual categories store structured metadata in `Asset.source_detail` JSON) → net worth display currency searchable via live `CurrencySelect` → receivable collection creates linked cash asset, repeated collection is idempotent, delete/write-off removes linked asset → stale received receivables and processed suggestions are hidden/cleaned after 30 days → onboarding accepts any institution/export source instead of hardcoded Turkish banks → financial event log + reconciliation item backend skeleton exists → net worth page shows Action Queue with open reconciliation items and recent financial events → reconciliation producers (overdue receivables, missing receivable assets, cross-batch duplicate detection) → Action Queue real action handlers per issue_type → net worth history AreaChart (daily USD snapshots, converted to display currency) → asset allocation donut PieChart (5 groups, click to highlight) → proactive threshold alerts (WealthAlert model, asset_price_drop / net_worth_drop / payment_coverage_risk, bell icon on auto-priced asset cards, triggered alerts banner).
 
-### Migrations (head = 0031)
+### Migrations (head = 0032)
 | Migration | What |
 |---|---|
 | 0001 | CREATE users + transactions |
@@ -390,8 +412,12 @@ Full stack: register/login → JWT → upload (rate-limited, busts caches) → 3
 | 0029 | ADD display_currency to users |
 | 0030 | ADD currency to transactions |
 | 0031 | assets current_value→Numeric(28,8) + quantity + unit_code + account_id; CREATE accounts |
+| 0032 | ADD source to transactions (statement_parsed/user_estimate/user_confirmed/user_supplementary/manual) |
 
 ### Known Issues (open)
+- **PDF extraction not perfect** — scanned/image PDFs hit inherent OCR limits. Vision LLM (gpt-4o-mini, Phase 59) + strip tiling fixed column/sign/format errors and gets income exact on the Ziraat scan, but residual amount/count drift remains = pixel-level digit misreads on poor scans. gpt-4o is more accurate (swap `_VISION_MODEL`) at ~10x cost.
+- **XLSX income 57k vs expected ~47k** — real Ziraat xlsx (Phase 60) extracts 43 tx but income reads ~57k vs ~47k expected; likely some transfers double-counted or a credit/debit sign edge. Reconcile against the statement footer (Borç/Alacak) next. (Synthetic test file is exact; real file drifts.)
+- **Home cash flow shows only current calendar month**, not the full uploaded statement period — a multi-month statement upload only surfaces the current month in the Cash Flow Pulse. Consider period-aware aggregation.
 - **History chart needs data** — `NetworthSnapshot` only populates on page load; <2 snapshots shows placeholder. Will self-populate after 2 visits.
 - **Asset allocation donut placement** — floats above AI insight, feels disconnected. Consider moving to collapsible sidebar or secondary tab.
 - **Wealth alert bell depends on refresh-prices** — `last_price_usd` in `source_detail` only exists after `POST /networth/assets/refresh-prices`. Alert check silently skips assets with no price data.
@@ -1201,11 +1227,12 @@ Full stack: register/login → JWT → upload (rate-limited, busts caches) → 3
 
 ## Next Session — Start Here
 
-**Phases 1–57 complete. Alembic head = 0031.**
+**Phases 1–60 complete. Alembic head = 0032.**
 
 ### Next session setup:
 - Use claude-opus-4-8 model
-- **First task: end-to-end activation test with a REAL bank statement from a fresh user account.** Register new user → onboarding → upload a real statement → confirm honest result (success/empty/failed amber) → land on Home and verify a statement-only user leads with Cash Flow Pulse + sees a meaningful insight in <10 min. Instrument what breaks/confuses with real (messy, possibly non-Turkish) data.
+- **First task: merge `feat/onboarding-conflict-aware-flow` → main.** Phases 58/59/60 all live on this branch, uncommitted/unpushed by recent turns or committed on-branch. Review diff, then merge.
+- **Then continue product improvements** + chip away at the 3 fresh known issues (XLSX income 57k≠47k reconcile, Home full-period cash flow, PDF scan OCR limits).
 - Deferred items live in "Known deferred (post-57)" under Current Status.
 
 ### Product vision (updated):
@@ -1225,7 +1252,7 @@ Pre-flight (if docker was restarted):
 ```bash
 docker compose up -d
 docker compose exec backend alembic upgrade head
-docker compose exec backend alembic current   # must say 0031 (head)
+docker compose exec backend alembic current   # must say 0032 (head)
 ```
 
 Quick smoke-test:
