@@ -1060,28 +1060,195 @@ def _find_xlsx_table(rows: list[tuple]) -> tuple[int, int | None, int | None, in
     return 0, None, None, None
 
 
-def parse_xlsx(contents: bytes) -> ParseResult:
+# Excel built-in numFmt ids that denote dates/times (so a numeric cell is really a date).
+_XLSX_BUILTIN_DATE_FMT = {14, 15, 16, 17, 18, 19, 20, 21, 22, 45, 46, 47}
+
+
+def _read_xlsx_rows(contents: bytes) -> list[tuple] | None:
     """
-    WHAT: Extracts transactions from an .xlsx bank statement using openpyxl.
-    WHY: Many banks export Excel. We read the first worksheet, locate the date /
-         description / amount columns (by multilingual header hints, then by value
-         inference so it works for any bank/language), and treat a NEGATIVE amount as a
-         debit, POSITIVE as a credit. The running-balance column is ignored.
-    BREAKS IF REMOVED: .xlsx uploads produce no transactions.
+    Read the first worksheet as a list of row tuples. Tries openpyxl first; if openpyxl
+    raises (it eagerly parses styles.xml and crashes with errors like 'expected <Fill>' on
+    some banks' files), falls back to a dependency-free raw zip+XML reader that bypasses
+    style parsing entirely. Returns None only if BOTH readers fail.
     """
     try:
         import openpyxl
-        wb = openpyxl.load_workbook(io.BytesIO(contents), read_only=True, data_only=True)
+        # read_only + data_only is the cheapest mode; keep_vba=False (the default) is set
+        # explicitly so a macro-enabled export never drags in extra parsing.
+        wb = openpyxl.load_workbook(
+            io.BytesIO(contents), read_only=True, data_only=True, keep_vba=False
+        )
+        try:
+            return [row for row in wb.active.iter_rows(values_only=True)]
+        finally:
+            wb.close()
     except Exception as exc:
-        logger.error("XLSX could not be opened: %s", exc)
-        return ParseResult([], 1, 0, "xlsx-error", status="failed", reason="parse_error")
+        logger.warning("openpyxl could not read xlsx (%s) — using raw zip/XML reader", exc)
 
     try:
-        ws = wb.active
-        rows = [row for row in ws.iter_rows(values_only=True)]
-    finally:
-        wb.close()
+        return _read_xlsx_rows_raw(contents)
+    except Exception as exc:
+        logger.error("Raw xlsx reader also failed: %s", exc)
+        return None
 
+
+def _col_index_from_ref(ref: str) -> int:
+    """'C3' → 2, 'AA10' → 26. Excel cell ref column letters → 0-based index."""
+    letters = "".join(ch for ch in ref if ch.isalpha())
+    idx = 0
+    for ch in letters:
+        idx = idx * 26 + (ord(ch.upper()) - 64)
+    return idx - 1 if idx else 0
+
+
+def _excel_serial_to_dt(num: float):
+    """Excel date serial → datetime. Base 1899-12-30 absorbs Excel's 1900-leap-year bug
+    for all real-world (post-1900) statement dates."""
+    from datetime import datetime, timedelta
+    return datetime(1899, 12, 30) + timedelta(days=float(num))
+
+
+def _read_xlsx_rows_raw(contents: bytes) -> list[tuple]:
+    """
+    Parse an .xlsx as a zip archive directly — shared strings + styles (for date detection)
+    + the first worksheet — WITHOUT openpyxl, so a malformed style block can't abort the
+    read. Returns row tuples whose date cells are datetime objects (like openpyxl would).
+    """
+    import zipfile
+    import xml.etree.ElementTree as ET
+
+    def localname(tag: str) -> str:
+        return tag.rsplit("}", 1)[-1]
+
+    with zipfile.ZipFile(io.BytesIO(contents)) as z:
+        names = set(z.namelist())
+
+        # 1) Shared strings table (cells with t="s" reference these by index).
+        shared: list[str] = []
+        if "xl/sharedStrings.xml" in names:
+            sroot = ET.fromstring(z.read("xl/sharedStrings.xml"))
+            for si in sroot:
+                shared.append("".join(
+                    t.text or "" for t in si.iter() if localname(t.tag) == "t"
+                ))
+
+        # 2) Styles → which cell-format indices are dates (numFmt id or a y/d format code).
+        date_style_idx: set[int] = set()
+        if "xl/styles.xml" in names:
+            st = ET.fromstring(z.read("xl/styles.xml"))
+            custom_fmt: dict[str, str] = {}
+            cell_xfs = None
+            for el in st.iter():
+                ln = localname(el.tag)
+                if ln == "numFmt":
+                    custom_fmt[el.get("numFmtId", "")] = (el.get("formatCode") or "")
+                elif ln == "cellXfs":
+                    cell_xfs = list(el)
+            if cell_xfs is not None:
+                for i, xf in enumerate(cell_xfs):
+                    fid = xf.get("numFmtId", "")
+                    code = custom_fmt.get(fid, "").lower()
+                    is_date = (fid.isdigit() and int(fid) in _XLSX_BUILTIN_DATE_FMT) or (
+                        "y" in code or "d" in code
+                    )
+                    if is_date:
+                        date_style_idx.add(i)
+
+        # 3) Locate the first worksheet (workbook order via rels; else sorted sheetN).
+        sheet_path = _first_sheet_path(z, names, localname)
+
+        sheet_root = ET.fromstring(z.read(sheet_path))
+        sheet_data = next(
+            (el for el in sheet_root.iter() if localname(el.tag) == "sheetData"), None
+        )
+        if sheet_data is None:
+            return []
+
+        parsed: list[dict[int, object]] = []
+        max_col = -1
+        for row in sheet_data:
+            if localname(row.tag) != "row":
+                continue
+            cells: dict[int, object] = {}
+            for c in row:
+                if localname(c.tag) != "c":
+                    continue
+                col = _col_index_from_ref(c.get("r", ""))
+                ctype = c.get("t")
+                style = c.get("s")
+                if ctype == "inlineStr":
+                    txt = "".join(x.text or "" for x in c.iter() if localname(x.tag) == "t")
+                    cells[col] = txt
+                    max_col = max(max_col, col)
+                    continue
+                v = next((x for x in c if localname(x.tag) == "v"), None)
+                if v is None or v.text is None:
+                    continue
+                raw = v.text
+                if ctype == "s":
+                    i = int(raw)
+                    cells[col] = shared[i] if 0 <= i < len(shared) else ""
+                elif ctype in ("str", "e"):
+                    cells[col] = raw
+                elif ctype == "b":
+                    cells[col] = raw == "1"
+                else:
+                    try:
+                        num = float(raw)
+                    except ValueError:
+                        cells[col] = raw
+                        max_col = max(max_col, col)
+                        continue
+                    if style is not None and style.isdigit() and int(style) in date_style_idx:
+                        cells[col] = _excel_serial_to_dt(num)
+                    else:
+                        cells[col] = num
+                max_col = max(max_col, col)
+            parsed.append(cells)
+
+    width = max_col + 1
+    return [tuple(cells.get(i) for i in range(width)) for cells in parsed]
+
+
+def _first_sheet_path(z, names: set, localname) -> str:
+    """Path of the first worksheet in workbook order (via rels), else the lowest sheetN."""
+    import xml.etree.ElementTree as ET
+    try:
+        wb = ET.fromstring(z.read("xl/workbook.xml"))
+        first_rid = None
+        for el in wb.iter():
+            if localname(el.tag) == "sheet":
+                first_rid = next((v for k, v in el.attrib.items() if localname(k) == "id"), None)
+                break
+        if first_rid and "xl/_rels/workbook.xml.rels" in names:
+            rels = ET.fromstring(z.read("xl/_rels/workbook.xml.rels"))
+            for rel in rels:
+                if rel.get("Id") == first_rid:
+                    target = rel.get("Target", "")
+                    if target.startswith("/"):
+                        return target.lstrip("/")      # absolute → relative to zip root
+                    if target.startswith("xl/"):
+                        return target
+                    return "xl/" + target              # relative to xl/ (workbook location)
+    except Exception:
+        pass
+    sheets = sorted(n for n in names if n.startswith("xl/worksheets/sheet") and n.endswith(".xml"))
+    return sheets[0] if sheets else "xl/worksheets/sheet1.xml"
+
+
+def parse_xlsx(contents: bytes) -> ParseResult:
+    """
+    WHAT: Extracts transactions from an .xlsx bank statement. Reads the first worksheet,
+          locates the date / description / amount columns (by multilingual header hints,
+          then by value inference so it works for any bank/language), and treats a
+          NEGATIVE amount as a debit, POSITIVE as a credit. The running-balance is ignored.
+    WHY: Many banks export Excel.
+    BREAKS IF REMOVED: .xlsx uploads produce no transactions.
+    """
+    rows = _read_xlsx_rows(contents)
+    if rows is None:
+        # Neither openpyxl nor the raw zip reader could read the file.
+        return ParseResult([], 1, 0, "xlsx-error", status="failed", reason="parse_error")
     if not rows:
         return ParseResult([], 1, 0, "xlsx", status="empty", reason="unrecognized_format")
 
