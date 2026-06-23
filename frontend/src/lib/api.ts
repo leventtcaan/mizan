@@ -437,6 +437,67 @@ export async function getBrief(jobId: string, lang = "tr"): Promise<Brief> {
   return response.json() as Promise<Brief>;
 }
 
+// ── Financial simulator ──────────────────────────────────────────────────────
+export interface SimAction { type: string; amount: number; label?: string | null; debt_id?: string | null; }
+export interface SimPoint { month: number; net_worth: number; liquid: number; }
+export interface SimProjection {
+  points: SimPoint[];
+  net_worth_end: number; liquid_end: number;
+  debt_free_month: number | null;
+  total_interest: number; min_liquid: number; min_liquid_month: number;
+}
+export interface SimResult {
+  currency: string;
+  horizon_months: number;
+  baseline: SimProjection;
+  scenario: SimProjection;
+  deltas: {
+    net_worth_end: number; monthly_cashflow: number;
+    debt_free_months: number; interest_saved: number; liquid_end: number;
+  };
+  warnings: string[];
+  assumptions: string[];
+  narrative: string | null;
+  applied: string[];
+}
+export interface SimLevers {
+  currency: string;
+  net_worth: number; liquid: number; monthly_surplus: number;
+  subscriptions: { key: string; label: string; monthly_amount: number }[];
+  debts: { id: string; label: string; remaining: number; monthly_payment: number }[];
+}
+export interface SimAskResponse { parsed: boolean; actions: SimAction[]; result: SimResult | null; }
+
+export async function getSimulatorLevers(displayCurrency = "TRY"): Promise<SimLevers> {
+  const r = await fetch(`${API_BASE_URL}/simulator/levers?display_currency=${displayCurrency}`, { headers: authHeaders() });
+  if (!r.ok) throw new Error(`Failed to load levers: ${r.status}`);
+  return r.json() as Promise<SimLevers>;
+}
+
+export async function runSimulator(
+  actions: SimAction[], horizonMonths: number, displayCurrency = "TRY", lang = "tr",
+): Promise<SimResult> {
+  const r = await fetch(`${API_BASE_URL}/simulator/run?display_currency=${displayCurrency}&lang=${lang}`, {
+    method: "POST",
+    headers: { ...authHeaders(), "Content-Type": "application/json" },
+    body: JSON.stringify({ actions, horizon_months: horizonMonths }),
+  });
+  if (!r.ok) throw new Error(`Simulation failed: ${r.status}`);
+  return r.json() as Promise<SimResult>;
+}
+
+export async function askSimulator(
+  question: string, horizonMonths: number, displayCurrency = "TRY", lang = "tr",
+): Promise<SimAskResponse> {
+  const r = await fetch(`${API_BASE_URL}/simulator/ask?display_currency=${displayCurrency}&lang=${lang}`, {
+    method: "POST",
+    headers: { ...authHeaders(), "Content-Type": "application/json" },
+    body: JSON.stringify({ question, horizon_months: horizonMonths }),
+  });
+  if (!r.ok) throw new Error(`Simulation failed: ${r.status}`);
+  return r.json() as Promise<SimAskResponse>;
+}
+
 export async function getBatches(): Promise<BatchSummary[]> {
   const response = await fetch(`${API_BASE_URL}/transactions/batches`, {
     headers: authHeaders(),

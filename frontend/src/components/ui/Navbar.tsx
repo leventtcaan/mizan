@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import Link from "next/link";
 import { getToken, getStoredUser, clearToken, updatePreferences } from "@/lib/api";
-import { BarChart2, Upload, LogOut, Menu, X, Scale, Home, Settings } from "@/components/ui/Icons";
+import { BarChart2, Upload, LogOut, Menu, X, Scale, Home, Settings, Sparkles } from "@/components/ui/Icons";
 import { useLanguage, type Lang } from "@/lib/i18n";
 import NotificationDropdown from "@/components/NotificationDropdown";
 import CurrencyMenu from "@/components/ui/CurrencyMenu";
@@ -34,6 +34,7 @@ export default function Navbar() {
     { href: "/home", label: t("nav.home"), icon: <Home size={16} />, match: ["/home"] },
     { href: "/transactions", label: t("nav.money"), icon: <PieChartMini />, match: MONEY_PATHS },
     { href: "/networth", label: t("nav.networth"), icon: <Scale size={16} />, match: ["/networth"] },
+    { href: "/simulator", label: t("nav.simulator"), icon: <Sparkles size={16} />, match: ["/simulator"] },
     { href: "/progress", label: t("nav.progress"), icon: <BarChart2 size={16} />, match: ["/progress"] },
   ];
 

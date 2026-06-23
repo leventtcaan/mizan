@@ -236,6 +236,15 @@ export function Zap({ size, className, strokeWidth }: IconProps) {
   );
 }
 
+export function Sparkles({ size, className, strokeWidth }: IconProps) {
+  return (
+    <Icon size={size} className={className} strokeWidth={strokeWidth}>
+      <path d="M12 3l1.9 4.6L18.5 9.5 13.9 11.4 12 16l-1.9-4.6L5.5 9.5l4.6-1.9z" />
+      <path d="M19 14l.8 2 2 .8-2 .8-.8 2-.8-2-2-.8 2-.8z" />
+    </Icon>
+  );
+}
+
 export function PieChart({ size, className, strokeWidth }: IconProps) {
   return (
     <Icon size={size} className={className} strokeWidth={strokeWidth}>
