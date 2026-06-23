@@ -119,35 +119,15 @@ async def run_daily_notifications_for_all_users() -> None:
 async def run_email_briefs_for_all_users() -> None:
     """Send the weekly money-brief email to every due, opted-in user.
 
-    Cadence (last_email_brief_sent + 6d) and the meaningful-change gate are enforced
-    per user, so a re-run won't double-send and quiet weeks are skipped. Per-user
-    failures are isolated, each in its own session.
+    Delegates to the shared run_email_briefs() (per-user isolated sessions; cadence +
+    meaningful-change gate enforced inside), so the scheduled job and the manual endpoint
+    share one implementation.
     """
-    from datetime import datetime as _dt
-    from app.api.email import send_email_brief
-    from app.services.email_brief import generate_email_brief, due_for_brief
+    from app.services.email_brief import run_email_briefs
 
-    user_ids = await _all_user_ids()
-    sent = 0
-    for uid in user_ids:
-        try:
-            async with AsyncSessionLocal() as session:
-                user = await session.get(User, uid)
-                if user is None or not due_for_brief(user):
-                    continue
-                brief = await generate_email_brief(uid, session)
-                if brief is None:
-                    continue
-                await send_email_brief(user.email, brief, brief["lang"])
-                user.last_email_brief_sent = _dt.now(timezone.utc)
-                session.add(user)
-                await session.commit()
-                sent += 1
-        except Exception:
-            logger.exception("Email brief failed for user=%s", uid)
-            continue
+    result = await run_email_briefs()
     LAST_RUN["email_briefs"] = datetime.now(timezone.utc).isoformat()
-    logger.info("Email briefs: %d users scanned, %d sent", len(user_ids), sent)
+    logger.info("Email briefs (scheduled): sent=%d skipped=%d", result["sent"], result["skipped"])
 
 
 def start_scheduler() -> None:

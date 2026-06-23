@@ -178,13 +178,19 @@ async def send_email_brief(to_email: str, brief: dict, lang: str = "tr") -> str:
     def _send() -> str:
         import resend  # local import — only when actually sending
         resend.api_key = settings.RESEND_API_KEY
-        response = resend.Emails.send({
-            "from": settings.RESEND_FROM_EMAIL,
-            "to": [to_email],
-            "subject": subject,
-            "html": html,
-            "text": text,
-        })
+        try:
+            response = resend.Emails.send({
+                "from": settings.RESEND_FROM_EMAIL,
+                "to": [to_email],
+                "subject": subject,
+                "html": html,
+                "text": text,
+            })
+        except Exception as e:
+            # Surface the real Resend error (domain not verified, bad API key format,
+            # invalid from-address) instead of a cut-off traceback.
+            logger.error("Resend send failed: %s: %s", type(e).__name__, str(e))
+            raise
         return response.get("id", "") if isinstance(response, dict) else str(response)
 
     email_id = await asyncio.to_thread(_send)

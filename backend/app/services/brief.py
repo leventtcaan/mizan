@@ -11,6 +11,7 @@ BREAKS IF REMOVED: /upload/brief has nothing to assemble; the /brief screen 404s
      and the upload flow silently falls back to /transactions.
 """
 
+import asyncio
 import logging
 import uuid
 from collections import Counter
@@ -309,7 +310,9 @@ async def build_brief(
     suggested_action = _choose_action(net, recurring_signal["monthly_total"], lang)
 
     facts = _narrative_facts(period, flow, top_categories, largest_transaction, recurring_signal, lang)
-    narrative = _generate_narrative(facts, lang) or _template_narrative(flow, top_categories, lang)
+    # Run the blocking synchronous LLM call off the event loop so it can't starve
+    # asyncpg between awaits (→ MissingGreenlet). Template fallback when it returns None.
+    narrative = await asyncio.to_thread(_generate_narrative, facts, lang) or _template_narrative(flow, top_categories, lang)
 
     logger.info(
         "Brief built — user=%s job_id=%s txs=%d net=%.0f %s",

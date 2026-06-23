@@ -9,6 +9,7 @@ WHY: The Post-Upload Brief (services/brief.py) is a one-shot moment; this is the
 BREAKS IF REMOVED: The weekly email job/endpoint has no content to send.
 """
 
+import asyncio
 import logging
 import uuid
 from collections import Counter
@@ -160,14 +161,26 @@ async def generate_email_brief(user_id: uuid.UUID, session: AsyncSession) -> dic
     upcoming = await _upcoming_receivables(user_id, today, session)
 
     # --- meaningful-change gate: only these "NEW/timely" signals count ---
-    meaningful = (
-        abs(spend_var) >= _MEANINGFUL_PCT
-        or (nw_pct is not None and abs(nw_pct) >= _MEANINGFUL_PCT)
-        or len(flagged) > 0
-        or len(upcoming) > 0
+    spend_ok = abs(spend_var) >= _MEANINGFUL_PCT
+    nw_ok = nw_pct is not None and abs(nw_pct) >= _MEANINGFUL_PCT
+    goals_ok = len(flagged) > 0
+    recv_ok = len(upcoming) > 0
+    logger.info(
+        "Email brief gate — user=%s cur_txs=%d prev_txs=%d | spend_var=%.1f%% (pass=%s) "
+        "nw_pct=%s (pass=%s) goals_breached=%d (pass=%s) receivables_due=%d (pass=%s)",
+        user_id, len(cur), len(prev),
+        spend_var, spend_ok,
+        f"{nw_pct:.1f}%" if nw_pct is not None else "n/a (need ≥2 snapshots)", nw_ok,
+        len(flagged), goals_ok,
+        len(upcoming), recv_ok,
     )
+    meaningful = spend_ok or nw_ok or goals_ok or recv_ok
     if not meaningful:
-        logger.info("Email brief skipped (nothing meaningful) — user=%s", user_id)
+        logger.info(
+            "Email brief SKIPPED (no meaningful change) — user=%s: spend<%.0f%% AND "
+            "net_worth<%.0f%% AND no goals breached AND no receivables due in 7d",
+            user_id, _MEANINGFUL_PCT, _MEANINGFUL_PCT,
+        )
         return None
 
     # --- bullets, prioritized, then padded with baseline facts up to 3 ---
@@ -246,7 +259,12 @@ async def generate_email_brief(user_id: uuid.UUID, session: AsyncSession) -> dic
             f"Net: {_money(net, currency)}. Spending change: {spend_var:.0f}%."
             + (f" Net worth change: {nw_pct:.0f}%." if nw_pct is not None else "")
         )
-    headline = _generate_narrative(facts, lang) or _template_headline(lang, income, cur_debit, net, currency)
+    # _generate_narrative makes a BLOCKING synchronous LLM HTTP call. Run it off the
+    # event loop: in this batch path we loop many users, and a blocking call on the
+    # loop starves asyncpg's connection between awaits → the next DB op raises
+    # MissingGreenlet ("greenlet_spawn has not been called"). to_thread keeps the loop free.
+    narrative = await asyncio.to_thread(_generate_narrative, facts, lang)
+    headline = narrative or _template_headline(lang, income, cur_debit, net, currency)
 
     cta_label = "Detayları gör →" if lang == "tr" else "See the details →"
     cta_url = f"{settings.FRONTEND_URL}/home"
@@ -274,3 +292,66 @@ def due_for_brief(user: User, now: datetime | None = None) -> bool:
         if now - last < timedelta(days=_CADENCE_DAYS):
             return False
     return True
+
+
+async def run_email_briefs() -> dict:
+    """
+    WHAT: Send the weekly money brief to every due, opted-in user. The single canonical
+          batch implementation behind both the scheduler job and the manual endpoint.
+    WHY: Each user is processed in its OWN AsyncSession (fresh connection lifecycle),
+         mirroring the reconciliation/notification jobs. The earlier version reused one
+         request-scoped session across the whole loop with in-loop commits, which broke
+         the async connection lifecycle and surfaced as MissingGreenlet at pool.connect().
+         Per-user isolation also means one user's failure can't poison the others.
+    """
+    # Lazy imports: keep this service free of api/core import cycles at module load.
+    from app.core.database import AsyncSessionLocal
+    from app.api.email import send_email_brief
+
+    async with AsyncSessionLocal() as session:
+        result = await session.execute(
+            select(User.id).where(User.email_weekly_enabled == True)  # noqa: E712
+        )
+        user_ids = [row[0] for row in result.all()]
+
+    logger.info("Email briefs: scanning %d opted-in user(s)", len(user_ids))
+    sent = 0
+    skipped = 0
+    now = datetime.now(timezone.utc)
+    for uid in user_ids:
+        try:
+            async with AsyncSessionLocal() as session:
+                user = await session.get(User, uid)
+                if user is None:
+                    logger.info("Email brief skipped — user=%s no longer exists", uid)
+                    skipped += 1
+                    continue
+                due = due_for_brief(user, now)
+                logger.info(
+                    "Email brief — user=%s email=%s due_for_brief=%s (last_sent=%s)",
+                    uid, user.email, due, user.last_email_brief_sent,
+                )
+                if not due:
+                    logger.info("Email brief SKIPPED — user=%s: not due (cadence/disabled)", user.email)
+                    skipped += 1
+                    continue
+                brief = await generate_email_brief(uid, session)
+                logger.info(
+                    "Email brief — user=%s brief=%s",
+                    user.email, "dict" if brief is not None else "None (gate failed)",
+                )
+                if brief is None:
+                    skipped += 1
+                    continue
+                await send_email_brief(user.email, brief, brief["lang"])
+                user.last_email_brief_sent = datetime.now(timezone.utc)
+                session.add(user)
+                await session.commit()
+                logger.info("Email brief SENT — user=%s", user.email)
+                sent += 1
+        except Exception:
+            logger.exception("Email brief FAILED — user=%s", uid)
+            skipped += 1
+
+    logger.info("Email briefs: sent=%d skipped=%d", sent, skipped)
+    return {"sent": sent, "skipped": skipped}
