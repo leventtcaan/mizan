@@ -141,15 +141,15 @@ export default function OnboardingPage() {
       .finally(() => setAnalyzing(false));
   }, [step, hasStatement, parsedIncome, parsedExpenses, currency, lang]);
 
-  // With a parsed statement, the Post-Upload Brief IS the first impression — skip the
-  // lightweight step-2 summary and land on the brief for the most recent upload.
+  // With a parsed statement, route through /review so the user can catch parse errors
+  // before the brief narrates them as truth; review then hands off to /brief.
   // With no statement, fall through to step 2's plain welcome.
   const next = async () => {
     setError(null);
     if (hasStatement) {
-      const lastSuccess = successUploads[successUploads.length - 1];
       await markDone();
-      router.push(`/brief?job_id=${lastSuccess.result.job_id}`);
+      const ids = successUploads.map((u) => u.result.job_id).join(",");
+      router.push(`/review?batch_ids=${ids}`);
       return;
     }
     setStep(2);
