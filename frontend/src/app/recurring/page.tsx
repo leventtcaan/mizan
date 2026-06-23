@@ -2,9 +2,10 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import PageLayout from "@/components/ui/PageLayout";
 import MoneyTabs from "@/components/ui/MoneyTabs";
-import { ChevronDown, ChevronUp } from "@/components/ui/Icons";
+import { ChevronDown, ChevronUp, RefreshCw, Upload } from "@/components/ui/Icons";
 import { card } from "@/lib/design";
 import { useLanguage } from "@/lib/i18n";
 import {
@@ -88,9 +89,15 @@ export default function RecurringPage() {
       )}
 
       {isEmpty && (
-        <div className="text-center py-20 bg-[#1A1A1A] border border-[#2A2A2A] rounded-xl text-gray-500">
-          <p className="text-base text-gray-400">{t("money.noRecurring")}</p>
-          <p className="text-sm mt-2 max-w-sm mx-auto">{t("money.noRecurringHint")}</p>
+        <div className="text-center py-16 bg-[#1A1A1A] border border-[#2A2A2A] rounded-2xl">
+          <div className="w-12 h-12 rounded-2xl bg-[#0F0F0F] border border-[#2A2A2A] flex items-center justify-center mx-auto mb-4">
+            <RefreshCw size={22} className="text-indigo-400" />
+          </div>
+          <p className="text-base text-gray-200 font-medium">{t("money.noRecurring")}</p>
+          <p className="text-sm text-gray-500 mt-2 max-w-sm mx-auto">{t("money.noRecurringHint")}</p>
+          <Link href="/upload" className="inline-flex items-center gap-1.5 mt-5 px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-medium transition-colors">
+            <Upload size={15} /> {t("nav.upload")}
+          </Link>
         </div>
       )}
 

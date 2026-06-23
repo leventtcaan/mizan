@@ -105,6 +105,13 @@ export default function ProgressPage() {
     value: Math.round(p.net_worth),
   }));
 
+  // The 0-100 score is only honest once at least two pillars carry REAL data.
+  // With one statement and nothing else, all four pillars fall back to neutral
+  // defaults (12+18+15+12 = a fake-authoritative "57"). Until then, show an honest
+  // "still learning" hero instead of a number that looks earned but isn't.
+  const realPillars = data ? data.pillars.filter((p) => p.status === "ok").length : 0;
+  const provisional = !!data && data.has_data && realPillars < 2;
+
   return (
     <PageLayout title={t("scorecard.title")} subtitle={t("scorecard.subtitle")}>
       {state === "loading" && (
@@ -135,7 +142,25 @@ export default function ProgressPage() {
         </div>
       )}
 
-      {state === "ready" && data && data.has_data && (
+      {/* Provisional: real score not earned yet — honest "still learning" view. */}
+      {state === "ready" && data && data.has_data && provisional && (
+        <div className="space-y-6">
+          <ProvisionalHero pillars={data.pillars} realPillars={realPillars} t={t} />
+          <Pillars pillars={data.pillars} t={t} />
+          <Trajectory
+            chartData={chartData}
+            annotations={data.annotations}
+            estimated={data.trajectory_estimated}
+            ccy={ccy}
+            range={range}
+            setRange={setRange}
+            t={t}
+            catLabel={catLabel}
+          />
+        </div>
+      )}
+
+      {state === "ready" && data && data.has_data && !provisional && (
         <div className="space-y-6">
           <HeroScore data={data} t={t} />
           <Pillars pillars={data.pillars} t={t} />
@@ -176,6 +201,29 @@ export default function ProgressPage() {
         </div>
       )}
     </PageLayout>
+  );
+}
+
+// ── Provisional hero: shown until the score is actually earned ───────────────
+function ProvisionalHero({
+  pillars, realPillars, t,
+}: { pillars: ScorecardPillar[]; realPillars: number; t: (k: string) => string }) {
+  return (
+    <div className="bg-[#1A1A1A] border border-[#2A2A2A] rounded-2xl p-6">
+      <p className="text-xs uppercase tracking-wider text-gray-500 mb-2">{t("scorecard.healthLabel")}</p>
+      <h2 className="text-2xl sm:text-3xl font-bold text-gray-100 mb-4">{t("scorecard.building.title")}</h2>
+      {/* Four-signal indicator — filled for each pillar that has real data */}
+      <div className="flex items-center gap-2 mb-2.5">
+        {pillars.map((p) => (
+          <div key={p.key} className={`h-1.5 flex-1 rounded-full ${p.status === "ok" ? "bg-indigo-500" : "bg-[#2A2A2A]"}`} />
+        ))}
+      </div>
+      <p className="text-sm text-indigo-300 font-medium mb-3">
+        {t("scorecard.building.signals").replace("{n}", String(realPillars))}
+      </p>
+      <p className="text-sm text-gray-400 leading-relaxed mb-2">{t("scorecard.building.desc")}</p>
+      <p className="text-xs text-gray-500">{t("scorecard.building.hint")}</p>
+    </div>
   );
 }
 

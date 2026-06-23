@@ -2,10 +2,11 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import PageLayout from "@/components/ui/PageLayout";
 import MoneyTabs from "@/components/ui/MoneyTabs";
 import CurrencySelect from "@/components/CurrencySelect";
-import { Calendar, ArrowDown, ArrowUp, RefreshCw, Plus, X } from "@/components/ui/Icons";
+import { Calendar, ArrowDown, ArrowUp, RefreshCw, Plus, X, Upload } from "@/components/ui/Icons";
 import {
   getToken,
   getCashFlowUpcoming,
@@ -324,10 +325,11 @@ export default function CashFlowPage() {
         )}
       </div>
 
-      {/* Summary Card */}
+      {/* Summary Card — hidden for a truly-empty user (no upcoming items AND no liquid),
+          so the page leads with the empty state instead of a card full of zeros. */}
       {loading ? (
         <div className="h-32 bg-[#1A1A1A] border border-[#2A2A2A] rounded-2xl animate-pulse mb-6" />
-      ) : summary && (
+      ) : summary && (sortedDates.length > 0 || liquidAssets > 0) && (
         <div className="bg-[#1A1A1A] border border-[#2A2A2A] rounded-2xl p-6 mb-6">
           <p className="text-gray-500 text-xs mb-4">{t("cashflow.upcomingPrefix")} {days} {t("cashflow.days")}</p>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -380,9 +382,19 @@ export default function CashFlowPage() {
         </div>
       ) : sortedDates.length === 0 ? (
         <div className="bg-[#1A1A1A] border border-[#2A2A2A] border-dashed rounded-2xl p-12 text-center">
-          <Calendar size={32} className="text-gray-700 mx-auto mb-3" />
-          <p className="text-gray-500 text-sm">{t("cashflow.noItems")}</p>
-          <p className="text-gray-600 text-xs mt-2">{t("cashflow.noItemsHint")}</p>
+          <div className="w-12 h-12 rounded-2xl bg-[#0F0F0F] border border-[#2A2A2A] flex items-center justify-center mx-auto mb-4">
+            <Calendar size={22} className="text-indigo-400" />
+          </div>
+          <p className="text-gray-200 text-sm font-medium">{t("cashflow.noItems")}</p>
+          <p className="text-gray-500 text-xs mt-2 max-w-sm mx-auto">{t("cashflow.noItemsHint")}</p>
+          <div className="flex items-center justify-center gap-3 mt-5">
+            <button onClick={() => setShowAddPayment(true)} className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-medium transition-colors">
+              <Plus size={15} /> {t("cashflow.addPayment")}
+            </button>
+            <Link href="/upload" className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg border border-[#2A2A2A] text-gray-300 hover:border-indigo-700 text-sm transition-colors">
+              <Upload size={15} /> {t("nav.upload")}
+            </Link>
+          </div>
         </div>
       ) : (
         <div className="space-y-6">
