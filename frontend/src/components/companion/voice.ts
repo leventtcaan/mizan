@@ -10,11 +10,12 @@
 import {
   getDefaultCurrency,
   getAssets, getNetWorthSummary,
-  getCashFlowUpcoming,
+  getCashFlowUpcoming, getCashFlowSummary,
   getSimulatorLevers,
   getTransactions,
   getScorecard,
   getRecurring,
+  getReceivables,
   getCurrencyRates,
 } from "@/lib/api";
 import { MimMood } from "./mood";
@@ -26,6 +27,8 @@ export interface Observation {
   mood: MimMood;
   /** Tapping the bubble opens the assistant with this question already typed. */
   prefill: string;
+  /** Stable identity for memory — Mim won't repeat the same observation in a session. */
+  key: string;
 }
 
 export function contextFromPath(pathname: string): VoiceContext | null {
@@ -75,7 +78,7 @@ async function observeNetworth(t: T, ccy: string): Promise<Observation | null> {
   const summary = await getNetWorthSummary(ccy);
   const totalAssets = summary.total_assets_try;
   if (totalAssets <= 0) {
-    return { line: t("companion.nw.empty"), mood: "calm", prefill: t("companion.nw.emptyAsk") };
+    return { key: "nw:empty", line: t("companion.nw.empty"), mood: "calm", prefill: t("companion.nw.emptyAsk") };
   }
   const [assets, rates] = await Promise.all([getAssets(), getCurrencyRates("USD").catch(() => ({}))]);
   // Convert each asset into display currency via USD pivot to find the true heavyweight.
@@ -96,12 +99,14 @@ async function observeNetworth(t: T, ccy: string): Promise<Observation | null> {
   const pct = Math.round((top.value / totalAssets) * 100);
   if (pct >= 40) {
     return {
+      key: `nw:top:${top.name}`,
       line: fill(t("companion.nw.concentrated"), { name: top.name, pct }),
       mood: "concerned",
       prefill: fill(t("companion.nw.concentratedAsk"), { name: top.name }),
     };
   }
   return {
+    key: `nw:top:${top.name}`,
     line: fill(t("companion.nw.largest"), { name: top.name, pct }),
     mood: "calm",
     prefill: fill(t("companion.nw.largestAsk"), { name: top.name }),
@@ -114,6 +119,7 @@ async function observeCashflow(t: T, ccy: string): Promise<Observation | null> {
   if (payment) {
     const n = daysUntil(payment.date);
     return {
+      key: `cf:pay:${payment.description}`,
       line: fill(t("companion.cashflow.nextPayment"), {
         name: payment.description, when: whenPhrase(t, "when", n),
       }),
@@ -127,6 +133,7 @@ async function observeCashflow(t: T, ccy: string): Promise<Observation | null> {
     const name = incoming.description.replace(/^Receivable:\s*/i, "");
     const when = incoming.overdue ? t("companion.recv.overdue") : whenPhrase(t, "recv", n);
     return {
+      key: `cf:recv:${name}`,
       line: fill(t("companion.cashflow.receivable"), {
         name, amt: money(parseFloat(incoming.amount) || 0, ccy), when,
       }),
@@ -134,7 +141,7 @@ async function observeCashflow(t: T, ccy: string): Promise<Observation | null> {
       prefill: t("companion.cashflow.receivableAsk"),
     };
   }
-  return { line: t("companion.cashflow.clear"), mood: "happy", prefill: t("companion.cashflow.clearAsk") };
+  return { key: "cf:clear", line: t("companion.cashflow.clear"), mood: "happy", prefill: t("companion.cashflow.clearAsk") };
 }
 
 async function observeSimulator(t: T, ccy: string): Promise<Observation | null> {
@@ -142,6 +149,7 @@ async function observeSimulator(t: T, ccy: string): Promise<Observation | null> 
   if (levers.debts.length > 0) {
     const d = [...levers.debts].sort((a, b) => b.remaining - a.remaining)[0];
     return {
+      key: `sim:debt:${d.label}`,
       line: fill(t("companion.sim.debt"), { name: d.label }),
       mood: "thinking",
       prefill: fill(t("companion.sim.debtAsk"), { name: d.label }),
@@ -150,12 +158,13 @@ async function observeSimulator(t: T, ccy: string): Promise<Observation | null> 
   if (levers.subscriptions.length > 0) {
     const monthly = levers.subscriptions.reduce((s, x) => s + (x.monthly_amount || 0), 0);
     return {
+      key: "sim:subs",
       line: fill(t("companion.sim.subs"), { amt: money(monthly, ccy) }),
       mood: "thinking",
       prefill: t("companion.sim.subsAsk"),
     };
   }
-  return { line: t("companion.sim.invite"), mood: "thinking", prefill: t("companion.sim.inviteAsk") };
+  return { key: "sim:invite", line: t("companion.sim.invite"), mood: "thinking", prefill: t("companion.sim.inviteAsk") };
 }
 
 async function observeTransactions(t: T, ccy: string): Promise<Observation | null> {
@@ -192,6 +201,7 @@ async function observeTransactions(t: T, ccy: string): Promise<Observation | nul
   }
   if (swing) {
     return {
+      key: `tx:swing:${swing.cat}`,
       line: fill(t("companion.tx.swing"), { pct: swing.pct, cat: catLabel(swing.cat) }),
       mood: swing.pct >= 40 ? "concerned" : "calm",
       prefill: fill(t("companion.tx.swingAsk"), { cat: catLabel(swing.cat) }),
@@ -202,6 +212,7 @@ async function observeTransactions(t: T, ccy: string): Promise<Observation | nul
   if (entries.length === 0 || entries[0][1] <= 0) return null;
   const [topCat, topAmt] = entries[0];
   return {
+    key: `tx:top:${topCat}`,
     line: fill(t("companion.tx.top"), { cat: catLabel(topCat), amt: money(topAmt, ccy) }),
     mood: "calm",
     prefill: fill(t("companion.tx.topAsk"), { cat: catLabel(topCat) }),
@@ -215,17 +226,19 @@ async function observeProgress(t: T, ccy: string): Promise<Observation | null> {
   const delta = sc.score_delta;
   if (delta != null && Math.round(delta) > 0) {
     return {
+      key: "pr:score:up",
       line: fill(t("companion.progress.up"), { score, delta: Math.round(delta) }),
       mood: "happy", prefill: t("companion.progress.upAsk"),
     };
   }
   if (delta != null && Math.round(delta) < 0) {
     return {
+      key: "pr:score:down",
       line: fill(t("companion.progress.down"), { score, delta: Math.abs(Math.round(delta)) }),
       mood: "concerned", prefill: t("companion.progress.downAsk"),
     };
   }
-  return { line: fill(t("companion.progress.flat"), { score }), mood: "calm", prefill: t("companion.progress.flatAsk") };
+  return { key: "pr:score:flat", line: fill(t("companion.progress.flat"), { score }), mood: "calm", prefill: t("companion.progress.flatAsk") };
 }
 
 async function observeRecurring(t: T, ccy: string): Promise<Observation | null> {
@@ -233,6 +246,7 @@ async function observeRecurring(t: T, ccy: string): Promise<Observation | null> 
   const count = summary.subscription_count + summary.installment_count;
   if (count <= 0) return null;
   return {
+    key: "rc:summary",
     line: fill(t("companion.recurring.summary"), { count, amt: money(parseFloat(summary.monthly_total) || 0, ccy) }),
     mood: "calm",
     prefill: t("companion.recurring.summaryAsk"),
@@ -255,4 +269,60 @@ export async function observe(context: VoiceContext, t: T): Promise<Observation 
   } catch {
     return null;
   }
+}
+
+/**
+ * What Mim should raise on its own, regardless of which page you're on — the things
+ * that can't wait for you to wander over to them. Returns the single most urgent item,
+ * or null. The caller dedupes by `key` so a flagged-then-dismissed item won't nag.
+ */
+export async function checkEscalation(t: T): Promise<Observation | null> {
+  const ccy = getDefaultCurrency();
+  try {
+    // 1) Overdue receivable — money you're owed that's late.
+    const recvs = await getReceivables().catch(() => []);
+    const overdue = recvs.find((r) => r.status === "overdue");
+    if (overdue) {
+      return {
+        key: `esc:recv:${overdue.id}`,
+        mood: "alert",
+        line: fill(t("companion.escalation.overdueReceivable"), {
+          name: overdue.from_person, amt: money(parseFloat(overdue.amount) || 0, overdue.currency),
+        }),
+        prefill: t("companion.escalation.overdueReceivableAsk"),
+      };
+    }
+
+    // 2) A payment due within three days.
+    const items = await getCashFlowUpcoming(7, ccy).catch(() => []);
+    const soon = items
+      .filter((i) => i.type === "liability_payment" || i.type === "subscription")
+      .map((i) => ({ i, d: daysUntil(i.date) }))
+      .filter((x) => x.d >= 0 && x.d <= 3)
+      .sort((a, b) => a.d - b.d)[0];
+    if (soon) {
+      return {
+        key: `esc:pay:${soon.i.description}:${soon.i.date}`,
+        mood: "concerned",
+        line: fill(t("companion.escalation.paymentDue"), {
+          name: soon.i.description, when: whenPhrase(t, "when", soon.d),
+        }),
+        prefill: t("companion.escalation.paymentDueAsk"),
+      };
+    }
+
+    // 3) Liquidity can't cover what's coming up.
+    const sum = await getCashFlowSummary(30, ccy).catch(() => null);
+    if (sum && sum.warning) {
+      return {
+        key: "esc:liquidity",
+        mood: "alert",
+        line: t("companion.escalation.liquidity"),
+        prefill: t("companion.escalation.liquidityAsk"),
+      };
+    }
+  } catch {
+    /* stay quiet on any failure */
+  }
+  return null;
 }

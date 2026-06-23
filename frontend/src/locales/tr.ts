@@ -425,6 +425,14 @@ export const tr = {
       summary: "{count} tekrarlayan ödemen var — ayda {amt}.",
       summaryAsk: "Hangi aboneliklerden tasarruf edebilirim?",
     },
+    escalation: {
+      overdueReceivable: "{name} sana {amt} borçlu ve ödeme gecikti.",
+      overdueReceivableAsk: "Geciken alacağımı nasıl tahsil ederim?",
+      paymentDue: "Yaklaşan ödeme: {name} {when}.",
+      paymentDueAsk: "Bu ödemeyi karşılayabilir miyim?",
+      liquidity: "Likit varlıkların yaklaşan ödemeleri karşılamaya yetmeyebilir.",
+      liquidityAsk: "Nakit akışımı nasıl güçlendiririm?",
+    },
     when: {
       today: "bugün ödenecek",
       tomorrow: "yarın ödenecek",

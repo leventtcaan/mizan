@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import type { GuidanceFinding } from "@/lib/api";
-import { Brain, ChevronDown, ChevronUp, ArrowRight, Bell, RefreshCw, Target, MessageCircle, Plus } from "@/components/ui/Icons";
+import { ChevronDown, ChevronUp, ArrowRight, Bell, RefreshCw, Target, Plus } from "@/components/ui/Icons";
+import Mim from "@/components/companion/Mim";
 
 const SEV: Record<string, { dot: string; chip: string; border: string }> = {
   high:   { dot: "bg-red-500",    chip: "text-red-300 bg-red-950/40 border-red-900/40",       border: "border-l-red-600/60" },
@@ -11,7 +12,7 @@ const SEV: Record<string, { dot: string; chip: string; border: string }> = {
 };
 
 const ACTION_ICON: Record<string, React.ReactNode> = {
-  discuss: <MessageCircle size={13} />,
+  discuss: <Mim size={14} quiet />,
   set_goal: <Target size={13} />,
   create_alert: <Bell size={13} />,
   refresh_prices: <RefreshCw size={13} />,
@@ -37,8 +38,8 @@ export default function GuidancePanel({
   if (!findings || findings.length === 0) {
     return (
       <div className="mb-6 bg-[#1A1A1A] border border-[#2A2A2A] rounded-2xl p-5 flex items-center gap-3">
-        <div className="w-8 h-8 rounded-lg bg-emerald-950/40 border border-emerald-900/40 flex items-center justify-center shrink-0">
-          <Brain size={16} className="text-emerald-400" />
+        <div className="w-8 h-8 flex items-center justify-center shrink-0">
+          <Mim size={30} mood="happy" quiet />
         </div>
         <div>
           <p className="text-gray-200 text-sm font-medium">{t("nw.guidance.allClearTitle")}</p>
@@ -51,8 +52,8 @@ export default function GuidancePanel({
   return (
     <div className="mb-6 bg-[#1A1A1A] border border-[#2A2A2A] rounded-2xl overflow-hidden">
       <div className="flex items-center gap-2 px-5 pt-4 pb-3">
-        <div className="w-7 h-7 rounded-lg bg-indigo-950/50 border border-indigo-900/50 flex items-center justify-center">
-          <Brain size={15} className="text-indigo-400" />
+        <div className="w-7 h-7 flex items-center justify-center">
+          <Mim size={26} quiet />
         </div>
         <div className="flex-1">
           <p className="text-sm font-semibold text-white">{t("nw.guidance.title")}</p>

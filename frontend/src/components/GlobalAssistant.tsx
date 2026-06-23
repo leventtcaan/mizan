@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
 import { Send, X as XIcon, CheckCircle } from "@/components/ui/Icons";
 import Mim from "@/components/companion/Mim";
-import { observe, contextFromPath, type Observation } from "@/components/companion/voice";
+import { observe, checkEscalation, contextFromPath, type Observation } from "@/components/companion/voice";
 import { useLanguage } from "@/lib/i18n";
 import {
   getToken, getStoredUser, getNetWorthSummary,
@@ -45,6 +45,10 @@ export default function GlobalAssistant() {
   const inputRef = useRef<HTMLInputElement>(null);
   const spokenPathRef = useRef<string | null>(null);
   const bubbleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Session memory: keys Mim has already voiced (so it never repeats itself), and
+  // a once-per-session flag for the cross-page urgent check (reset when data changes).
+  const spokenKeysRef = useRef<Set<string>>(new Set());
+  const escalationCheckedRef = useRef(false);
 
   useEffect(() => {
     setAuthed(!!getToken() && !!getStoredUser());
@@ -63,18 +67,31 @@ export default function GlobalAssistant() {
     return () => window.removeEventListener("mizan-open-assistant", openHandler);
   }, []);
 
-  // Mim notices one specific thing about the page you just landed on — then waits.
-  // Speaks once per page visit, after a gentle beat, and fades on its own.
+  // Mim speaks one thing after you land on a page, then waits. It leads with anything
+  // genuinely urgent (checked once per session, cross-page), otherwise says what THIS
+  // page notices — and never repeats an observation it has already voiced this session.
+  // Skipped on Home, which has its own inline Mim + "Needs you" list.
   useEffect(() => {
-    if (!authed || open) { setBubble(null); return; }
+    if (!authed || open || pathname === "/home") { setBubble(null); return; }
     const ctx = contextFromPath(pathname);
-    if (!ctx) { spokenPathRef.current = pathname; setBubble(null); return; }
-    if (spokenPathRef.current === pathname) return; // already spoke here
-    spokenPathRef.current = pathname;
     let cancelled = false;
     const intro = setTimeout(async () => {
-      const obs = await observe(ctx, t);
+      let obs: Observation | null = null;
+
+      // 1) Urgent, regardless of page — only once per session until data changes.
+      if (!escalationCheckedRef.current) {
+        escalationCheckedRef.current = true;
+        const esc = await checkEscalation(t);
+        if (esc && !spokenKeysRef.current.has(esc.key)) obs = esc;
+      }
+      // 2) Otherwise what this page notices — deduped against memory.
+      if (!obs && ctx && spokenPathRef.current !== pathname) {
+        const o = await observe(ctx, t);
+        if (o && !spokenKeysRef.current.has(o.key)) obs = o;
+      }
+      spokenPathRef.current = pathname;
       if (cancelled || !obs) return;
+      spokenKeysRef.current.add(obs.key);
       setBubble(obs);
       if (bubbleTimerRef.current) clearTimeout(bubbleTimerRef.current);
       bubbleTimerRef.current = setTimeout(() => setBubble(null), 9000);
@@ -83,6 +100,13 @@ export default function GlobalAssistant() {
   }, [pathname, authed, open, t]);
 
   useEffect(() => () => { if (bubbleTimerRef.current) clearTimeout(bubbleTimerRef.current); }, []);
+
+  // When the user's data changes, let Mim re-check for newly-urgent things.
+  useEffect(() => {
+    const h = () => { escalationCheckedRef.current = false; };
+    window.addEventListener("mizan-data-changed", h);
+    return () => window.removeEventListener("mizan-data-changed", h);
+  }, []);
 
   // On first open, detect whether the user has any data yet (for the greeting).
   useEffect(() => {
@@ -196,12 +220,16 @@ export default function GlobalAssistant() {
             {/* Messages */}
             <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-3 space-y-3 min-h-0">
               {messages.length === 0 && (
-                <p className="text-gray-500 text-sm text-center py-6">{hasData === false ? t("assistant.emptyGreeting") : t("assistant.greeting")}</p>
+                <div className="flex flex-col items-center text-center py-6 gap-3">
+                  <Mim mood="calm" size={48} speaking />
+                  <p className="text-gray-400 text-sm max-w-[260px] leading-relaxed">{hasData === false ? t("assistant.emptyGreeting") : t("assistant.greeting")}</p>
+                </div>
               )}
               {messages.map((m, i) => (
                 <div key={i} className="space-y-2">
-                  <div className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}>
-                    <div className={`max-w-[85%] px-3 py-2 rounded-xl text-sm leading-relaxed ${m.role === "user" ? "bg-indigo-600 text-white" : "bg-[#2A2A2A] text-gray-200"}`}>
+                  <div className={`flex items-end gap-2 ${m.role === "user" ? "justify-end" : "justify-start"}`}>
+                    {m.role === "assistant" && <Mim mood="calm" size={22} quiet className="shrink-0 mb-0.5" />}
+                    <div className={`max-w-[80%] px-3 py-2 rounded-xl text-sm leading-relaxed ${m.role === "user" ? "bg-indigo-600 text-white" : "bg-[#222] text-gray-200 rounded-bl-sm"}`}>
                       {m.text}
                     </div>
                   </div>
@@ -240,8 +268,9 @@ export default function GlobalAssistant() {
                 </div>
               ))}
               {pending && (
-                <div className="flex justify-start">
-                  <div className="bg-[#2A2A2A] px-3 py-2 rounded-xl">
+                <div className="flex items-end gap-2 justify-start">
+                  <Mim mood="thinking" size={22} quiet className="shrink-0 mb-0.5" />
+                  <div className="bg-[#222] px-3 py-2 rounded-xl rounded-bl-sm">
                     <div className="flex gap-1 items-center h-4">
                       {[0, 1, 2].map((i) => (
                         <span key={i} className="w-1.5 h-1.5 rounded-full bg-gray-500 animate-bounce" style={{ animationDelay: `${i * 0.15}s` }} />

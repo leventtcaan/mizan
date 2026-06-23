@@ -5,11 +5,8 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { getToken, getBrief, type Brief } from "@/lib/api";
 import { useLanguage } from "@/lib/i18n";
 import { CATEGORY_LABELS, CATEGORY_COLORS, DEFAULT_CATEGORY_COLOR } from "@/lib/categories";
-import { ArrowRight, Brain } from "@/components/ui/Icons";
-
-function askMizan(prefill: string) {
-  window.dispatchEvent(new CustomEvent("mizan-open-assistant", { detail: { prefill } }));
-}
+import { ArrowRight } from "@/components/ui/Icons";
+import AskMim from "@/components/companion/AskMim";
 
 // "18 May–18 Haz" / "May 18–Jun 18" — noon avoids tz day-shift on ISO dates.
 function fmtDateRange(startISO: string, endISO: string, lang: string): string {
@@ -84,12 +81,7 @@ function BriefContent() {
   const beatStyle = (i: number) => ({ transitionDelay: `${i * 100}ms` });
 
   const AskLink = ({ prefill }: { prefill: string }) => (
-    <button
-      onClick={() => askMizan(prefill)}
-      className="mt-3 inline-flex items-center gap-1 text-indigo-400/80 hover:text-indigo-300 text-xs transition-colors"
-    >
-      <Brain size={12} /> {t("brief.askMizan")}
-    </button>
+    <AskMim prefill={prefill} label={t("brief.askMizan")} className="mt-3" />
   );
 
   return (

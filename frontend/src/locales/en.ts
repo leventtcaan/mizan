@@ -425,6 +425,14 @@ export const en = {
       summary: "You're committed to {count} recurring payments — {amt} a month.",
       summaryAsk: "Which subscriptions could I save on?",
     },
+    escalation: {
+      overdueReceivable: "{name} owes you {amt}, and it's now overdue.",
+      overdueReceivableAsk: "How do I collect this overdue receivable?",
+      paymentDue: "Heads up — {name} {when}.",
+      paymentDueAsk: "Can I cover this payment?",
+      liquidity: "Your liquid assets may not cover what's coming up.",
+      liquidityAsk: "How do I shore up my cash flow?",
+    },
     when: {
       today: "is due today",
       tomorrow: "is due tomorrow",

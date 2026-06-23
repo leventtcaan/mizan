@@ -5,8 +5,9 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import PageLayout from "@/components/ui/PageLayout";
 import AddTransactionModal from "@/components/AddTransactionModal";
-import { ArrowRight, Upload, Plus, Scale, Sparkles, Wallet, CheckCircle, Brain } from "@/components/ui/Icons";
+import { ArrowRight, Upload, Plus, Scale, Sparkles, Wallet, CheckCircle } from "@/components/ui/Icons";
 import Mim from "@/components/companion/Mim";
+import AskMim from "@/components/companion/AskMim";
 import { moodFromTone, type MimMood } from "@/components/companion/mood";
 import { useLanguage } from "@/lib/i18n";
 import { currentMonthLabel } from "@/lib/period";
@@ -152,8 +153,6 @@ export default function HomePage() {
     return items.sort((a, b) => b.severity - a.severity).slice(0, 2);
   })();
 
-  const askCoach = () => window.dispatchEvent(new CustomEvent("mizan-open-assistant", { detail: { prefill: t("home.daily.askPrefill") } }));
-
   // Mim reads the state. Both flat → calm; otherwise the verdict's tone is its mood.
   const hasFigures = income > 0 || expenses > 0;
   const mimMood: MimMood = hasFigures ? moodFromTone(verdict.tone) : "calm";
@@ -204,9 +203,7 @@ export default function HomePage() {
             <h1 className="text-[24px] sm:text-[30px] font-bold leading-snug tracking-tight">
               {verdict.text}
             </h1>
-            <button onClick={askCoach} className="mt-4 inline-flex items-center gap-1.5 text-indigo-400 hover:text-indigo-300 text-sm transition-colors">
-              <Brain size={14} /> {t("home.daily.askAbout")}
-            </button>
+            <AskMim prefill={t("home.daily.askPrefill")} label={t("home.daily.askAbout")} mood={mimMood} className="mt-4" />
           </div>
         </div>
 
