@@ -131,6 +131,17 @@ export default function HomePage() {
 
   const [txModalOpen, setTxModalOpen] = useState(false);
 
+  // One-time guided tour: nudge the user to add assets/liabilities once they reach Home,
+  // instead of forcing it as an onboarding form step. Shown a single time, ever.
+  const [tourVisible, setTourVisible] = useState(false);
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (localStorage.getItem("mizan_tour_shown") !== "1") {
+      localStorage.setItem("mizan_tour_shown", "1");
+      setTourVisible(true);
+    }
+  }, []);
+
   const loadAll = useCallback((scan: boolean) => {
     Promise.all([
       getNetWorthSummary(ccy).catch(() => null),
@@ -699,6 +710,40 @@ export default function HomePage() {
 
       {txModalOpen && (
         <AddTransactionModal onClose={() => setTxModalOpen(false)} onSuccess={() => setTxModalOpen(false)} />
+      )}
+
+      {/* One-time guided tour — floating, non-blocking coach card */}
+      {tourVisible && (
+        <div className="fixed bottom-4 inset-x-4 sm:inset-x-auto sm:right-6 sm:bottom-6 sm:max-w-sm z-40">
+          <div className="bg-[#1A1A1A] border border-indigo-800/50 rounded-2xl p-4 shadow-2xl shadow-black/50">
+            <div className="flex items-start gap-3">
+              <span className="shrink-0 w-9 h-9 rounded-lg bg-indigo-950 border border-indigo-800/50 flex items-center justify-center">
+                <Scale size={18} className="text-indigo-400" />
+              </span>
+              <div className="flex-1 min-w-0">
+                <p className="text-gray-200 text-sm leading-relaxed mb-3">{t("home.tour.text")}</p>
+                <div className="flex flex-wrap gap-2">
+                  <Link
+                    href="/networth?add=asset"
+                    onClick={() => setTourVisible(false)}
+                    className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold transition-colors"
+                  >
+                    {t("home.tour.addAsset")} <ArrowRight size={13} />
+                  </Link>
+                  <button
+                    onClick={() => setTourVisible(false)}
+                    className="px-3 py-2 rounded-lg border border-[#2A2A2A] text-gray-400 hover:text-gray-200 text-xs font-medium transition-colors"
+                  >
+                    {t("home.tour.later")}
+                  </button>
+                </div>
+              </div>
+              <button onClick={() => setTourVisible(false)} title={t("home.dismiss")} className="shrink-0 text-gray-600 hover:text-gray-300 transition-colors">
+                <XIcon size={14} />
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </PageLayout>
   );

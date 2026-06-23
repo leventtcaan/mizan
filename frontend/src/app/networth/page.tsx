@@ -372,6 +372,17 @@ export default function NetWorthPage() {
     loadAll();
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Deep link: /networth?add=asset (used by the Home first-run tour card) opens the
+  // add-asset modal straight away, then cleans the query so a refresh doesn't reopen it.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("add") === "asset") {
+      setShowAddAsset(true);
+      window.history.replaceState({}, "", window.location.pathname);
+    }
+  }, []);
+
   // React to live currency changes from Settings / the navbar selector. The
   // initial value already comes from the lazy useState initializer above, so we
   // only need the listener here (no mount-time setDisplayCurrency that would race).

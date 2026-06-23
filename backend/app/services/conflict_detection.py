@@ -20,15 +20,22 @@ from typing import TypedDict
 SAME_THRESHOLD = 0.20
 # Manual spending more than 20% above parsed → genuinely more, ask the user.
 EXCESS_THRESHOLD = 0.20
+# Income figures within ±5% are effectively identical — never raise a question (and
+# never imply "same money" for anything wider than this).
+NEAR_THRESHOLD = 0.05
+# Gap wide enough that the two income figures plausibly represent SEPARATE sources,
+# so offering "both are correct — use the total" makes sense.
+SUM_THRESHOLD = 0.25
 
 
 class Conflict(TypedDict):
-    kind: str            # income_duplicate | spending_same | spending_excess
+    kind: str            # income_mismatch | spending_same | spending_excess
     field: str           # income | spending
     parsed: float
     manual: float
     diff_pct: float      # signed: (manual - parsed) / parsed
-    recommendation: str  # use_statement | ask | add_supplementary
+    recommendation: str  # use_statement | use_manual | ask | add_supplementary
+    allow_sum: bool      # whether "use the total of both" is a sensible third option
 
 
 def _diff_pct(parsed: float, manual: float) -> float:
@@ -38,20 +45,27 @@ def _diff_pct(parsed: float, manual: float) -> float:
 
 
 def detect_income_conflict(parsed: float | None, manual: float | None) -> Conflict | None:
-    """Manual income close to a parsed salary-like credit is almost certainly the same money."""
+    """
+    Compare a user-entered monthly income against the income seen in the statement.
+    Only raises a question when they differ by more than NEAR_THRESHOLD (5%) — within
+    that band they are treated as the same figure (no double-count, no prompt). When
+    the gap is wide (> SUM_THRESHOLD) the two may be genuinely separate income sources,
+    so the resolver may offer "use the total".
+    """
     if not parsed or not manual or parsed <= 0 or manual <= 0:
         return None
     diff = _diff_pct(parsed, manual)
-    if abs(diff) <= SAME_THRESHOLD:
-        return Conflict(
-            kind="income_duplicate",
-            field="income",
-            parsed=round(parsed, 2),
-            manual=round(manual, 2),
-            diff_pct=round(diff, 4),
-            recommendation="use_statement",
-        )
-    return None
+    if abs(diff) <= NEAR_THRESHOLD:
+        return None
+    return Conflict(
+        kind="income_mismatch",
+        field="income",
+        parsed=round(parsed, 2),
+        manual=round(manual, 2),
+        diff_pct=round(diff, 4),
+        recommendation="use_statement",
+        allow_sum=abs(diff) > SUM_THRESHOLD,
+    )
 
 
 def detect_spending_conflict(parsed: float | None, manual: float | None) -> Conflict | None:
@@ -67,6 +81,7 @@ def detect_spending_conflict(parsed: float | None, manual: float | None) -> Conf
             manual=round(manual, 2),
             diff_pct=round(diff, 4),
             recommendation="use_statement",
+            allow_sum=False,
         )
     if diff > EXCESS_THRESHOLD:
         return Conflict(
@@ -76,6 +91,7 @@ def detect_spending_conflict(parsed: float | None, manual: float | None) -> Conf
             manual=round(manual, 2),
             diff_pct=round(diff, 4),
             recommendation="ask",
+            allow_sum=True,
         )
     return None
 

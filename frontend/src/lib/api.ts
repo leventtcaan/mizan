@@ -333,12 +333,13 @@ export async function login(email: string, password: string): Promise<TokenRespo
 // --- Onboarding analysis (conflict detection + AI first impression) ---
 
 export interface OnboardingConflict {
-  kind: "income_duplicate" | "spending_same" | "spending_excess";
+  kind: "income_mismatch" | "spending_same" | "spending_excess";
   field: "income" | "spending";
   parsed: number;
   manual: number;
   diff_pct: number;
-  recommendation: "use_statement" | "ask" | "add_supplementary";
+  recommendation: "use_statement" | "use_manual" | "ask" | "add_supplementary";
+  allow_sum: boolean;
 }
 
 export interface OnboardingAnalyzeRequest {
