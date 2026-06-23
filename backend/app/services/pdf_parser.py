@@ -880,6 +880,267 @@ def _parse_csv(contents: bytes) -> ParseResult:
     )
 
 
+# ─── XLSX extraction ──────────────────────────────────────────────────────────
+
+_XLSX_MIME = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+
+# Multilingual header hints — tried FIRST. Value-based inference is the fallback so the
+# parser stays GLOBAL (works on banks whose column names we've never seen, and on any
+# language). No single bank's column names are required.
+_XLSX_DATE_HINTS = (
+    "tarih", "date", "datum", "fecha", "data", "dato", "tanggal", "valör", "valeur",
+)
+_XLSX_DESC_HINTS = (
+    "açıklama", "aciklama", "description", "desc", "detay", "detail", "narrative",
+    "libelle", "concepto", "verwendungszweck", "beschreibung", "explanation", "memo",
+    "note", "işlem", "islem", "reference", "açıklamalar",
+)
+_XLSX_AMOUNT_HINTS = (
+    "tutar", "amount", "montant", "betrag", "importe", "importo", "valor", "miktar",
+    "value", "debit", "credit",
+)
+_XLSX_BALANCE_HINTS = (
+    "bakiye", "balance", "saldo", "solde", "kontostand", "available", "guncel bakiye",
+)
+
+_XLSX_HEADER_SCAN_ROWS = 15  # how many leading rows to scan for the real header row
+
+
+def _coerce_number(v: object) -> float | None:
+    """Return a float if the cell is numeric (Excel number OR a locale-formatted string),
+    else None. Booleans are explicitly rejected (Excel sometimes yields them)."""
+    if isinstance(v, bool):
+        return None
+    if isinstance(v, (int, float)):
+        return float(v)
+    if isinstance(v, str):
+        s = v.strip()
+        if not s:
+            return None
+        try:
+            return float(_normalise_amount(s))
+        except (ValueError, ArithmeticError):
+            return None
+    return None
+
+
+def _xlsx_date_str(v: object) -> str:
+    """Excel date cells come back as datetime/date; emit ISO. Otherwise pass the text
+    through (transaction_service._parse_date handles DD.MM.YYYY, ISO, etc.)."""
+    from datetime import date as _date, datetime as _datetime
+    if isinstance(v, _datetime) or isinstance(v, _date):
+        return v.strftime("%Y-%m-%d")
+    return "" if v is None else str(v).strip()
+
+
+def _looks_like_date(v: object) -> bool:
+    from datetime import date as _date, datetime as _datetime
+    if isinstance(v, (_datetime, _date)):
+        return True
+    return bool(v) and bool(_DATE_RE.search(str(v)))
+
+
+def _identify_xlsx_columns(
+    header: tuple, data_rows: list[tuple]
+) -> tuple[int | None, int | None, int | None]:
+    """
+    Return (date_idx, desc_idx, amount_idx) for a table. Header keyword hints win; where a
+    hint is missing we infer from the column VALUES so the parser stays bank-agnostic:
+      - date column  = the column whose cells mostly look like dates
+      - amount column = a numeric column, preferring the one carrying negative values
+                        (debits) — the running-balance column rarely goes negative
+      - desc column  = the remaining column with the longest average text
+    """
+    n = len(header)
+    headers = [str(h).strip().lower() if h is not None else "" for h in header]
+
+    def by_hint(hints: tuple) -> int | None:
+        for i, h in enumerate(headers):
+            if h and any(k in h for k in hints):
+                return i
+        return None
+
+    date_idx = by_hint(_XLSX_DATE_HINTS)
+    desc_idx = by_hint(_XLSX_DESC_HINTS)
+    amount_idx = by_hint(_XLSX_AMOUNT_HINTS)
+    balance_idx = by_hint(_XLSX_BALANCE_HINTS)
+
+    # Per-column value profiles for fallback inference.
+    date_frac = [0.0] * n
+    num_frac = [0.0] * n
+    neg_frac = [0.0] * n
+    avg_text = [0.0] * n
+    for c in range(n):
+        total = dt = num = neg = 0
+        text_len = 0
+        for row in data_rows:
+            if c >= len(row):
+                continue
+            v = row[c]
+            if v is None or (isinstance(v, str) and not v.strip()):
+                continue
+            total += 1
+            if _looks_like_date(v):
+                dt += 1
+            number = _coerce_number(v)
+            if number is not None:
+                num += 1
+                if number < 0:
+                    neg += 1
+            elif isinstance(v, str):
+                text_len += len(v.strip())
+        if total:
+            date_frac[c] = dt / total
+            num_frac[c] = num / total
+            neg_frac[c] = neg / total
+            avg_text[c] = text_len / total
+
+    if date_idx is None:
+        cand = max(range(n), key=lambda c: date_frac[c], default=None)
+        if cand is not None and date_frac[cand] >= 0.5:
+            date_idx = cand
+
+    if amount_idx is None:
+        numeric_cols = [c for c in range(n) if num_frac[c] >= 0.5 and c != balance_idx]
+        if numeric_cols:
+            # Prefer the numeric column that actually carries debits (negatives); the
+            # balance column is excluded above and rarely negative anyway.
+            amount_idx = max(numeric_cols, key=lambda c: (neg_frac[c], num_frac[c]))
+
+    # A column can't be two roles at once — re-derive description if it collided.
+    if desc_idx is not None and desc_idx in (date_idx, amount_idx):
+        desc_idx = None
+    if desc_idx is None:
+        used = {date_idx, amount_idx, balance_idx}
+        cand = max(
+            (c for c in range(n) if c not in used),
+            key=lambda c: avg_text[c],
+            default=None,
+        )
+        if cand is not None and avg_text[cand] > 0:
+            desc_idx = cand
+
+    return date_idx, desc_idx, amount_idx
+
+
+def _xlsx_header_score(header: tuple) -> bool:
+    """True if this row names BOTH a date and an amount column — a real header row,
+    distinguishing it from preamble/title rows above the table."""
+    cells = [c.strip().lower() for c in header if isinstance(c, str) and c.strip()]
+    has_date = any(any(k in c for k in _XLSX_DATE_HINTS) for c in cells)
+    has_amount = any(any(k in c for k in _XLSX_AMOUNT_HINTS) for c in cells)
+    return has_date and has_amount
+
+
+def _find_xlsx_table(rows: list[tuple]) -> tuple[int, int | None, int | None, int | None]:
+    """
+    Find the header row + column indices. Bank exports often have a few preamble rows
+    (account holder, IBAN, period) before the table, so we scan the first rows and pick
+    the first candidate header that yields BOTH a date and an amount column. Falls back to
+    treating row 0 as the header.
+    """
+    limit = min(len(rows), _XLSX_HEADER_SCAN_ROWS)
+    # Pass 1: a row that explicitly names both a date and an amount column is the header.
+    for h in range(limit):
+        if _xlsx_header_score(rows[h]):
+            date_idx, desc_idx, amount_idx = _identify_xlsx_columns(rows[h], rows[h + 1:])
+            if date_idx is not None and amount_idx is not None and date_idx != amount_idx:
+                return h, date_idx, desc_idx, amount_idx
+    # Pass 2: value inference — first candidate yielding DISTINCT date & amount columns.
+    for h in range(limit):
+        if not any(isinstance(c, str) and c.strip() for c in rows[h]):
+            continue
+        date_idx, desc_idx, amount_idx = _identify_xlsx_columns(rows[h], rows[h + 1:])
+        if date_idx is not None and amount_idx is not None and date_idx != amount_idx:
+            return h, date_idx, desc_idx, amount_idx
+    # Fallback: first row is the header (per the simplest expectation).
+    if rows:
+        date_idx, desc_idx, amount_idx = _identify_xlsx_columns(rows[0], rows[1:])
+        return 0, date_idx, desc_idx, amount_idx
+    return 0, None, None, None
+
+
+def parse_xlsx(contents: bytes) -> ParseResult:
+    """
+    WHAT: Extracts transactions from an .xlsx bank statement using openpyxl.
+    WHY: Many banks export Excel. We read the first worksheet, locate the date /
+         description / amount columns (by multilingual header hints, then by value
+         inference so it works for any bank/language), and treat a NEGATIVE amount as a
+         debit, POSITIVE as a credit. The running-balance column is ignored.
+    BREAKS IF REMOVED: .xlsx uploads produce no transactions.
+    """
+    try:
+        import openpyxl
+        wb = openpyxl.load_workbook(io.BytesIO(contents), read_only=True, data_only=True)
+    except Exception as exc:
+        logger.error("XLSX could not be opened: %s", exc)
+        return ParseResult([], 1, 0, "xlsx-error", status="failed", reason="parse_error")
+
+    try:
+        ws = wb.active
+        rows = [row for row in ws.iter_rows(values_only=True)]
+    finally:
+        wb.close()
+
+    if not rows:
+        return ParseResult([], 1, 0, "xlsx", status="empty", reason="unrecognized_format")
+
+    header_idx, date_idx, desc_idx, amount_idx = _find_xlsx_table(rows)
+    if date_idx is None or amount_idx is None:
+        logger.warning("XLSX: could not identify date/amount columns")
+        return ParseResult([], 1, 0, "xlsx", status="empty", reason="unrecognized_format")
+
+    logger.info(
+        "XLSX: header row=%d, columns date=%s desc=%s amount=%s",
+        header_idx, date_idx, desc_idx, amount_idx,
+    )
+
+    transactions: list[RawTransaction] = []
+    for row in rows[header_idx + 1:]:
+        if amount_idx >= len(row):
+            continue
+        num = _coerce_number(row[amount_idx])
+        if num is None or abs(num) < 0.01:
+            continue  # not a transaction row (blank, text, or zero)
+
+        # The date cell must actually look like a date — this drops preamble/title rows
+        # and footer summary rows (e.g. "Borç:" / "Toplam") that carry a number but no date.
+        if date_idx >= len(row) or not _looks_like_date(row[date_idx]):
+            continue
+        date_str = _xlsx_date_str(row[date_idx])
+
+        description = ""
+        if desc_idx is not None and desc_idx < len(row) and row[desc_idx] is not None:
+            description = str(row[desc_idx]).strip()
+
+        # Skip footer summary rows (Borç:/Alacak:/Toplam/Bakiye/total).
+        if any(frag in description.lower() for frag in _SUMMARY_DESCRIPTION_FRAGMENTS):
+            continue
+
+        transactions.append(RawTransaction(
+            date=date_str,
+            description=description or "İşlem",
+            # Store a positive amount + explicit direction (negative amount = debit).
+            amount=_normalise_amount(str(abs(num))),
+            transaction_type="debit" if num < 0 else "credit",
+        ))
+
+    transactions = _deduplicate(transactions)
+    transactions = _filter_zero_amount(transactions)
+    logger.info("XLSX parse complete — %d transactions", len(transactions))
+
+    if transactions:
+        return ParseResult(
+            transactions=transactions, page_count=1, raw_row_count=len(rows),
+            source_type="xlsx", status="success",
+            detected_currency=_dominant_currency(transactions),
+        )
+    return ParseResult(
+        transactions=[], page_count=1, raw_row_count=len(rows),
+        source_type="xlsx", status="empty", reason="unrecognized_format",
+    )
+
+
 # ─── Public entry point ───────────────────────────────────────────────────────
 
 def parse_statement(contents: bytes, content_type: str, filename: str) -> ParseResult:
@@ -898,7 +1159,15 @@ def parse_statement(contents: bytes, content_type: str, filename: str) -> ParseR
         filename, content_type, len(contents), _has_llm_key(),
     )
 
-    if content_type != "application/pdf":
+    fn = (filename or "").lower()
+    is_pdf = content_type == "application/pdf" or fn.endswith(".pdf")
+
+    # Excel exports: dispatch by extension OR the openxml MIME (browsers sometimes send
+    # xlsx as application/octet-stream, so extension is the reliable signal).
+    if fn.endswith(".xlsx") or content_type == _XLSX_MIME:
+        return parse_xlsx(contents)
+
+    if not is_pdf:
         return _parse_csv(contents)
 
     # ── Layer 1: pdfplumber text extraction ───────────────────────────────────

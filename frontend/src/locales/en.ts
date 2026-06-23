@@ -614,7 +614,7 @@ export const en = {
     step3Subtitle: "and let's start the analysis",
     dropHere: "Drop the file here",
     orClick: "or click to select",
-    pdfCsvMax: "PDF or CSV · Max 10 MB",
+    pdfCsvMax: "PDF, CSV or XLSX · Max 10 MB",
     uploading: "Uploading and analyzing...",
     analysisSuccess: "Your statement was analyzed successfully.",
     skip: "Skip for now",

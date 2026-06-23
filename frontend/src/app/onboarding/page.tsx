@@ -172,7 +172,7 @@ export default function OnboardingPage() {
               onClick={() => fileInputRef.current?.click()}
               className={`border border-dashed rounded-xl p-6 text-center cursor-pointer transition-all mb-3 ${dragging ? "border-indigo-500 bg-indigo-950/20" : "border-[#2A2A2A] hover:border-[#3A3A3A]"}`}
             >
-              <input ref={fileInputRef} type="file" accept=".pdf,.csv" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) handleUpload(f); }} />
+              <input ref={fileInputRef} type="file" accept=".pdf,.csv,.xlsx" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) handleUpload(f); }} />
               <FileText size={22} className="text-indigo-400 mx-auto mb-2" />
               {uploading ? (
                 <span className="text-gray-400 text-sm">{t("onboarding.uploading")}</span>

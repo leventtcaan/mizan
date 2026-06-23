@@ -614,7 +614,7 @@ export const tr = {
     step3Subtitle: "ve analize başlayalım",
     dropHere: "Dosyayı buraya sürükleyin",
     orClick: "veya tıklayarak seçin",
-    pdfCsvMax: "PDF veya CSV · Maks 10 MB",
+    pdfCsvMax: "PDF, CSV veya XLSX · Maks 10 MB",
     uploading: "Yükleniyor ve analiz ediliyor...",
     analysisSuccess: "ekstreniniz başarıyla analiz edildi.",
     skip: "Şimdi değil, atla",

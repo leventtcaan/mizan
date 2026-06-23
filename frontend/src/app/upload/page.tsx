@@ -98,7 +98,7 @@ export default function UploadPage() {
         <input
           id="file-input"
           type="file"
-          accept=".pdf,.csv"
+          accept=".pdf,.csv,.xlsx"
           className="hidden"
           onChange={handleInputChange}
         />

@@ -45,7 +45,11 @@ ALLOWED_CONTENT_TYPES = {
     "application/pdf",
     "text/csv",
     "application/vnd.ms-excel",
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",  # .xlsx
 }
+
+# Accept by extension too — browsers/OSes sometimes send xlsx/csv as octet-stream.
+ALLOWED_EXTENSIONS = (".pdf", ".csv", ".xlsx")
 
 
 class SuggestionOut(BaseModel):
@@ -220,10 +224,14 @@ async def upload_statement(
             detail="10 dakikada en fazla 3 yükleme yapılabilir. Lütfen bekleyin.",
         )
 
-    if file.content_type not in ALLOWED_CONTENT_TYPES:
+    fname_lower = (file.filename or "").lower()
+    if (
+        file.content_type not in ALLOWED_CONTENT_TYPES
+        and not fname_lower.endswith(ALLOWED_EXTENSIONS)
+    ):
         raise HTTPException(
             status_code=415,
-            detail=f"Unsupported file type: {file.content_type}. Upload a PDF or CSV.",
+            detail=f"Unsupported file type: {file.content_type}. Upload a PDF, CSV or XLSX.",
         )
 
     contents = await file.read()
