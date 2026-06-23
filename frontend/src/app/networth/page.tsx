@@ -184,29 +184,22 @@ function assetDetailLabel(asset: AssetItem, t: (k: string) => string): string | 
   }
 }
 
-function maturityCountdown(raw: string | null): { days: number; label: string } | null {
+function maturityCountdown(raw: string | null, t: (k: string) => string): { days: number; label: string } | null {
   if (!raw) return null;
   try {
     const d = JSON.parse(raw) as { maturity_date?: string };
     if (!d.maturity_date) return null;
     const days = Math.ceil((new Date(d.maturity_date).getTime() - Date.now()) / 86400000);
-    if (days > 0) return { days, label: `Vadeye ${days} gün kaldı` };
-    if (days === 0) return { days, label: "Bugün vade bitiyor" };
-    return { days, label: "Vade doldu" };
+    if (days > 0) return { days, label: t("nw.maturityDaysLeft").replace("{n}", String(days)) };
+    if (days === 0) return { days, label: t("nw.maturityToday") };
+    return { days, label: t("nw.maturityExpired") };
   } catch { return null; }
 }
 
-function eventLabel(eventType: string): string {
-  const labels: Record<string, string> = {
-    receivable_collected: "Receivable collected",
-    receivable_collection_reversed: "Collection reversed",
-    receivable_written_off: "Receivable written off",
-    asset_created: "Asset created",
-    asset_updated: "Asset updated",
-    liability_created: "Liability created",
-    statement_uploaded: "Statement uploaded",
-  };
-  return labels[eventType] ?? eventType.replaceAll("_", " ");
+function eventLabel(eventType: string, t: (k: string) => string): string {
+  const key = `nw.event.${eventType}`;
+  const label = t(key);
+  return label !== key ? label : eventType.replaceAll("_", " ");
 }
 
 function eventDetail(detail: FinancialEventItem["source_detail"]): string | null {
@@ -958,7 +951,7 @@ export default function NetWorthPage() {
             {summary && Object.keys(summary.currency_breakdown).length > 1 && (
               <div className="mt-5 pt-5 border-t border-[#2A2A2A] flex flex-wrap gap-3 justify-center">
                 {Object.entries(summary.currency_breakdown).sort(([, a], [, b]) => b - a).map(([cur, val]) => (
-                  <span key={cur} className="px-2.5 py-1 rounded-full bg-[#2A2A2A] text-xs text-gray-400">{cur}: {fmt(val, "TRY")}</span>
+                  <span key={cur} className="px-2.5 py-1 rounded-full bg-[#2A2A2A] text-xs text-gray-400">{cur}: {fmt(val, displayCurrency)}</span>
                 ))}
               </div>
             )}
@@ -1055,7 +1048,7 @@ export default function NetWorthPage() {
                   {groupAssets.map((a, idx) => {
                     const detailLabel = assetDetailLabel(a, t);
                     const priceBadge = getPriceBadge(a);
-                    const maturity = a.asset_type === "bank_account" ? maturityCountdown(a.source_detail ?? null) : null;
+                    const maturity = a.asset_type === "bank_account" ? maturityCountdown(a.source_detail ?? null, t) : null;
                     return (
                       <div key={a.id} className={`flex items-center justify-between px-4 py-3 ${idx < groupAssets.length - 1 ? "border-b border-[#2A2A2A]" : ""}`}>
                         <div>
@@ -1453,7 +1446,7 @@ export default function NetWorthPage() {
                 return (
                   <div key={event.id} className={`flex items-center justify-between gap-3 px-4 py-3 ${idx < events.length - 1 ? "border-b border-[#2A2A2A]" : ""}`}>
                     <div className="min-w-0">
-                      <p className="text-gray-200 text-sm">{eventLabel(event.event_type)}</p>
+                      <p className="text-gray-200 text-sm">{eventLabel(event.event_type, t)}</p>
                       <p className="text-gray-500 text-xs mt-0.5">
                         {event.event_date} · {event.entity_type}{detail ? ` · ${detail}` : ""}
                       </p>

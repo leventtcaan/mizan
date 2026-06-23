@@ -99,7 +99,7 @@ function BriefContent() {
         <div className={beatCls} style={beatStyle(0)}>
           <p className="text-center text-gray-600 text-xs font-medium tracking-widest uppercase mb-2">{t("brief.eyebrow")}</p>
           <p className="text-center text-gray-500 text-sm mb-8">
-            {period.transaction_count} {t("brief.transactions")} · {period.start} – {period.end}
+            {period.transaction_count} {t("brief.transactions")} · {periodRange}
           </p>
         </div>
 

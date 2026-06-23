@@ -143,8 +143,9 @@ export default function GlobalAssistant() {
 
   return (
     <>
-      {/* Mim — the companion, present on every page. Notices things, then waits. Tap to talk. */}
-      {!open && (
+      {/* Mim — the companion, present on every page. Notices things, then waits. Tap to talk.
+          Hidden on Home, which already renders Mim inline as the greeting (avoids two Mims at once). */}
+      {!open && pathname !== "/home" && (
         <div className="fixed bottom-5 right-5 z-50 flex flex-col items-end gap-2.5">
           {bubble && (
             <div className="mim-bubble flex items-start gap-2 max-w-[270px] rounded-2xl rounded-br-md bg-[#1B1B1B] border border-[#2E2E2E] shadow-xl shadow-black/40 pl-3.5 pr-2 py-2.5">

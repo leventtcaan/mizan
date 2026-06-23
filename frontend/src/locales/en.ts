@@ -556,6 +556,18 @@ export const en = {
     alertNotifyIf: "Notify me if it drops by",
     alertTriggersAt: "Triggers at",
     maturityLabel: "Matures",
+    maturityDaysLeft: "{n} days to maturity",
+    maturityToday: "Matures today",
+    maturityExpired: "Matured",
+    event: {
+      receivable_collected: "Receivable collected",
+      receivable_collection_reversed: "Collection reversed",
+      receivable_written_off: "Receivable written off",
+      asset_created: "Asset created",
+      asset_updated: "Asset updated",
+      liability_created: "Liability created",
+      statement_uploaded: "Statement uploaded",
+    },
     allocation: {
       title: "Asset allocation",
       total: "Total",

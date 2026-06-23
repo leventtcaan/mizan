@@ -556,6 +556,18 @@ export const tr = {
     alertNotifyIf: "Şu kadar düşerse haber ver",
     alertTriggersAt: "Tetiklenir:",
     maturityLabel: "Vade",
+    maturityDaysLeft: "Vadeye {n} gün kaldı",
+    maturityToday: "Bugün vade bitiyor",
+    maturityExpired: "Vade doldu",
+    event: {
+      receivable_collected: "Alacak tahsil edildi",
+      receivable_collection_reversed: "Tahsilat geri alındı",
+      receivable_written_off: "Alacak silindi",
+      asset_created: "Varlık eklendi",
+      asset_updated: "Varlık güncellendi",
+      liability_created: "Borç eklendi",
+      statement_uploaded: "Ekstre yüklendi",
+    },
     allocation: {
       title: "Varlık dağılımı",
       total: "Toplam",
