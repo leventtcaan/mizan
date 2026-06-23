@@ -2,11 +2,13 @@
 WHAT: Bank-agnostic PDF/CSV parser with a 3-layer extraction pipeline.
 WHY: Many financial institutions generate image-based PDFs — pdfplumber returns empty text on them.
      A layered approach ensures at least one method always produces output:
-     Layer 1 (pdfplumber) is fast and free; Layer 2 (Tesseract OCR) handles scanned PDFs;
-     Layer 3 (vision LLM) is reserved for low-confidence OCR (future).
+     Layer 1 (pdfplumber) is fast and free; Layer 3 (vision LLM) reads scanned/image PDFs
+     directly off the rendered page; Layer 2 (Tesseract OCR) is the offline fallback when
+     no vision-capable key is configured.
 BREAKS IF REMOVED: Upload pipeline has no way to extract transaction data from files.
 """
 
+import base64
 import csv
 import io
 import json
@@ -160,6 +162,10 @@ def _layer2_ocr(contents: bytes, page_count: int) -> str:
         # Some statement PDFs use small fonts (8-9pt); at 300 DPI these are ~33px tall,
         # which is below Tesseract's sweet spot. 400 DPI raises them to ~44px,
         # significantly improving recognition of ş, ğ, ı, ü, ö, ç.
+        # NOTE: higher DPI (500/600) and binarization were both trialled on real scanned
+        # statements — they recover some faint glyphs but ERASE the thin comma/period
+        # separators in amounts ("10.000,00" → "1000000", a 100× error), which is far
+        # worse than a dropped row. 400 DPI grayscale preserves separators best.
         mat = fitz.Matrix(400 / 72, 400 / 72)
         pix = page.get_pixmap(matrix=mat)
         img = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
@@ -190,14 +196,122 @@ def _layer2_ocr(contents: bytes, page_count: int) -> str:
     return "\n".join(pages_text)
 
 
-# ─── Layer 3: Vision LLM (stub) ───────────────────────────────────────────────
+# ─── Layer 3: Vision LLM ──────────────────────────────────────────────────────
 
-# FUTURE: if OCR confidence is low (pytesseract.image_to_data confidence avg < 60),
-# send the page image to a vision-capable LLM (GPT-4o-mini vision, Claude 3 Haiku).
-# This handles handwritten amounts, unusual fonts, and rotated text that Tesseract
-# cannot reliably decode.
-# Requires: openai>=1.51.0 with image input support, or anthropic SDK with vision.
-# Cost estimate: ~$0.003 per page with GPT-4o-mini — acceptable for high-value users.
+# WHY: For image-only PDFs (scanned statements), Tesseract→text→LLM loses the visual
+# column structure — the amount and running-balance columns bleed together and the LLM
+# can't tell which number is which. A vision model reads the rendered page directly and
+# SEES the columns, so it reliably picks the transaction amount over the balance and
+# recovers rows whose glyphs Tesseract garbles. This is the right path for scans.
+
+# gpt-4o-mini is vision-capable and cheap (~$0.003/page at high detail). DeepSeek's
+# deepseek-chat is NOT vision-capable, so vision always routes to OpenAI regardless of
+# which provider is primary for text.
+_VISION_MODEL = "gpt-4o-mini"
+
+# WHY: 150 DPI → ~1650px long edge for a letter/A4 page. gpt-4o-mini caps the long edge
+# at 2048px and tiles at 512px internally, so going higher than this just inflates the
+# base64 payload without giving the model more detail. 150 DPI reads dense 8-9pt rows
+# while keeping each page well under OpenAI's 20MB image limit.
+_VISION_DPI = 150
+
+# Cap pages sent to vision so a 100-page statement can't blow up cost/latency.
+_MAX_VISION_PAGES = 25
+
+_VISION_SYSTEM = (
+    "You are a precise bank-statement parser that reads statement page images. "
+    "Return ONLY a JSON array — no prose, no code fences."
+)
+
+_VISION_USER = (
+    "This is an image of one page of a bank statement. Extract EVERY transaction row.\n\n"
+    "Return a JSON array with one object per transaction, fields:\n"
+    '- "date": ISO "YYYY-MM-DD" (convert from whatever format is shown).\n'
+    '- "description": the merchant / counterparty text.\n'
+    '- "amount": the TRANSACTION amount as a plain positive number, dot decimal, NO '
+    "thousands separators, NO currency symbol.\n"
+    '- "transaction_type": "credit" if money came IN, "debit" if money went OUT.\n'
+    '- "currency": the ISO 4217 code if shown, otherwise null.\n\n'
+    "Rules:\n"
+    "- The table has a TRANSACTION AMOUNT column and a separate RUNNING BALANCE column "
+    "(usually the rightmost). Use ONLY the transaction amount column; IGNORE the running "
+    "balance entirely.\n"
+    "- Incoming transfers (FAST, Havale, Virman, EFT, incoming wire), deposits, salary, "
+    "refunds and interest are credits. Purchases, withdrawals, fees and outgoing "
+    "transfers are debits.\n"
+    "- Skip header rows and summary/total rows (e.g. 'Borç:', 'Alacak:', 'Toplam', "
+    "'Bakiye').\n"
+    "- Output one object per real row; never invent or duplicate rows.\n\n"
+    "Respond with ONLY the JSON array."
+)
+
+
+def _has_vision() -> bool:
+    """Vision requires an OpenAI key (gpt-4o-mini). DeepSeek can't do vision."""
+    return len(settings.OPENAI_API_KEY) > 0
+
+
+def _render_page_png_b64(page, dpi: int = _VISION_DPI) -> str:
+    """Render a single pymupdf page to a base64-encoded PNG string."""
+    import fitz  # pymupdf
+    mat = fitz.Matrix(dpi / 72, dpi / 72)
+    pix = page.get_pixmap(matrix=mat)
+    return base64.b64encode(pix.tobytes("png")).decode("ascii")
+
+
+def _layer3_vision_extract(contents: bytes) -> list[RawTransaction]:
+    """
+    WHAT: Renders each PDF page to an image and asks a vision LLM to read the
+          transactions straight off the page. One call per page; results aggregated.
+    WHY: Vision preserves the column layout that OCR-to-text destroys, so the model
+         can distinguish the transaction-amount column from the running-balance column.
+    BREAKS IF REMOVED: Scanned/image statements fall back to the less accurate
+         Tesseract OCR path.
+    """
+    import fitz  # pymupdf
+    from openai import OpenAI
+
+    client = OpenAI(api_key=settings.OPENAI_API_KEY)
+
+    results: list[RawTransaction] = []
+    doc = fitz.open(stream=contents, filetype="pdf")
+    try:
+        n_pages = min(len(doc), _MAX_VISION_PAGES)
+        for page_num in range(n_pages):
+            b64 = _render_page_png_b64(doc[page_num])
+            try:
+                response = client.chat.completions.create(
+                    model=_VISION_MODEL,
+                    messages=[
+                        {"role": "system", "content": _VISION_SYSTEM},
+                        {
+                            "role": "user",
+                            "content": [
+                                {"type": "text", "text": _VISION_USER},
+                                {
+                                    "type": "image_url",
+                                    "image_url": {
+                                        "url": f"data:image/png;base64,{b64}",
+                                        "detail": "high",
+                                    },
+                                },
+                            ],
+                        },
+                    ],
+                    temperature=0,
+                )
+                raw = response.choices[0].message.content or "[]"
+            except Exception as exc:
+                logger.error("Layer 3: vision API call failed on page %d: %s", page_num + 1, exc)
+                continue
+            page_txs = _parse_llm_json(raw)
+            logger.info("Layer 3: page %d → %d transactions", page_num + 1, len(page_txs))
+            results.extend(page_txs)
+    finally:
+        doc.close()
+
+    logger.info("Layer 3: vision extracted %d transactions across %d page(s)", len(results), n_pages)
+    return results
 
 
 # ─── LLM transaction extraction (text → structured JSON) ─────────────────────
@@ -209,25 +323,34 @@ _LLM_SYSTEM = (
 )
 
 _LLM_USER_TEMPLATE = """\
-Extract ALL transactions from the bank statement text below.
+Extract ALL transactions from the bank statement text below. The text may be OCR
+output with garbled characters — recover what you can.
+
+Many statements are a table laid out as:
+    date | (reference) | description | TRANSACTION AMOUNT | RUNNING BALANCE
+When a row has TWO numbers like this, the rightmost is the RUNNING BALANCE and the one
+just before it is the TRANSACTION AMOUNT. Use the transaction amount, NEVER the running
+balance. (When a row has only one number, that is the transaction amount.)
 
 For each transaction return an object with exactly these fields:
 - "date": ISO format "YYYY-MM-DD". Convert from whatever format appears in the
   statement (DD.MM.YYYY, MM/DD/YYYY, DD-MM-YYYY, "23 Jun 2026", "Jun 23, 2026", …).
 - "description": the merchant / counterparty text, cleaned of column noise.
-- "amount": a PLAIN POSITIVE number using a dot as the decimal separator, with NO
-  thousands separators and NO currency symbol. Convert BOTH "1.234,56" (TR/EU) and
-  "1,234.56" (US/UK) to "1234.56".
+- "amount": the TRANSACTION amount as a PLAIN POSITIVE number with a dot decimal
+  separator, NO thousands separators, NO currency symbol. Convert BOTH "1.234,56"
+  (TR/EU) and "1,234.56" (US/UK) to "1234.56". Copy the digits exactly as printed —
+  never scale, round, or invent extra zeros.
 - "transaction_type": "debit" if money LEFT the account (purchase, withdrawal,
   payment, fee, outgoing transfer) or "credit" if money ENTERED (deposit, salary,
-  refund, interest, incoming transfer). Infer from the sign, the debit/credit
-  column, and the surrounding context. Do NOT default to "debit" when the context
-  clearly indicates money coming in.
+  refund, interest, INCOMING transfer such as FAST / Havale / Virman / EFT / wire).
+  Infer from the sign, an explicit debit/credit column, and the surrounding context.
+  Do NOT default to "debit" when the context clearly indicates money coming in.
 - "currency": the ISO 4217 code of the transaction if it can be determined from the
   statement (e.g. "USD", "EUR", "TRY", "GBP", "JPY"), otherwise null.
 
-Skip header rows, balance/total/summary rows, and blank lines. If a row has both a
-debit and a credit column and one is empty/zero, use the populated one.
+Output EXACTLY ONE object per real transaction row — never split one row into two and
+never merge two rows. Skip header rows, blank lines, and summary/total rows such as
+"Borç:", "Alacak:", "Total", "Balance".
 
 Respond with ONLY this JSON array (no prose, no code fences):
 [{{"date":"YYYY-MM-DD","description":"...","amount":"1234.56","transaction_type":"debit","currency":"USD"}}]
@@ -302,7 +425,8 @@ def _parse_llm_json(raw: str) -> list[RawTransaction]:
         date = str(item.get("date", "")).strip()
         description = str(item.get("description", "")).strip()
         amount = _normalise_amount(str(item.get("amount", "")).strip())
-        tx_type = str(item.get("transaction_type", "debit")).strip().lower()
+        # Accept "transaction_type" (text-LLM schema) or "type" (vision schema).
+        tx_type = str(item.get("transaction_type") or item.get("type") or "debit").strip().lower()
         cur_raw = item.get("currency")
         currency = str(cur_raw).strip().upper() if cur_raw and str(cur_raw).strip().lower() not in ("none", "null", "") else None
         if currency and (len(currency) != 3 or not currency.isalpha()):
@@ -438,11 +562,23 @@ def _normalise_amount(raw: str) -> str:
     last_comma = s.rfind(",")
     last_dot = s.rfind(".")
     if last_comma > last_dot:
-        # comma is the decimal separator (TR/EU): drop dots, comma→dot
-        s = s.replace(".", "").replace(",", ".")
+        # comma is the decimal separator (TR/EU): dots are thousands → drop them.
+        s = s.replace(".", "")
+        # Multiple commas means OCR/LLM mangled thousands separators — only the last
+        # comma is the decimal point (e.g. "9,470,18" → "9470.18").
+        if s.count(",") > 1:
+            head, _, tail = s.rpartition(",")
+            s = head.replace(",", "") + "." + tail
+        else:
+            s = s.replace(",", ".")
     elif last_dot > last_comma:
-        # dot is the decimal separator (US/UK): drop commas
+        # dot is the decimal separator (US/UK): commas are thousands → drop them.
         s = s.replace(",", "")
+        # Multiple dots means dotted thousands (TR balance OCR'd without its comma,
+        # e.g. "9.470.18") — only the last dot is the decimal point → "9470.18".
+        if s.count(".") > 1:
+            head, _, tail = s.rpartition(".")
+            s = head.replace(".", "") + "." + tail
     # else: no separators → already a plain integer string
     return ("-" + s) if neg else s
 
@@ -637,9 +773,10 @@ def parse_statement(contents: bytes, content_type: str, filename: str) -> ParseR
     WHY: Single entry point — callers never inspect file internals or key availability.
     BREAKS IF REMOVED: Upload endpoint has no dispatch logic.
 
-    Layer 1 — pdfplumber text extraction (fast, free, works on vector PDFs)
-    Layer 2 — Tesseract OCR at 300 DPI (handles image-based/scanned PDFs)
-    Layer 3 — Vision LLM (stub; for low-confidence OCR in the future)
+    Layer 1 — pdfplumber text extraction (fast, free, works on vector/text PDFs)
+    Layer 3 — Vision LLM (image-only PDFs; reads the rendered page directly — preferred
+              over OCR when an OpenAI vision key is available)
+    Layer 2 — Tesseract OCR at 400 DPI (offline fallback when no vision key is set)
     """
     logger.info(
         "Parsing statement — filename=%s content_type=%s size=%d llm_available=%s",
@@ -669,6 +806,28 @@ def parse_statement(contents: bytes, content_type: str, filename: str) -> ParseR
         logger.info("Layer 1: text extraction successful — %d chars extracted", text_chars)
         transactions, source_suffix, currency = _parse_text(raw_text, layer="1")
         return _finalize(transactions, page_count, f"pdf-text-{source_suffix}", currency)
+
+    # ── Layer 3: Vision LLM (preferred for image-only PDFs) ───────────────────
+    # WHY: This is a scanned/image PDF (no usable text layer). A vision model reads
+    # the rendered page directly and preserves the column layout, which is far more
+    # accurate than Tesseract→text→LLM. Only available when an OpenAI key is set;
+    # otherwise we fall through to Layer 2 OCR.
+    if _has_vision():
+        logger.info(
+            "Layer 1 returned %d chars (below %d threshold) — image PDF; trying Layer 3 vision",
+            text_chars, _MIN_TEXT_CHARS,
+        )
+        try:
+            vision_txs = _layer3_vision_extract(contents)
+        except Exception as exc:
+            logger.error("Layer 3: vision extraction failed: %s — falling back to Layer 2 OCR", exc)
+            vision_txs = []
+        if vision_txs:
+            vision_txs = _deduplicate(vision_txs)
+            vision_txs = _filter_zero_amount(vision_txs)
+            vision_txs = _apply_sign_correction(vision_txs)
+            return _finalize(vision_txs, page_count, "pdf-vision-llm", _dominant_currency(vision_txs))
+        logger.warning("Layer 3: vision returned 0 transactions — falling back to Layer 2 OCR")
 
     # ── Layer 2: Tesseract OCR ────────────────────────────────────────────────
     logger.info(
@@ -732,10 +891,21 @@ def _deduplicate(transactions: list[RawTransaction]) -> list[RawTransaction]:
 
 
 def _filter_zero_amount(transactions: list[RawTransaction]) -> list[RawTransaction]:
-    result = [t for t in transactions if abs(float(t.amount)) >= 0.01]
+    """Drop zero-value rows AND rows whose amount text can't be parsed as a number —
+    a single malformed amount must never crash the whole upload."""
+    result: list[RawTransaction] = []
+    unparseable = 0
+    for t in transactions:
+        try:
+            if abs(float(t.amount)) >= 0.01:
+                result.append(t)
+        except (ValueError, TypeError):
+            unparseable += 1
     removed = len(transactions) - len(result)
     if removed:
-        logger.warning("Filtered %d zero-amount artifact(s)", removed)
+        logger.warning(
+            "Filtered %d row(s): zero-amount or unparseable (%d unparseable)", removed, unparseable
+        )
     return result
 
 
