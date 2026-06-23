@@ -701,6 +701,8 @@ export const tr = {
       impressionTitle: "Mizan'ın ilk izlenimi",
       analyzing: "Tablonu inceliyoruz…",
       impressionFallback: "Tablon hazır. Her şeyi istediğin zaman düzenleyebilirsin.",
+      welcomeTitle: "Mizan'a hoş geldin",
+      welcomeBody: "Hazırsın. İstediğin zaman ekstre yükleyebilir ya da Ana Sayfa'dan varlık ve borçlarını ekleyebilirsin — Mizan senin için takip eder.",
       conflict: {
         incomeMismatchPre: "Aylık geliriniz için",
         incomeMismatchMid: "girdiniz, ancak ekstrenizde",

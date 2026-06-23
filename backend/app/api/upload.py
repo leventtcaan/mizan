@@ -16,7 +16,6 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile, status
 from pydantic import BaseModel
-from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
@@ -25,12 +24,16 @@ from app.core.dependencies import get_current_user
 from app.core.rate_limiter import upload_ip_limiter, upload_user_limiter
 from app.models.networth_suggestion import NetworthSuggestion
 from app.models.reconciliation_item import ReconciliationItem
-from app.models.transaction import Transaction
 from app.models.user import User
 from app.services.categorizer import categorize_batch
 from app.services.llm_provider import get_provider
 from app.services.pdf_parser import parse_statement
-from app.services.transaction_service import bust_progress_cache, insert_transactions
+from app.services.conflict_detection import BatchInfo, find_duplicate_batch
+from app.services.transaction_service import (
+    bust_progress_cache,
+    get_batch_summaries,
+    insert_transactions,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -137,60 +140,56 @@ async def _generate_networth_suggestions(
     return suggestions
 
 
-async def _flag_estimate_conflicts(
+async def _flag_duplicate_batch(
     user_id: uuid.UUID,
+    job_id: str,
+    persisted: list,
     session: AsyncSession,
 ) -> None:
     """
-    WHAT: After real statement data lands, flag any rough estimates the user entered
-          (source='user_estimate') so they don't get double-counted alongside the parsed
-          figures. Creates a single open reconciliation item proposing to remove them.
-    WHY: The vision requires conflict detection on EVERY upload, not just onboarding —
-         a user who estimated "~15000/mo spending" and later uploads a statement would
-         otherwise have both counted.
+    WHAT: After a statement is persisted, check whether it duplicates one already on file
+          (same date range + same transaction count) and, if so, flag a reconciliation item.
+    WHY: This is the ONLY conflict onboarding cares about now — an accidental re-upload of
+         the same statement would double-count every transaction. (Manual income/spending
+         entry was removed, so there are no estimate-vs-statement conflicts anymore.)
     """
-    estimates_result = await session.execute(
-        select(Transaction).where(
-            Transaction.user_id == user_id,
-            Transaction.source == "user_estimate",
-        )
-    )
-    estimates = list(estimates_result.scalars().all())
-    if not estimates:
+    dates = [t.transaction_date for t in persisted]
+    if not dates:
         return
 
-    # Don't pile up duplicate items — reuse the open one if it already exists.
-    existing = await session.execute(
-        select(ReconciliationItem).where(
-            ReconciliationItem.user_id == user_id,
-            ReconciliationItem.issue_type == "estimate_superseded",
-            ReconciliationItem.status == "open",
-        )
+    new = BatchInfo(
+        min_date=str(min(dates)), max_date=str(max(dates)),
+        source=None, count=len(persisted),
     )
-    if existing.scalars().first() is not None:
+    summaries = await get_batch_summaries(user_id, session)
+    existing = [
+        BatchInfo(
+            min_date=str(s["min_date"]), max_date=str(s["max_date"]),
+            source=None, count=s["transaction_count"],
+        )
+        for s in summaries if s["batch_id"] != job_id
+    ]
+    if not existing or not find_duplicate_batch(new, existing):
         return
 
-    estimate_ids = [str(e.id) for e in estimates]
     item = ReconciliationItem(
         user_id=user_id,
-        issue_type="estimate_superseded",
-        severity="medium",
+        issue_type="duplicate_statement",
+        severity="high",
         status="open",
-        title="Estimates replaced by statement data",
+        title="Possible duplicate statement",
         description=(
-            f"You entered {len(estimate_ids)} rough estimate(s) before uploading a "
-            "statement. Real transactions are now available — remove the estimates so "
-            "your totals aren't double-counted."
+            "This statement covers the same dates and the same number of transactions as "
+            "one you already uploaded — it may be a duplicate. Review it to avoid "
+            "double-counting your transactions."
         ),
         related_entity_type="transaction",
         proposed_action=json.dumps(
-            {"action": "remove_transactions", "transaction_ids": estimate_ids}
+            {"action": "delete_batch", "upload_batch_id": job_id}
         ),
     )
     session.add(item)
-    logger.info(
-        "Estimate-conflict flagged — user_id=%s estimates=%d", user_id, len(estimate_ids)
-    )
+    logger.info("Duplicate-statement flagged — user_id=%s job_id=%s", user_id, job_id)
 
 
 @router.post("", response_model=UploadResponse)
@@ -299,9 +298,8 @@ async def upload_statement(
         current_user.id, job_id, persisted, session
     )
 
-    # Conflict detection runs on every upload, not just onboarding: flag prior
-    # estimates so real parsed data doesn't get double-counted against them.
-    await _flag_estimate_conflicts(current_user.id, session)
+    # The one conflict that matters: did the user upload this same statement twice?
+    await _flag_duplicate_batch(current_user.id, job_id, persisted, session)
 
     # Parsed totals (real money) for the statement period — drives the onboarding
     # "we saw X income, Y expenses" line and downstream conflict checks.

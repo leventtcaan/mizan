@@ -330,32 +330,17 @@ export async function login(email: string, password: string): Promise<TokenRespo
   return response.json() as Promise<TokenResponse>;
 }
 
-// --- Onboarding analysis (conflict detection + AI first impression) ---
-
-export interface OnboardingConflict {
-  kind: "income_mismatch" | "spending_same" | "spending_excess";
-  field: "income" | "spending";
-  parsed: number;
-  manual: number;
-  diff_pct: number;
-  recommendation: "use_statement" | "use_manual" | "ask" | "add_supplementary";
-  allow_sum: boolean;
-}
+// --- Onboarding analysis (AI first impression from the parsed statement) ---
 
 export interface OnboardingAnalyzeRequest {
   has_statement: boolean;
   parsed_income?: number | null;
   parsed_expenses?: number | null;
-  manual_income?: number | null;
-  manual_spending?: number | null;
-  asset?: { asset_type?: string | null; value?: number | null } | null;
-  liability?: { liability_type?: string | null; remaining?: number | null; monthly_payment?: number | null } | null;
   currency: string;
   lang: string;
 }
 
 export interface OnboardingAnalyzeResponse {
-  conflicts: OnboardingConflict[];
   summary: string | null;
 }
 

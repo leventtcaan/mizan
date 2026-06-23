@@ -232,8 +232,11 @@ _MAX_VISION_PAGES = 25
 # downsampling, so digits are larger and read more accurately. Cost is 2 calls/page.
 # A small vertical overlap means a row sitting on the split line still appears whole in
 # at least one strip; the per-strip "skip rows cut off at the edge" instruction plus
-# full-description dedup keep boundary rows from being double-counted.
-_STRIP_OVERLAP_FRAC = 0.05
+# full-description + substring dedup keep boundary rows from being double-counted.
+# Kept deliberately small (2%): a larger band put whole rows inside BOTH strips, which
+# the model then extracted twice with slightly different text — inflating the count and
+# expense total. 2% still covers a single row straddling the split line.
+_STRIP_OVERLAP_FRAC = 0.02
 
 _VISION_SYSTEM = (
     "You are a precise bank-statement parser that reads statement page images. "
@@ -1027,8 +1030,44 @@ def _deduplicate(transactions: list[RawTransaction]) -> list[RawTransaction]:
             result.append(t)
     removed = len(transactions) - len(result)
     if removed:
-        logger.warning("Deduplication removed %d duplicate transaction(s)", removed)
-    return result
+        logger.warning("Deduplication removed %d exact duplicate transaction(s)", removed)
+    return _merge_substring_duplicates(result)
+
+
+def _merge_substring_duplicates(transactions: list[RawTransaction]) -> list[RawTransaction]:
+    """
+    WHAT: Within rows sharing the same date + amount, if one row's description is a
+          substring of another's, they are the SAME boundary row read twice (one strip
+          truncated the merchant text). Keep the longer description, drop the shorter.
+    WHY: Strip tiling can read a boundary row in both strips; the truncated copy survives
+         exact dedup because its full text differs. This collapses those without merging
+         genuinely distinct merchants (whose descriptions are NOT substrings of each other,
+         e.g. two different 60,00 charges on the same day stay separate).
+    """
+    from collections import defaultdict
+
+    norm = [re.sub(r"\s+", " ", t.description).strip().casefold() for t in transactions]
+    groups: dict[tuple[str, str], list[int]] = defaultdict(list)
+    for i, t in enumerate(transactions):
+        groups[(_canon_date_key(t.date), t.amount)].append(i)
+
+    drop: set[int] = set()
+    for idxs in groups.values():
+        if len(idxs) < 2:
+            continue
+        # Longest descriptions first; drop any shorter one contained in a kept longer one.
+        for i in sorted(idxs, key=lambda j: len(norm[j]), reverse=True):
+            if i in drop:
+                continue
+            for j in idxs:
+                if j == i or j in drop:
+                    continue
+                if norm[j] and len(norm[j]) < len(norm[i]) and norm[j] in norm[i]:
+                    drop.add(j)
+
+    if drop:
+        logger.warning("Deduplication merged %d boundary substring duplicate(s)", len(drop))
+    return [t for i, t in enumerate(transactions) if i not in drop]
 
 
 def _filter_zero_amount(transactions: list[RawTransaction]) -> list[RawTransaction]:

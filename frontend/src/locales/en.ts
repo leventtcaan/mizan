@@ -701,6 +701,8 @@ export const en = {
       impressionTitle: "Mizan's first impression",
       analyzing: "Reviewing your picture…",
       impressionFallback: "Your picture is ready. You can refine everything anytime.",
+      welcomeTitle: "Welcome to Mizan",
+      welcomeBody: "You're all set. Upload a statement anytime, or add your assets and debts from Home — Mizan will track everything for you.",
       conflict: {
         incomeMismatchPre: "You entered",
         incomeMismatchMid: "for monthly income, but your statement shows",

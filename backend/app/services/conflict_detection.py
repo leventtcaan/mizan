@@ -1,113 +1,41 @@
 """
-WHAT: Pure functions that compare user-entered figures against statement-parsed figures
-      and flag likely double-counts. No DB, no LLM — deterministic rules only.
-WHY: A user who uploads a statement AND types a manual income/spending estimate would have
-     both counted, doubling their real numbers. These rules detect when the manual figure
-     is "the same money" (and should be skipped) vs genuinely additional (supplementary).
-BREAKS IF REMOVED: Onboarding and statement uploads silently double-count estimates.
-
-The rules (apply everywhere a manual figure meets a parsed figure):
-  - Manual income ≈ parsed salary-like credit (within SAME_THRESHOLD) → income_duplicate.
-  - Manual spending within SAME_THRESHOLD of parsed expenses → spending_same.
-  - Manual spending much larger than parsed (> EXCESS_THRESHOLD over) → spending_excess (ask).
+WHAT: Detects whether a freshly uploaded statement duplicates one already on file
+      (same date range + same bank/source). Pure functions — no DB, no LLM.
+WHY: Manual income/spending entry was removed from onboarding, so the old income/spending
+     "same money?" conflict rules are gone (they created conflicts with statement data and
+     confused users). The only conflict still worth surfacing is an accidental RE-UPLOAD of
+     the same statement, which would double-count every transaction.
+BREAKS IF REMOVED: A user who uploads the same statement twice silently doubles their data.
 """
 
 from __future__ import annotations
 
-from typing import TypedDict
-
-# Within ±20% → assume the manual figure is the same money as the parsed figure.
-SAME_THRESHOLD = 0.20
-# Manual spending more than 20% above parsed → genuinely more, ask the user.
-EXCESS_THRESHOLD = 0.20
-# Income figures within ±5% are effectively identical — never raise a question (and
-# never imply "same money" for anything wider than this).
-NEAR_THRESHOLD = 0.05
-# Gap wide enough that the two income figures plausibly represent SEPARATE sources,
-# so offering "both are correct — use the total" makes sense.
-SUM_THRESHOLD = 0.25
+from dataclasses import dataclass
 
 
-class Conflict(TypedDict):
-    kind: str            # income_mismatch | spending_same | spending_excess
-    field: str           # income | spending
-    parsed: float
-    manual: float
-    diff_pct: float      # signed: (manual - parsed) / parsed
-    recommendation: str  # use_statement | use_manual | ask | add_supplementary
-    allow_sum: bool      # whether "use the total of both" is a sensible third option
+@dataclass
+class BatchInfo:
+    """Lightweight descriptor of an upload batch used only for duplicate detection."""
+    min_date: str               # ISO date of the earliest transaction in the batch
+    max_date: str               # ISO date of the latest transaction in the batch
+    source: str | None = None   # bank / source identifier when known (else None)
+    count: int | None = None    # number of transactions in the batch
 
 
-def _diff_pct(parsed: float, manual: float) -> float:
-    if parsed == 0:
-        return 0.0 if manual == 0 else 1.0
-    return (manual - parsed) / abs(parsed)
-
-
-def detect_income_conflict(parsed: float | None, manual: float | None) -> Conflict | None:
+def is_duplicate_batch(new: BatchInfo, existing: BatchInfo) -> bool:
     """
-    Compare a user-entered monthly income against the income seen in the statement.
-    Only raises a question when they differ by more than NEAR_THRESHOLD (5%) — within
-    that band they are treated as the same figure (no double-count, no prompt). When
-    the gap is wide (> SUM_THRESHOLD) the two may be genuinely separate income sources,
-    so the resolver may offer "use the total".
+    Two batches are the same statement when they cover the SAME date range and the SAME
+    bank/source. When no bank identifier is available, fall back to also requiring the same
+    transaction count, so two genuinely different statements that merely share a date range
+    are not wrongly flagged as duplicates.
     """
-    if not parsed or not manual or parsed <= 0 or manual <= 0:
-        return None
-    diff = _diff_pct(parsed, manual)
-    if abs(diff) <= NEAR_THRESHOLD:
-        return None
-    return Conflict(
-        kind="income_mismatch",
-        field="income",
-        parsed=round(parsed, 2),
-        manual=round(manual, 2),
-        diff_pct=round(diff, 4),
-        recommendation="use_statement",
-        allow_sum=abs(diff) > SUM_THRESHOLD,
-    )
+    if new.min_date != existing.min_date or new.max_date != existing.max_date:
+        return False
+    if new.source and existing.source:
+        return new.source == existing.source
+    return new.count is not None and new.count == existing.count
 
 
-def detect_spending_conflict(parsed: float | None, manual: float | None) -> Conflict | None:
-    """Manual spending near parsed → same money; far above → genuinely additional (ask)."""
-    if not parsed or not manual or parsed <= 0 or manual <= 0:
-        return None
-    diff = _diff_pct(parsed, manual)
-    if abs(diff) <= SAME_THRESHOLD:
-        return Conflict(
-            kind="spending_same",
-            field="spending",
-            parsed=round(parsed, 2),
-            manual=round(manual, 2),
-            diff_pct=round(diff, 4),
-            recommendation="use_statement",
-            allow_sum=False,
-        )
-    if diff > EXCESS_THRESHOLD:
-        return Conflict(
-            kind="spending_excess",
-            field="spending",
-            parsed=round(parsed, 2),
-            manual=round(manual, 2),
-            diff_pct=round(diff, 4),
-            recommendation="ask",
-            allow_sum=True,
-        )
-    return None
-
-
-def detect_conflicts(
-    parsed_income: float | None,
-    parsed_expenses: float | None,
-    manual_income: float | None,
-    manual_spending: float | None,
-) -> list[Conflict]:
-    """Run all rules. Only fires when BOTH a parsed and a manual figure exist for a field."""
-    conflicts: list[Conflict] = []
-    inc = detect_income_conflict(parsed_income, manual_income)
-    if inc:
-        conflicts.append(inc)
-    sp = detect_spending_conflict(parsed_expenses, manual_spending)
-    if sp:
-        conflicts.append(sp)
-    return conflicts
+def find_duplicate_batch(new: BatchInfo, existing: list[BatchInfo]) -> bool:
+    """True if `new` duplicates any already-uploaded batch in `existing`."""
+    return any(is_duplicate_batch(new, e) for e in existing)
