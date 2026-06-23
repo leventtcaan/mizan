@@ -349,11 +349,36 @@ When context reaches ~70% capacity:
 - [x] **Global column detection** (`_find_xlsx_table`): header = first SHORT cell (≤30 chars, skips preamble sentences) naming a date col (tarih/date/… multilingual); map by name (Tarih→date, Açıklama→desc, İşlem Tutarı→amount), value-inference fallback (datetime col→date, numeric-with-negatives→amount, longest-text→desc, other numeric→balance/ignore). Negative=debit, positive=credit. NOT Ziraat-hardcoded.
 - [x] Verified end-to-end: real 63-row Ziraat xlsx → openpyxl Fill-fail → raw reader → header row 11, 43 transactions, HTTP upload status=success count=43.
 
+### Phase 61 — Post-Upload Brief (2026-06-23)
+- [x] **Thesis**: upload no longer dumps user into a transaction table. After a clean parse → narrative read of the statement (60–90s, 5 beats). The product's first "soul" moment. No new tables.
+- [x] `services/brief.py` `build_brief(job_id, user_id, session, lang)`: pulls ONE batch's tx + category aggregates + `analyze_recurring`. Returns structured `{period, flow{income,expenses,net,currency}, top_categories[3]{name(slug),amount,share}, largest_transaction, recurring_signal{monthly_total,highlight}, suggested_action{key,label,href}, narrative}`. Dominant-currency per batch (no cross-ccy conversion — statements single-ccy). `suggested_action` deterministic: net<0+commitments→review_recurring, net<0→set_goal, commitments→review_recurring, else→add_asset. Localized labels/highlight (tr/en).
+- [x] **Narrative** = one LLM paragraph (reuses provider abstraction, user lang, temp 0.7) with **deterministic template fallback** when no LLM key. Facts fed as plain lines.
+- [x] `GET /upload/brief?job_id&lang` (upload.py): cached per `(job_id, lang)` in ProgressInsight `data_type="brief"`, cache_key=`job_id|lang` (same statement → same brief). 404 when batch empty → frontend silent fallback to /transactions. Local `_brief_cache_get/_set` mirror progress.py upsert (on_conflict uq_progress_insights_user_type).
+- [x] `app/brief/page.tsx`: full-attention (navbar hidden via `/brief` in `HIDDEN_PATHS`), 5 beats with 100ms stagger reveal (narrative hero → flow → categories w/ bars → recurring → "one move" CTA + secondary view-all). Each data beat has "Mizan'a sor →" → dispatches `mizan-open-assistant` w/ beat-specific prefill (GlobalAssistant integration). `<Suspense>` wraps `useSearchParams`. `Brief` type + `getBrief()` in api.ts; `brief.*` locale tr+en.
+- [x] **Routing**: /upload success → `/brief?job_id`; onboarding has-statement → brief (LATER changed to review, Phase 64). Any failure → silent `/transactions`.
+
+### Phase 62 — Home ↔ Brief coherence (2026-06-23)
+- [x] **Problem**: brief shows statement PERIOD (18 May–18 Jun: 47k in / 52k out); Home shows current CALENDAR MONTH (10k/6k). Both correct, unexplained → user thinks one lies.
+- [x] Home Cash Flow Pulse: calendar-basis label under title — `"Haziran ayı · takvim bazlı"` / `"June · calendar month"` (Intl month name + `home.monthCalendarSuffix`). Only when monthLine exists.
+- [x] **Bridge link**: if a statement was analysed in last 7 days, pulse shows `"Son ekstre analizi: 18 May–18 Haz →"` → `/brief?job_id={latest}`. Connects Home's window back to the statement window.
+- [x] **localStorage** `mizan_last_brief_job_id` = JSON `{job_id,start,end,ts}`, written by the brief page on successful load (the screen that has the period). Home parses, checks ts ≤7d, formats range. Tolerant parse ignores legacy strings.
+- [x] Brief secondary CTA period-aware: `"18 May–18 Haz işlemlerini gör →"` (was generic). Shared `fmtDateRange` (noon-anchored, no tz day-shift) in both pages. New keys `home.monthCalendarSuffix`, `home.lastBriefLink`, `brief.viewAllPeriod`.
+
+### Phase 63 — Multi-statement upload + Review/Edit (2026-06-23)
+- [x] **Thesis**: catch parse errors BEFORE the brief narrates them as truth ("no confidently-wrong brief"). User reviews/edits extracted tx, then commits.
+- [x] `GET /upload/review/{batch_id}` — owner-scoped batch tx, oldest-first. `PATCH /upload/review/{batch_id}` (`ReviewRequest{transactions:[{id?,transaction_date,description,amount,transaction_type,category,currency}]}`): updates edited rows (→`source=user_confirmed`), inserts new manual rows (id null, batch's dominant ccy), deletes removed rows. Ownership = only match ids within user's own batch (forged ids ignored). Validators: positive amount, debit/credit, valid category (14 incl. egitim), non-empty desc. Busts insight+progress caches (latter clears ALL ProgressInsight incl. brief → brief regenerates from corrected data).
+- [x] `/upload` rewritten **multi-file**: drag/pick many, per-file status (queued→spinner→✓/amber), sequential upload, then → `/review?batch_ids={id1,id2,…}`. Empty/failed files stay listed w/ reason; none-succeeded → amber, no redirect.
+- [x] `app/review/page.tsx`: editable table (date / description / amount+ccy / credit-debit toggle / category dropdown), delete-row ×, "+ Add transaction", header `"X işlem bulundu — gözden geçirin ve onaylayın"`, summary bar (income/expenses/net). **Suspicious highlight** (amber + tooltip): amount >10× median OR duplicate (date+desc). "Onayla ve Devam Et →" PATCHes each batch (rows grouped back by batch_id; new rows attach to first) → `/brief?job_id={first}`. "İptal" confirms → deletes batches → `/upload`. `<Suspense>` for searchParams. `ReviewTransaction` type + `getReviewBatch/saveReviewBatch` in api.ts; `review.*` + new `upload.*` locale tr+en. Navbar stays visible (working page, batch already persisted).
+
+### Phase 64 — Onboarding routes through review (2026-06-23)
+- [x] Onboarding has-statement "continue" → `/review?batch_ids={all successful job_ids}` (was → /brief). Review hands off to /brief on confirm. Both upload entry points now share Upload → Review → Brief. No-statement still → step-2 plain welcome.
+- [x] **Full loop verified working: Upload → Review → Brief → Home.**
+
 ---
 
 ## Current Status
 
-**Phases 1–60 complete. Alembic head = 0032.**
+**Phases 1–64 complete. Alembic head = 0032.**
 
 ### App structure (current)
 - **Nav**: Home · Money Flow · Net Değer · İlerleme · Settings (+ currency dropdown, notification bell, global assistant FAB)
@@ -1227,12 +1252,15 @@ Full stack: register/login → JWT → upload (rate-limited, busts caches) → 3
 
 ## Next Session — Start Here
 
-**Phases 1–60 complete. Alembic head = 0032.**
+**Phases 1–64 complete. Alembic head = 0032.**
 
 ### Next session setup:
 - Use claude-opus-4-8 model
-- **First task: merge `feat/onboarding-conflict-aware-flow` → main.** Phases 58/59/60 all live on this branch, uncommitted/unpushed by recent turns or committed on-branch. Review diff, then merge.
-- **Then continue product improvements** + chip away at the 3 fresh known issues (XLSX income 57k≠47k reconcile, Home full-period cash flow, PDF scan OCR limits).
+- **Loop is built + verified: Upload → Review → Brief → Home.** Phases 58–64 live on branch `feat/onboarding-conflict-aware-flow`, uncommitted/unpushed. **First task: commit + merge → main** to checkpoint the working loop (no new tables since 0032; brief reuses ProgressInsight `data_type="brief"`).
+- **Next priority (model recommendation, in order):**
+  1. **Periodic "money brief" via email** — reuse `services/brief.py` + existing Resend path (`api/email.py`) → recurring brief on a cadence. Turns the one-shot post-upload payoff into a RETENTION loop (the gap we haven't touched).
+  2. **Decision simulator** — brief ends on "your one move" but it only links to a page; let the user simulate it ("what if I cancel X / pay off Y early"). Reuses recurring/installment data. Observation → agency.
+  3. **Landing page update** — outdated; acquisition-stage, after retention.
 - Deferred items live in "Known deferred (post-57)" under Current Status.
 
 ### Product vision (updated):

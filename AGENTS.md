@@ -309,11 +309,24 @@ When context reaches ~70% capacity:
 - [x] `parse_xlsx`: (1) openpyxl read_only+data_only+keep_vba=False; (2) **raw zip/XML fallback** `_read_xlsx_rows_raw` when openpyxl crashes on styles ("expected Fill") — parses sharedStrings+styles+sheet via zipfile+ElementTree. **Cursor-based column tracking** (real bug: Ziraat cells omit `r` attr → all collapsed to col 0 → `(None,)` rows; cursor advances per `<c>`, explicit `r` resets). Inline strings, string dates, serial-date convert handled.
 - [x] `_find_xlsx_table` global: header=first SHORT cell (≤30c) naming a date col; map by name + value-inference fallback (datetime→date, numeric-w-negatives→amount, longest-text→desc, other numeric→balance). Negative=debit/positive=credit. Verified: real 63-row Ziraat xlsx → raw reader → 43 tx, HTTP upload success.
 
+### Phase 61 — Post-Upload Brief (2026-06-23)
+- [x] Upload no longer dumps user into a tx table → narrative read (5 beats, 60–90s). `services/brief.py` `build_brief(job_id,user_id,session,lang)`: one batch's tx + category aggregates + `analyze_recurring` → `{period, flow, top_categories[3], largest_transaction, recurring_signal, suggested_action{key,label,href}, narrative}`. Dominant-ccy per batch (no cross-ccy). LLM narration (provider abstraction, user lang) + **deterministic template fallback** (no key). `suggested_action` deterministic from net/commitments.
+- [x] `GET /upload/brief?job_id&lang`: cached per `(job_id,lang)` in ProgressInsight `data_type="brief"` (no new table); 404 on empty batch → frontend silent fallback. `app/brief/page.tsx` full-attention (navbar hidden), 100ms stagger beats, per-beat "Mizan'a sor →" dispatches `mizan-open-assistant` w/ prefill. `Brief` type + `getBrief()`; `brief.*` locale.
+
+### Phase 62 — Home ↔ Brief coherence (2026-06-23)
+- [x] Brief = statement PERIOD, Home = CALENDAR MONTH → looked contradictory. Home pulse: calendar-basis label (`"Haziran ayı · takvim bazlı"`/`"June · calendar month"`); bridge link `"Son ekstre analizi: 18 May–18 Haz →"` → `/brief?job_id` when statement analysed ≤7d. localStorage `mizan_last_brief_job_id` = JSON `{job_id,start,end,ts}` written by brief page on load. Brief secondary CTA period-aware. Shared `fmtDateRange` (noon-anchored). Keys `home.monthCalendarSuffix/lastBriefLink`, `brief.viewAllPeriod`.
+
+### Phase 63 — Multi-statement upload + Review/Edit (2026-06-23)
+- [x] Catch parse errors before the brief narrates them. `GET /upload/review/{batch_id}` (owner-scoped tx). `PATCH /upload/review/{batch_id}`: update edited (→`source=user_confirmed`), insert new manual (batch dominant ccy), delete removed; ownership via id-in-own-batch (forged ignored); busts insight+progress caches (latter clears brief cache → regenerates). `/upload` multi-file (per-file status, sequential) → `/review?batch_ids=…`. `app/review/page.tsx` editable table (date/desc/amount+ccy/type-toggle/category), delete/add row, summary bar, **suspicious highlight** (amount>10×median OR dup date+desc) amber+tooltip; confirm PATCHes each batch → `/brief?job_id={first}`; cancel deletes batches → `/upload`. `ReviewTransaction` + `getReviewBatch/saveReviewBatch`; `review.*` + new `upload.*` locale.
+
+### Phase 64 — Onboarding routes through review (2026-06-23)
+- [x] Onboarding has-statement "continue" → `/review?batch_ids={all successful}` (was /brief) → review hands off to /brief. Both entry points share Upload → Review → Brief. **Full loop verified: Upload → Review → Brief → Home.**
+
 ---
 
 ## Current Status
 
-**Phases 1–60 complete. Alembic head = 0032.** (CLAUDE.md is authoritative for detail.) Progress = Financial Health scorecard. Net Worth = GuidancePanel + AllocationChart (no history chart). Upload returns status/reason; parser is global. Deferred: `_generate_networth_suggestions` Turkish bank keywords; account connectivity (Plaid — deferred, manual-first chosen); CSV unquoted comma-thousands edge case; scorecard synthetic score when thin; real snapshots need time (trajectory estimated until then); P1-deep valuation migration; P2 tx↔account reconciliation.
+**Phases 1–64 complete. Alembic head = 0032.** (CLAUDE.md is authoritative for detail.) Loop: Upload → Review → Brief → Home (Phases 61–64). Brief reuses ProgressInsight `data_type="brief"` (no new table). Progress = Financial Health scorecard. Net Worth = GuidancePanel + AllocationChart (no history chart). Upload returns status/reason; parser is global. Deferred: `_generate_networth_suggestions` Turkish bank keywords; account connectivity (Plaid — deferred, manual-first chosen); CSV unquoted comma-thousands edge case; scorecard synthetic score when thin; real snapshots need time (trajectory estimated until then); P1-deep valuation migration; P2 tx↔account reconciliation.
 
 **(historical, Phase 34) Phases 1–34 complete. Alembic head = 0022. No new migrations since Phase 32.**
 
@@ -767,7 +780,7 @@ Full stack: register/login → JWT → upload (rate-limited, busts caches) → 3
 
 ## Next Session — Start Here
 
-**Phases 1–60 complete. Alembic head = 0032.** (Older Phase 42/head-0022 notes below are historical — CLAUDE.md is authoritative.) Next: **merge `feat/onboarding-conflict-aware-flow` → main** (Phases 58/59/60 live there), then continue product improvements + chip at 3 fresh known issues (XLSX income 57k≠47k reconcile vs footer Borç/Alacak; Home full-statement-period cash flow; PDF scanned-OCR limits). Deferred items in Current Status.
+**Phases 1–64 complete. Alembic head = 0032.** (Older Phase 42/head-0022 notes below are historical — CLAUDE.md is authoritative.) Loop verified: Upload → Review → Brief → Home (Phases 61–64). Next: **commit + merge `feat/onboarding-conflict-aware-flow` → main** (Phases 58–64 live there, uncommitted) to checkpoint the working loop. Then model recommendation, in order: (1) **periodic "money brief" via email** — reuse `services/brief.py` + Resend (`api/email.py`) → retention loop; (2) **decision simulator** — brief's "one move" → simulate it (cancel X / pay off Y early), reuses recurring/installment data; (3) **landing page update** (acquisition, last). Plus 3 fresh known issues (XLSX income 57k≠47k reconcile vs footer Borç/Alacak; Home full-statement-period cash flow; PDF scanned-OCR limits). Deferred items in Current Status.
 
 Pre-flight (if docker was restarted):
 ```bash
