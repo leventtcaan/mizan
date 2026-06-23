@@ -7,6 +7,7 @@ import {
   type CashFlowSummary, type RecurringSummary,
 } from "@/lib/api";
 import { useLanguage } from "@/lib/i18n";
+import { currentMonthLabel } from "@/lib/period";
 
 function fmt(value: number, currency: string): string {
   try {
@@ -20,7 +21,7 @@ function fmt(value: number, currency: string): string {
 
 /** Money Flow spine: a compact at-a-glance header above every Money Flow tab. */
 export default function MoneyOverview() {
-  const { t } = useLanguage();
+  const { t, lang } = useLanguage();
   const [ccy, setCcy] = useState("TRY");
   const [cashflow, setCashflow] = useState<CashFlowSummary | null>(null);
   const [recurring, setRecurring] = useState<RecurringSummary | null>(null);
@@ -68,6 +69,10 @@ export default function MoneyOverview() {
 
   return (
     <div className="mb-6 bg-[#1A1A1A] border border-[#2A2A2A] rounded-2xl p-5">
+      {/* Explicit window — income/expenses/net below are this calendar month, never an ambiguous "this month". */}
+      <p className="text-[11px] font-semibold tracking-wide text-gray-500 uppercase mb-3">
+        {currentMonthLabel(lang)} · {t("money.periodTag")}
+      </p>
       <div className="flex flex-wrap gap-y-4 gap-x-6">
         <Stat
           label={t("money.income")}

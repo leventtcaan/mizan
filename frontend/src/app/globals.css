@@ -26,3 +26,33 @@
     border-radius: 3px;
   }
 }
+
+/* ── Mim, the companion ── */
+@keyframes mim-breathe {
+  0%, 100% { transform: scale(1); }
+  50%      { transform: scale(1.035); }
+}
+@keyframes mim-float {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(-2.5%); }
+}
+@keyframes mim-glow {
+  0%, 100% { opacity: 0.55; transform: scale(0.96); }
+  50%      { opacity: 0.9;  transform: scale(1.06); }
+}
+/* Eyes stay open, then blink quickly once per cycle. */
+@keyframes mim-blink {
+  0%, 92%, 100% { transform: scaleY(1); }
+  96%           { transform: scaleY(0.1); }
+}
+
+.mim-breathe { animation: mim-breathe 4s ease-in-out infinite; transform-origin: 50% 55%; }
+.mim-float   { animation: mim-float 6s ease-in-out infinite; }
+.mim-glow    { animation: mim-glow 4s ease-in-out infinite; }
+.mim-eyes    { animation: mim-blink 5.5s ease-in-out infinite; transform-box: fill-box; transform-origin: center; }
+/* While speaking, breathe a touch faster and livelier. */
+.mim-speaking .mim-breathe { animation-duration: 2.2s; }
+
+@media (prefers-reduced-motion: reduce) {
+  .mim-breathe, .mim-float, .mim-glow, .mim-eyes { animation: none; }
+}

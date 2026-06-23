@@ -6,7 +6,10 @@ import Link from "next/link";
 import PageLayout from "@/components/ui/PageLayout";
 import AddTransactionModal from "@/components/AddTransactionModal";
 import { ArrowRight, Upload, Plus, Scale, Sparkles, Wallet, CheckCircle, Brain } from "@/components/ui/Icons";
+import Mim from "@/components/companion/Mim";
+import { moodFromTone, type MimMood } from "@/components/companion/mood";
 import { useLanguage } from "@/lib/i18n";
+import { currentMonthLabel } from "@/lib/period";
 import {
   getToken, getStoredUser,
   getNetWorthSummary, getCashFlowSummary, getCashFlowUpcoming,
@@ -151,7 +154,11 @@ export default function HomePage() {
 
   const askCoach = () => window.dispatchEvent(new CustomEvent("mizan-open-assistant", { detail: { prefill: t("home.daily.askPrefill") } }));
 
-  const TONE_DOT: Record<Tone, string> = { good: "bg-emerald-400", warn: "bg-amber-400", bad: "bg-red-400" };
+  // Mim reads the state. Both flat → calm; otherwise the verdict's tone is its mood.
+  const hasFigures = income > 0 || expenses > 0;
+  const mimMood: MimMood = hasFigures ? moodFromTone(verdict.tone) : "calm";
+  const monthLabel = currentMonthLabel(lang);
+
   const reveal = (d: number) => `transition-all duration-700 ease-out ${mounted ? "opacity-100 translate-y-0" : "opacity-0 translate-y-2"}`;
 
   if (loading) {
@@ -163,9 +170,7 @@ export default function HomePage() {
     return (
       <PageLayout maxWidth="md">
         <div className={`min-h-[60vh] flex flex-col items-center justify-center text-center ${reveal(0)}`}>
-          <div className="w-14 h-14 rounded-2xl bg-indigo-950 border border-indigo-800/50 flex items-center justify-center mb-6">
-            <Sparkles size={26} className="text-indigo-400" />
-          </div>
+          <Mim mood="calm" size={72} speaking className="mb-6" />
           <h1 className="text-3xl font-bold mb-3 max-w-md">{t("home.daily.coldTitle")}</h1>
           <p className="text-gray-500 mb-8 max-w-sm">{t("home.daily.coldSub")}</p>
           <div className="flex flex-col sm:flex-row gap-3">
@@ -186,18 +191,23 @@ export default function HomePage() {
     <PageLayout maxWidth="md">
       <div className="flex flex-col gap-8 pt-4 pb-8">
 
-        {/* Greeting + the one sentence */}
-        <div className={reveal(0)}>
-          <div className="flex items-center gap-2 mb-4">
-            <span className={`w-2 h-2 rounded-full ${TONE_DOT[verdict.tone]} animate-pulse`} />
-            <p className="text-gray-500 text-sm">{greeting}{name ? `, ${name}` : ""}</p>
+        {/* Mim greets you and says the one thing that matters */}
+        <div className={`flex items-start gap-3.5 sm:gap-4 ${reveal(0)}`}>
+          <Mim mood={mimMood} size={56} speaking className="shrink-0 mt-0.5" />
+          <div className="flex-1 min-w-0">
+            <p className="text-gray-500 text-sm mb-1.5">{greeting}{name ? `, ${name}` : ""}</p>
+            {hasFigures && (
+              <p className="text-[11px] font-semibold tracking-wide text-gray-600 uppercase mb-2">
+                {monthLabel} · {t("home.daily.calendarMonth")}
+              </p>
+            )}
+            <h1 className="text-[24px] sm:text-[30px] font-bold leading-snug tracking-tight">
+              {verdict.text}
+            </h1>
+            <button onClick={askCoach} className="mt-4 inline-flex items-center gap-1.5 text-indigo-400 hover:text-indigo-300 text-sm transition-colors">
+              <Brain size={14} /> {t("home.daily.askAbout")}
+            </button>
           </div>
-          <h1 className="text-[26px] sm:text-[32px] font-bold leading-snug tracking-tight">
-            {verdict.text}
-          </h1>
-          <button onClick={askCoach} className="mt-4 inline-flex items-center gap-1.5 text-indigo-400 hover:text-indigo-300 text-sm transition-colors">
-            <Brain size={14} /> {t("home.daily.askAbout")}
-          </button>
         </div>
 
         {/* What needs you — 0, 1 or 2 things */}
@@ -229,7 +239,7 @@ export default function HomePage() {
         <div className={`grid grid-cols-3 gap-3 ${reveal(200)}`} style={{ transitionDelay: "200ms" }}>
           <Link href="/transactions" className="rounded-2xl bg-[#1A1A1A] border border-[#2A2A2A] hover:border-indigo-700/60 p-4 transition-colors group">
             <Wallet size={17} className="text-emerald-400 mb-3" />
-            <p className="text-gray-500 text-[11px]">{t("home.daily.thisMonth")}</p>
+            <p className="text-gray-500 text-[11px] truncate">{monthLabel}</p>
             <p className={`font-bold tabular-nums text-sm sm:text-base mt-0.5 ${net >= 0 ? "text-white" : "text-orange-400"}`}>{net >= 0 ? "+" : "−"}{fmt(Math.abs(net))}</p>
           </Link>
           <Link href="/networth" className="rounded-2xl bg-[#1A1A1A] border border-[#2A2A2A] hover:border-indigo-700/60 p-4 transition-colors">

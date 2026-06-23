@@ -2,7 +2,8 @@
 
 import { useEffect, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
-import { Brain, MessageCircle, Send, X as XIcon, CheckCircle } from "@/components/ui/Icons";
+import { Send, X as XIcon, CheckCircle } from "@/components/ui/Icons";
+import Mim from "@/components/companion/Mim";
 import { useLanguage } from "@/lib/i18n";
 import {
   getToken, getStoredUser, getNetWorthSummary,
@@ -117,14 +118,15 @@ export default function GlobalAssistant() {
 
   return (
     <>
-      {/* Floating button */}
+      {/* Mim — the companion, present on every page. Tap to talk. */}
       {!open && (
         <button
           onClick={() => setOpen(true)}
-          className="fixed bottom-5 right-5 z-50 w-14 h-14 rounded-full bg-indigo-600 hover:bg-indigo-500 shadow-lg shadow-indigo-900/40 flex items-center justify-center text-white transition-colors"
+          className="fixed bottom-5 right-5 z-50 flex items-center justify-center transition-transform hover:scale-110"
           title={t("assistant.askMizan")}
+          aria-label={t("assistant.askMizan")}
         >
-          <MessageCircle size={22} />
+          <Mim mood="calm" size={56} speaking />
         </button>
       )}
 
@@ -138,7 +140,7 @@ export default function GlobalAssistant() {
             {/* Header */}
             <div className="flex items-center justify-between px-4 py-3 border-b border-[#2A2A2A]">
               <div className="flex items-center gap-2">
-                <Brain size={16} className="text-indigo-400" />
+                <Mim mood={pending ? "thinking" : "calm"} size={26} speaking={pending} />
                 <span className="text-white text-sm font-semibold">{t("assistant.title")}</span>
               </div>
               <button onClick={() => setOpen(false)} title={t("assistant.close")} className="text-gray-500 hover:text-gray-300 transition-colors">
