@@ -7,6 +7,7 @@ WHY: Decouples file receipt from display. The endpoint completes synchronously i
 BREAKS IF REMOVED: No way for the frontend to submit bank statements.
 """
 
+import json
 import uuid
 import logging
 from datetime import datetime, timezone
@@ -15,6 +16,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile, status
 from pydantic import BaseModel
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
@@ -22,6 +24,8 @@ from app.core.database import get_session
 from app.core.dependencies import get_current_user
 from app.core.rate_limiter import upload_ip_limiter, upload_user_limiter
 from app.models.networth_suggestion import NetworthSuggestion
+from app.models.reconciliation_item import ReconciliationItem
+from app.models.transaction import Transaction
 from app.models.user import User
 from app.services.categorizer import categorize_batch
 from app.services.llm_provider import get_provider
@@ -61,6 +65,11 @@ class UploadResponse(BaseModel):
     reason: str | None = None    # machine code when not success (see pdf_parser)
     message: str
     suggestions: list[SuggestionOut] = []
+    # Parsed totals for the period in the statement — powers the onboarding line
+    # "We saw X income, Y expenses this month" and conflict detection vs estimates.
+    parsed_income: str = "0"
+    parsed_expenses: str = "0"
+    currency: str = "TRY"
 
 
 # Keywords to detect bank names in transaction descriptions
@@ -126,6 +135,62 @@ async def _generate_networth_suggestions(
         batch_id, len(suggestions),
     )
     return suggestions
+
+
+async def _flag_estimate_conflicts(
+    user_id: uuid.UUID,
+    session: AsyncSession,
+) -> None:
+    """
+    WHAT: After real statement data lands, flag any rough estimates the user entered
+          (source='user_estimate') so they don't get double-counted alongside the parsed
+          figures. Creates a single open reconciliation item proposing to remove them.
+    WHY: The vision requires conflict detection on EVERY upload, not just onboarding —
+         a user who estimated "~15000/mo spending" and later uploads a statement would
+         otherwise have both counted.
+    """
+    estimates_result = await session.execute(
+        select(Transaction).where(
+            Transaction.user_id == user_id,
+            Transaction.source == "user_estimate",
+        )
+    )
+    estimates = list(estimates_result.scalars().all())
+    if not estimates:
+        return
+
+    # Don't pile up duplicate items — reuse the open one if it already exists.
+    existing = await session.execute(
+        select(ReconciliationItem).where(
+            ReconciliationItem.user_id == user_id,
+            ReconciliationItem.issue_type == "estimate_superseded",
+            ReconciliationItem.status == "open",
+        )
+    )
+    if existing.scalars().first() is not None:
+        return
+
+    estimate_ids = [str(e.id) for e in estimates]
+    item = ReconciliationItem(
+        user_id=user_id,
+        issue_type="estimate_superseded",
+        severity="medium",
+        status="open",
+        title="Estimates replaced by statement data",
+        description=(
+            f"You entered {len(estimate_ids)} rough estimate(s) before uploading a "
+            "statement. Real transactions are now available — remove the estimates so "
+            "your totals aren't double-counted."
+        ),
+        related_entity_type="transaction",
+        proposed_action=json.dumps(
+            {"action": "remove_transactions", "transaction_ids": estimate_ids}
+        ),
+    )
+    session.add(item)
+    logger.info(
+        "Estimate-conflict flagged — user_id=%s estimates=%d", user_id, len(estimate_ids)
+    )
 
 
 @router.post("", response_model=UploadResponse)
@@ -234,6 +299,19 @@ async def upload_statement(
         current_user.id, job_id, persisted, session
     )
 
+    # Conflict detection runs on every upload, not just onboarding: flag prior
+    # estimates so real parsed data doesn't get double-counted against them.
+    await _flag_estimate_conflicts(current_user.id, session)
+
+    # Parsed totals (real money) for the statement period — drives the onboarding
+    # "we saw X income, Y expenses" line and downstream conflict checks.
+    parsed_income = sum(
+        (t.amount for t in persisted if t.transaction_type == "credit"), Decimal("0")
+    )
+    parsed_expenses = sum(
+        (t.amount for t in persisted if t.transaction_type == "debit"), Decimal("0")
+    )
+
     await session.commit()
 
     logger.info("Upload complete — job_id=%s transactions_persisted=%d", job_id, len(persisted))
@@ -265,4 +343,7 @@ async def upload_statement(
         reason=None,
         message=msg,
         suggestions=suggestion_out,
+        parsed_income=str(parsed_income),
+        parsed_expenses=str(parsed_expenses),
+        currency=default_ccy,
     )

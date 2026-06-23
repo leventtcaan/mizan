@@ -33,6 +33,7 @@ from app.api.notifications import router as notifications_router
 from app.api.assistant import router as assistant_router
 from app.api.recurring import router as recurring_router
 from app.api.accounts import router as accounts_router
+from app.api.onboarding import router as onboarding_router
 from app.core.config import settings
 from app.core.database import engine
 from app.models.user import Base
@@ -133,6 +134,7 @@ app.include_router(notifications_router)
 app.include_router(assistant_router)
 app.include_router(recurring_router)
 app.include_router(accounts_router)
+app.include_router(onboarding_router)
 
 
 @app.get("/health")

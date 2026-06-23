@@ -72,6 +72,7 @@ async def insert_transactions(
     session: AsyncSession,
     upload_batch_id: str | None = None,
     default_currency: str = "TRY",
+    source: str = "statement_parsed",
 ) -> list[Transaction]:
     """
     WHAT: Converts RawTransaction list → Transaction ORM objects and bulk-inserts them.
@@ -94,6 +95,7 @@ async def insert_transactions(
             # Carry the statement's detected currency through; fall back to the
             # caller's default (the user's display currency) — never silently TRY.
             currency=(rt.currency or default_currency),
+            source=source,
         )
         for rt in raw_transactions
     ]

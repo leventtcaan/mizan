@@ -44,6 +44,7 @@ class TransactionResponse(BaseModel):
     transaction_date: date
     category: str | None
     behavioral_tag: str | None
+    source: str
     created_at: datetime
 
     model_config = {"from_attributes": True}
@@ -68,6 +69,10 @@ VALID_CATEGORIES = {
     "giyim", "nakit_atm", "transfer", "iade", "vergi", "teknoloji", "diger",
 }
 
+# Provenance values a manual entry is allowed to declare. Statement-parsed rows are
+# only ever created by the upload pipeline, never through this endpoint.
+VALID_SOURCES = {"manual", "user_estimate", "user_confirmed", "user_supplementary"}
+
 
 class ManualTransactionRequest(BaseModel):
     amount: str
@@ -76,6 +81,14 @@ class ManualTransactionRequest(BaseModel):
     transaction_date: date
     category: str | None = None
     currency: str = "TRY"
+    source: str = "manual"
+
+    @field_validator("source")
+    @classmethod
+    def valid_source(cls, v: str) -> str:
+        if v not in VALID_SOURCES:
+            raise ValueError(f"Invalid source. Must be one of: {sorted(VALID_SOURCES)}")
+        return v
 
     @field_validator("currency")
     @classmethod
@@ -152,6 +165,7 @@ async def list_transactions(
             transaction_date=t.transaction_date,
             category=t.category,
             behavioral_tag=t.behavioral_tag,
+            source=t.source,
             created_at=t.created_at,
         )
         for t in transactions
@@ -179,6 +193,7 @@ async def create_transaction(
         description=body.description,
         transaction_date=body.transaction_date,
         upload_batch_id=None,
+        source=body.source,
     )
 
     if body.category:
@@ -213,6 +228,7 @@ async def create_transaction(
         transaction_date=tx.transaction_date,
         category=tx.category,
         behavioral_tag=tx.behavioral_tag,
+        source=tx.source,
         created_at=tx.created_at,
     )
 

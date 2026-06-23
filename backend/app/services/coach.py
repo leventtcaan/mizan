@@ -36,7 +36,7 @@ Kategori dağılımı:
 En yüksek harcama kategorisi: {top_category}
 Toplam harcama: {total_spend}
 Toplam gelir: {total_income}
-{corrections_section}{notes_section}
+{estimate_section}{corrections_section}{notes_section}
 Bu kullanıcının harcama davranışı hakkında kısa bir koçluk yorumu yaz.
 """
 
@@ -127,6 +127,16 @@ async def generate_insight(
         for cat, amount in sorted(distribution.items(), key=lambda x: x[1], reverse=True)
     )
 
+    # Flag rough estimates so the coach treats them as approximate, not hard facts.
+    estimate_count = sum(
+        1 for t in transactions if t.source in ("user_estimate",)
+    )
+    estimate_section = (
+        f"\nNOT: {estimate_count} kayıt kullanıcının kabaca girdiği tahmin "
+        "(gerçek işlem değil) — bunları kesin rakam gibi sunma.\n"
+        if estimate_count else ""
+    )
+
     corrections_section = ""
     notes_section = ""
     if user_id is not None and session is not None:
@@ -139,6 +149,7 @@ async def generate_insight(
         top_category=top_category,
         total_spend=f"{total_spend:.2f}",
         total_income=f"{total_income:.2f}",
+        estimate_section=estimate_section,
         corrections_section=corrections_section,
         notes_section=notes_section,
     )

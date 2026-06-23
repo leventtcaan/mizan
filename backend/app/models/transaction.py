@@ -89,6 +89,21 @@ class Transaction(Base):
         server_default="TRY",
     )
 
+    # WHY: Provenance of the row so the app never presents an estimate as hard data.
+    #   statement_parsed   — extracted from an uploaded bank statement (real)
+    #   user_estimate      — a rough figure the user typed (no statement to verify it)
+    #   user_confirmed     — a value the user explicitly confirmed against parsed data
+    #   user_supplementary — cash/extra the user says is NOT in their statement (real, additive)
+    #   manual             — generic manual entry from the add-transaction form
+    # Drives conflict detection (don't double-count estimates vs parsed data) and lets
+    # the AI coach flag which numbers are approximate.
+    source: Mapped[str] = mapped_column(
+        String(30),
+        nullable=False,
+        default="statement_parsed",
+        server_default="statement_parsed",
+    )
+
     # WHY: Nullable — LLM enrichment happens asynchronously after insert.
     # Row exists with raw data immediately; category is filled by the enrichment job.
     category: Mapped[str | None] = mapped_column(

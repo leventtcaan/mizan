@@ -153,6 +153,9 @@ export interface UploadResponse {
   reason: string | null;
   message: string;
   suggestions?: SuggestionItem[];
+  parsed_income?: string;
+  parsed_expenses?: string;
+  currency?: string;
 }
 
 export interface Transaction {
@@ -165,6 +168,7 @@ export interface Transaction {
   transaction_date: string;
   category: string | null;
   behavioral_tag: string | null;
+  source?: string;
   created_at: string;
 }
 
@@ -324,6 +328,49 @@ export async function login(email: string, password: string): Promise<TokenRespo
     throw new Error(extractErrorMessage(body, "Giriş başarısız oldu"));
   }
   return response.json() as Promise<TokenResponse>;
+}
+
+// --- Onboarding analysis (conflict detection + AI first impression) ---
+
+export interface OnboardingConflict {
+  kind: "income_duplicate" | "spending_same" | "spending_excess";
+  field: "income" | "spending";
+  parsed: number;
+  manual: number;
+  diff_pct: number;
+  recommendation: "use_statement" | "ask" | "add_supplementary";
+}
+
+export interface OnboardingAnalyzeRequest {
+  has_statement: boolean;
+  parsed_income?: number | null;
+  parsed_expenses?: number | null;
+  manual_income?: number | null;
+  manual_spending?: number | null;
+  asset?: { asset_type?: string | null; value?: number | null } | null;
+  liability?: { liability_type?: string | null; remaining?: number | null; monthly_payment?: number | null } | null;
+  currency: string;
+  lang: string;
+}
+
+export interface OnboardingAnalyzeResponse {
+  conflicts: OnboardingConflict[];
+  summary: string | null;
+}
+
+export async function analyzeOnboarding(
+  body: OnboardingAnalyzeRequest,
+): Promise<OnboardingAnalyzeResponse> {
+  const response = await fetch(`${API_BASE_URL}/onboarding/analyze`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...authHeaders() },
+    body: JSON.stringify(body),
+  });
+  if (!response.ok) {
+    const err = await response.json().catch(() => null);
+    throw new Error(extractErrorMessage(err, "Analysis failed"));
+  }
+  return response.json() as Promise<OnboardingAnalyzeResponse>;
 }
 
 export async function completeOnboarding(): Promise<void> {
@@ -527,6 +574,9 @@ export async function getGoalStatus(): Promise<GoalStatusItem[]> {
   return response.json() as Promise<GoalStatusItem[]>;
 }
 
+export type TransactionSource =
+  | "manual" | "user_estimate" | "user_confirmed" | "user_supplementary";
+
 export interface CreateTransactionRequest {
   amount: string;
   transaction_type: "debit" | "credit";
@@ -534,6 +584,7 @@ export interface CreateTransactionRequest {
   transaction_date: string;
   category?: string;
   currency?: string;
+  source?: TransactionSource;
 }
 
 export async function createTransaction(body: CreateTransactionRequest): Promise<Transaction> {
