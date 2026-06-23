@@ -207,14 +207,12 @@ def _layer2_ocr(contents: bytes, page_count: int) -> str:
 # Vision model for reading scanned statement pages. DeepSeek's deepseek-chat is NOT
 # vision-capable, so vision always routes to OpenAI regardless of which provider is
 # primary for text.
-# WHY gpt-4o and not gpt-4o-mini: tested side-by-side on a dense 2-page scanned Turkish
-# statement, gpt-4o-mini consistently mis-aligned columns (reported the running BALANCE
-# as the amount), misparsed Turkish number format ("19.486,57" → 19.48657), and dropped
-# ~25% of rows (37/49). gpt-4o extracted all 49/49 rows, kept the amount/balance columns
-# straight, and classified transfers correctly. Extraction runs once per upload, so the
-# extra cost (~$0.01-0.03/page) is justified for correct financial data. The remaining
-# small amount errors are pixel-level digit misreads inherent to the scan quality.
-_VISION_MODEL = "gpt-4o"
+# gpt-4o-mini is vision-capable and cheap. With page strip tiling (each page split into
+# top/bottom halves, enlarging the digits) its column alignment and Turkish-number reads
+# improve markedly. gpt-4o is more accurate on dense scans but costs ~10x more; mini is
+# the chosen default for cost. Swap to "gpt-4o" here if extraction accuracy on poor-quality
+# scans becomes critical.
+_VISION_MODEL = "gpt-4o-mini"
 
 # WHY: 150 DPI → ~1650px long edge for a letter/A4 page. The vision model caps the long
 # edge at 2048px and downsamples the short edge to ~768px, so rendering much higher just

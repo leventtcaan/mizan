@@ -680,7 +680,6 @@ export const tr = {
       addAnother: "Başka ekstre ekle",
       statementsLoaded: "ekstre yüklendi",
       txCount: "işlem",
-      enterManually: "Elle gir",
       incomeSeen: "Görülen gelir",
       expensesSeen: "Görülen gider",
       skipForNow: "Şimdi değil, atla",

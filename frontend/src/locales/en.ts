@@ -680,7 +680,6 @@ export const en = {
       addAnother: "Add another statement",
       statementsLoaded: "statements loaded",
       txCount: "transactions",
-      enterManually: "Enter manually",
       incomeSeen: "Income seen",
       expensesSeen: "Expenses seen",
       skipForNow: "Not now, skip",
