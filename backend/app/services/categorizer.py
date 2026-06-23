@@ -164,6 +164,32 @@ def _expand_brazilian(description: str) -> str:
     return f"{description}  [{'; '.join(hints)}]" if hints else description
 
 
+# Deterministic overrides: some patterns are unambiguous and the LLM keeps getting them
+# wrong (DA LIGHT / SEGURO CARTAO drifting into faiz). For these we force the category in
+# code and ignore whatever the LLM returns. Patterns are specific enough that they cannot
+# collide with other languages, so they run regardless of language detection.
+_FORCED_PATTERNS = [
+    # Utility bills paid by direct debit ("DA …") → fatura
+    (re.compile(r"\bDA\s+(LIGHT|CEG|G[ÁA]S|[ÁA]GUA|AGUA|ENERGIA)\b", re.I), "fatura"),
+    # Card / accident / generic insurance → fatura
+    (re.compile(r"\bSEGURO\s+(CART[ÃA]O|CART|AP)\b", re.I), "fatura"),
+    # iFood subscription → restoran
+    (re.compile(r"\bON\s+IFD\s+SUB\b", re.I), "restoran"),
+]
+
+
+def _forced_category(description: str) -> str | None:
+    for pattern, category in _FORCED_PATTERNS:
+        if pattern.search(description):
+            return category
+    return None
+
+
+def _force_categories(descriptions: list[str], transactions=None) -> dict[int, str]:
+    """Returns {index: forced_category} for descriptions matching a known override pattern."""
+    return {i: cat for i, d in enumerate(descriptions) if (cat := _forced_category(d))}
+
+
 async def categorize_batch(
     transactions: list[Transaction],
     provider: LLMProvider,
@@ -177,11 +203,17 @@ async def categorize_batch(
     if not transactions:
         return []
 
+    raw_descs = [t.description for t in transactions]
+
+    # Deterministic overrides for unambiguous patterns the LLM keeps getting wrong.
+    # Computed up front so they apply even if the LLM call fails entirely.
+    forced = _force_categories(raw_descs, transactions)
+
     # Language-gated pre-processing: expand Brazilian/Portuguese bank abbreviations into
     # the prompt (as hints) only when the batch looks Portuguese/Brazilian.
-    descs = [t.description for t in transactions]
-    if _looks_brazilian(descs):
-        descs = [_expand_brazilian(d) for d in descs]
+    descs = raw_descs
+    if _looks_brazilian(raw_descs):
+        descs = [_expand_brazilian(d) for d in raw_descs]
         logger.info("Categorizer: Portuguese/Brazilian statement detected — expanded abbreviations")
 
     descriptions = "\n".join(f"{i + 1}. {d}" for i, d in enumerate(descs))
@@ -194,15 +226,24 @@ async def categorize_batch(
     except Exception as exc:
         # WHY: Never let LLM failure crash the upload — raw data is already persisted.
         # User can re-trigger categorization later; losing the upload would be worse.
-        logger.error("LLM categorization failed: %s — leaving categories as None", exc)
+        # Forced categories are still applied so known patterns are never left uncategorized.
+        logger.error("LLM categorization failed: %s — applying forced categories only", exc)
+        for idx, cat in forced.items():
+            transactions[idx].category = cat
         return transactions
+
+    # Forced categories WIN over the LLM — guaranteed correctness for known patterns.
+    for idx, cat in forced.items():
+        if 0 <= idx < len(categories):
+            categories[idx] = cat
 
     for transaction, category in zip(transactions, categories):
         transaction.category = category
 
     logger.info(
-        "Categorized %d transactions — distribution: %s",
+        "Categorized %d transactions (%d forced) — distribution: %s",
         len(transactions),
+        len(forced),
         _distribution(categories),
     )
 
