@@ -1023,39 +1023,59 @@ def _identify_xlsx_columns(
     return date_idx, desc_idx, amount_idx
 
 
-def _xlsx_header_score(header: tuple) -> bool:
-    """True if this row names BOTH a date and an amount column — a real header row,
-    distinguishing it from preamble/title rows above the table."""
-    cells = [c.strip().lower() for c in header if isinstance(c, str) and c.strip()]
-    has_date = any(any(k in c for k in _XLSX_DATE_HINTS) for c in cells)
-    has_amount = any(any(k in c for k in _XLSX_AMOUNT_HINTS) for c in cells)
-    return has_date and has_amount
+def _row_has_date_header(row: tuple) -> bool:
+    """True if any cell in the row names a date column (tarih/date/… — multilingual)."""
+    for c in row:
+        if isinstance(c, str) and c.strip():
+            cl = c.strip().lower()
+            if any(k in cl for k in _XLSX_DATE_HINTS):
+                return True
+    return False
 
 
 def _find_xlsx_table(rows: list[tuple]) -> tuple[int, int | None, int | None, int | None]:
     """
-    Find the header row + column indices. Bank exports often have a few preamble rows
-    (account holder, IBAN, period) before the table, so we scan the first rows and pick
-    the first candidate header that yields BOTH a date and an amount column. Falls back to
-    treating row 0 as the header.
+    Locate the header row + the date / description / amount column indices.
+
+    Strategy (bank exports often have title/preamble rows above the table):
+      1. Header row = the first row whose cells NAME a date column ('tarih'/'date'/…).
+         Columns are then mapped by header name (Tarih→date, Açıklama→description,
+         Tutar→amount), with per-column value inference filling anything not named.
+      2. If no named header is found, value-based inference over each candidate row:
+         a column of datetimes → date, a numeric column (preferring one with negatives)
+         → amount, the longest-text column → description, the other numeric → balance.
+      3. Last resort: treat row 0 as the header.
     """
     limit = min(len(rows), _XLSX_HEADER_SCAN_ROWS)
-    # Pass 1: a row that explicitly names both a date and an amount column is the header.
+
+    # (1) Named header — first row that mentions a date column.
     for h in range(limit):
-        if _xlsx_header_score(rows[h]):
+        if _row_has_date_header(rows[h]):
             date_idx, desc_idx, amount_idx = _identify_xlsx_columns(rows[h], rows[h + 1:])
             if date_idx is not None and amount_idx is not None and date_idx != amount_idx:
+                logger.info(
+                    "XLSX: header row=%d (by name) → date=%s desc=%s amount=%s",
+                    h, date_idx, desc_idx, amount_idx,
+                )
                 return h, date_idx, desc_idx, amount_idx
-    # Pass 2: value inference — first candidate yielding DISTINCT date & amount columns.
+
+    # (2) Value-based — first candidate row whose data below yields distinct date+amount.
     for h in range(limit):
-        if not any(isinstance(c, str) and c.strip() for c in rows[h]):
-            continue
         date_idx, desc_idx, amount_idx = _identify_xlsx_columns(rows[h], rows[h + 1:])
         if date_idx is not None and amount_idx is not None and date_idx != amount_idx:
+            logger.info(
+                "XLSX: header row=%d (by value inference) → date=%s desc=%s amount=%s",
+                h, date_idx, desc_idx, amount_idx,
+            )
             return h, date_idx, desc_idx, amount_idx
-    # Fallback: first row is the header (per the simplest expectation).
+
+    # (3) Last resort.
     if rows:
         date_idx, desc_idx, amount_idx = _identify_xlsx_columns(rows[0], rows[1:])
+        logger.warning(
+            "XLSX: no header detected — using row 0; date=%s desc=%s amount=%s",
+            date_idx, desc_idx, amount_idx,
+        )
         return 0, date_idx, desc_idx, amount_idx
     return 0, None, None, None
 
