@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import Link from "next/link";
 import { getToken, getStoredUser, clearToken, updatePreferences } from "@/lib/api";
@@ -26,6 +26,8 @@ export default function Navbar() {
   const { lang, setLanguage, t } = useLanguage();
   const [userEmail, setUserEmail] = useState<string | null>(null);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [accountOpen, setAccountOpen] = useState(false);
+  const accountRef = useRef<HTMLDivElement>(null);
 
   // The four money pages (transactions / cashflow / subscriptions / installments)
   // are unified under one "Money Flow" entry; they share the MoneyTabs sub-nav.
@@ -49,7 +51,17 @@ export default function Navbar() {
 
   useEffect(() => {
     setMobileOpen(false);
+    setAccountOpen(false);
   }, [pathname]);
+
+  // Close the account menu on outside click.
+  useEffect(() => {
+    const onClick = (e: MouseEvent) => {
+      if (accountRef.current && !accountRef.current.contains(e.target as Node)) setAccountOpen(false);
+    };
+    document.addEventListener("mousedown", onClick);
+    return () => document.removeEventListener("mousedown", onClick);
+  }, []);
 
   if (HIDDEN_PATHS.includes(pathname)) return null;
   if (!userEmail) return null;
@@ -95,34 +107,10 @@ export default function Navbar() {
             })}
           </div>
 
-          {/* Right side */}
+          {/* Right side — currency · notifications · upload · account menu */}
           <div className="hidden md:flex items-center gap-2 shrink-0">
-            {/* Language toggle */}
-            <div className="flex rounded-lg overflow-hidden border border-[#2A2A2A] text-xs font-medium">
-              <button
-                onClick={() => handleLangSwitch("tr")}
-                className={`px-2 py-1 transition-colors ${lang === "tr" ? "bg-indigo-600 text-white" : "text-gray-400 hover:text-gray-200"}`}
-              >
-                TR
-              </button>
-              <button
-                onClick={() => handleLangSwitch("en")}
-                className={`px-2 py-1 transition-colors ${lang === "en" ? "bg-indigo-600 text-white" : "text-gray-400 hover:text-gray-200"}`}
-              >
-                EN
-              </button>
-            </div>
-
             <CurrencyMenu />
             <NotificationDropdown />
-            <Link
-              href="/settings"
-              title={t("settings.title")}
-              className={`p-1.5 rounded-lg transition-colors ${pathname === "/settings" ? "text-white bg-[#2A2A2A]" : "text-gray-500 hover:text-gray-300 hover:bg-[#2A2A2A]"}`}
-            >
-              <Settings size={16} />
-            </Link>
-            <span className="text-gray-500 text-xs truncate max-w-[140px]">{userEmail}</span>
             <Link
               href="/upload"
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-sm font-medium text-white transition-colors"
@@ -130,13 +118,38 @@ export default function Navbar() {
               <Upload size={14} />
               {t("nav.upload")}
             </Link>
-            <button
-              onClick={handleLogout}
-              title={t("nav.logout")}
-              className="p-1.5 rounded-lg text-gray-500 hover:text-gray-300 hover:bg-[#2A2A2A] transition-colors"
-            >
-              <LogOut size={16} />
-            </button>
+
+            {/* Account menu — folds language, settings, logout, email into one avatar */}
+            <div className="relative" ref={accountRef}>
+              <button
+                onClick={() => setAccountOpen((v) => !v)}
+                className="w-8 h-8 rounded-full bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-semibold flex items-center justify-center transition-colors"
+                title={userEmail ?? ""}
+              >
+                {userEmail?.[0]?.toUpperCase() ?? "?"}
+              </button>
+              {accountOpen && (
+                <div className="absolute right-0 mt-2 w-56 bg-[#161616] border border-[#2A2A2A] rounded-xl shadow-2xl shadow-black/50 py-2 z-50">
+                  <div className="px-3 py-2 border-b border-[#2A2A2A]">
+                    <p className="text-gray-500 text-[10px] uppercase tracking-wider">{t("settings.account")}</p>
+                    <p className="text-gray-200 text-sm truncate">{userEmail}</p>
+                  </div>
+                  <div className="px-3 py-2 flex items-center justify-between">
+                    <span className="text-gray-400 text-sm">{t("settings.language")}</span>
+                    <div className="flex rounded-lg overflow-hidden border border-[#2A2A2A] text-xs font-medium">
+                      <button onClick={() => handleLangSwitch("tr")} className={`px-2 py-1 transition-colors ${lang === "tr" ? "bg-indigo-600 text-white" : "text-gray-400 hover:text-gray-200"}`}>TR</button>
+                      <button onClick={() => handleLangSwitch("en")} className={`px-2 py-1 transition-colors ${lang === "en" ? "bg-indigo-600 text-white" : "text-gray-400 hover:text-gray-200"}`}>EN</button>
+                    </div>
+                  </div>
+                  <Link href="/settings" className="flex items-center gap-2 px-3 py-2 text-sm text-gray-300 hover:bg-[#1A1A1A] transition-colors">
+                    <Settings size={15} /> {t("settings.title")}
+                  </Link>
+                  <button onClick={handleLogout} className="w-full flex items-center gap-2 px-3 py-2 text-sm text-red-400 hover:bg-[#1A1A1A] transition-colors">
+                    <LogOut size={15} /> {t("nav.logout")}
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
 
           {/* Mobile hamburger */}
