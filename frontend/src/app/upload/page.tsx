@@ -61,6 +61,13 @@ export default function UploadPage() {
     setState("uploading");
     try {
       const response = await uploadStatement(selectedFile);
+      // A clean parse leads with the Post-Upload Brief — the narrative read of the
+      // statement — instead of dumping the user straight into the transaction table.
+      // Empty/failed parses stay here to show the actionable amber message.
+      if (response.status === "success") {
+        router.push(`/brief?job_id=${response.job_id}`);
+        return;
+      }
       setResult(response);
       setState("success");
       if (response.suggestions && response.suggestions.length > 0) {

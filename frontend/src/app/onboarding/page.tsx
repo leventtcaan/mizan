@@ -141,7 +141,19 @@ export default function OnboardingPage() {
       .finally(() => setAnalyzing(false));
   }, [step, hasStatement, parsedIncome, parsedExpenses, currency, lang]);
 
-  const next = () => { setError(null); setStep(2); };
+  // With a parsed statement, the Post-Upload Brief IS the first impression — skip the
+  // lightweight step-2 summary and land on the brief for the most recent upload.
+  // With no statement, fall through to step 2's plain welcome.
+  const next = async () => {
+    setError(null);
+    if (hasStatement) {
+      const lastSuccess = successUploads[successUploads.length - 1];
+      await markDone();
+      router.push(`/brief?job_id=${lastSuccess.result.job_id}`);
+      return;
+    }
+    setStep(2);
+  };
   const back = () => { setError(null); analyzedRef.current = false; setSummary(null); setStep(1); };
 
   const progressPct = (step / STEP_COUNT) * 100;

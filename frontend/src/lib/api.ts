@@ -172,6 +172,18 @@ export interface Transaction {
   created_at: string;
 }
 
+// Post-Upload Brief — the narrative read of one uploaded statement.
+export interface Brief {
+  job_id: string;
+  period: { start: string; end: string; transaction_count: number };
+  flow: { income: number; expenses: number; net: number; currency: string };
+  top_categories: { name: string; amount: number; share: number }[];
+  largest_transaction: { description: string; amount: number; type: string } | null;
+  recurring_signal: { monthly_total: number; highlight: string | null };
+  suggested_action: { key: string; label: string; href: string };
+  narrative: string | null;
+}
+
 export interface InsightResponse {
   user_id: string;
   transaction_count: number;
@@ -380,6 +392,15 @@ export async function uploadStatement(file: File): Promise<UploadResponse> {
     throw new Error((error as { detail: string }).detail ?? "Upload failed");
   }
   return response.json() as Promise<UploadResponse>;
+}
+
+export async function getBrief(jobId: string, lang = "tr"): Promise<Brief> {
+  const response = await fetch(
+    `${API_BASE_URL}/upload/brief?job_id=${encodeURIComponent(jobId)}&lang=${lang}`,
+    { headers: authHeaders() },
+  );
+  if (!response.ok) throw new Error(`Failed to fetch brief: ${response.status}`);
+  return response.json() as Promise<Brief>;
 }
 
 export async function getBatches(): Promise<BatchSummary[]> {

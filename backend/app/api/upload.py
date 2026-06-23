@@ -16,6 +16,8 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile, status
 from pydantic import BaseModel
+from sqlalchemy import select
+from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
@@ -23,8 +25,10 @@ from app.core.database import get_session
 from app.core.dependencies import get_current_user
 from app.core.rate_limiter import upload_ip_limiter, upload_user_limiter
 from app.models.networth_suggestion import NetworthSuggestion
+from app.models.progress_insight import ProgressInsight
 from app.models.reconciliation_item import ReconciliationItem
 from app.models.user import User
+from app.services.brief import build_brief
 from app.services.categorizer import categorize_batch
 from app.services.llm_provider import get_provider
 from app.services.pdf_parser import parse_statement
@@ -353,3 +357,127 @@ async def upload_statement(
         parsed_expenses=str(parsed_expenses),
         currency=default_ccy,
     )
+
+
+# ── Post-Upload Brief ────────────────────────────────────────────────────────
+# The narrative read of one statement. Replaces the bare dashboard redirect with a
+# 60–90s story. Cached per (job_id, lang) so the same statement always returns the
+# same brief (cheap LLM amortisation; the brief is otherwise deterministic).
+
+_BRIEF_DATA_TYPE = "brief"
+
+
+class BriefPeriod(BaseModel):
+    start: str
+    end: str
+    transaction_count: int
+
+
+class BriefFlow(BaseModel):
+    income: float
+    expenses: float
+    net: float
+    currency: str
+
+
+class BriefCategory(BaseModel):
+    name: str       # category slug — frontend maps to a localized label
+    amount: float
+    share: float    # percent of total spend
+
+
+class BriefLargest(BaseModel):
+    description: str
+    amount: float
+    type: str
+
+
+class BriefRecurring(BaseModel):
+    monthly_total: float
+    highlight: str | None = None
+
+
+class BriefAction(BaseModel):
+    key: str
+    label: str
+    href: str
+
+
+class BriefResponse(BaseModel):
+    job_id: str
+    period: BriefPeriod
+    flow: BriefFlow
+    top_categories: list[BriefCategory] = []
+    largest_transaction: BriefLargest | None = None
+    recurring_signal: BriefRecurring
+    suggested_action: BriefAction
+    narrative: str | None = None
+
+
+async def _brief_cache_get(
+    user_id: uuid.UUID, expected_key: str, session: AsyncSession
+) -> str | None:
+    result = await session.execute(
+        select(ProgressInsight).where(
+            ProgressInsight.user_id == user_id,
+            ProgressInsight.data_type == _BRIEF_DATA_TYPE,
+        )
+    )
+    row = result.scalar_one_or_none()
+    if row is None or row.cache_key != expected_key:
+        return None
+    return row.data
+
+
+async def _brief_cache_set(
+    user_id: uuid.UUID, cache_key: str, data: str, session: AsyncSession
+) -> None:
+    stmt = (
+        pg_insert(ProgressInsight)
+        .values(
+            id=uuid.uuid4(),
+            user_id=user_id,
+            data_type=_BRIEF_DATA_TYPE,
+            cache_key=cache_key,
+            data=data,
+            generated_at=datetime.now(timezone.utc),
+        )
+        .on_conflict_do_update(
+            constraint="uq_progress_insights_user_type",
+            set_={
+                "cache_key": cache_key,
+                "data": data,
+                "generated_at": datetime.now(timezone.utc),
+            },
+        )
+    )
+    await session.execute(stmt)
+
+
+@router.get("/brief", response_model=BriefResponse)
+async def upload_brief(
+    job_id: str,
+    lang: str = "tr",
+    current_user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
+) -> BriefResponse:
+    """
+    WHAT: Returns the structured Post-Upload Brief for one upload batch.
+    WHY: GET (read-only, idempotent) so the /brief page can deep-link / refresh.
+         404 when the batch has no transactions — the frontend then silently
+         falls back to /transactions.
+    """
+    cache_key = f"{job_id}|{lang}"
+    cached = await _brief_cache_get(current_user.id, cache_key, session)
+    if cached is not None:
+        logger.info("Brief cache hit — user=%s job_id=%s", current_user.id, job_id)
+        return BriefResponse.model_validate_json(cached)
+
+    brief = await build_brief(job_id, current_user.id, session, lang=lang)
+    if brief is None:
+        raise HTTPException(status_code=404, detail="No brief available for this upload.")
+
+    response = BriefResponse(**brief)
+    await _brief_cache_set(current_user.id, cache_key, response.model_dump_json(), session)
+    await session.commit()
+    return response

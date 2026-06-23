@@ -9,7 +9,7 @@ import { useLanguage, type Lang } from "@/lib/i18n";
 import NotificationDropdown from "@/components/NotificationDropdown";
 import CurrencyMenu from "@/components/ui/CurrencyMenu";
 
-const HIDDEN_PATHS = ["/login", "/onboarding"];
+const HIDDEN_PATHS = ["/login", "/onboarding", "/brief"];
 
 function PieChartMini() {
   return (
