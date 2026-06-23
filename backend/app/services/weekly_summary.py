@@ -22,6 +22,7 @@ _CAT_DISPLAY: dict[str, str] = {
     "giyim": "Giyim",
     "nakit_atm": "Nakit / ATM",
     "transfer": "Transfer",
+    "faiz": "Faiz",
     "iade": "İade",
     "vergi": "Vergi & Komisyon",
     "teknoloji": "Teknoloji",

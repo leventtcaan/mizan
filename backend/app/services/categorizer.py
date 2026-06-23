@@ -27,6 +27,7 @@ VALID_CATEGORIES = {
     "eglence",
     "nakit_atm",
     "transfer",
+    "faiz",
     "iade",
     "vergi",
     "teknoloji",
@@ -34,34 +35,54 @@ VALID_CATEGORIES = {
 }
 
 _SYSTEM_PROMPT = """\
-You categorize global financial transactions.
-For each transaction description, choose exactly one of these stable category slugs:
-market, restoran, ulasim, fatura, saglik, giyim, eglence, nakit_atm, transfer, iade, vergi, teknoloji, diger
+You are a financial transaction categorizer that works for ANY country and ANY language.
+Descriptions may be in Turkish, Portuguese, English, German, Spanish, French, Arabic, etc.,
+and usually contain merchant names, bank abbreviations, and payment-rail codes.
 
-Category rules (priority order):
-- teknoloji: "Yurt Dışı Sanal POS" + açıklamada AWS/Google/Azure/Apple/Spotify/Netflix/GitHub/Dropbox/Adobe/Microsoft/OpenAI/Anthropic/ChatGPT/cloud/dijital/yazılım/hosting geçiyorsa
-- vergi: "Kambiyo Muameleleri Vergisi", "BSMV", "Vergi Kesintisi", "Stopaj"
-- iade: "İade", "Debit Kart İade", "Geri Ödeme", "Refund", "İPTAL"
-- transfer: "Havale", "EFT", "Tös Hesaba Havale", "FAST İşlemi", "Virman", kişi adı ile yapılan para transferleri
-- nakit_atm: "ATM", "Para Çekme", "Nakit Avans"
-- market: BİM, Migros, A101, Şok, CarrefourSA, Metro, Macrocenter, Kipa, Hakmar
-- restoran: restoran, kafe, McDonald's, Burger King, Starbucks, yemeksepeti, getir (yemek), trendyol yemek
-- ulasim: UBER, İBB, metro, otobüs, taksi, BiTaksi, Trafi, akaryakıt, benzin, Shell, BP, Opet
-- fatura: elektrik, doğalgaz, su, internet, telefon, TTNET, Turkcell, Vodafone, Türk Telekom
-- saglik: eczane, hastane, klinik, doktor, diş, optik, laborat
-- giyim: Zara, H&M, LC Waikiki, Koton, Mango, Pull&Bear, DeFacto, Boyner, giyim, ayakkabı
-- eglence: sinema, tiyatro, konser, oyun, Netflix (içerik), Spotify (içerik)
-- If unsure, choose "diger"
+HOW TO REASON (do NOT keyword-match):
+1. Infer the statement's language from the descriptions.
+2. For each line, work out semantically WHAT the merchant or transaction actually is —
+   expand bank abbreviations mentally (e.g. "PAY IFD" → iFood; "REND PAGO" → rendimento/yield;
+   "RSHOP" → a card purchase, judged by the rest of the line).
+3. Map that meaning to exactly ONE slug from this fixed list:
+market, restoran, ulasim, fatura, saglik, giyim, eglence, nakit_atm, transfer, faiz, iade, vergi, teknoloji, diger
 
-General rule: use only one of the listed slugs. Return ONLY a JSON list, nothing else.
+WHAT EACH SLUG MEANS (match by meaning, in any language):
+- market — groceries, supermarkets, convenience stores (Migros, BIM, Carrefour, Walmart,
+  Pão de Açúcar, Rewe, Mercadona; words like "mercado", "market", "supermarkt", "épicerie").
+- restoran — restaurants, cafes, bars AND food delivery in any country: iFood, Uber Eats,
+  Rappi, Deliveroo, Glovo, Just Eat, DoorDash, Yemeksepeti, Getir Yemek (e.g. "PAY IFD" = iFood).
+- ulasim — transport & fuel: ride-hailing (Uber, Bolt, Cabify, Lyft, 99, BiTaksi), transit,
+  taxis, fuel/gas stations (Shell, BP, Petrobras, Ipiranga, Opet).
+- fatura — recurring bills AND digital subscriptions: utilities (electricity, water, gas,
+  internet, phone) AND streaming/app subscriptions: Netflix, Spotify, Apple, Google Play,
+  Amazon Prime, YouTube Premium, Disney+.
+- saglik — health: pharmacy (farmácia, eczane, pharmacy, apotheke, farmacia), hospital,
+  clinic, doctor, dentist, lab, optician.
+- giyim — clothing, shoes, apparel (Zara, H&M, Renner, Riachuelo, Nike, Boyner).
+- eglence — entertainment & leisure: cinema, theatre, concerts, events, video games,
+  gyms / fitness studios.
+- nakit_atm — ATM withdrawals, cash advances ("saque", "ATM", "nakit", "retrait").
+- transfer — money moved between PEOPLE via any rail (PIX, Zelle, FAST, Havale, EFT, wire,
+  SEPA). IMPORTANT: a payment rail alone is NOT a transfer — if the counterparty is a
+  MERCHANT or marketplace (e.g. "PIX ... Marketplace"), categorize by the merchant instead.
+- faiz — interest / yield / finance income the bank pays the USER: "REND PAGO",
+  "rendimento", "interest", "yield", "dividend", "faiz geliri", automatic-investment returns.
+- iade — refunds, reversals, chargebacks ("estorno", "devolução", "refund", "iade", "İPTAL").
+- vergi — taxes & bank levies ("imposto", "IOF", "tax", "BSMV", "stopaj", "vergi").
+- teknoloji — cloud / SaaS / developer & business software: AWS, Google Cloud, Azure,
+  GitHub, OpenAI, Anthropic, Adobe, Microsoft 365, hosting, domains.
+- diger — use ONLY when you genuinely cannot place it. Do not force a guess.
+
+Return ONLY a JSON array of slugs, one per transaction, in the SAME order. Nothing else.
 """
 
 _USER_PROMPT_TEMPLATE = """\
-Aşağıdaki işlem açıklamalarını kategorize et.
-Her açıklama için tam olarak bir kategori döndür, aynı sırada.
-Yanıt formatı: ["kategori1", "kategori2", ...]
+Categorize the following transactions. Descriptions may be in any language — reason about
+each merchant/purpose semantically, then return exactly one slug per transaction, in the
+same order, as a JSON array like ["slug1", "slug2", ...].
 
-İşlemler:
+Transactions:
 {descriptions}
 """
 

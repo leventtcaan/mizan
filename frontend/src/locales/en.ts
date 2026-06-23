@@ -977,6 +977,7 @@ export const en = {
     giyim: "Clothing",
     nakit_atm: "Cash / ATM",
     transfer: "Transfer",
+    faiz: "Interest",
     iade: "Refund",
     vergi: "Tax & Commission",
     teknoloji: "Technology",

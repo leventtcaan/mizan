@@ -66,7 +66,7 @@ class DeleteBatchResponse(BaseModel):
 
 VALID_CATEGORIES = {
     "market", "restoran", "ulasim", "eglence", "saglik", "fatura",
-    "giyim", "nakit_atm", "transfer", "iade", "vergi", "teknoloji", "diger",
+    "giyim", "nakit_atm", "transfer", "faiz", "iade", "vergi", "teknoloji", "diger",
 }
 
 # Provenance values a manual entry is allowed to declare. Statement-parsed rows are

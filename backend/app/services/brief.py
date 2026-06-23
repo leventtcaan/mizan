@@ -37,14 +37,14 @@ _CATEGORY_LABELS = {
         "eglence": "Eğlence", "saglik": "Sağlık", "fatura": "Fatura",
         "giyim": "Giyim", "nakit_atm": "Nakit/ATM", "transfer": "Transfer",
         "iade": "İade", "vergi": "Vergi", "teknoloji": "Teknoloji",
-        "diger": "Diğer", "egitim": "Eğitim",
+        "faiz": "Faiz", "diger": "Diğer", "egitim": "Eğitim",
     },
     "en": {
         "market": "Groceries", "restoran": "Dining", "ulasim": "Transport",
         "eglence": "Entertainment", "saglik": "Health", "fatura": "Bills",
         "giyim": "Clothing", "nakit_atm": "Cash/ATM", "transfer": "Transfer",
         "iade": "Refund", "vergi": "Tax", "teknoloji": "Technology",
-        "diger": "Other", "egitim": "Education",
+        "faiz": "Interest", "diger": "Other", "egitim": "Education",
     },
 }
 

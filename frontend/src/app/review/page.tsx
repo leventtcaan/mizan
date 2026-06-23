@@ -13,7 +13,7 @@ import {
 
 const REVIEW_CATEGORIES = [
   "market", "restoran", "ulasim", "eglence", "saglik", "fatura",
-  "giyim", "nakit_atm", "transfer", "iade", "vergi", "teknoloji", "egitim", "diger",
+  "giyim", "nakit_atm", "transfer", "faiz", "iade", "vergi", "teknoloji", "egitim", "diger",
 ];
 
 type EditRow = {

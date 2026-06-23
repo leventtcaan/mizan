@@ -28,6 +28,7 @@ VALID_CATEGORIES = {
     "giyim",
     "nakit_atm",
     "transfer",
+    "faiz",
     "iade",
     "vergi",
     "teknoloji",
