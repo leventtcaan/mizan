@@ -439,7 +439,7 @@ export async function getBrief(jobId: string, lang = "tr"): Promise<Brief> {
 
 // ── Financial simulator ──────────────────────────────────────────────────────
 export interface SimAction { type: string; amount: number; label?: string | null; debt_id?: string | null; }
-export interface SimPoint { month: number; net_worth: number; liquid: number; }
+export interface SimPoint { month: number; net_worth: number; liquid: number; low?: number; high?: number; }
 export interface SimProjection {
   points: SimPoint[];
   net_worth_end: number; liquid_end: number;

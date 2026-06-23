@@ -20,6 +20,7 @@ Model (stated plainly so it's never a black box):
 
 import asyncio
 import logging
+import math
 import uuid
 from copy import deepcopy
 from dataclasses import dataclass, field
@@ -241,98 +242,58 @@ def _money(n: float, ccy: str) -> str:
     return f"{n:,.0f} {ccy}"
 
 
-def _month_label(m: int | None, lang: str) -> str:
-    if m is None:
-        return "—"
-    if m == 0:
-        return "now" if lang != "tr" else "şimdi"
-    years, rem = divmod(m, 12)
-    if lang == "tr":
-        parts = []
-        if years:
-            parts.append(f"{years} yıl")
-        if rem:
-            parts.append(f"{rem} ay")
-        return " ".join(parts) or "0 ay"
-    parts = []
-    if years:
-        parts.append(f"{years}y")
-    if rem:
-        parts.append(f"{rem}mo")
-    return " ".join(parts) or "0mo"
+# Uncertainty band: the projection is a steady-state estimate, so we widen a cone
+# around it with the square root of time (random-walk style) to communicate that the
+# further out you look, the less certain it is. This kills the "fake precision" of a
+# perfectly straight line WITHOUT inventing fake month-to-month wiggles.
+_UNCERTAINTY_K = 0.5
 
 
-_NARRATE_SYSTEM = """\
-You are Mizan, a warm, sharp global personal-finance assistant. The user asked a
-"what if" question and a deterministic engine computed the real answer. Write a SINGLE
-short paragraph (2–4 sentences) telling them what changes, in plain language.
-Preferred language: {language_name}. You MUST respond in that language.
-
-Rules:
-- Use ONLY the numbers given. Do not invent or add figures.
-- Lead with the headline impact (net worth and/or debt-free timing), then the trade-off
-  (e.g. lower cash now). Be encouraging but honest; flag risk if cash goes negative.
-- No bullet points, no headings, no preamble, no investment/securities advice.
-"""
+def _add_band(points: list[dict], surplus: float, nw0: float) -> None:
+    """Attach low/high to each scenario point in place (a widening cone of uncertainty)."""
+    scale = max(abs(surplus), abs(nw0) * 0.01, 1.0)
+    for p in points:
+        dev = _UNCERTAINTY_K * scale * math.sqrt(p["month"])
+        p["low"] = round(p["net_worth"] - dev)
+        p["high"] = round(p["net_worth"] + dev)
 
 
-def _narrate_facts(deltas: dict, scen: dict, horizon: int, ccy: str, lang: str, applied: list[str]) -> str:
-    lines = [
-        f"Horizon: {horizon} months. Currency: {ccy}.",
-        f"Levers applied: {', '.join(applied) if applied else 'none'}.",
-        f"Net worth at end — change vs baseline: {deltas['net_worth_end']:+,.0f} {ccy}.",
-        f"Monthly cash flow change: {deltas['monthly_cashflow']:+,.0f} {ccy}.",
-    ]
-    if deltas["debt_free_months"]:
-        lines.append(f"Debt paid off {abs(deltas['debt_free_months'])} months "
-                     f"{'sooner' if deltas['debt_free_months'] > 0 else 'later'}.")
-    if deltas["interest_saved"]:
-        lines.append(f"Interest saved: {deltas['interest_saved']:+,.0f} {ccy}.")
-    if scen["min_liquid"] < 0:
-        lines.append(f"WARNING: liquid cash goes negative (down to {scen['min_liquid']:,.0f} {ccy} "
-                     f"around month {scen['min_liquid_month']}).")
-    return "\n".join(lines)
-
-
-def _template_narrative(deltas: dict, scen: dict, ccy: str, lang: str) -> str:
+def _summary(deltas: dict, scen: dict, horizon: int, ccy: str, lang: str) -> str:
+    """
+    Deterministic, correct-by-construction summary built from the SAME deltas the cards
+    show. No LLM — so the headline text can never contradict the numbers (the previous
+    LLM narration confidently narrated wrong/contradictory figures).
+    """
     nw = deltas["net_worth_end"]
+    mc = deltas["monthly_cashflow"]
+    df = deltas["debt_free_months"]
+    interest = deltas["interest_saved"]
+    sign = lambda v: "+" if v >= 0 else "−"  # noqa: E731
+
     if lang == "tr":
-        s = (f"Bu senaryoda net değerin ufukta {('+' if nw >= 0 else '')}{_money(nw, ccy)} "
-             f"{'daha yüksek' if nw >= 0 else 'daha düşük'} olur.")
-        if deltas["debt_free_months"]:
-            d = deltas["debt_free_months"]
-            s += f" Borcun {abs(d)} ay {'daha erken' if d > 0 else 'daha geç'} biter."
+        parts = [f"{horizon} ay sonra net değerin baz senaryoya göre {sign(nw)}{_money(abs(nw), ccy)}."]
+        if mc:
+            parts.append(f"Aylık nakit akışın {sign(mc)}{_money(abs(mc), ccy)} değişiyor.")
+        if df:
+            parts.append(f"Borcun {abs(df)} ay {'erken' if df > 0 else 'geç'} biter.")
+        if interest:
+            parts.append(f"Faizden {sign(interest)}{_money(abs(interest), ccy)} "
+                         f"{'tasarruf' if interest >= 0 else 'fazla'}.")
         if scen["min_liquid"] < 0:
-            s += " Dikkat: nakitin bu yolda eksiye düşüyor."
-        return s
-    s = (f"In this scenario your net worth ends {('+' if nw >= 0 else '')}{_money(nw, ccy)} "
-         f"{'higher' if nw >= 0 else 'lower'} than your baseline.")
-    if deltas["debt_free_months"]:
-        d = deltas["debt_free_months"]
-        s += f" You'd be debt-free {abs(d)} months {'sooner' if d > 0 else 'later'}."
+            parts.append(f"⚠ Bu yolda nakitin {scen['min_liquid_month']}. ay civarında eksiye düşüyor.")
+        return " ".join(parts)
+
+    parts = [f"In {horizon} months your net worth is {sign(nw)}{_money(abs(nw), ccy)} vs your baseline."]
+    if mc:
+        parts.append(f"Monthly cash changes by {sign(mc)}{_money(abs(mc), ccy)}.")
+    if df:
+        parts.append(f"You'd be debt-free {abs(df)} months {'sooner' if df > 0 else 'later'}.")
+    if interest:
+        parts.append(f"{sign(interest)}{_money(abs(interest), ccy)} "
+                     f"{'saved in interest' if interest >= 0 else 'more interest'}.")
     if scen["min_liquid"] < 0:
-        s += " Heads up: your cash goes negative on this path."
-    return s
-
-
-def _generate_narrative(facts: str, lang: str) -> str | None:
-    if not (len(settings.DEEPSEEK_API_KEY) > 0 or len(settings.OPENAI_API_KEY) > 0):
-        return None
-    try:
-        provider = get_provider()
-        system = _NARRATE_SYSTEM.format(language_name=_LANGUAGE_NAMES.get(lang, "English"))
-        resp = provider.client.chat.completions.create(
-            model=provider.model,
-            messages=[
-                {"role": "system", "content": system},
-                {"role": "user", "content": facts},
-            ],
-            temperature=0.6,
-        )
-        return (resp.choices[0].message.content or "").strip() or None
-    except Exception as exc:  # noqa: BLE001 — narration is best-effort
-        logger.warning("Simulator narrative LLM failed: %s", exc)
-        return None
+        parts.append(f"⚠ Your cash goes negative around month {scen['min_liquid_month']} on this path.")
+    return " ".join(parts)
 
 
 def _assumptions(lang: str) -> list[str]:
@@ -388,9 +349,10 @@ async def run_simulation(
             warnings.append(f"Cash goes negative around month {scen_proj['min_liquid_month']} "
                             f"({_money(scen_proj['min_liquid'], ccy)}) on this path.")
 
-    facts = _narrate_facts(deltas, scen_proj, horizon, ccy, lang, applied)
-    narrative = await asyncio.to_thread(_generate_narrative, facts, lang) \
-        or _template_narrative(deltas, scen_proj, ccy, lang)
+    # Widen a cone of uncertainty around the scenario line (honest about precision),
+    # and summarise deterministically (correct by construction — no LLM, no contradiction).
+    _add_band(scen_proj["points"], scen_model.base_surplus, scen_model.nw0)
+    narrative = _summary(deltas, scen_proj, horizon, ccy, lang)
 
     return {
         "currency": ccy,
@@ -458,6 +420,16 @@ Output ONLY a JSON array (no prose). Each lever is one of:
 Amounts are plain numbers in the user's currency ({currency}), no symbols.
 If the question mentions a named subscription/debt, copy the name into "label".
 If you cannot map it to any lever, output []. Never invent amounts not implied by the text.
+
+Critical rules:
+- Evaluate any arithmetic and use the SINGLE resulting total. "12.500+12.500=25.000" is
+  one amount of 25000 — never emit separate levers for each number in an expression.
+- Never emit two levers that refer to the same money (no double-counting).
+- Only use "save_monthly" or "income_change" when a monthly cadence is explicit
+  (per month / monthly / ayda / aylık / /ay). A one-off "save up X for a goal" with no
+  monthly cadence is NOT save_monthly — if it maps to no lever, leave it out (output []
+  if nothing else maps). It is better to return [] than to guess a cadence.
+- Note: numbers may use "." as a thousands separator (25.000 = 25000).
 
 Known subscriptions: {subs}
 Known debts: {debts}

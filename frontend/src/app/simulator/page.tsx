@@ -34,6 +34,7 @@ export default function SimulatorPage() {
   const [asking, setAsking] = useState(false);
   const [askMiss, setAskMiss] = useState(false);
   const [showAssumptions, setShowAssumptions] = useState(false);
+  const [incomeDir, setIncomeDir] = useState<"raise" | "cut">("raise");
   const debounce = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
@@ -104,6 +105,32 @@ export default function SimulatorPage() {
     });
   };
 
+  // income change: direction toggle + positive magnitude (so the user never types a bare "-")
+  const incomeAction = actions.find((a) => a.type === "income_change");
+  const incomeMag = incomeAction ? String(Math.abs(incomeAction.amount)) : "";
+  const effIncomeDir = incomeAction ? (incomeAction.amount < 0 ? "cut" : "raise") : incomeDir;
+  const applyIncome = (dir: "raise" | "cut", raw: string) => {
+    setIncomeDir(dir);
+    const mag = parseFloat(raw.replace(",", "."));
+    setActions((p) => {
+      const rest = p.filter((a) => a.type !== "income_change");
+      return isNaN(mag) || mag === 0 ? rest : [...rest, { type: "income_change", amount: dir === "cut" ? -mag : mag }];
+    });
+  };
+
+  const removeAction = (idx: number) => setActions((p) => p.filter((_, i) => i !== idx));
+
+  const renderAction = (a: SimAction): string => {
+    switch (a.type) {
+      case "cancel_recurring": return `${t("sim.actCancel")} ${a.label ?? ""}`.trim();
+      case "save_monthly": return `${t("sim.actSave")}: ${money(a.amount)}`;
+      case "income_change": return `${t("sim.actIncome")}: ${a.amount >= 0 ? "+" : "−"}${money(Math.abs(a.amount))}`;
+      case "one_time_expense": return `${t("sim.actSpend")}: ${money(a.amount)}`;
+      case "prepay_debt": return `${t("sim.actPrepay")} ${a.label ?? ""}: ${money(a.amount)}`.trim();
+      default: return a.type;
+    }
+  };
+
   const clearAll = () => { setActions([]); setResult(null); setQuestion(""); setAskMiss(false); };
 
   const ask = async () => {
@@ -127,11 +154,16 @@ export default function SimulatorPage() {
 
   const chartData = useMemo(() => {
     if (!result) return [];
-    return result.baseline.points.map((b, i) => ({
-      month: b.month,
-      baseline: b.net_worth,
-      scenario: result.scenario.points[i]?.net_worth ?? b.net_worth,
-    }));
+    return result.baseline.points.map((b, i) => {
+      const sc = result.scenario.points[i];
+      const v = sc?.net_worth ?? b.net_worth;
+      return {
+        month: b.month,
+        baseline: b.net_worth,
+        scenario: v,
+        range: [sc?.low ?? v, sc?.high ?? v] as [number, number],
+      };
+    });
   }, [result]);
 
   const noData = levers && levers.net_worth === 0 && levers.subscriptions.length === 0
@@ -197,10 +229,22 @@ export default function SimulatorPage() {
                 <label className="text-gray-400 text-xs block mb-1">{t("sim.saveMonthly")}</label>
                 <input inputMode="decimal" value={amountOf("save_monthly")} onChange={(e) => setSingle("save_monthly", e.target.value)} placeholder="0" className={inputCls} />
               </div>
-              {/* Income change */}
+              {/* Income change — direction toggle + magnitude (no bare-minus typing) */}
               <div>
                 <label className="text-gray-400 text-xs block mb-1">{t("sim.incomeChange")}</label>
-                <input inputMode="decimal" value={amountOf("income_change")} onChange={(e) => setSingle("income_change", e.target.value)} placeholder={t("sim.incomeHint")} className={inputCls} />
+                <div className="flex gap-2">
+                  <div className="flex rounded-lg overflow-hidden border border-[#2A2A2A] shrink-0">
+                    {(["raise", "cut"] as const).map((d) => (
+                      <button key={d} onClick={() => applyIncome(d, incomeMag)}
+                        className={`px-2.5 text-xs font-medium transition-colors ${effIncomeDir === d
+                          ? (d === "raise" ? "bg-emerald-800/40 text-emerald-200" : "bg-red-800/40 text-red-200")
+                          : "text-gray-400 hover:text-gray-200"}`}>
+                        {d === "raise" ? t("sim.incomeRaise") : t("sim.incomeCut")}
+                      </button>
+                    ))}
+                  </div>
+                  <input inputMode="decimal" value={incomeMag} onChange={(e) => applyIncome(effIncomeDir, e.target.value)} placeholder="0" className={inputCls} />
+                </div>
               </div>
               {/* One-time purchase */}
               <div>
@@ -221,20 +265,24 @@ export default function SimulatorPage() {
               </div>
             </div>
 
-            {/* Cancel subscriptions */}
-            {levers && levers.subscriptions.length > 0 && (
+            {/* Cancel subscriptions — always visible so the feature explains itself */}
+            {levers && (
               <div className="mt-4">
                 <label className="text-gray-400 text-xs block mb-2">{t("sim.cancelSubs")}</label>
-                <div className="flex flex-wrap gap-2">
-                  {levers.subscriptions.slice(0, 12).map((s) => (
-                    <button key={s.key} onClick={() => toggleCancel(s.label, s.monthly_amount)}
-                      className={`px-2.5 py-1.5 rounded-lg text-xs border transition-colors ${isCancelled(s.label)
-                        ? "bg-emerald-950/40 border-emerald-700/50 text-emerald-300"
-                        : "bg-[#0F0F0F] border-[#2A2A2A] text-gray-300 hover:border-[#3A3A3A]"}`}>
-                      {isCancelled(s.label) ? "✓ " : ""}{s.label} · {money(s.monthly_amount)}/{lang === "tr" ? "ay" : "mo"}
-                    </button>
-                  ))}
-                </div>
+                {levers.subscriptions.length > 0 ? (
+                  <div className="flex flex-wrap gap-2">
+                    {levers.subscriptions.slice(0, 12).map((s) => (
+                      <button key={s.key} onClick={() => toggleCancel(s.label, s.monthly_amount)}
+                        className={`px-2.5 py-1.5 rounded-lg text-xs border transition-colors ${isCancelled(s.label)
+                          ? "bg-emerald-950/40 border-emerald-700/50 text-emerald-300"
+                          : "bg-[#0F0F0F] border-[#2A2A2A] text-gray-300 hover:border-[#3A3A3A]"}`}>
+                        {isCancelled(s.label) ? "✓ " : ""}{s.label} · {money(s.monthly_amount)}/{lang === "tr" ? "ay" : "mo"}
+                      </button>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-gray-600 text-xs">{t("sim.subsEmpty")}</p>
+                )}
               </div>
             )}
 
@@ -253,6 +301,20 @@ export default function SimulatorPage() {
               </div>
             )}
           </section>
+
+          {/* What I understood — parsed/active levers in plain language, so a misparse
+              (e.g. NL mode) is visible and correctable instead of silently wrong. */}
+          {actions.length > 0 && (
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-gray-500 text-xs">{t("sim.appliedTitle")}:</span>
+              {actions.map((a, i) => (
+                <span key={i} className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-indigo-950/40 border border-indigo-800/40 text-indigo-200 text-xs">
+                  {renderAction(a)}
+                  <button onClick={() => removeAction(i)} className="text-indigo-400/70 hover:text-indigo-200"><XIcon size={11} /></button>
+                </span>
+              ))}
+            </div>
+          )}
 
           {/* Results */}
           {actions.length === 0 ? (
@@ -282,9 +344,9 @@ export default function SimulatorPage() {
                 <ResponsiveContainer width="100%" height={240}>
                   <AreaChart data={chartData} margin={{ top: 4, right: 8, left: 4, bottom: 0 }}>
                     <defs>
-                      <linearGradient id="scenFill" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor="#6366f1" stopOpacity={0.35} />
-                        <stop offset="100%" stopColor="#6366f1" stopOpacity={0} />
+                      <linearGradient id="bandFill" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor="#6366f1" stopOpacity={0.18} />
+                        <stop offset="100%" stopColor="#6366f1" stopOpacity={0.04} />
                       </linearGradient>
                     </defs>
                     <CartesianGrid stroke="#2A2A2A" vertical={false} />
@@ -295,14 +357,23 @@ export default function SimulatorPage() {
                     <Tooltip
                       contentStyle={{ backgroundColor: "#1A1A1A", border: "1px solid #2A2A2A", borderRadius: 8 }}
                       labelStyle={{ color: "#9ca3af" }}
-                      formatter={(v: number, name: string) => [money(v), name === "baseline" ? t("sim.baseline") : t("sim.scenario")]}
+                      formatter={(v: number | number[], name: string) => {
+                        if (name === "range") {
+                          const [lo, hi] = v as number[];
+                          return [`${money(lo)} – ${money(hi)}`, t("sim.range")];
+                        }
+                        return [money(v as number), name === "baseline" ? t("sim.baseline") : t("sim.scenario")];
+                      }}
                       labelFormatter={(m) => `${lang === "tr" ? "Ay" : "Month"} ${m}`}
                     />
-                    <Legend formatter={(v) => v === "baseline" ? t("sim.baseline") : t("sim.scenario")} wrapperStyle={{ fontSize: 12 }} />
+                    <Legend formatter={(v) => v === "baseline" ? t("sim.baseline") : v === "range" ? t("sim.range") : t("sim.scenario")} wrapperStyle={{ fontSize: 12 }} />
+                    {/* uncertainty cone behind the lines */}
+                    <Area type="monotone" dataKey="range" stroke="none" fill="url(#bandFill)" legendType="none" tooltipType="none" />
                     <Area type="monotone" dataKey="baseline" stroke="#6b7280" strokeDasharray="4 4" strokeWidth={2} fill="none" />
-                    <Area type="monotone" dataKey="scenario" stroke="#818cf8" strokeWidth={2.5} fill="url(#scenFill)" />
+                    <Area type="monotone" dataKey="scenario" stroke="#818cf8" strokeWidth={2.5} fill="none" />
                   </AreaChart>
                 </ResponsiveContainer>
+                <p className="text-gray-600 text-[11px] mt-2">{t("sim.rangeNote")}</p>
               </section>
 
               {/* Narrative */}
