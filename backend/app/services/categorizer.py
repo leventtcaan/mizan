@@ -9,6 +9,7 @@ BREAKS IF REMOVED: Transaction rows are stored with category=None; no behavioral
 
 import json
 import logging
+import re
 
 from app.models.transaction import Transaction
 from app.services.llm_provider import LLMProvider
@@ -74,6 +75,20 @@ WHAT EACH SLUG MEANS (match by meaning, in any language):
   GitHub, OpenAI, Anthropic, Adobe, Microsoft 365, hosting, domains.
 - diger — use ONLY when you genuinely cannot place it. Do not force a guess.
 
+BRAZILIAN / PORTUGUESE STATEMENTS — common bank patterns and their correct slug:
+- "PAY IFD" → iFood, food delivery → restoran
+- "PAY DL" / "ON DL ..." → delivery/courier; judge by the merchant (e.g. "ON DL UberRide" → ulasim, food → restoran)
+- "REND PAGO" / "REND PAGO APLIC" / "RENDIMENTO" → investment yield / interest income → faiz
+- "PAY CEA" → C&A department store → diger
+- "RSHOP" / "RSCSS" → generic card retail purchase → diger
+- "FATURA PAGA" → credit-card bill payment → transfer
+- "SEGURO" → insurance → fatura
+- "DA LIGHT" → electricity bill (débito automático) → fatura
+- "DA CEG-GAS" / "CEG" → gas bill → fatura
+- "PIX TRANSF <person name>" → person-to-person transfer → transfer
+- "ESTORNO" → refund / reversal → iade
+A bracketed hint like "[iFood — food delivery]" may be appended to a description to help you — trust it.
+
 Return ONLY a JSON array of slugs, one per transaction, in the SAME order. Nothing else.
 """
 
@@ -85,6 +100,56 @@ same order, as a JSON array like ["slug1", "slug2", ...].
 Transactions:
 {descriptions}
 """
+
+
+# ── Brazilian / Portuguese pre-processing ────────────────────────────────────
+# Bank statements abbreviate aggressively (PAY IFD, REND PAGO APLIC, DA LIGHT...).
+# We expand them into the prompt as bracketed hints so the LLM has the meaning, but
+# ONLY when the batch actually looks Portuguese/Brazilian — so Turkish/other-language
+# statements are never touched. The original Transaction.description is never modified;
+# the expansion only affects the text sent to the model.
+
+# Markers chosen to be Portuguese/Brazilian-distinct and NOT collide with Turkish
+# (avoid "fatura", "da", "ödeme" etc. which also appear in Turkish statements).
+_BR_MARKERS = (
+    "pix", "rend pago", "rendimento", "aplic", "estorno", "rscss", "rshop", "ifd",
+    "r$", "compra", "saque", "pagamento", "seguro", "débito", "ã", "õ",
+)
+
+# (pattern, hint). Ordered: most specific first. Each hint appended at most once.
+_BR_PATTERNS = [
+    (re.compile(r"REND\s+PAGO(\s+APLIC\w*)?", re.I), "Rendimento — investment yield / interest income"),
+    (re.compile(r"\bRENDIMENTO\b", re.I), "investment yield / interest income"),
+    (re.compile(r"FATURA\s+PAGA", re.I), "Pagamento de fatura — credit-card bill payment"),
+    (re.compile(r"\bESTORNO\b", re.I), "Estorno — refund / reversal"),
+    (re.compile(r"\bSEGURO\b", re.I), "Seguro — insurance"),
+    (re.compile(r"\bDA\s+LIGHT\b", re.I), "conta de luz — electricity bill"),
+    (re.compile(r"\bCEG\b", re.I), "CEG — gas utility bill"),
+    (re.compile(r"\bIFD\b", re.I), "iFood — food delivery"),
+    (re.compile(r"\bDL\b", re.I), "Delivery / courier"),
+    (re.compile(r"\bTRANSF\b", re.I), "Transferência — transfer"),
+    (re.compile(r"\bPIX\b", re.I), "PIX — instant payment rail"),
+    (re.compile(r"\bRSHOP\b", re.I), "card retail purchase"),
+    (re.compile(r"\bRSCSS\b", re.I), "card retail purchase"),
+    (re.compile(r"\bCEA\b", re.I), "C&A — clothing / department store"),
+    (re.compile(r"^\s*DA\s+", re.I), "débito automático — automatic recurring bill"),
+]
+
+
+def _looks_brazilian(descriptions: list[str]) -> bool:
+    """True when ≥2 distinct Portuguese/Brazilian markers appear across the batch."""
+    text = " ".join(descriptions).lower()
+    hits = sum(1 for m in _BR_MARKERS if m in text)
+    return hits >= 2
+
+
+def _expand_brazilian(description: str) -> str:
+    """Append bracketed expansion hints for any Brazilian abbreviations found."""
+    hints: list[str] = []
+    for pattern, hint in _BR_PATTERNS:
+        if pattern.search(description) and hint not in hints:
+            hints.append(hint)
+    return f"{description}  [{'; '.join(hints)}]" if hints else description
 
 
 async def categorize_batch(
@@ -100,9 +165,14 @@ async def categorize_batch(
     if not transactions:
         return []
 
-    descriptions = "\n".join(
-        f"{i + 1}. {t.description}" for i, t in enumerate(transactions)
-    )
+    # Language-gated pre-processing: expand Brazilian/Portuguese bank abbreviations into
+    # the prompt (as hints) only when the batch looks Portuguese/Brazilian.
+    descs = [t.description for t in transactions]
+    if _looks_brazilian(descs):
+        descs = [_expand_brazilian(d) for d in descs]
+        logger.info("Categorizer: Portuguese/Brazilian statement detected — expanded abbreviations")
+
+    descriptions = "\n".join(f"{i + 1}. {d}" for i, d in enumerate(descs))
 
     prompt = _USER_PROMPT_TEMPLATE.format(descriptions=descriptions)
 
