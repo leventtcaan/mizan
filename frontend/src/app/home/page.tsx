@@ -53,6 +53,17 @@ function truncateSentences(text: string, count: number): string {
   return parts.length <= count ? text.trim() : parts.slice(0, count).join(" ").trim();
 }
 
+// "18 May–18 Haz" / "May 18–Jun 18" — noon avoids tz day-shift on ISO dates.
+function fmtDateRange(startISO: string, endISO: string, lang: string): string {
+  const loc = lang === "tr" ? "tr-TR" : "en-US";
+  try {
+    const f = new Intl.DateTimeFormat(loc, { day: "numeric", month: "short" });
+    return `${f.format(new Date(startISO + "T12:00:00"))}–${f.format(new Date(endISO + "T12:00:00"))}`;
+  } catch {
+    return `${startISO}–${endISO}`;
+  }
+}
+
 function Skeleton({ className = "" }: { className?: string }) {
   return <div className={`bg-[#2A2A2A] rounded-lg animate-pulse ${className}`} />;
 }
@@ -141,6 +152,23 @@ export default function HomePage() {
       setTourVisible(true);
     }
   }, []);
+
+  // Link Home back to the Post-Upload Brief when a statement was analysed in the last
+  // 7 days. The brief page persists {job_id, period, ts} here on load (see /brief).
+  // This connects Home's calendar-month view to the statement-period view, so the two
+  // sets of numbers read as two windows of the same truth, not a contradiction.
+  const [recentBrief, setRecentBrief] = useState<{ jobId: string; range: string } | null>(null);
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      const raw = localStorage.getItem("mizan_last_brief_job_id");
+      if (!raw) return;
+      const meta = JSON.parse(raw) as { job_id?: string; start?: string; end?: string; ts?: number };
+      if (!meta.job_id || !meta.ts || !meta.start || !meta.end) return;
+      if (Date.now() - meta.ts > 7 * 86400000) return;
+      setRecentBrief({ jobId: meta.job_id, range: fmtDateRange(meta.start, meta.end, lang) });
+    } catch { /* ignore malformed/legacy values */ }
+  }, [lang]);
 
   const loadAll = useCallback((scan: boolean) => {
     Promise.all([
@@ -264,6 +292,17 @@ export default function HomePage() {
     const trend = prevNet != null && prevNet !== 0 ? ((curNetRaw - prevNet) / Math.abs(prevNet)) * 100 : null;
     const savingsRate = income > 0 ? (net / income) * 100 : null;
     return { income, expense, net, trend, savingsRate, byCategory: m.by_category };
+  })();
+
+  // Explains WHY the pulse numbers differ from a statement period: this section is the
+  // current calendar month, not the statement's date range. e.g. "Haziran ayı · takvim bazlı".
+  const monthBasisLabel = (() => {
+    try {
+      const mn = new Intl.DateTimeFormat(lang === "tr" ? "tr-TR" : "en-US", { month: "long" }).format(new Date());
+      return `${mn} ${t("home.monthCalendarSuffix")}`;
+    } catch {
+      return t("home.monthCalendarSuffix");
+    }
   })();
 
   const topCategories = (() => {
@@ -544,9 +583,12 @@ export default function HomePage() {
 
         {/* 3 — CASH FLOW PULSE */}
         <section className={`${card} ${statementOnly ? "order-1" : ""}`}>
-          <div className="flex items-center justify-between mb-3">
-            <p className={sectionHeading}>{t("home.cashflowPulse")}</p>
-            <Link href="/transactions" className="text-indigo-400 text-xs hover:text-indigo-300 transition-colors flex items-center gap-1">
+          <div className="flex items-start justify-between mb-3 gap-3">
+            <div>
+              <p className={sectionHeading}>{t("home.cashflowPulse")}</p>
+              {monthLine && <p className="text-gray-600 text-[11px] mt-0.5">{monthBasisLabel}</p>}
+            </div>
+            <Link href="/transactions" className="text-indigo-400 text-xs hover:text-indigo-300 transition-colors flex items-center gap-1 shrink-0">
               {t("home.viewTransactions")} <ArrowRight size={12} />
             </Link>
           </div>
@@ -614,6 +656,17 @@ export default function HomePage() {
                     ))}
                   </div>
                 </div>
+              )}
+
+              {/* Bridge back to the statement-period brief — explains the other window. */}
+              {recentBrief && (
+                <Link
+                  href={`/brief?job_id=${recentBrief.jobId}`}
+                  className="flex items-center gap-1.5 pt-3 border-t border-[#2A2A2A] text-gray-500 hover:text-indigo-300 text-xs transition-colors"
+                >
+                  <Brain size={12} className="text-indigo-400 shrink-0" />
+                  {t("home.lastBriefLink")}: {recentBrief.range} <ArrowRight size={11} />
+                </Link>
               )}
             </div>
           )}

@@ -11,6 +11,17 @@ function askMizan(prefill: string) {
   window.dispatchEvent(new CustomEvent("mizan-open-assistant", { detail: { prefill } }));
 }
 
+// "18 May–18 Haz" / "May 18–Jun 18" — noon avoids tz day-shift on ISO dates.
+function fmtDateRange(startISO: string, endISO: string, lang: string): string {
+  const loc = lang === "tr" ? "tr-TR" : "en-US";
+  try {
+    const f = new Intl.DateTimeFormat(loc, { day: "numeric", month: "short" });
+    return `${f.format(new Date(startISO + "T12:00:00"))}–${f.format(new Date(endISO + "T12:00:00"))}`;
+  } catch {
+    return `${startISO}–${endISO}`;
+  }
+}
+
 function BriefContent() {
   const router = useRouter();
   const params = useSearchParams();
@@ -28,7 +39,18 @@ function BriefContent() {
     if (!jobId) { fallback(); return; }
     let active = true;
     getBrief(jobId, lang)
-      .then((b) => { if (active) { setBrief(b); setTimeout(() => setRevealed(true), 60); } })
+      .then((b) => {
+        if (!active) return;
+        setBrief(b);
+        // Persist {job_id, period, ts} so Home can link back to this brief for ~7 days
+        // and reconcile its calendar-month numbers with this statement period.
+        try {
+          localStorage.setItem("mizan_last_brief_job_id", JSON.stringify({
+            job_id: b.job_id, start: b.period.start, end: b.period.end, ts: Date.now(),
+          }));
+        } catch { /* storage unavailable — non-blocking */ }
+        setTimeout(() => setRevealed(true), 60);
+      })
       .catch(() => { if (active) fallback(); });
     return () => { active = false; };
   }, [jobId, lang, router, fallback]);
@@ -55,6 +77,7 @@ function BriefContent() {
   const { period, flow, top_categories, largest_transaction, recurring_signal, suggested_action, narrative } = brief;
   const ccy = flow.currency;
   const positive = flow.net >= 0;
+  const periodRange = fmtDateRange(period.start, period.end, lang);
 
   // Each beat fades/slides in 100ms after the previous one.
   const beatCls = `transition-all duration-500 ease-out ${revealed ? "opacity-100 translate-y-0" : "opacity-0 translate-y-3"}`;
@@ -180,7 +203,7 @@ function BriefContent() {
               onClick={() => router.push("/transactions")}
               className="w-full mt-3 text-center text-gray-500 hover:text-gray-300 text-sm transition-colors"
             >
-              {t("brief.viewAll")}
+              {periodRange} {t("brief.viewAllPeriod")}
             </button>
           </div>
         </div>
