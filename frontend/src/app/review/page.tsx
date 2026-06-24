@@ -37,6 +37,24 @@ function toNum(s: string): number {
   return parseFloat((s || "").replace(",", ".")) || 0;
 }
 
+// Conservative OCR-garble heuristic: flags descriptions that read like scanner noise
+// (long consonant runs, vowel-less long words, or mostly symbols) so the user can re-type
+// them. Tuned to avoid false positives on legitimate merchant codes / short tickers.
+const _CONSONANT_RUN = /[bcçdfgğhjklmnpqrsştvwxyzBCÇDFGĞHJKLMNPQRSŞTVWXYZ]{6,}/;
+const _VOWELS = "aeıioöuüâîûAEIİOÖUÜÂÎÛ";
+function looksGarbled(descRaw: string): boolean {
+  const desc = (descRaw || "").trim();
+  if (desc.length < 6) return false;                 // too short to judge
+  if (_CONSONANT_RUN.test(desc)) return true;        // 6+ consonants in a row
+  // A long word with no vowels at all (e.g. "Xqzkprtm") is almost certainly garbled.
+  if (desc.split(/\s+/).some((w) => w.length >= 6 && ![...w].some((ch) => _VOWELS.includes(ch))
+        && /[a-zçğışöü]/i.test(w))) return true;
+  // Mostly non-alphanumeric (excluding spaces) → scanner artefacts.
+  const symbols = (desc.match(/[^\p{L}\p{N}\s]/gu) || []).length;
+  if (desc.length >= 8 && symbols / desc.length > 0.4) return true;
+  return false;
+}
+
 function todayISO(): string {
   return new Date().toISOString().slice(0, 10);
 }
@@ -223,13 +241,15 @@ function ReviewContent() {
   }, []);
 
   // --- suspicious-row detection (amber highlight + tooltip) ---
-  const { highAmount, duplicates } = useMemo(() => {
+  const { highAmount, duplicates, garbled } = useMemo(() => {
     const nums = rows.map((r) => toNum(r.amount)).filter((n) => n > 0).sort((a, b) => a - b);
     const median = nums.length ? nums[Math.floor(nums.length / 2)] : 0;
     const high = new Set<string>();
+    const garb = new Set<string>();
     const dupCount = new Map<string, number>();
     for (const r of rows) {
       if (median > 0 && toNum(r.amount) > median * 10) high.add(r.key);
+      if (looksGarbled(r.description)) garb.add(r.key);
       const dk = `${r.transaction_date}|${r.description.trim().toLowerCase()}`;
       dupCount.set(dk, (dupCount.get(dk) || 0) + 1);
     }
@@ -238,7 +258,7 @@ function ReviewContent() {
       const dk = `${r.transaction_date}|${r.description.trim().toLowerCase()}`;
       if (r.description.trim() && (dupCount.get(dk) || 0) > 1) dup.add(r.key);
     }
-    return { highAmount: high, duplicates: dup };
+    return { highAmount: high, duplicates: dup, garbled: garb };
   }, [rows]);
 
   const confirm = useCallback(async () => {
@@ -304,7 +324,7 @@ function ReviewContent() {
 
   const inputCls = "bg-[#11100E] border border-[#2C2922] rounded-lg px-2 py-1.5 text-sm text-white focus:outline-none focus:border-indigo-600";
 
-  const flaggedCount = highAmount.size + duplicates.size;
+  const flaggedCount = new Set([...highAmount, ...duplicates, ...garbled]).size;
 
   return (
     <PageLayout title={t("review.title")} maxWidth="xl">
@@ -419,9 +439,11 @@ function ReviewContent() {
           </thead>
           <tbody>
             {rows.map((r) => {
-              const flagged = highAmount.has(r.key) || duplicates.has(r.key);
+              const isGarbled = garbled.has(r.key);
+              const flagged = highAmount.has(r.key) || duplicates.has(r.key) || isGarbled;
               const tip = highAmount.has(r.key) ? t("review.suspiciousAmount")
-                : duplicates.has(r.key) ? t("review.suspiciousDup") : "";
+                : duplicates.has(r.key) ? t("review.suspiciousDup")
+                : isGarbled ? t("review.ocrGarbled") : "";
               return (
                 <tr
                   key={r.key}
@@ -436,7 +458,13 @@ function ReviewContent() {
                   <td className="px-3 py-2">
                     <input type="text" value={r.description}
                       onChange={(e) => update(r.key, { description: e.target.value })}
-                      className={`${inputCls} w-full min-w-[180px]`} />
+                      className={`${inputCls} w-full min-w-[180px] ${isGarbled ? "border-amber-700 text-amber-300" : ""}`} />
+                    {isGarbled && (
+                      <p className="text-amber-400/90 text-[11px] mt-1 flex items-center gap-1">
+                        <span className="w-1 h-1 rounded-full bg-amber-400 shrink-0" />
+                        {t("review.ocrGarbled")}
+                      </p>
+                    )}
                   </td>
                   <td className="px-3 py-2">
                     <div className="flex items-center gap-1.5">
@@ -484,9 +512,11 @@ function ReviewContent() {
       {/* Editable cards — mobile (no horizontal scroll; each tx is a card) */}
       <div className="sm:hidden space-y-3">
         {rows.map((r) => {
-          const flagged = highAmount.has(r.key) || duplicates.has(r.key);
+          const isGarbled = garbled.has(r.key);
+          const flagged = highAmount.has(r.key) || duplicates.has(r.key) || isGarbled;
           const tip = highAmount.has(r.key) ? t("review.suspiciousAmount")
-            : duplicates.has(r.key) ? t("review.suspiciousDup") : "";
+            : duplicates.has(r.key) ? t("review.suspiciousDup")
+            : isGarbled ? t("review.ocrGarbled") : "";
           return (
             <div key={r.key}
               className={`rounded-xl border p-3 ${flagged ? "bg-amber-950/20 border-amber-800/40" : "bg-[#11100E] border-[#2C2922]"}`}>
@@ -505,7 +535,13 @@ function ReviewContent() {
               <label className="block text-[11px] text-gray-500 mb-1">{t("review.colDescription")}</label>
               <input type="text" value={r.description}
                 onChange={(e) => update(r.key, { description: e.target.value })}
-                className={`${inputCls} w-full mb-3`} />
+                className={`${inputCls} w-full ${isGarbled ? "mb-1 border-amber-700 text-amber-300" : "mb-3"}`} />
+              {isGarbled && (
+                <p className="text-amber-400/90 text-[11px] mb-3 flex items-center gap-1">
+                  <span className="w-1 h-1 rounded-full bg-amber-400 shrink-0" />
+                  {t("review.ocrGarbled")}
+                </p>
+              )}
 
               {/* Amount + type */}
               <div className="flex gap-3 mb-3">
@@ -543,7 +579,7 @@ function ReviewContent() {
                 ))}
               </select>
 
-              {tip && <p className="text-amber-300/80 text-[11px] mt-2">{tip}</p>}
+              {tip && !isGarbled && <p className="text-amber-300/80 text-[11px] mt-2">{tip}</p>}
             </div>
           );
         })}

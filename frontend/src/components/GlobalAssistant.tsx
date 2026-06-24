@@ -245,7 +245,13 @@ export default function GlobalAssistant() {
               {messages.length === 0 && (
                 <div className="flex flex-col items-center text-center py-6 gap-3">
                   <Mim mood="calm" size={48} speaking />
-                  <p className="text-gray-400 text-sm max-w-[260px] leading-relaxed">{hasData === false ? t("assistant.emptyGreeting") : t("assistant.greeting")}</p>
+                  <p className="text-gray-400 text-sm max-w-[260px] leading-relaxed">
+                    {/* Opened about a specific statement → address THAT, not the generic
+                        "tell me your bank balance" cold-start opener. */}
+                    {scope ? t("assistant.scopedGreeting")
+                      : hasData === false ? t("assistant.emptyGreeting")
+                      : t("assistant.greeting")}
+                  </p>
                 </div>
               )}
               {messages.map((m, i) => (

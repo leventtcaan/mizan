@@ -127,6 +127,7 @@ export const tr = {
     error: "Şu anda yanıt veremiyorum. Lütfen tekrar deneyin.",
     scopedTo: "Şununla ilgili:",
     scopedStatement: "ekstresi",
+    scopedGreeting: "Bu ekstre hakkında ne istersen sor — bir rakamın arkasında ne var, paran nereye gitti ya da sırada ne yapmalısın.",
   },
   settings: {
     title: "Ayarlar",
@@ -295,6 +296,7 @@ export const tr = {
     saveError: "Kaydedilemedi. Lütfen tekrar deneyin.",
     suspiciousAmount: "Tutar olağandışı yüksek — kontrol edin.",
     suspiciousDup: "Olası tekrar (aynı tarih ve açıklama).",
+    ocrGarbled: "OCR muhtemelen bozuk — açıklamayı yeniden yazın.",
     currencyLabel: "Para birimi",
     currencyDetected: "dosyadan algılandı",
     currencyConfirmed: "onaylandı",
@@ -410,6 +412,7 @@ export const tr = {
     insight: "Finansal Koç",
     spending: "Harcama Dağılımı",
     spendingAll: "Tüm ekstreler boyunca",
+    statementPeriod: "Ekstre dönemi",
     emptyHint: "Başlamak için bir banka ekstresi yükleyin",
     date: "Tarih",
     description: "Açıklama",

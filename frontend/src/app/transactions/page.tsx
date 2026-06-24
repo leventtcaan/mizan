@@ -95,11 +95,12 @@ export default function TransactionsPage() {
   const latestBatch = batches[0] ?? null;
 
   // The breakdown/table below cover the uploaded statement window, NOT the calendar-month
-  // spine at the top. Label them explicitly so the two windows never read as one.
+  // spine at the top. Label them explicitly (prefixed "Statement period") so the two
+  // windows never read as one.
   const spendingPeriod = showAll
     ? t("tx.spendingAll")
     : latestBatch
-      ? dateRangeLabel(latestBatch.min_date, latestBatch.max_date, lang)
+      ? `${t("tx.statementPeriod")} · ${dateRangeLabel(latestBatch.min_date, latestBatch.max_date, lang)}`
       : undefined;
 
   const titleBadge = txState === "ready" && transactions.length > 0 ? (

@@ -127,6 +127,7 @@ export const en = {
     error: "I can't respond right now. Please try again.",
     scopedTo: "Talking about:",
     scopedStatement: "statement",
+    scopedGreeting: "Ask me anything about this statement — what's behind a number, where your money went, or what to do next.",
   },
   settings: {
     title: "Settings",
@@ -295,6 +296,7 @@ export const en = {
     saveError: "Could not save. Please try again.",
     suspiciousAmount: "Amount is unusually high — double-check it.",
     suspiciousDup: "Possible duplicate (same date & description).",
+    ocrGarbled: "OCR likely garbled — re-type the description.",
     currencyLabel: "Currency",
     currencyDetected: "detected from file",
     currencyConfirmed: "confirmed",
@@ -410,6 +412,7 @@ export const en = {
     insight: "Financial Coach",
     spending: "Spending Breakdown",
     spendingAll: "Across all statements",
+    statementPeriod: "Statement period",
     emptyHint: "Upload a bank statement to get started",
     date: "Date",
     description: "Description",

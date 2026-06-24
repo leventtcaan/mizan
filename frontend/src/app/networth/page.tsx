@@ -53,7 +53,7 @@ import {
   GuidanceFinding,
 } from "@/lib/api";
 import { Plus, TrendingUp, TrendingDown, DollarSign, Home, Wallet, Briefcase, Scale, Brain, Zap, RefreshCw, Pencil, MessageCircle, Bell } from "@/components/ui/Icons";
-import { useLanguage } from "@/lib/i18n";
+import { useLanguage, getCurrentLang } from "@/lib/i18n";
 
 const AUTO_PRICE_TYPES = new Set(["crypto", "gold", "foreign_currency", "commodity", "stock", "fund"]);
 // Price-drop alerts only make sense for genuinely priced assets — a fiat holding's
@@ -402,8 +402,11 @@ export default function NetWorthPage() {
     setLoading(true);
     getCurrencyRates("USD").then(setUsdRates).catch(() => null);
     // Guidance loads independently — its own engine + cache, never blocks the page.
+    // Use getCurrentLang() (resolved synchronously) instead of the hook's `lang`, which
+    // is "tr" on the very first render and would fetch — and cache-show — Turkish
+    // guidance even when the app is in English.
     setGuidanceLoading(true);
-    getNetWorthGuidance(displayCurrency, lang)
+    getNetWorthGuidance(displayCurrency, getCurrentLang())
       .then((g) => setGuidance(g.findings))
       .catch(() => setGuidance([]))
       .finally(() => setGuidanceLoading(false));
@@ -486,11 +489,20 @@ export default function NetWorthPage() {
 
   const reloadGuidance = useCallback(() => {
     setGuidanceLoading(true);
-    getNetWorthGuidance(displayCurrency, lang)
+    getNetWorthGuidance(displayCurrency, getCurrentLang())
       .then((g) => setGuidance(g.findings))
       .catch(() => setGuidance([]))
       .finally(() => setGuidanceLoading(false));
   }, [displayCurrency, lang]);
+
+  // Refetch guidance when the UI language resolves/changes. loadAll() fetches once on
+  // mount under the language at that moment; without this, switching to English (or the
+  // hook resolving from its "tr" default) would leave the Turkish guidance on screen.
+  const didInitLangRef = useRef(false);
+  useEffect(() => {
+    if (!didInitLangRef.current) { didInitLangRef.current = true; return; }
+    reloadGuidance();
+  }, [lang, reloadGuidance]);
 
   const reloadSummary = useCallback(async () => {
     setSummaryLoading(true);
