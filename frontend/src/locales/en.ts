@@ -367,6 +367,7 @@ export const en = {
     emailOff: "Off",
     insight: "Financial Coach",
     spending: "Spending Breakdown",
+    spendingAll: "Across all statements",
     emptyHint: "Upload a bank statement to get started",
     date: "Date",
     description: "Description",

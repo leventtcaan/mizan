@@ -7,9 +7,11 @@ import { useLanguage } from "@/lib/i18n";
 
 interface Props {
   transactions: Transaction[];
+  /** Explicit window this breakdown covers (e.g. the statement date range) — keeps it from reading as the calendar-month spine above. */
+  periodLabel?: string;
 }
 
-export default function SpendingChart({ transactions }: Props) {
+export default function SpendingChart({ transactions, periodLabel }: Props) {
   const { t } = useLanguage();
   const [currency, setCurrency] = useState("TRY");
   // rates[code] = units of code per 1 display currency → convert amt in code: amt / rates[code]
@@ -67,7 +69,10 @@ export default function SpendingChart({ transactions }: Props) {
   return (
     <div className="mb-8 p-5 rounded-xl bg-[#1A1A1A] border border-[#2A2A2A]">
       <div className="flex items-baseline justify-between mb-4">
-        <p className="text-xs text-gray-500 uppercase tracking-wide font-semibold">{t("tx.spending")}</p>
+        <div className="min-w-0">
+          <p className="text-xs text-gray-500 uppercase tracking-wide font-semibold">{t("tx.spending")}</p>
+          {periodLabel && <p className="text-[11px] text-gray-600 mt-0.5">{periodLabel}</p>}
+        </div>
         <p className="text-sm text-white font-semibold tabular-nums">
           {fmt(totalSpend)}
           {mixed && <span className="ml-1 text-[10px] text-amber-500 font-normal">≈</span>}

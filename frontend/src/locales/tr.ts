@@ -367,6 +367,7 @@ export const tr = {
     emailOff: "Kapalı",
     insight: "Finansal Koç",
     spending: "Harcama Dağılımı",
+    spendingAll: "Tüm ekstreler boyunca",
     emptyHint: "Başlamak için bir banka ekstresi yükleyin",
     date: "Tarih",
     description: "Açıklama",

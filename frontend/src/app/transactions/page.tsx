@@ -15,6 +15,7 @@ import MoneyTabs from "@/components/ui/MoneyTabs";
 import { CATEGORY_COLORS } from "@/lib/categories";
 import { Plus } from "@/components/ui/Icons";
 import { useLanguage } from "@/lib/i18n";
+import { dateRangeLabel } from "@/lib/period";
 
 type LoadState = "loading" | "ready" | "error";
 
@@ -92,6 +93,14 @@ export default function TransactionsPage() {
   };
 
   const latestBatch = batches[0] ?? null;
+
+  // The breakdown/table below cover the uploaded statement window, NOT the calendar-month
+  // spine at the top. Label them explicitly so the two windows never read as one.
+  const spendingPeriod = showAll
+    ? t("tx.spendingAll")
+    : latestBatch
+      ? dateRangeLabel(latestBatch.min_date, latestBatch.max_date, lang)
+      : undefined;
 
   const titleBadge = txState === "ready" && transactions.length > 0 ? (
     <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-[#2A2A2A] text-gray-400">
@@ -213,7 +222,7 @@ export default function TransactionsPage() {
       )}
 
       {txState === "ready" && transactions.length > 0 && (
-        <SpendingChart transactions={transactions} />
+        <SpendingChart transactions={transactions} periodLabel={spendingPeriod} />
       )}
 
       {/* Currency note: uploaded transactions are recorded in their stored currency (default TRY). */}
