@@ -16,6 +16,7 @@ from app.models.liability import Liability
 from app.models.receivable import Receivable
 from app.models.user import User
 from app.services.currency import convert
+from app.services.recurring import analyze_recurring
 from app.services.transaction_service import get_transactions_for_user
 
 logger = logging.getLogger(__name__)
@@ -128,8 +129,70 @@ async def _receivable_items(
     return items
 
 
-def _recurring_items(transactions, today: date, end: date) -> list[CashFlowItem]:
-    """Detect consistent recurring debit/credit patterns and project next occurrence."""
+async def _recurring_commitment_items(
+    user_id, session: AsyncSession, today: date, end: date
+) -> list[CashFlowItem]:
+    """
+    Upcoming recurring DEBIT commitments (subscriptions + installments) from the single
+    shared recurring engine — so the calendar agrees with the Brief, the Recurring page
+    and the Simulator instead of running its own detector. Only CONFIRMED items are
+    scheduled (a "possible" single-occurrence installment is not money you owe yet).
+    """
+    items: list[CashFlowItem] = []
+    try:
+        subs, installments = await analyze_recurring(user_id, session)
+    except Exception:  # noqa: BLE001 — never block the calendar on recurring analysis
+        return items
+
+    def _add(amount: Decimal, currency: str, description: str, last_seen: str) -> None:
+        if amount < _MIN_AMOUNT:
+            return
+        try:
+            base_day = date.fromisoformat(last_seen).day
+        except (TypeError, ValueError):
+            base_day = today.day
+        pay_date = _next_monthly(base_day, today)
+        if pay_date <= end:
+            items.append(CashFlowItem(
+                date=pay_date.isoformat(),
+                type="subscription",
+                amount=str(amount.quantize(Decimal("0.01"))),
+                currency=currency or "TRY",
+                description=description[:45],
+                source="subscription",
+                urgent=(pay_date - today).days <= _URGENT_DAYS,
+            ))
+
+    for s in subs:
+        if s.get("confidence", "confirmed") != "confirmed":
+            continue
+        try:
+            amt = Decimal(str(s["avg_amount"]))
+        except (KeyError, ValueError, TypeError):
+            continue
+        _add(amt, s.get("currency") or "TRY", s.get("merchant", "—"), s.get("last_seen", ""))
+
+    for p in installments:
+        if p.get("confidence", "confirmed") != "confirmed":
+            continue
+        if p.get("estimated_remaining", 0) <= 0:
+            continue
+        try:
+            amt = Decimal(str(p["monthly_amount"]))
+        except (KeyError, ValueError, TypeError):
+            continue
+        _add(amt, p.get("currency") or "TRY", p.get("merchant", "—"), p.get("last_seen", ""))
+
+    return items
+
+
+def _recurring_income_items(transactions, today: date, end: date) -> list[CashFlowItem]:
+    """Detect consistent recurring INCOME (credit) patterns and project next occurrence.
+
+    Recurring DEBIT commitments now come from the shared engine
+    (`_recurring_commitment_items`); income isn't a "commitment" and isn't produced by
+    that engine, so it stays a local pattern scan here.
+    """
     items: list[CashFlowItem] = []
 
     def _process(tx_list, item_type: str, source: str) -> None:
@@ -188,10 +251,6 @@ def _recurring_items(transactions, today: date, end: date) -> list[CashFlowItem]
                 ))
 
     _process(
-        [t for t in transactions if t.transaction_type == "debit"],
-        "subscription", "subscription",
-    )
-    _process(
         [t for t in transactions if t.transaction_type == "credit"],
         "recurring_income", "recurring_income",
     )
@@ -212,9 +271,10 @@ async def upcoming_cashflow(
     transactions = await get_transactions_for_user(current_user.id, session, all_batches=True)
     l_items = await _liability_items(current_user.id, session, today, end)
     r_items = await _receivable_items(current_user.id, session, today, end)
-    rec_items = _recurring_items(transactions, today, end)
+    rec_income = _recurring_income_items(transactions, today, end)
+    rec_commit = await _recurring_commitment_items(current_user.id, session, today, end)
 
-    all_items = l_items + r_items + rec_items
+    all_items = l_items + r_items + rec_income + rec_commit
     all_items.sort(key=lambda x: x.date)
 
     # Convert every line item into the display currency so the timeline never
@@ -264,8 +324,9 @@ async def cashflow_summary(
     transactions = await get_transactions_for_user(current_user.id, session, all_batches=True)
     l_items = await _liability_items(current_user.id, session, today, horizon)
     r_items = await _receivable_items(current_user.id, session, today, horizon)
-    rec_items = _recurring_items(transactions, today, horizon)
-    all_items = l_items + r_items + rec_items
+    rec_income = _recurring_income_items(transactions, today, horizon)
+    rec_commit = await _recurring_commitment_items(current_user.id, session, today, horizon)
+    all_items = l_items + r_items + rec_income + rec_commit
 
     income_types = {"income", "recurring_income"}
     payment_types = {"liability_payment", "subscription"}

@@ -102,9 +102,15 @@ def detect_installments(transactions) -> list[dict]:
                 "first_seen": t.transaction_date,
                 "category": t.category or "diger",
                 "source": "explicit",
+                # Distinct calendar months this "X/Y" marker actually appeared in. A bare
+                # "11/12" that shows up in ONE month is likely a misread (a date, a code
+                # like "ITAU SEG AP PF 11/12") — not a real plan. We require ≥2 months to
+                # call it confirmed; otherwise it's "possible" pending user confirmation.
+                "months_seen": {t.transaction_date.strftime("%Y-%m")},
             }
         else:
             plan = explicit_plans[key]
+            plan["months_seen"].add(t.transaction_date.strftime("%Y-%m"))
             if t.transaction_date < plan["first_seen"]:
                 plan["first_seen"] = t.transaction_date
             # Track the latest installment number seen (tells us where we are in the plan)
@@ -181,7 +187,13 @@ def detect_installments(transactions) -> list[dict]:
             "first_seen": all_txs[0].transaction_date,
             "category": latest_tx.category or "diger",
             "source": "implicit",
+            # Implicit detection already requires ≥3 consistent consecutive months → confirmed.
+            "confidence": "confirmed",
         })
+
+    # Explicit plans: confirmed only when the marker recurred across ≥2 distinct months.
+    for plan in explicit_plans.values():
+        plan["confidence"] = "confirmed" if len(plan.get("months_seen", ())) >= 2 else "possible"
 
     # Merge: explicit takes priority
     all_plans = list(explicit_plans.values()) + implicit_plans
@@ -222,6 +234,7 @@ def detect_installments(transactions) -> list[dict]:
             "last_seen": plan["last_seen"].isoformat(),
             "category": plan["category"],
             "source": plan["source"],
+            "confidence": plan.get("confidence", "confirmed"),
             # Real cost fields
             "total_nominal": real_cost["total_nominal"],
             "opportunity_loss": real_cost["opportunity_loss"],

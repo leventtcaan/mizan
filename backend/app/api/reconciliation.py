@@ -16,6 +16,15 @@ from app.services.reconciliation_producers import run_reconciliation_producers
 
 router = APIRouter(prefix="/reconciliation", tags=["reconciliation"])
 
+# Action-queue gating: keep the queue short and trustworthy rather than overwhelming a
+# brand-new account with chores. Show at most a few, hardest-first; hold back heuristic
+# (low-confidence) items until the user has been around long enough to trust the app.
+_SEVERITY_RANK = {"high": 0, "medium": 1, "low": 2}
+_MAX_OPEN_ITEMS = 3
+_TRUST_DAYS = 7
+# Heuristic detectors (statistical guesses, not facts) — hidden for fresh accounts.
+_LOW_CONFIDENCE_ISSUE_TYPES = {"possible_duplicate_transaction", "large_transaction_review"}
+
 
 class FinancialEventResponse(BaseModel):
     id: str
@@ -138,7 +147,28 @@ async def list_items(
         )
         .order_by(ReconciliationItem.created_at.desc())
     )
-    return [_item_resp(item) for item in result.scalars().all()]
+    items = list(result.scalars().all())
+
+    # Only gate the live "open" queue — historical (resolved/dismissed) lists are returned
+    # in full so nothing is silently lost.
+    if status == "open":
+        created = current_user.created_at
+        if created is not None and created.tzinfo is None:
+            created = created.replace(tzinfo=timezone.utc)
+        age_days = (datetime.now(timezone.utc) - created).days if created else 999
+
+        # New account → hold back heuristic / low-severity items until trust is built.
+        if age_days < _TRUST_DAYS:
+            items = [
+                i for i in items
+                if i.severity != "low" and i.issue_type not in _LOW_CONFIDENCE_ISSUE_TYPES
+            ]
+
+        # Hardest-first (severity), then most-recent, capped so the queue stays digestible.
+        items.sort(key=lambda i: (_SEVERITY_RANK.get(i.severity, 3), -i.created_at.timestamp()))
+        items = items[:_MAX_OPEN_ITEMS]
+
+    return [_item_resp(item) for item in items]
 
 
 @router.post("/scan", response_model=ReconciliationScanResponse)

@@ -51,6 +51,10 @@ class InstallmentItem(BaseModel):
     last_seen: str
     category: str
     source: str
+    # "confirmed" (recurs across multiple months) vs "possible" (single-occurrence marker,
+    # likely a misread like a date "11/12") — possible items need user confirmation and are
+    # excluded from the committed monthly load.
+    confidence: str = "confirmed"
     total_nominal: float
     opportunity_loss: float
     real_cost_with_opportunity: float
@@ -140,6 +144,7 @@ async def get_recurring(
             last_seen=p["last_seen"],
             category=p["category"],
             source=p["source"],
+            confidence=p.get("confidence", "confirmed"),
             total_nominal=round(p["total_nominal"] * f, 2),
             opportunity_loss=round(p["opportunity_loss"] * f, 2),
             real_cost_with_opportunity=round(p["real_cost_with_opportunity"] * f, 2),
@@ -147,23 +152,27 @@ async def get_recurring(
 
     # --- summary (cancelled subscriptions excluded) ---
     active_subs = [s for s in sub_items if s.flag != "cancelled"]
+    # Only CONFIRMED installments count toward the committed "fixed load" — a single
+    # "possible" occurrence is not money the user is committed to yet (and would otherwise
+    # contradict the Brief/Simulator/Cashflow, which ignore unconfirmed items).
+    confirmed_inst = [p for p in inst_items if p.confidence == "confirmed"]
     subscription_monthly = sum(
         (_monthly(Decimal(s.avg_amount), s.frequency) for s in active_subs), Decimal("0")
     )
-    installment_monthly = sum((Decimal(str(p.monthly_amount)) for p in inst_items), Decimal("0"))
+    installment_monthly = sum((Decimal(str(p.monthly_amount)) for p in confirmed_inst), Decimal("0"))
     potential_savings = sum(
         (_monthly(Decimal(s.avg_amount), s.frequency) for s in active_subs if s.flag == "review"),
         Decimal("0"),
     )
-    months_free = max((p.estimated_remaining for p in inst_items), default=0)
-    total_opp_loss = sum(p.opportunity_loss for p in inst_items)
+    months_free = max((p.estimated_remaining for p in confirmed_inst), default=0)
+    total_opp_loss = sum(p.opportunity_loss for p in confirmed_inst)
 
     summary = RecurringSummary(
         monthly_total=str((subscription_monthly + installment_monthly).quantize(Decimal("0.01"))),
         subscription_monthly=str(subscription_monthly.quantize(Decimal("0.01"))),
         installment_monthly=str(installment_monthly.quantize(Decimal("0.01"))),
         subscription_count=len(active_subs),
-        installment_count=len(inst_items),
+        installment_count=len(confirmed_inst),
         potential_savings=str(potential_savings.quantize(Decimal("0.01"))),
         months_until_debt_free=months_free,
         total_opportunity_loss=round(total_opp_loss, 2),

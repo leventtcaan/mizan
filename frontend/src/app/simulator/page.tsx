@@ -143,6 +143,9 @@ export default function SimulatorPage() {
       const res = await askSimulator(q, horizon, ccy, lang);
       if (res.parsed && res.result) {
         setActions(res.actions);       // reflect parsed levers in the builder
+        // A time expression in the question ("for a year") overrides the horizon; mirror
+        // the understood value back into the toggle + the "What I understood" chips.
+        setHorizon(res.result.horizon_months);
         setResult(res.result);
       } else {
         setAskMiss(true);
@@ -309,6 +312,10 @@ export default function SimulatorPage() {
           {actions.length > 0 && (
             <div className="flex flex-wrap items-center gap-2">
               <span className="text-gray-500 text-xs">{t("sim.appliedTitle")}:</span>
+              {/* Horizon chip — shows the understood time window (e.g. parsed from "for a year") */}
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[#1C1915] border border-[#2C2922] text-gray-300 text-xs">
+                {t("sim.horizonChip")}: {horizon} {lang === "tr" ? "ay" : "mo"}
+              </span>
               {actions.map((a, i) => (
                 <span key={i} className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-indigo-950/40 border border-indigo-800/40 text-indigo-200 text-xs">
                   {renderAction(a)}

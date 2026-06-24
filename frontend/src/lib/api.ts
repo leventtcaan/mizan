@@ -966,6 +966,7 @@ export interface RecurringInstallment {
   last_seen: string;
   category: string;
   source: string;
+  confidence?: string;   // "confirmed" | "possible"
   total_nominal: number;
   opportunity_loss: number;
   real_cost_with_opportunity: number;

@@ -189,11 +189,17 @@ export default function RecurringPage() {
                           <div className="flex items-center gap-2 flex-wrap mb-1">
                             <h3 className="font-semibold text-white truncate">{p.merchant}</h3>
                             <span className="text-xs px-2 py-0.5 rounded-full bg-[#2C2922] text-gray-400">{catLabel(p.category)}</span>
-                            {p.source === "explicit" && (
+                            {p.source === "explicit" && p.confidence !== "possible" && (
                               <span className="text-xs px-2 py-0.5 rounded-full bg-indigo-950 border border-indigo-900 text-indigo-400">{t("installments.explicit")}</span>
+                            )}
+                            {p.confidence === "possible" && (
+                              <span className="text-xs px-2 py-0.5 rounded-full bg-amber-950/50 border border-amber-800/40 text-amber-400">{t("installments.possible")}</span>
                             )}
                           </div>
                           <p className="text-xs text-gray-500">{p.months_detected}/{p.total_plan_months} {t("installments.paid")}</p>
+                          {p.confidence === "possible" && (
+                            <p className="text-xs text-amber-500/80 mt-1">{t("installments.possibleHint")}</p>
+                          )}
                         </div>
                         <div className="text-right shrink-0">
                           <p className="text-xl font-bold text-white tabular-nums">{fmt(p.monthly_amount)}</p>

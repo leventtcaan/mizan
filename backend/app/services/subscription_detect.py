@@ -73,6 +73,8 @@ def detect_subscriptions(transactions) -> list[dict]:
             "total_paid_all_time": str(sum(t.amount for t in group)),
             "months_active": len(by_month),
             "category": latest_tx.category or "diger",
+            # Subscriptions require ≥2 distinct months to be detected at all → always confirmed.
+            "confidence": "confirmed",
         })
 
     results.sort(key=lambda x: Decimal(x["avg_amount"]), reverse=True)

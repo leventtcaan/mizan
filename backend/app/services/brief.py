@@ -93,6 +93,12 @@ async def _build_recurring_signal(
         logger.warning("Brief: recurring analysis failed: %s", exc)
         return {"monthly_total": 0.0, "highlight": None}
 
+    # Count only CONFIRMED commitments. A single-occurrence "possible" installment must not
+    # make the brief claim "you have recurring commitments" while the simulator/cashflow —
+    # which use the same engine but ignore unconfirmed items — say there are none.
+    subscriptions = [s for s in subscriptions if s.get("confidence", "confirmed") == "confirmed"]
+    installments = [p for p in installments if p.get("confidence", "confirmed") == "confirmed"]
+
     monthly = Decimal("0")
     for s in subscriptions:
         monthly += _recurring_monthly_equiv(s)

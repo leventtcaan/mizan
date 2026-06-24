@@ -21,6 +21,7 @@ Model (stated plainly so it's never a black box):
 import asyncio
 import logging
 import math
+import re
 import uuid
 from copy import deepcopy
 from dataclasses import dataclass, field
@@ -487,6 +488,65 @@ def _parse_actions(question: str, ccy: str, subs: list[dict], debts: list[dict])
     return actions
 
 
+# Word-number → value, for "a/one/two year(s)" style horizons in either language.
+_WORD_NUMBERS = {
+    "a": 1, "an": 1, "one": 1, "bir": 1, "two": 2, "iki": 2, "three": 3, "üç": 3, "uc": 3,
+    "four": 4, "dört": 4, "dort": 4, "five": 5, "beş": 5, "bes": 5, "six": 6, "altı": 6, "alti": 6,
+}
+_YEAR_WORDS = r"years?|yıl|yil|sene"
+# Trailing \b keeps "month" from matching inside "monthly" (a cadence, not a horizon),
+# so "save 500 monthly for 12 months" reads 12 months, not 500.
+_MONTH_WORDS = r"months?|ay"
+# "2 years", "for a year", "18 months", "6 ay", "bir yıl", "yarım yıl" → a horizon in months.
+_HORIZON_NUM_RE = re.compile(
+    rf"(\d+)\s*(?:{_YEAR_WORDS}|{_MONTH_WORDS})\b", re.IGNORECASE
+)
+_HORIZON_WORD_RE = re.compile(
+    rf"\b({'|'.join(map(re.escape, _WORD_NUMBERS))})\s+(?:{_YEAR_WORDS}|{_MONTH_WORDS})\b",
+    re.IGNORECASE,
+)
+_HALF_YEAR_RE = re.compile(r"half\s+a\s+year|yar[ıi]m\s+y[ıi]l", re.IGNORECASE)
+
+
+def _is_year_unit(match_text: str) -> bool:
+    return bool(re.search(_YEAR_WORDS, match_text, re.IGNORECASE))
+
+
+def _parse_horizon(question: str) -> int | None:
+    """
+    Deterministically read a time horizon out of the question ("for a year", "12 months",
+    "2 years", "6 ay", "bir yıl"). Returns months clamped to [1, MAX_HORIZON], or None
+    when no explicit horizon is mentioned (caller keeps the UI's default).
+    """
+    if not question:
+        return None
+    q = question.lower()
+
+    if _HALF_YEAR_RE.search(q):
+        return 6
+
+    # Numeric: "12 months" / "2 years" / "6 ay".
+    m = _HORIZON_NUM_RE.search(q)
+    if m:
+        try:
+            n = int(m.group(1))
+        except (TypeError, ValueError):
+            n = 0
+        if n > 0:
+            months = n * 12 if _is_year_unit(m.group(0)) else n
+            return max(1, min(MAX_HORIZON, months))
+
+    # Worded: "a year" / "one year" / "two years" / "bir yıl".
+    m = _HORIZON_WORD_RE.search(q)
+    if m:
+        n = _WORD_NUMBERS.get(m.group(1).lower(), 0)
+        if n > 0:
+            months = n * 12 if _is_year_unit(m.group(0)) else n
+            return max(1, min(MAX_HORIZON, months))
+
+    return None
+
+
 async def ask_simulation(
     user_id: uuid.UUID, session: AsyncSession, ccy: str, question: str, horizon: int, lang: str,
 ) -> dict:
@@ -497,5 +557,9 @@ async def ask_simulation(
     )
     if not actions:
         return {"parsed": False, "actions": [], "result": None}
-    result = await run_simulation(user_id, session, ccy, actions, horizon, lang)
+    # A time expression in the question ("for a year", "next 6 months") overrides the
+    # horizon the UI sent, so "what if I cancel Netflix for a year" projects 12 months.
+    parsed_horizon = _parse_horizon(question)
+    effective_horizon = parsed_horizon or horizon
+    result = await run_simulation(user_id, session, ccy, actions, effective_horizon, lang)
     return {"parsed": True, "actions": actions, "result": result}
