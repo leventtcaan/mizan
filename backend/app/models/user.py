@@ -89,6 +89,16 @@ class User(Base):
         server_default=text("false"),
     )
 
+    # WHY: Soft-delete flag. The admin panel deactivates an account by setting this
+    # (preserving the row + an AdminAuditLog trail) rather than hard-deleting. A
+    # soft-deleted user can't log in and is hidden from the admin directory/counts.
+    is_deleted: Mapped[bool] = mapped_column(
+        Boolean,
+        nullable=False,
+        default=False,
+        server_default=text("false"),
+    )
+
     language: Mapped[str] = mapped_column(
         String(5),
         nullable=False,

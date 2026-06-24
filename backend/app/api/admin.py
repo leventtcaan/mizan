@@ -10,6 +10,7 @@ SECURITY: Every route depends on get_admin_user → 403 for any non-admin. There
 BREAKS IF REMOVED: No in-app way to monitor or manage the system.
 """
 
+import json
 import logging
 import uuid
 from datetime import datetime, timedelta, timezone
@@ -22,6 +23,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.database import get_session
 from app.core.dependencies import get_admin_user
 from app.core.config import settings
+from app.models.admin_audit_log import AdminAuditLog
 from app.models.app_notification import AppNotification
 from app.models.asset import Asset
 from app.models.liability import Liability
@@ -227,25 +229,28 @@ async def overview(
     now = datetime.now(timezone.utc)
     d1, d7, d30 = now - timedelta(days=1), now - timedelta(days=7), now - timedelta(days=30)
 
+    # All user metrics ignore soft-deleted accounts (active = not is_deleted).
+    active = User.is_deleted.is_(False)
+
     # Founder = the admin who has held admin longest. We don't track a promoted-at
     # timestamp, so the earliest-created admin is the faithful proxy; if there are no
     # admins yet, fall back to the very first registered user.
     founder_id = (await session.execute(
-        select(User.id).where(User.is_admin.is_(True)).order_by(User.created_at.asc()).limit(1)
+        select(User.id).where(User.is_admin.is_(True), active).order_by(User.created_at.asc()).limit(1)
     )).scalar_one_or_none()
     if founder_id is None:
         founder_id = (await session.execute(
-            select(User.id).order_by(User.created_at.asc()).limit(1)
+            select(User.id).where(active).order_by(User.created_at.asc()).limit(1)
         )).scalar_one_or_none()
 
     return OverviewResponse(
-        users_total=await _scalar(session, select(func.count(User.id))),
-        users_admins=await _scalar(session, select(func.count(User.id)).where(User.is_admin.is_(True))),
-        users_onboarded=await _scalar(session, select(func.count(User.id)).where(User.onboarding_completed.is_(True))),
-        users_new_24h=await _scalar(session, select(func.count(User.id)).where(User.created_at >= d1)),
-        users_new_7d=await _scalar(session, select(func.count(User.id)).where(User.created_at >= d7)),
-        users_new_30d=await _scalar(session, select(func.count(User.id)).where(User.created_at >= d30)),
-        users_weekly_email_optin=await _scalar(session, select(func.count(User.id)).where(User.email_weekly_enabled.is_(True))),
+        users_total=await _scalar(session, select(func.count(User.id)).where(active)),
+        users_admins=await _scalar(session, select(func.count(User.id)).where(User.is_admin.is_(True), active)),
+        users_onboarded=await _scalar(session, select(func.count(User.id)).where(User.onboarding_completed.is_(True), active)),
+        users_new_24h=await _scalar(session, select(func.count(User.id)).where(User.created_at >= d1, active)),
+        users_new_7d=await _scalar(session, select(func.count(User.id)).where(User.created_at >= d7, active)),
+        users_new_30d=await _scalar(session, select(func.count(User.id)).where(User.created_at >= d30, active)),
+        users_weekly_email_optin=await _scalar(session, select(func.count(User.id)).where(User.email_weekly_enabled.is_(True), active)),
         transactions_total=await _scalar(session, select(func.count(Transaction.id))),
         transactions_new_7d=await _scalar(session, select(func.count(Transaction.id)).where(Transaction.created_at >= d7)),
         upload_batches=await _scalar(
@@ -276,9 +281,10 @@ async def list_users(
     limit: int = Query(default=50, ge=1, le=200),
     offset: int = Query(default=0, ge=0),
 ) -> AdminUserListResponse:
-    """Paginated user directory with per-user activity counts (newest first)."""
-    base = select(User)
-    count_stmt = select(func.count(User.id))
+    """Paginated user directory with per-user activity counts (newest first).
+    Soft-deleted accounts are hidden — they live on only for the audit trail."""
+    base = select(User).where(User.is_deleted.is_(False))
+    count_stmt = select(func.count(User.id)).where(User.is_deleted.is_(False))
     term = search.strip().lower()
     if term:
         like = f"%{term}%"
@@ -567,20 +573,55 @@ async def update_user(
     return await user_detail(user_id, admin, session)
 
 
+def _audit(admin: User, action: str, target: User, session: AsyncSession, **detail) -> None:
+    """Append an immutable admin-action record. Email snapshots + plain UUIDs mean the
+    trail survives even a subsequent hard-delete of the target (or the admin)."""
+    session.add(AdminAuditLog(
+        id=uuid.uuid4(),
+        admin_user_id=admin.id,
+        admin_email=admin.email,
+        action=action,
+        target_user_id=target.id,
+        target_email=target.email,
+        detail=json.dumps(detail) if detail else None,
+        created_at=datetime.now(timezone.utc),
+    ))
+
+
 @router.delete("/users/{user_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_user(
     user_id: str,
     admin: User = Depends(get_admin_user),
     session: AsyncSession = Depends(get_session),
+    hard: bool = Query(default=False),
 ) -> None:
-    """Hard-delete a user (and, via FK ON DELETE CASCADE, their data). A founder
-    needs this for spam/test accounts. Deleting yourself is blocked."""
+    """Deactivate a user. By default this is a SOFT delete (sets is_deleted, keeping the
+    row) — the account can no longer log in and disappears from the admin directory, but
+    the data survives and the action is logged. `?hard=true` permanently removes the user
+    (and, via FK ON DELETE CASCADE, all their data). EITHER way, an AdminAuditLog row is
+    written FIRST, so there is always a durable trail of who deleted whom. Deleting
+    yourself is blocked."""
     user = await _load_user(user_id, session)
     if user.id == admin.id:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="You can't delete your own account here.")
-    await session.delete(user)
+
+    if hard:
+        # Snapshot into the audit log BEFORE the row (and its cascade) disappears.
+        _audit(admin, "user_hard_deleted", user, session,
+               created_at=user.created_at.isoformat(), is_admin=user.is_admin)
+        await session.delete(user)
+        await session.commit()
+        logger.info("Admin %s HARD-deleted user %s (%s)", admin.id, user.id, user.email)
+        return
+
+    if user.is_deleted:
+        # Idempotent — already soft-deleted; nothing to do.
+        return
+    user.is_deleted = True
+    _audit(admin, "user_soft_deleted", user, session)
+    session.add(user)
     await session.commit()
-    logger.info("Admin %s deleted user %s (%s)", admin.id, user.id, user.email)
+    logger.info("Admin %s soft-deleted user %s (%s)", admin.id, user.id, user.email)
 
 
 # ── system health + jobs ──────────────────────────────────────────────────────

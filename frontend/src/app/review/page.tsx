@@ -265,8 +265,8 @@ function ReviewContent() {
         </p>
       )}
 
-      {/* Editable table */}
-      <div className="overflow-x-auto rounded-xl border border-[#2A2A2A]">
+      {/* Editable table — desktop / tablet */}
+      <div className="hidden sm:block overflow-x-auto rounded-xl border border-[#2A2A2A]">
         <table className="w-full text-sm min-w-[720px]">
           <thead>
             <tr className="bg-[#1A1A1A] text-left text-gray-500 text-xs">
@@ -340,6 +340,74 @@ function ReviewContent() {
             })}
           </tbody>
         </table>
+      </div>
+
+      {/* Editable cards — mobile (no horizontal scroll; each tx is a card) */}
+      <div className="sm:hidden space-y-3">
+        {rows.map((r) => {
+          const flagged = highAmount.has(r.key) || duplicates.has(r.key);
+          const tip = highAmount.has(r.key) ? t("review.suspiciousAmount")
+            : duplicates.has(r.key) ? t("review.suspiciousDup") : "";
+          return (
+            <div key={r.key}
+              className={`rounded-xl border p-3 ${flagged ? "bg-amber-950/20 border-amber-800/40" : "bg-[#0F0F0F] border-[#2A2A2A]"}`}>
+              {/* Date + delete */}
+              <div className="flex items-center gap-2 mb-2.5">
+                <input type="date" value={r.transaction_date}
+                  onChange={(e) => update(r.key, { transaction_date: e.target.value })}
+                  aria-label={t("review.colDate")} className={`${inputCls} flex-1`} />
+                <button onClick={() => remove(r.key)} aria-label={t("review.deleteRow")}
+                  className="shrink-0 text-gray-600 hover:text-red-400 transition-colors p-1.5">
+                  <XIcon size={16} />
+                </button>
+              </div>
+
+              {/* Description */}
+              <label className="block text-[11px] text-gray-500 mb-1">{t("review.colDescription")}</label>
+              <input type="text" value={r.description}
+                onChange={(e) => update(r.key, { description: e.target.value })}
+                className={`${inputCls} w-full mb-3`} />
+
+              {/* Amount + type */}
+              <div className="flex gap-3 mb-3">
+                <div className="flex-1 min-w-0">
+                  <label className="block text-[11px] text-gray-500 mb-1">{t("review.colAmount")}</label>
+                  <div className="flex items-center gap-1.5">
+                    <input type="text" inputMode="decimal" value={r.amount}
+                      onChange={(e) => update(r.key, { amount: e.target.value })}
+                      className={`${inputCls} w-full tabular-nums ${highAmount.has(r.key) ? "border-amber-700 text-amber-300" : ""}`} />
+                    <span className="text-gray-600 text-xs shrink-0">{r.currency}</span>
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-[11px] text-gray-500 mb-1">{t("review.colType")}</label>
+                  <button
+                    onClick={() => update(r.key, { transaction_type: r.transaction_type === "debit" ? "credit" : "debit" })}
+                    className={`px-3 py-2 rounded-lg text-xs font-medium border transition-colors whitespace-nowrap ${
+                      r.transaction_type === "credit"
+                        ? "bg-emerald-950/40 border-emerald-800/50 text-emerald-300"
+                        : "bg-red-950/40 border-red-800/50 text-red-300"
+                    }`}>
+                    {r.transaction_type === "credit" ? t("review.typeCredit") : t("review.typeDebit")}
+                  </button>
+                </div>
+              </div>
+
+              {/* Category */}
+              <label className="block text-[11px] text-gray-500 mb-1">{t("review.colCategory")}</label>
+              <select value={r.category ?? ""}
+                onChange={(e) => update(r.key, { category: e.target.value || null })}
+                className={`${inputCls} w-full`}>
+                <option value="">{t("review.uncategorized")}</option>
+                {REVIEW_CATEGORIES.map((c) => (
+                  <option key={c} value={c}>{CATEGORY_LABELS[c] || c}</option>
+                ))}
+              </select>
+
+              {tip && <p className="text-amber-300/80 text-[11px] mt-2">{tip}</p>}
+            </div>
+          );
+        })}
       </div>
 
       {/* Add row */}

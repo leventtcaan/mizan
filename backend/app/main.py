@@ -64,6 +64,7 @@ from app.models.networth_snapshot import NetworthSnapshot  # noqa: F401 — regi
 from app.models.wealth_alert import WealthAlert  # noqa: F401 — registers table in metadata
 from app.models.app_notification import AppNotification  # noqa: F401 — registers table in metadata
 from app.models.assistant_action import AssistantAction  # noqa: F401 — registers table in metadata
+from app.models.admin_audit_log import AdminAuditLog  # noqa: F401 — registers table in metadata
 
 logging.basicConfig(
     level=logging.INFO,

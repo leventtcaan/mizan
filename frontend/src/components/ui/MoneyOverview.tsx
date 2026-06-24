@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { TrendingUp, TrendingDown, RefreshCw, Wallet } from "@/components/ui/Icons";
 import {
-  getCashFlowSummary, getRecurring, getDefaultCurrency, CURRENCY_CHANGE_EVENT,
+  getCashFlowSummary, getRecurring, getDefaultCurrency, getToken, CURRENCY_CHANGE_EVENT,
   type CashFlowSummary, type RecurringSummary,
 } from "@/lib/api";
 import { useLanguage } from "@/lib/i18n";
@@ -38,6 +38,8 @@ export default function MoneyOverview() {
   }, []);
 
   useEffect(() => {
+    // No token yet → skip the authenticated calls (prevents 401 noise pre-auth).
+    if (!getToken()) { setLoading(false); return; }
     let active = true;
     setLoading(true);
     Promise.all([

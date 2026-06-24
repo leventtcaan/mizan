@@ -172,7 +172,9 @@ export default function GlobalAssistant() {
       {!open && pathname !== "/home" && (
         <div className="fixed bottom-5 right-5 z-50 flex flex-col items-end gap-2.5">
           {bubble && (
-            <div className="mim-bubble flex items-start gap-2 max-w-[270px] rounded-2xl rounded-br-md bg-[#1B1B1B] border border-[#2E2E2E] shadow-xl shadow-black/40 pl-3.5 pr-2 py-2.5">
+            // Hidden on small screens so the speech bubble never covers financial
+            // content; the compact Mim FAB below stays (tap it to open the panel).
+            <div className="mim-bubble hidden sm:flex items-start gap-2 max-w-[270px] rounded-2xl rounded-br-md bg-[#1B1B1B] border border-[#2E2E2E] shadow-xl shadow-black/40 pl-3.5 pr-2 py-2.5">
               <button
                 onClick={() => { setInput(bubble.prefill); setBubble(null); setOpen(true); }}
                 className="text-left text-[13px] leading-snug text-gray-200 hover:text-white transition-colors"

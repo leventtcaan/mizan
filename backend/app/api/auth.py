@@ -133,7 +133,9 @@ async def login(
         headers={"WWW-Authenticate": "Bearer"},
     )
 
-    if user is None or user.password_hash is None:
+    # A soft-deleted account is treated exactly like a non-existent one (same generic
+    # 401), so it can't log in and the response doesn't reveal that it ever existed.
+    if user is None or user.password_hash is None or user.is_deleted:
         raise invalid
 
     if not verify_password(body.password, user.password_hash):

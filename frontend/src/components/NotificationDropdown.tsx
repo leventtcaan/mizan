@@ -8,6 +8,7 @@ import {
   getUnreadCount,
   markNotificationRead,
   markAllNotificationsRead,
+  getToken,
 } from "@/lib/api";
 import { useLanguage } from "@/lib/i18n";
 
@@ -46,6 +47,9 @@ export default function NotificationDropdown({ onCountChange }: Props) {
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    // Skip the authenticated call when there's no token yet (e.g. during the
+    // logout→login transition) — avoids 401 noise in the console.
+    if (!getToken()) return;
     getUnreadCount().then((c) => {
       setUnreadCount(c);
       onCountChange?.(c);
@@ -61,7 +65,7 @@ export default function NotificationDropdown({ onCountChange }: Props) {
   }, [open]);
 
   const loadNotifications = async () => {
-    if (loading) return;
+    if (loading || !getToken()) return;
     setLoading(true);
     try {
       const list = await getNotifications();
