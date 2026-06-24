@@ -98,7 +98,7 @@ export default function LandingPage() {
               <div className="flex items-start justify-between">
                 <div>
                   <p className="text-gray-500 text-[11px] uppercase tracking-wider">{t("landing.mockNetWorth")}</p>
-                  <p className="text-3xl font-bold tabular-nums mt-1">₺1.24M</p>
+                  <p className="text-3xl font-bold tabular-nums mt-1">{t("landing.mockNetWorthValue")}</p>
                 </div>
                 <span className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-emerald-950/50 text-emerald-400 text-xs font-semibold">
                   <TrendingUp size={12} /> {t("landing.mockDelta")}
@@ -118,9 +118,9 @@ export default function LandingPage() {
               {/* asset rows */}
               <div className="mt-3 space-y-2">
                 {[
-                  { dot: "#22c55e", label: t("landing.mockCash"), val: "₺312,000" },
+                  { dot: "#22c55e", label: t("landing.mockCash"), val: t("landing.mockCashValue") },
                   { dot: "#f59e0b", label: t("landing.mockCrypto"), val: "0.42 BTC" },
-                  { dot: "#6366f1", label: t("landing.mockProperty"), val: "₺2,100,000" },
+                  { dot: "#6366f1", label: t("landing.mockProperty"), val: t("landing.mockPropertyValue") },
                 ].map((r) => (
                   <div key={r.label} className="flex items-center justify-between text-sm">
                     <span className="flex items-center gap-2 text-gray-300">

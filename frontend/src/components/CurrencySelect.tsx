@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { getCurrencyList, type CurrencyList, type CurrencyEntry } from "@/lib/api";
+import { useLanguage } from "@/lib/i18n";
 
 interface Props {
   value: string;
@@ -10,6 +11,7 @@ interface Props {
 }
 
 export default function CurrencySelect({ value, onChange, className = "" }: Props) {
+  const { t } = useLanguage();
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [list, setList] = useState<CurrencyList | null>(null);
@@ -23,7 +25,7 @@ export default function CurrencySelect({ value, onChange, className = "" }: Prop
         // silent — static fallback
         setList({
           fiat: [
-            { code: "TRY", name: "Türk Lirası" },
+            { code: "TRY", name: t("currencySelect.nameTRY") },
             { code: "USD", name: "US Dollar" },
             { code: "EUR", name: "Euro" },
             { code: "GBP", name: "British Pound" },
@@ -35,8 +37,8 @@ export default function CurrencySelect({ value, onChange, className = "" }: Prop
             { code: "ETH", name: "Ethereum" },
           ],
           commodities: [
-            { code: "XAU", name: "Altın (troy oz)" },
-            { code: "XAG", name: "Gümüş (troy oz)" },
+            { code: "XAU", name: t("currencySelect.nameXAU") },
+            { code: "XAG", name: t("currencySelect.nameXAG") },
           ],
         });
       })
@@ -89,7 +91,7 @@ export default function CurrencySelect({ value, onChange, className = "" }: Prop
         className="w-full bg-[#0F0F0F] border border-[#2A2A2A] rounded-lg px-3 py-2 text-sm text-white text-left flex items-center justify-between focus:outline-none focus:border-indigo-600 transition-colors"
       >
         {loading ? (
-          <span className="text-gray-500">Yükleniyor...</span>
+          <span className="text-gray-500">{t("currencySelect.loading")}</span>
         ) : (
           <span>
             <span className="font-semibold text-indigo-300">{value}</span>
@@ -120,7 +122,7 @@ export default function CurrencySelect({ value, onChange, className = "" }: Prop
               autoFocus
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder="Ara... (USD, Euro, Bitcoin...)"
+              placeholder={t("currencySelect.searchPlaceholder")}
               className="w-full bg-[#1A1A1A] border border-[#2A2A2A] rounded-md px-2.5 py-1.5 text-xs text-white placeholder-gray-600 focus:outline-none focus:border-indigo-600"
             />
           </div>
@@ -128,13 +130,13 @@ export default function CurrencySelect({ value, onChange, className = "" }: Prop
           {/* Options */}
           <div className="max-h-56 overflow-y-auto">
             {!hasResults && (
-              <p className="text-gray-600 text-xs text-center py-4">Sonuç bulunamadı</p>
+              <p className="text-gray-600 text-xs text-center py-4">{t("currencySelect.noResults")}</p>
             )}
 
             {fiatFiltered.length > 0 && (
               <div>
                 <p className="px-3 py-1.5 text-[10px] font-semibold text-gray-600 uppercase tracking-wider bg-[#111]">
-                  Fiat Para Birimleri
+                  {t("currencySelect.fiatGroup")}
                 </p>
                 {fiatFiltered.map((e) => (
                   <button
@@ -155,7 +157,7 @@ export default function CurrencySelect({ value, onChange, className = "" }: Prop
             {cryptoFiltered.length > 0 && (
               <div>
                 <p className="px-3 py-1.5 text-[10px] font-semibold text-gray-600 uppercase tracking-wider bg-[#111]">
-                  Kripto Paralar
+                  {t("currencySelect.cryptoGroup")}
                 </p>
                 {cryptoFiltered.map((e) => (
                   <button
@@ -176,7 +178,7 @@ export default function CurrencySelect({ value, onChange, className = "" }: Prop
             {commodityFiltered.length > 0 && (
               <div>
                 <p className="px-3 py-1.5 text-[10px] font-semibold text-gray-600 uppercase tracking-wider bg-[#111]">
-                  Emtialar
+                  {t("currencySelect.commodityGroup")}
                 </p>
                 {commodityFiltered.map((e) => (
                   <button

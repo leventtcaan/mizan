@@ -3,8 +3,8 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { login, register, setToken, setStoredUser } from "@/lib/api";
-import { useLanguage, setLanguage, type Lang } from "@/lib/i18n";
+import { login, register, setToken, setStoredUser, detectBrowserCurrency } from "@/lib/api";
+import { useLanguage, setLanguage, detectBrowserLang, type Lang } from "@/lib/i18n";
 
 type Mode = "login" | "register";
 type FormState = "idle" | "loading" | "error";
@@ -29,10 +29,13 @@ export default function LoginPage() {
         ? await login(email, password)
         : await register(email, password);
       setToken(result.access_token);
-      setStoredUser({ id: result.user_id, email: result.email, onboarding_completed: result.onboarding_completed, language: result.language ?? "tr", display_currency: result.display_currency ?? "TRY" });
-      if (result.language && (result.language === "tr" || result.language === "en")) {
-        setLanguage(result.language as Lang);
-      }
+      // Fall back to the browser locale (not a hardcoded tr/TRY) when the backend omits a preference.
+      const resolvedLang: Lang = (result.language === "tr" || result.language === "en")
+        ? result.language
+        : detectBrowserLang();
+      const resolvedCurrency = result.display_currency ?? detectBrowserCurrency();
+      setStoredUser({ id: result.user_id, email: result.email, onboarding_completed: result.onboarding_completed, language: resolvedLang, display_currency: resolvedCurrency });
+      setLanguage(resolvedLang);
       if (mode === "register" || !result.onboarding_completed) {
         router.push("/onboarding");
       } else {

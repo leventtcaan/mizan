@@ -14,10 +14,26 @@ const CHANGE_EVENT = "mizan-lang-change";
 const locales: Record<Lang, any> = { tr, en };
 
 
+/**
+ * Best-effort UI language from the browser's locale preferences.
+ * Turkish browsers → "tr"; everything else falls back to English (the global default).
+ * Used only when the user has no stored preference yet.
+ */
+export function detectBrowserLang(): Lang {
+  if (typeof navigator === "undefined") return "en";
+  const candidates = navigator.languages?.length ? navigator.languages : [navigator.language];
+  for (const c of candidates) {
+    if (c?.toLowerCase().startsWith("tr")) return "tr";
+    if (c?.toLowerCase().startsWith("en")) return "en";
+  }
+  return "en";
+}
+
 function getCurrentLang(): Lang {
   if (typeof window === "undefined") return "tr";
   const stored = localStorage.getItem(STORAGE_KEY);
-  return stored === "en" ? "en" : "tr";
+  if (stored === "en" || stored === "tr") return stored;
+  return detectBrowserLang();
 }
 
 function getNestedValue(obj: Record<string, unknown>, path: string): string {

@@ -4,6 +4,8 @@
  * BREAKS IF REMOVED: Components make raw fetch calls with hardcoded URLs — chaos at scale.
  */
 
+import { detectBrowserLang } from "@/lib/i18n";
+
 const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
@@ -48,9 +50,34 @@ export function setStoredUser(user: StoredUser): void {
 
 export const CURRENCY_CHANGE_EVENT = "mizan-currency-change";
 
+// Region → ISO currency for the common locales we expect. Anything not listed
+// falls back to USD (the global default), never a hardcoded TRY.
+const REGION_CURRENCY: Record<string, string> = {
+  TR: "TRY", US: "USD", GB: "GBP", JP: "JPY", CN: "CNY", IN: "INR",
+  BR: "BRL", CA: "CAD", AU: "AUD", CH: "CHF", RU: "RUB", KR: "KRW",
+  MX: "MXN", ZA: "ZAR", SE: "SEK", NO: "NOK", DK: "DKK", PL: "PLN",
+  AE: "AED", SA: "SAR", SG: "SGD", HK: "HKD", NZ: "NZD",
+  DE: "EUR", FR: "EUR", ES: "EUR", IT: "EUR", NL: "EUR", IE: "EUR",
+  PT: "EUR", AT: "EUR", BE: "EUR", FI: "EUR", GR: "EUR",
+};
+
+/**
+ * Best-effort display currency from the browser's locale region (e.g. "en-US" → USD,
+ * "de-DE" → EUR). Falls back to USD. Used only when there is no stored preference.
+ */
+export function detectBrowserCurrency(): string {
+  if (typeof navigator === "undefined") return "USD";
+  const candidates = navigator.languages?.length ? navigator.languages : [navigator.language];
+  for (const c of candidates) {
+    const region = c?.split("-")[1]?.toUpperCase();
+    if (region && REGION_CURRENCY[region]) return REGION_CURRENCY[region];
+  }
+  return "USD";
+}
+
 /** The user's preferred display currency — single source of truth across the app. */
 export function getDefaultCurrency(): string {
-  return getStoredUser()?.display_currency || "TRY";
+  return getStoredUser()?.display_currency || detectBrowserCurrency();
 }
 
 /** Persist locally + broadcast so every open page updates without a reload. */
@@ -320,7 +347,14 @@ export async function register(email: string, password: string): Promise<TokenRe
   const response = await fetch(`${API_BASE_URL}/auth/register`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ email, password }),
+    // Seed the new account with the visitor's browser locale so they don't all
+    // default to Turkish/TRY. The backend validates and falls back if unset.
+    body: JSON.stringify({
+      email,
+      password,
+      language: detectBrowserLang(),
+      display_currency: detectBrowserCurrency(),
+    }),
   });
   if (!response.ok) {
     const body = await response.json().catch(() => null);

@@ -25,6 +25,10 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 class RegisterRequest(BaseModel):
     email: EmailStr
     password: str
+    # Optional: seeded from the visitor's browser locale so new accounts don't all
+    # default to Turkish/TRY. Validated below; unset/invalid → User model defaults.
+    language: str | None = None
+    display_currency: str | None = None
 
 
 class LoginRequest(BaseModel):
@@ -81,6 +85,14 @@ async def register(
         )
 
     user = User(email=body.email, password_hash=hash_password(body.password))
+    # Honor browser-detected preferences when valid; otherwise the User model
+    # defaults (tr/TRY) apply.
+    if body.language in ("tr", "en"):
+        user.language = body.language
+    if body.display_currency is not None:
+        code = body.display_currency.strip().upper()
+        if 1 <= len(code) <= 10 and code.isalnum():
+            user.display_currency = code
     session.add(user)
     await session.commit()
     await session.refresh(user)
