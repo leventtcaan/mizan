@@ -79,6 +79,16 @@ class User(Base):
         server_default=text("false"),
     )
 
+    # WHY: Gates the founder/admin panel (/admin). Defaults false so no one is an
+    # admin by accident — promotion is an explicit DB update or an action by an
+    # existing admin. server_default keeps existing rows valid on migration.
+    is_admin: Mapped[bool] = mapped_column(
+        Boolean,
+        nullable=False,
+        default=False,
+        server_default=text("false"),
+    )
+
     language: Mapped[str] = mapped_column(
         String(5),
         nullable=False,

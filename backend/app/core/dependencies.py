@@ -50,3 +50,22 @@ async def get_current_user(
         raise credentials_exception
 
     return user
+
+
+async def get_admin_user(
+    current_user: User = Depends(get_current_user),
+) -> User:
+    """
+    WHAT: Like get_current_user, but additionally requires is_admin=True.
+    WHY: Single choke point for the founder admin panel. Every /admin/* endpoint
+         depends on this, so authorization can't be forgotten per-route. A valid
+         token for a non-admin user gets 403, not 401 — they're authenticated,
+         just not allowed.
+    BREAKS IF REMOVED: Admin endpoints would be reachable by any logged-in user.
+    """
+    if not current_user.is_admin:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Admin access required.",
+        )
+    return current_user

@@ -10,7 +10,7 @@ from contextlib import asynccontextmanager
 from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.core.dependencies import get_current_user
+from app.core.dependencies import get_admin_user
 from app.models.user import User
 
 from app.api.auth import router as auth_router
@@ -39,6 +39,7 @@ from app.api.accounts import router as accounts_router
 from app.api.onboarding import router as onboarding_router
 from app.api.simulator import router as simulator_router
 from app.api.reports import router as reports_router
+from app.api.admin import router as admin_router
 from app.core.config import settings
 from app.core.database import engine
 from app.models.user import Base
@@ -142,6 +143,7 @@ app.include_router(accounts_router)
 app.include_router(onboarding_router)
 app.include_router(simulator_router)
 app.include_router(reports_router)
+app.include_router(admin_router)
 
 
 @app.get("/health")
@@ -155,11 +157,12 @@ async def health() -> dict:
 
 
 @app.get("/admin/scheduler/status")
-async def scheduler_status_endpoint(user: User = Depends(get_current_user)) -> dict:
+async def scheduler_status_endpoint(user: User = Depends(get_admin_user)) -> dict:
     """
     WHAT: Visibility into the background scheduler (registered jobs, next_run, last_run).
-    WHY: Verify jobs are running inside Docker.
-    AUTH: Requires a valid Bearer token — exposes internal operational state, not public.
+    WHY: Verify jobs are running inside Docker. Superseded by GET /admin/system; kept
+         for backward compatibility.
+    AUTH: Admin only — exposes internal operational state.
     """
     from app.core.scheduler import scheduler_status
     return scheduler_status()

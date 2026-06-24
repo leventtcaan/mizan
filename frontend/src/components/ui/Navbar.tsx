@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import Link from "next/link";
 import { getToken, getStoredUser, clearToken, updatePreferences } from "@/lib/api";
-import { BarChart2, Upload, LogOut, Menu, X, Scale, Home, Settings, Sparkles, FileText } from "@/components/ui/Icons";
+import { BarChart2, Upload, LogOut, Menu, X, Scale, Home, Settings, Sparkles, FileText, ShieldCheck } from "@/components/ui/Icons";
 import { useLanguage, type Lang } from "@/lib/i18n";
 import NotificationDropdown from "@/components/NotificationDropdown";
 import CurrencyMenu from "@/components/ui/CurrencyMenu";
@@ -25,6 +25,7 @@ export default function Navbar() {
   const router = useRouter();
   const { lang, setLanguage, t } = useLanguage();
   const [userEmail, setUserEmail] = useState<string | null>(null);
+  const [isAdmin, setIsAdmin] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [accountOpen, setAccountOpen] = useState(false);
   const accountRef = useRef<HTMLDivElement>(null);
@@ -46,8 +47,10 @@ export default function Navbar() {
     const user = getStoredUser();
     if (user && getToken()) {
       setUserEmail(user.email);
+      setIsAdmin(Boolean(user.is_admin));
     } else {
       setUserEmail(null);
+      setIsAdmin(false);
     }
   }, [pathname]);
 
@@ -149,6 +152,11 @@ export default function Navbar() {
                   <Link href="/settings" className="flex items-center gap-2 px-3 py-2 text-sm text-gray-300 hover:bg-[#1A1A1A] transition-colors">
                     <Settings size={15} /> {t("settings.title")}
                   </Link>
+                  {isAdmin && (
+                    <Link href="/admin" className="flex items-center gap-2 px-3 py-2 text-sm text-amber-300 hover:bg-[#1A1A1A] transition-colors">
+                      <ShieldCheck size={15} /> Admin
+                    </Link>
+                  )}
                   <button onClick={handleLogout} className="w-full flex items-center gap-2 px-3 py-2 text-sm text-red-400 hover:bg-[#1A1A1A] transition-colors">
                     <LogOut size={15} /> {t("nav.logout")}
                   </button>
@@ -206,6 +214,15 @@ export default function Navbar() {
               <Settings size={16} />
               {t("settings.title")}
             </Link>
+            {isAdmin && (
+              <Link
+                href="/admin"
+                className={`flex items-center gap-3 px-3 py-3 rounded-lg text-sm transition-colors ${pathname === "/admin" ? "text-white bg-[#2A2A2A]" : "text-amber-300 hover:text-white hover:bg-[#1A1A1A]"}`}
+              >
+                <ShieldCheck size={16} />
+                Admin
+              </Link>
+            )}
             <div className="pt-3 border-t border-[#2A2A2A] space-y-3">
               <div className="flex items-center justify-between gap-2">
                 <span className="text-gray-500 text-xs truncate">{userEmail}</span>

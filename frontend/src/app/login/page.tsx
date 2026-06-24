@@ -34,7 +34,7 @@ export default function LoginPage() {
         ? result.language
         : detectBrowserLang();
       const resolvedCurrency = result.display_currency ?? detectBrowserCurrency();
-      setStoredUser({ id: result.user_id, email: result.email, onboarding_completed: result.onboarding_completed, language: resolvedLang, display_currency: resolvedCurrency });
+      setStoredUser({ id: result.user_id, email: result.email, onboarding_completed: result.onboarding_completed, language: resolvedLang, display_currency: resolvedCurrency, is_admin: result.is_admin ?? false });
       setLanguage(resolvedLang);
       if (mode === "register" || !result.onboarding_completed) {
         router.push("/onboarding");

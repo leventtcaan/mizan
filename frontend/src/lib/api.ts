@@ -31,6 +31,7 @@ export interface StoredUser {
   onboarding_completed: boolean;
   language: string;
   display_currency?: string;
+  is_admin?: boolean;
 }
 
 export function getStoredUser(): StoredUser | null {
@@ -126,6 +127,7 @@ export interface TokenResponse {
   onboarding_completed: boolean;
   language: string;
   display_currency: string;
+  is_admin: boolean;
 }
 
 export interface UserResponse {
@@ -135,6 +137,7 @@ export interface UserResponse {
   language: string;
   display_currency: string;
   email_weekly_enabled: boolean;
+  is_admin: boolean;
 }
 
 export async function getMe(): Promise<UserResponse> {
@@ -1727,4 +1730,127 @@ export async function rejectAssistantAction(actionId: string): Promise<void> {
     headers: { "Content-Type": "application/json", ...authHeaders() },
     body: JSON.stringify({ action_id: actionId }),
   });
+}
+
+// ── Admin panel ───────────────────────────────────────────────────────────────
+// Every endpoint is admin-gated server-side (403 for non-admins). The frontend
+// uses is_admin only to decide what to *show*; the backend is the real guard.
+
+export interface AdminOverview {
+  users_total: number;
+  users_admins: number;
+  users_onboarded: number;
+  users_new_24h: number;
+  users_new_7d: number;
+  users_new_30d: number;
+  users_weekly_email_optin: number;
+  transactions_total: number;
+  transactions_new_7d: number;
+  upload_batches: number;
+  assets_total: number;
+  liabilities_total: number;
+  reconciliation_open: number;
+  notifications_total: number;
+  notifications_unread: number;
+  generated_at: string;
+}
+
+export interface AdminUserRow {
+  id: string;
+  email: string;
+  is_admin: boolean;
+  onboarding_completed: boolean;
+  language: string;
+  display_currency: string;
+  created_at: string;
+  last_email_brief_sent: string | null;
+  transaction_count: number;
+  asset_count: number;
+}
+
+export interface AdminUserList {
+  users: AdminUserRow[];
+  total: number;
+  limit: number;
+  offset: number;
+}
+
+export interface AdminUserDetail {
+  id: string;
+  email: string;
+  is_admin: boolean;
+  onboarding_completed: boolean;
+  language: string;
+  display_currency: string;
+  email_weekly_enabled: boolean;
+  created_at: string;
+  last_email_brief_sent: string | null;
+  transaction_count: number;
+  upload_batches: number;
+  asset_count: number;
+  liability_count: number;
+  reconciliation_open: number;
+}
+
+export interface AdminSystem {
+  environment: string;
+  config: {
+    deepseek_api_key: boolean;
+    openai_api_key: boolean;
+    resend_api_key: boolean;
+    llm_configured: boolean;
+    frontend_url: string;
+  };
+  scheduler: {
+    running: boolean;
+    jobs: Record<string, { next_run: string | null }>;
+    last_run: Record<string, string | null>;
+  };
+}
+
+/** Throws "forbidden" on 403 so callers can redirect non-admins cleanly. */
+async function adminFetch<T>(path: string, init?: RequestInit): Promise<T> {
+  const res = await fetch(`${API_BASE_URL}/admin${path}`, {
+    ...init,
+    headers: { "Content-Type": "application/json", ...authHeaders(), ...(init?.headers || {}) },
+  });
+  if (res.status === 403) throw new Error("forbidden");
+  if (!res.ok) {
+    const body = await res.json().catch(() => null);
+    throw new Error(extractErrorMessage(body, `Request failed (${res.status})`));
+  }
+  if (res.status === 204) return undefined as T;
+  return res.json() as Promise<T>;
+}
+
+export function getAdminOverview(): Promise<AdminOverview> {
+  return adminFetch<AdminOverview>("/overview");
+}
+
+export function getAdminUsers(search = "", limit = 50, offset = 0): Promise<AdminUserList> {
+  const q = new URLSearchParams({ search, limit: String(limit), offset: String(offset) });
+  return adminFetch<AdminUserList>(`/users?${q.toString()}`);
+}
+
+export function getAdminUser(id: string): Promise<AdminUserDetail> {
+  return adminFetch<AdminUserDetail>(`/users/${id}`);
+}
+
+export function updateAdminUser(
+  id: string,
+  patch: { is_admin?: boolean; onboarding_completed?: boolean },
+): Promise<AdminUserDetail> {
+  return adminFetch<AdminUserDetail>(`/users/${id}`, { method: "PATCH", body: JSON.stringify(patch) });
+}
+
+export function deleteAdminUser(id: string): Promise<void> {
+  return adminFetch<void>(`/users/${id}`, { method: "DELETE" });
+}
+
+export function getAdminSystem(): Promise<AdminSystem> {
+  return adminFetch<AdminSystem>("/system");
+}
+
+export function runAdminJob(job: string): Promise<{ job: string; status: string }> {
+  return adminFetch<{ job: string; status: string }>(`/jobs/${job}`, { method: "POST" });
 }

@@ -44,6 +44,7 @@ class TokenResponse(BaseModel):
     onboarding_completed: bool = False
     language: str = "tr"
     display_currency: str = "TRY"
+    is_admin: bool = False
 
 
 class UserResponse(BaseModel):
@@ -53,6 +54,7 @@ class UserResponse(BaseModel):
     language: str
     display_currency: str
     email_weekly_enabled: bool
+    is_admin: bool
 
 
 class PreferencesRequest(BaseModel):
@@ -107,6 +109,7 @@ async def register(
         onboarding_completed=user.onboarding_completed,
         language=user.language,
         display_currency=user.display_currency,
+        is_admin=user.is_admin,
     )
 
 
@@ -146,6 +149,7 @@ async def login(
         onboarding_completed=user.onboarding_completed,
         language=user.language,
         display_currency=user.display_currency,
+        is_admin=user.is_admin,
     )
 
 
@@ -160,6 +164,7 @@ async def get_me(
         language=current_user.language,
         display_currency=current_user.display_currency,
         email_weekly_enabled=current_user.email_weekly_enabled,
+        is_admin=current_user.is_admin,
     )
 
 
@@ -195,6 +200,7 @@ async def update_preferences(
         language=current_user.language,
         display_currency=current_user.display_currency,
         email_weekly_enabled=current_user.email_weekly_enabled,
+        is_admin=current_user.is_admin,
     )
 
 
