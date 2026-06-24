@@ -407,7 +407,7 @@ When context reaches ~70% capacity:
 
 ## Current Status
 
-**Phases 1–69 complete. Alembic head = 0033.**
+**Phases 1–69 complete. Alembic head = 0034.**
 
 ### App structure (current)
 - **Nav**: Home · Money Flow · Net Değer · İlerleme · Settings (+ currency dropdown, notification bell, global assistant FAB)
@@ -432,7 +432,7 @@ When context reaches ~70% capacity:
 
 Full stack: register/login → JWT → upload (rate-limited, busts caches) → 3-layer OCR → LLM extract → OCR cleanup → dedup → zero-amount filter → persist → LLM categorize (13 categories) → insight cache → globalized LLM coach with corrections+notes injected → spending chart + progress page (LineChart 3-month trend + cross-batch-deduped category comparison + LLM one-liners, 24h cached) → PersonalityCard (5 types, cached per batch) → AlertsPanel (3 algorithmic detectors, dismiss persisted, stale dismissals auto-cleaned) → GoalsPanel (monthly budget vs actual) → ChatPanel (globalized conversational coaching, behavioral profile memory, voice input, chat-based tx entry with confirmation card, sessionStorage prefill from alerts) → weekly email summary (Resend HTML, preferences toggle) → inflation-adjusted analysis (TUFE 2023-2026, real vs nominal per category, ProgressInsight cache) → net worth asset subtype capture (all asset types have specific fields; crypto/fiat/commodity live picker; gold unit picker; stock/fund code fields; manual categories store structured metadata in `Asset.source_detail` JSON) → net worth display currency searchable via live `CurrencySelect` → receivable collection creates linked cash asset, repeated collection is idempotent, delete/write-off removes linked asset → stale received receivables and processed suggestions are hidden/cleaned after 30 days → onboarding accepts any institution/export source instead of hardcoded Turkish banks → financial event log + reconciliation item backend skeleton exists → net worth page shows Action Queue with open reconciliation items and recent financial events → reconciliation producers (overdue receivables, missing receivable assets, cross-batch duplicate detection) → Action Queue real action handlers per issue_type → net worth history AreaChart (daily USD snapshots, converted to display currency) → asset allocation donut PieChart (5 groups, click to highlight) → proactive threshold alerts (WealthAlert model, asset_price_drop / net_worth_drop / payment_coverage_risk, bell icon on auto-priced asset cards, triggered alerts banner).
 
-### Migrations (head = 0033)
+### Migrations (head = 0034)
 | Migration | What |
 |---|---|
 | 0001 | CREATE users + transactions |
@@ -468,6 +468,7 @@ Full stack: register/login → JWT → upload (rate-limited, busts caches) → 3
 | 0031 | assets current_value→Numeric(28,8) + quantity + unit_code + account_id; CREATE accounts |
 | 0032 | ADD source to transactions (statement_parsed/user_estimate/user_confirmed/user_supplementary/manual) |
 | 0033 | ADD last_email_brief_sent to users (weekly money brief cadence) |
+| 0034 | ADD is_admin to users (founder admin panel gate, server_default false) |
 
 ### Known Issues (open)
 - **PDF extraction not perfect** — scanned/image PDFs hit inherent OCR limits. Vision LLM (gpt-4o-mini, Phase 59) + strip tiling fixed column/sign/format errors and gets income exact on the Ziraat scan, but residual amount/count drift remains = pixel-level digit misreads on poor scans. gpt-4o is more accurate (swap `_VISION_MODEL`) at ~10x cost.
@@ -1282,7 +1283,7 @@ Full stack: register/login → JWT → upload (rate-limited, busts caches) → 3
 
 ## Next Session — Start Here
 
-**Phases 1–69 complete. Alembic head = 0033.**
+**Phases 1–69 complete. Alembic head = 0034.**
 
 ### Next session setup:
 - Use claude-opus-4-8 model
@@ -1308,7 +1309,7 @@ Pre-flight (if docker was restarted):
 ```bash
 docker compose up -d
 docker compose exec backend alembic upgrade head
-docker compose exec backend alembic current   # must say 0032 (head)
+docker compose exec backend alembic current   # must say 0034 (head)
 ```
 
 Quick smoke-test:
