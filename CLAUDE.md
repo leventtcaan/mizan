@@ -450,12 +450,34 @@ Systematic audit + fixes across the whole app. Highlights:
 - [x] **Cashflow `t.currency`**: month actuals honor each transaction's recorded currency (was forced "TRY").
 - [x] **Mim bubble mobile**: auto-bubble hidden on small screens so it can't cover financial content (FAB stays).
 
+### Phase 78 — Currency trust layer (2026-06-24)
+- [x] **No silent currency assumption**: image-only PDF with no currency marker no longer stamps the account default as fact. `upload.py` `UploadResponse.currency_detected: bool` = `parse_result.detected_currency is not None`. False → the stamped currency is an INFERRED fallback the user must confirm.
+- [x] **Confirmation step in review**: batches whose currency wasn't detected ride to `/review` via `?inferred=<job_ids>` (in URL → survives refresh). Inferred+unconfirmed batch shows an amber card "We couldn't detect the currency…" + `CurrencySelect`; picking updates every row live; **Confirm & Continue is BLOCKED** until each inferred statement's currency is confirmed (`saveReviewBatch` already writes per-row currency).
+- [x] **Per-currency totals (never mixed)**: review summary groups income/expenses/net BY currency — two TRY statements + one BRL show as separate TRY and BRL totals, not one bogus sum. `money()` made currency-aware (crypto/commodity codes fall back to "1,234 BTC").
+- [x] **Detected-vs-inferred badge**: each batch shows "Currency: BRL · detected from file" (✓) vs "USD · confirmed" (after the user resolves it, with a Change link). New `review.currency*` locale keys TR+EN. Carried via upload/onboarding → review URL param.
+
+### Phase 79 — Assistant context binding (2026-06-24)
+- [x] **Scoped to the statement**: "Ask Mizan about this" from the brief now passes `jobId` → `AskMim`/`openMim` → `mizan-open-assistant` event detail → GlobalAssistant `scope` state → `assistantChat(…, job_id)`. Backend `AssistantChatRequest.job_id`; `run_chat(…, job_id)`; `build_context(…, job_id)` returns a `_batch_scoped_block` (that one batch's period/flow/top categories/transactions + an explicit "answer ONLY with these numbers, do NOT mix other statements" instruction) and NOTHING aggregate. Empty/unowned batch → falls back to normal context. Scoped opens start a fresh thread; manual FAB/bubble opens + close clear scope.
+- [x] **Visible scope indicator**: panel header shows a banner "Talking about: <period> statement" (📄) while scoped. New `assistant.scopedTo`/`scopedStatement` keys TR+EN.
+
+### Phase 80 — Simulator + recurring consistency (2026-06-24)
+- [x] **Simulator NL horizon**: deterministic `_parse_horizon()` reads "for a year", "12 months", "2 years", "6 ay", "bir yıl", "half a year" → months (clamped). Trailing `\b` stops cadence word "monthly" being read as "month" ("save 500 monthly for 12 months" → 12). A horizon in the question overrides the UI; `ask()` mirrors `result.horizon_months` back into the toggle + a **Horizon chip** in "What I understood" (`sim.horizonChip`).
+- [x] **Recurring confidence gating**: `installment.py` tracks distinct months per explicit "X/Y" marker → `confidence="confirmed"` only when seen in **≥2 months**; a one-off (`ITAU SEG AP PF 11/12` — a date-like misread) is `"possible"`. Implicit (≥3mo) + subscriptions (≥2mo) = confirmed. `api/recurring.py` returns `confidence`; "fixed load" totals/counts exclude `"possible"`; recurring page shows an amber **"Possible"** badge + re-type hint.
+- [x] **One shared recurring source (no cross-page contradiction)**: brief counts only confirmed; `cashflow.py` dropped its private recurring-debit detector and now schedules commitments from the shared `analyze_recurring` engine (confirmed subs + confirmed installments) — recurring INCOME stays a local scan (not a commitment, not produced by the engine). Brief / Recurring / Simulator / Cashflow now agree.
+- [x] **Action queue gated**: `reconciliation.py` `list_items` (open only) sorts hardest-first (severity → recency), **caps at 3**, and hides low-confidence heuristic items (`possible_duplicate_transaction`, `large_transaction_review`, `low` severity) for accounts **< 7 days old**. Resolved/dismissed lists returned in full. Both consumers (Home, Net Worth) benefit.
+
+### Phase 81 — English UI + clarity polish (2026-06-24)
+- [x] **English guidance fix (Net Worth)**: Turkish guidance persisted in EN because `loadAll()` fetched once on mount under the hook's initial `"tr"` with no refetch when lang resolved. Now the guidance fetch uses `getCurrentLang()` (synchronous, correct) on first load AND an effect refetches on `lang` change. Backend cache key already includes lang.
+- [x] **Assistant scoped opener**: opened-from-brief empty state shows `assistant.scopedGreeting` ("Ask me anything about this statement…") instead of the cold-start "tell me your bank balance" opener.
+- [x] **Money Flow period labels**: spending breakdown range now prefixed "Statement period · <range>" (`tx.statementPeriod`) so it never reads as the calendar-month MoneyOverview spine above; batch card ("Latest statement") + header ("<Month> · calendar month") already labeled.
+- [x] **OCR triage in review**: conservative `looksGarbled()` (6+ consonant runs, long vowel-less words, mostly-symbol strings) flags rows with an amber-bordered description + inline **"OCR likely garbled — re-type the description"** label (desktop + mobile, `review.ocrGarbled`), folded into `flaggedCount`.
+
 ---
 
 ## Current Status
 
-**Phases 1–77 complete. Alembic head = 0035.**
-**Full audit complete (Phase 77: 6 CRITICAL · 15 HIGH · 7 MEDIUM · 3 LOW — all fixed). End-to-end live test in progress by external agent.**
+**Phases 1–81 complete. Alembic head = 0035.**
+**All audit report items complete. App is a production-ready candidate. Pending: deploy to production.**
 
 ### App structure (current)
 - **Nav**: Home · Money Flow · Net Değer · İlerleme · Settings (+ currency dropdown, notification bell, global assistant FAB)
@@ -1332,13 +1354,13 @@ Full stack: register/login → JWT → upload (rate-limited, busts caches) → 3
 
 ## Next Session — Start Here
 
-**Phases 1–77 complete. Alembic head = 0035. Full audit done — live test in progress by external agent.**
+**Phases 1–81 complete. Alembic head = 0035. All audit report items complete. Production-ready candidate.**
 
 ### Next session setup:
 - Use claude-opus-4-8 model
-- **Shipped since last doc update**: audit fixes batch 1 (72), nav cleanup (73), empty states (74), Mim unification (75), transactions composition (76), full audit pass (77: 6 CRITICAL · 15 HIGH · 7 MEDIUM · 3 LOW — all fixed). Alembic head now **0035** (admin soft-delete + audit log). Loop intact: Upload → Review → Brief → Home.
-- **State: full audit complete; an external agent is running an end-to-end live test.** Next session is reactive: wait for live-test feedback, fix what it surfaces, then deploy to production.
-- **Pending**: (1) live-test feedback + fixes, (2) deploy to production. After that: ask the model what's highest-leverage. Hold the line on SUBTRACTION (don't re-add panels).
+- **Shipped since last doc update**: currency trust layer (78), assistant context binding (79), simulator horizon + recurring confidence + shared source + action-queue cap (80), English UI fix + scoped opener + Money Flow period labels + OCR triage (81). Alembic head still **0035**. Loop intact: Upload → Review → Brief → Home.
+- **State: ALL AUDIT REPORT ITEMS COMPLETE. App is a production-ready candidate.**
+- **Pending: deploy to production.** (Railway backend + Vercel frontend; SECRET_KEY + RESEND_API_KEY via platform env; `alembic upgrade head` on cold start.) After deploy: ask the model what's highest-leverage. Hold the line on SUBTRACTION (don't re-add panels).
 - Deferred items live in "Known deferred (post-57)" under Current Status.
 
 ### Product vision (updated 2026-06-24):

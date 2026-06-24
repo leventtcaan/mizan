@@ -376,11 +376,33 @@ When context reaches ~70% capacity:
 - [x] **Browser locale detection everywhere**: `detectBrowserLang`/`detectBrowserCurrency` seed lang+ccy for new visitors; login+register thread to backend.
 - [x] **Cashflow `t.currency`** (was forced TRY). **Mim bubble** hidden on mobile (can't cover content).
 
+### Phase 78 — Currency trust layer (2026-06-24)
+- [x] **No silent ccy assumption**: `UploadResponse.currency_detected` = `detected_currency is not None`; False → stamped ccy is an INFERRED fallback to confirm.
+- [x] **Review confirmation step**: inferred batches → `/review?inferred=<job_ids>` (URL → survives refresh). Amber "couldn't detect currency" card + `CurrencySelect`; **Confirm BLOCKED** until each inferred statement confirmed (PATCH writes per-row ccy).
+- [x] **Per-currency totals**: review summary grouped BY currency (never mixed); `money()` currency-aware (BTC/XAU fall back to "1,234 CODE").
+- [x] **Detected-vs-inferred badge** per batch ("detected from file" ✓ / "confirmed" + Change). `review.currency*` keys TR+EN.
+
+### Phase 79 — Assistant context binding (2026-06-24)
+- [x] **Scoped to statement**: brief "Ask Mizan" → `jobId` → `openMim` event → GlobalAssistant `scope` → `assistantChat(…, job_id)`. Backend `run_chat(…, job_id)` → `build_context` returns `_batch_scoped_block` (that batch's period/flow/top-cats/txns + "use ONLY these, don't mix other statements") and nothing aggregate; empty/unowned → normal fallback. Scoped open = fresh thread; FAB/bubble/close clear scope.
+- [x] **Scope banner**: "Talking about: <period> statement" (📄). `assistant.scopedTo`/`scopedStatement` TR+EN.
+
+### Phase 80 — Simulator + recurring consistency (2026-06-24)
+- [x] **Sim NL horizon**: `_parse_horizon()` reads "for a year"/"12 months"/"2 years"/"6 ay"/"bir yıl"/"half a year"; trailing `\b` stops "monthly"→"month" ("save 500 monthly for 12 months"→12). Overrides UI; `ask()` mirrors back + Horizon chip (`sim.horizonChip`).
+- [x] **Recurring confidence**: installment explicit "X/Y" `confidence="confirmed"` only ≥2 distinct months; one-off (`…11/12` date-misread) = `"possible"`. Implicit (≥3mo)/subs (≥2mo) confirmed. `api/recurring.py` returns confidence; "fixed load" excludes possible; recurring page shows amber "Possible" badge + re-type hint.
+- [x] **One shared recurring source**: brief counts only confirmed; `cashflow.py` dropped its private recurring-debit detector → schedules commitments from `analyze_recurring` (confirmed subs+installments); recurring INCOME stays local scan. Brief/Recurring/Simulator/Cashflow agree.
+- [x] **Action queue gated**: `reconciliation.py` open list sorts hardest-first, **caps at 3**, hides low-confidence heuristics (`possible_duplicate_transaction`/`large_transaction_review`/`low`) for accounts <7d. Resolved/dismissed full.
+
+### Phase 81 — English UI + clarity polish (2026-06-24)
+- [x] **EN guidance fix (NW)**: TR guidance persisted because `loadAll()` fetched once on mount under hook's initial "tr" w/ no refetch. Now uses `getCurrentLang()` on first load + effect refetches on `lang` change (cache key already includes lang).
+- [x] **Assistant scoped opener**: opened-from-brief empty state shows `assistant.scopedGreeting` (not the "tell me your bank balance" cold start).
+- [x] **Money Flow period labels**: spending breakdown prefixed "Statement period · <range>" (`tx.statementPeriod`) so it never reads as the calendar-month MoneyOverview spine; batch card + header already labeled.
+- [x] **OCR triage in review**: `looksGarbled()` (6+ consonant runs / vowel-less long words / mostly-symbol) flags rows with amber border + inline "OCR likely garbled — re-type the description" (`review.ocrGarbled`, desktop+mobile), folded into `flaggedCount`.
+
 ---
 
 ## Current Status
 
-**Phases 1–77 complete. Alembic head = 0035. Full audit done (Phase 77: 6 CRITICAL · 15 HIGH · 7 MEDIUM · 3 LOW — all fixed); end-to-end live test in progress by external agent. Pending: live-test feedback + fixes, then deploy to prod.** (CLAUDE.md is authoritative for detail.) **Vision: chief of staff, not dashboard. Brief + Simulator = soul; dashboards = doorways. One sentence + everything behind a tap; subtraction > addition.** Home (69) is now a one-sentence coach. Most of 65–69 verified by build/py_compile only (no live LLM key here). Loop: Upload → Review → Brief → Home (Phases 61–64). Brief reuses ProgressInsight `data_type="brief"` (no new table). Progress = Financial Health scorecard. Net Worth = GuidancePanel + AllocationChart (no history chart). Upload returns status/reason; parser is global. Deferred: `_generate_networth_suggestions` Turkish bank keywords; account connectivity (Plaid — deferred, manual-first chosen); CSV unquoted comma-thousands edge case; scorecard synthetic score when thin; real snapshots need time (trajectory estimated until then); P1-deep valuation migration; P2 tx↔account reconciliation.
+**Phases 1–81 complete. Alembic head = 0035. ALL audit report items complete — app is a production-ready candidate. Pending: deploy to production.** (CLAUDE.md is authoritative for detail.) **Vision: chief of staff, not dashboard. Brief + Simulator = soul; dashboards = doorways. One sentence + everything behind a tap; subtraction > addition.** Home (69) is now a one-sentence coach. Most of 65–69 verified by build/py_compile only (no live LLM key here). Loop: Upload → Review → Brief → Home (Phases 61–64). Brief reuses ProgressInsight `data_type="brief"` (no new table). Progress = Financial Health scorecard. Net Worth = GuidancePanel + AllocationChart (no history chart). Upload returns status/reason; parser is global. Deferred: `_generate_networth_suggestions` Turkish bank keywords; account connectivity (Plaid — deferred, manual-first chosen); CSV unquoted comma-thousands edge case; scorecard synthetic score when thin; real snapshots need time (trajectory estimated until then); P1-deep valuation migration; P2 tx↔account reconciliation.
 
 **(historical, Phase 34) Phases 1–34 complete. Alembic head = 0022. No new migrations since Phase 32.**
 
@@ -834,7 +856,7 @@ Full stack: register/login → JWT → upload (rate-limited, busts caches) → 3
 
 ## Next Session — Start Here
 
-**Phases 1–77 complete. Alembic head = 0035.** (Older Phase 42/head-0022 notes below are historical — CLAUDE.md is authoritative.) Shipped since last update: audit fixes batch 1 (72), nav cleanup (73), empty states (74), Mim unification (75), transactions composition (76), full audit pass (77: 6 CRITICAL · 15 HIGH · 7 MEDIUM · 3 LOW — all fixed; migration 0035 admin soft-delete + audit log). **State: full audit complete; external agent running end-to-end live test. Next session is REACTIVE: wait for live-test feedback, fix what surfaces, then deploy to production.** **Hold the line on SUBTRACTION** (don't re-add panels). Deferred items in Current Status.
+**Phases 1–81 complete. Alembic head = 0035.** (Older Phase 42/head-0022 notes below are historical — CLAUDE.md is authoritative.) Shipped since last update: currency trust layer (78), assistant context binding (79), simulator horizon + recurring confidence + shared source + action-queue cap (80), English UI fix + scoped opener + Money Flow period labels + OCR triage (81). **State: ALL AUDIT REPORT ITEMS COMPLETE — app is a production-ready candidate. Pending: deploy to production** (Railway backend + Vercel frontend; SECRET_KEY + RESEND_API_KEY via platform env; `alembic upgrade head` on cold start). **Hold the line on SUBTRACTION** (don't re-add panels). Deferred items in Current Status.
 
 Pre-flight (if docker was restarted):
 ```bash
