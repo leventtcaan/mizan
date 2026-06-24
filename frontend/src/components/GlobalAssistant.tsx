@@ -7,7 +7,7 @@ import Mim from "@/components/companion/Mim";
 import { observe, checkEscalation, contextFromPath, type Observation } from "@/components/companion/voice";
 import { useLanguage } from "@/lib/i18n";
 import {
-  getToken, getStoredUser, getNetWorthSummary,
+  getToken, getStoredUser, getNetWorthSummary, getDefaultCurrency,
   assistantChat, confirmAssistantAction, rejectAssistantAction,
   type AssistantPageContext, type ActionProposal,
 } from "@/lib/api";
@@ -111,7 +111,7 @@ export default function GlobalAssistant() {
   // On first open, detect whether the user has any data yet (for the greeting).
   useEffect(() => {
     if (open && hasData === null) {
-      getNetWorthSummary("TRY")
+      getNetWorthSummary(getDefaultCurrency())
         .then((s) => setHasData(s.total_assets_try > 0 || s.total_liabilities_try > 0 || s.pending_receivables_try > 0))
         .catch(() => setHasData(true)); // assume not-empty on error → neutral greeting
     }

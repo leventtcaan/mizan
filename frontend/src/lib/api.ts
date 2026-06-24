@@ -1073,6 +1073,12 @@ export interface ReceivableItem {
   created_at: string;
 }
 
+export interface CurrencyExposure {
+  code: string;
+  native_value: number;   // sum in the holding's own currency
+  display_value: number;  // that sum converted to the requested display currency
+}
+
 export interface NetWorthSummary {
   total_assets_try: number;
   total_liabilities_try: number;
@@ -1080,7 +1086,7 @@ export interface NetWorthSummary {
   assets_by_type: Record<string, number>;
   liabilities_by_type: Record<string, number>;
   pending_receivables_try: number;
-  currency_breakdown: Record<string, number>;
+  currency_breakdown: CurrencyExposure[];
   warnings: string[];
   ai_insight: string | null;
 }

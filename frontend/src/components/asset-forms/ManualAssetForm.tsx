@@ -35,7 +35,7 @@ function VehicleForm({ onDraftChange, displayCurrency, usdPriceOf, rates, t }: {
   const [model, setModel]   = useState("");
   const [year, setYear]     = useState("");
   const [value, setValue]   = useState("");
-  const [currency, setCurrency] = useState("TRY");
+  const [currency, setCurrency] = useState(displayCurrency);
 
   const valueN = parseFloat(value || "0") || 0;
   const usdVal = valueN > 0 ? (currency === "USD" ? valueN : (usdPriceOf(currency) ?? 0) * valueN) : null;
@@ -187,7 +187,7 @@ function BondForm({ onDraftChange, displayCurrency, usdPriceOf, rates, t }: {
   const [couponRate, setCouponRate]   = useState("");
   const [faceValue, setFaceValue]     = useState("");
   const [note, setNote]               = useState("");
-  const [currency, setCurrency]       = useState("TRY");
+  const [currency, setCurrency]       = useState(displayCurrency);
 
   const faceN = parseFloat(faceValue || "0") || 0;
   const usdVal = faceN > 0 ? (currency === "USD" ? faceN : (usdPriceOf(currency) ?? 0) * faceN) : null;
@@ -262,7 +262,7 @@ function LifeInsuranceForm({ onDraftChange, displayCurrency, usdPriceOf, rates, 
   const [provider, setProvider]         = useState("");
   const [coverage, setCoverage]         = useState("");
   const [monthlyPremium, setMonthlyPremium] = useState("");
-  const [currency, setCurrency]         = useState("TRY");
+  const [currency, setCurrency]         = useState(displayCurrency);
 
   const coverageN = parseFloat(coverage || "0") || 0;
   const usdVal = coverageN > 0 ? (currency === "USD" ? coverageN : (usdPriceOf(currency) ?? 0) * coverageN) : null;
@@ -321,7 +321,7 @@ function BusinessOwnershipForm({ onDraftChange, displayCurrency, usdPriceOf, rat
   const [company, setCompany]   = useState("");
   const [pct, setPct]           = useState("");
   const [value, setValue]       = useState("");
-  const [currency, setCurrency] = useState("TRY");
+  const [currency, setCurrency] = useState(displayCurrency);
 
   const valueN = parseFloat(value || "0") || 0;
   const usdVal = valueN > 0 ? (currency === "USD" ? valueN : (usdPriceOf(currency) ?? 0) * valueN) : null;
@@ -385,7 +385,7 @@ function ArtJewelryForm({ assetType, onDraftChange, displayCurrency, usdPriceOf,
   const [itemName, setItemName]         = useState("");
   const [insuranceVal, setInsuranceVal] = useState("");
   const [value, setValue]               = useState("");
-  const [currency, setCurrency]         = useState("TRY");
+  const [currency, setCurrency]         = useState(displayCurrency);
 
   const valueN = parseFloat(value || "0") || 0;
   const usdVal = valueN > 0 ? (currency === "USD" ? valueN : (usdPriceOf(currency) ?? 0) * valueN) : null;
@@ -460,7 +460,7 @@ export default function ManualAssetForm({ assetType, onDraftChange, displayCurre
   const [primary,   setPrimary]   = useState("");
   const [secondary, setSecondary] = useState("");
   const [tertiary,  setTertiary]  = useState("");
-  const [currency,  setCurrency]  = useState("TRY");
+  const [currency,  setCurrency]  = useState(displayCurrency);
   const [value,     setValue]     = useState("");
 
   // Bank account

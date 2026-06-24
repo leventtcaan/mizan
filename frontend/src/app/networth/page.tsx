@@ -802,8 +802,9 @@ export default function NetWorthPage() {
     .sort((a, b) => b.value - a.value);
 
   const currencyBars = summary
-    ? Object.entries(summary.currency_breakdown)
-        .map(([code, value]) => ({ code, value: Math.abs(value) }))
+    ? summary.currency_breakdown
+        // Proportions use the display-currency value so every currency shares one base.
+        .map((c) => ({ code: c.code, value: Math.abs(c.display_value) }))
         .filter((c) => c.value > 0)
         .sort((a, b) => b.value - a.value)
     : [];
@@ -948,10 +949,10 @@ export default function NetWorthPage() {
                 </>
               )}
             </div>
-            {summary && Object.keys(summary.currency_breakdown).length > 1 && (
+            {summary && summary.currency_breakdown.length > 1 && (
               <div className="mt-5 pt-5 border-t border-[#2A2A2A] flex flex-wrap gap-3 justify-center">
-                {Object.entries(summary.currency_breakdown).sort(([, a], [, b]) => b - a).map(([cur, val]) => (
-                  <span key={cur} className="px-2.5 py-1 rounded-full bg-[#2A2A2A] text-xs text-gray-400">{cur}: {fmt(val, displayCurrency)}</span>
+                {[...summary.currency_breakdown].sort((a, b) => b.display_value - a.display_value).map((c) => (
+                  <span key={c.code} className="px-2.5 py-1 rounded-full bg-[#2A2A2A] text-xs text-gray-400">{c.code}: {fmt(c.display_value, displayCurrency)}</span>
                 ))}
               </div>
             )}

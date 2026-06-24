@@ -203,6 +203,15 @@ class StatusPatchResponse(BaseModel):
     toast_message: str | None
 
 
+class CurrencyExposure(BaseModel):
+    """Per-currency holdings: the raw amount in its own currency (native_value) and
+    that amount converted to the requested display currency (display_value). Never a
+    third hardcoded base — TRY was leaking into the UI before."""
+    code: str
+    native_value: float
+    display_value: float
+
+
 class NetWorthSummary(BaseModel):
     total_assets_try: float
     total_liabilities_try: float
@@ -210,7 +219,7 @@ class NetWorthSummary(BaseModel):
     assets_by_type: dict[str, float]
     liabilities_by_type: dict[str, float]
     pending_receivables_try: float
-    currency_breakdown: dict[str, float]
+    currency_breakdown: list[CurrencyExposure]
     warnings: list[str]
     ai_insight: str | None
 
@@ -1502,14 +1511,16 @@ async def get_summary(
 
     total_assets = 0.0
     assets_by_type: dict[str, float] = {}
-    currency_breakdown: dict[str, float] = {}
+    # Per currency: keep the native sum AND the display-converted sum — no TRY base.
+    currency_breakdown: dict[str, dict[str, float]] = {}
 
     for a in assets:
         val = await convert(float(a.current_value), a.currency, target)
         total_assets += val
         assets_by_type[a.asset_type] = assets_by_type.get(a.asset_type, 0.0) + val
-        original_try = await convert(float(a.current_value), a.currency, "TRY")
-        currency_breakdown[a.currency] = currency_breakdown.get(a.currency, 0.0) + original_try
+        entry = currency_breakdown.setdefault(a.currency, {"native": 0.0, "display": 0.0})
+        entry["native"] += float(a.current_value)
+        entry["display"] += val
 
     total_liabilities = 0.0
     liabilities_by_type: dict[str, float] = {}
@@ -1538,7 +1549,14 @@ async def get_summary(
         assets_by_type={k: round(v, 2) for k, v in assets_by_type.items()},
         liabilities_by_type={k: round(v, 2) for k, v in liabilities_by_type.items()},
         pending_receivables_try=round(pending_recv_total, 2),
-        currency_breakdown={k: round(v, 2) for k, v in currency_breakdown.items()},
+        currency_breakdown=[
+            CurrencyExposure(
+                code=code,
+                native_value=round(v["native"], 2),
+                display_value=round(v["display"], 2),
+            )
+            for code, v in sorted(currency_breakdown.items(), key=lambda kv: kv[1]["display"], reverse=True)
+        ],
         warnings=warnings,
         ai_insight=ai_insight,
     )

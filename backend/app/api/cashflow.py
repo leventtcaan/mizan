@@ -178,7 +178,10 @@ def _recurring_items(transactions, today: date, end: date) -> list[CashFlowItem]
                     date=predicted.isoformat(),
                     type=item_type,
                     amount=str(median.quantize(Decimal("0.01"))),
-                    currency="TRY",
+                    # Carry the source transactions' own currency (the latest in the
+                    # group, whose description we also reuse) so the caller converts
+                    # from the right base instead of assuming TRY.
+                    currency=sorted_txns[-1].currency or "TRY",
                     description=sorted_txns[-1].description[:45],
                     source=source,
                     urgent=(predicted - today).days <= _URGENT_DAYS,

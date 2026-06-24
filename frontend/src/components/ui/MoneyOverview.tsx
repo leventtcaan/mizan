@@ -22,7 +22,9 @@ function fmt(value: number, currency: string): string {
 /** Money Flow spine: a compact at-a-glance header above every Money Flow tab. */
 export default function MoneyOverview() {
   const { t, lang } = useLanguage();
-  const [ccy, setCcy] = useState("TRY");
+  // Lazy-init from the stored display currency so the first fetch uses the right
+  // currency instead of fetching TRY and then re-fetching once the effect runs.
+  const [ccy, setCcy] = useState(() => getDefaultCurrency());
   const [cashflow, setCashflow] = useState<CashFlowSummary | null>(null);
   const [recurring, setRecurring] = useState<RecurringSummary | null>(null);
   const [loading, setLoading] = useState(true);

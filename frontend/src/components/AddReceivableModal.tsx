@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { createReceivable, updateReceivable, ReceivableItem } from "@/lib/api";
+import { createReceivable, updateReceivable, getDefaultCurrency, ReceivableItem } from "@/lib/api";
 import { X } from "@/components/ui/Icons";
 import CurrencySelect from "@/components/CurrencySelect";
 import { useLanguage } from "@/lib/i18n";
@@ -19,7 +19,8 @@ export default function AddReceivableModal({ onClose, onAdded, onUpdated, editDa
 
   const [fromPerson, setFromPerson] = useState(editData?.from_person ?? "");
   const [amount, setAmount] = useState(editData?.amount ?? "");
-  const [currency, setCurrency] = useState(editData?.currency ?? "TRY");
+  // New entries default to the user's display currency; edits keep their own.
+  const [currency, setCurrency] = useState(() => editData?.currency ?? getDefaultCurrency());
   const [expectedDate, setExpectedDate] = useState(editData?.expected_date ?? "");
   const [notes, setNotes] = useState(editData?.notes ?? "");
   const [loading, setLoading] = useState(false);

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { createLiability, updateLiability, LiabilityItem } from "@/lib/api";
+import { createLiability, updateLiability, getDefaultCurrency, LiabilityItem } from "@/lib/api";
 import { X } from "@/components/ui/Icons";
 import CurrencySelect from "@/components/CurrencySelect";
 import { useLanguage } from "@/lib/i18n";
@@ -24,7 +24,8 @@ export default function AddLiabilityModal({ onClose, onAdded, onUpdated, editDat
 
   const [name, setName] = useState(editData?.name ?? "");
   const [liabilityType, setLiabilityType] = useState(editData?.liability_type ?? "personal_loan");
-  const [currency, setCurrency] = useState(editData?.currency ?? "TRY");
+  // New entries default to the user's display currency; edits keep their own.
+  const [currency, setCurrency] = useState(() => editData?.currency ?? getDefaultCurrency());
   const [totalAmount, setTotalAmount] = useState(editData?.total_amount ?? "");
   const [remainingAmount, setRemainingAmount] = useState(editData?.remaining_amount ?? "");
   const [monthlyPayment, setMonthlyPayment] = useState(editData?.monthly_payment ?? "");
