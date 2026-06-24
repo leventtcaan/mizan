@@ -8,6 +8,7 @@ import { useLanguage } from "@/lib/i18n";
 import { CATEGORY_LABELS } from "@/lib/categories";
 import {
   getToken, getReviewBatch, saveReviewBatch, deleteBatch,
+  completeOnboarding, getStoredUser, setStoredUser,
   type ReviewTransaction,
 } from "@/lib/api";
 
@@ -77,6 +78,9 @@ function ReviewContent() {
     () => (params.get("batch_ids") || "").split(",").map((s) => s.trim()).filter(Boolean),
     [params],
   );
+  // Reached from onboarding? Then THIS confirm is what completes onboarding —
+  // onboarding deliberately defers completion until the review is confirmed.
+  const isOnboarding = params.get("onboarding") === "1";
 
   const [rows, setRows] = useState<EditRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -189,20 +193,29 @@ function ReviewContent() {
           }));
         await saveReviewBatch(bid, payload);
       }
+      // Confirmed review from onboarding → now it's safe to mark onboarding complete.
+      if (isOnboarding) {
+        try {
+          await completeOnboarding();
+          const u = getStoredUser();
+          if (u) setStoredUser({ ...u, onboarding_completed: true });
+        } catch { /* non-blocking — the brief still loads */ }
+      }
       router.push(`/brief?job_id=${batchIds[0]}`);
     } catch (err) {
       setError(err instanceof Error ? err.message : t("review.saveError"));
       setSaving(false);
     }
-  }, [rows, batchIds, saving, router, t]);
+  }, [rows, batchIds, saving, router, t, isOnboarding]);
 
   const cancel = useCallback(async () => {
     if (saving) return;
     if (!window.confirm(t("review.cancelConfirm"))) return;
     setSaving(true);
     await Promise.all(batchIds.map((bid) => deleteBatch(bid).catch(() => null)));
-    router.push("/upload");
-  }, [batchIds, saving, router, t]);
+    // Keep an onboarding user inside the onboarding flow if they start over.
+    router.push(isOnboarding ? "/onboarding" : "/upload");
+  }, [batchIds, saving, router, t, isOnboarding]);
 
   if (loading) {
     return (

@@ -963,6 +963,8 @@ export const en = {
       s1Title: "Let's build your financial picture",
       s1Sub: "Upload your bank statements to start — or enter everything by hand.",
       s1Motivate: "Upload all your statements — the more data, the more accurate the analysis.",
+      addManual: "Or enter a transaction by hand",
+      manualAdded: "added by hand",
       addAnother: "Add another statement",
       statementsLoaded: "statements loaded",
       txCount: "transactions",

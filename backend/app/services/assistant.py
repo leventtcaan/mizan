@@ -8,6 +8,7 @@ only via /assistant/action/confirm, which loads the stored row and re-validates
 ownership of every referenced entity. LLM params are treated as untrusted.
 """
 
+import difflib
 import json
 import logging
 import re
@@ -57,6 +58,9 @@ ALLOWED action_type values and their params:
 - mark_receivable_received: {"receivable_id": "<id>"}
 - dismiss_reconciliation_item: {"item_id": "<id>"}
 - categorize_transaction: {"transaction_id": "<id>", "category": "<category_slug>"}
+    Or, when the user names a merchant but no ID is shown (e.g. "categorize my Netflix as fatura"),
+    use {"description": "<merchant or text>", "category": "<category_slug>"} — Mizan will match the
+    transaction(s) by description itself. Prefer transaction_id when an ID is visible in the context.
 - create_asset: {"name": "<str>", "asset_type": "<type>", "currency": "<CODE>", "current_value": "<number>"}
 - add_liability: {"name": "<str>", "liability_type": "<type>", "currency": "<CODE>", "total_amount": "<number>", "remaining_amount": "<number>"}
 """
@@ -339,6 +343,43 @@ async def _exec_dismiss_reconciliation_item(user: User, params: dict, session: A
     return "Item dismissed."
 
 
+def _match_transactions_by_description(query: str, txns: list) -> list:
+    """
+    Find the user's transaction(s) a free-text merchant/description refers to, so the
+    assistant can act on "categorize my Netflix" without a transaction ID.
+
+    Two tiers, conservative to avoid false positives:
+      1. Substring containment (case-insensitive) — "Netflix" → "NETFLIX.COM AMSTERDAM".
+         Returns ALL such rows so every Netflix charge gets categorized, not just one.
+      2. Otherwise the single best fuzzy match (token overlap / sequence similarity),
+         accepted only at ≥0.6 similarity. Below that → no match (caller errors).
+    """
+    q = (query or "").strip().lower()
+    if not q:
+        return []
+
+    contained = [
+        t for t in txns
+        if t.description and (q in t.description.lower() or t.description.lower().strip() in q)
+    ]
+    if contained:
+        return contained
+
+    q_tokens = set(q.split())
+    best = None
+    best_score = 0.0
+    for t in txns:
+        d = (t.description or "").lower()
+        if not d:
+            continue
+        score = difflib.SequenceMatcher(None, q, d).ratio()
+        if q_tokens & set(d.split()):  # a shared word is a strong signal
+            score = max(score, 0.75)
+        if score > best_score:
+            best_score, best = score, t
+    return [best] if best is not None and best_score >= 0.6 else []
+
+
 async def _exec_categorize_transaction(user: User, params: dict, session: AsyncSession) -> str:
     from app.api.corrections import VALID_CATEGORIES
     from app.services.transaction_service import bust_insight_cache, bust_progress_cache
@@ -347,20 +388,43 @@ async def _exec_categorize_transaction(user: User, params: dict, session: AsyncS
     category = str(params.get("category") or "")
     if category not in VALID_CATEGORIES:
         raise ActionError(f"Invalid category: {category}")
-    try:
-        tid = uuid.UUID(str(params.get("transaction_id")))
-    except (ValueError, TypeError):
-        raise ActionError("Invalid transaction_id")
 
-    result = await session.execute(
-        select(Transaction).where(Transaction.id == tid, Transaction.user_id == user.id)
-    )
-    tx = result.scalar_one_or_none()
-    if not tx:
-        raise ActionError("Transaction not found")
+    # Path A — an explicit ID (precise). Path B — fuzzy match by description.
+    raw_id = params.get("transaction_id")
+    if raw_id not in (None, "", "null"):
+        try:
+            tid = uuid.UUID(str(raw_id))
+        except (ValueError, TypeError):
+            raise ActionError("Invalid transaction_id")
+        result = await session.execute(
+            select(Transaction).where(Transaction.id == tid, Transaction.user_id == user.id)
+        )
+        tx = result.scalar_one_or_none()
+        if not tx:
+            raise ActionError("Transaction not found")
+        targets = [tx]
+    else:
+        query = str(
+            params.get("description")
+            or params.get("transaction_description")
+            or params.get("merchant")
+            or params.get("query")
+            or ""
+        ).strip()
+        if not query:
+            raise ActionError("Provide a transaction_id or a description to match")
+        # Search across all batches — the named merchant may be in any uploaded period.
+        txns = await get_transactions_for_user(user.id, session, all_batches=True)
+        targets = _match_transactions_by_description(query, txns)
+        if not targets:
+            raise ActionError(f"No transaction matching '{query}' found")
 
-    old = tx.category
-    if old != category:
+    matched_desc = (targets[0].description or "")[:40]
+    changed = 0
+    for tx in targets:
+        old = tx.category
+        if old == category:
+            continue
         tx.category = category
         session.add(UserCorrection(
             id=uuid.uuid4(),
@@ -370,9 +434,17 @@ async def _exec_categorize_transaction(user: User, params: dict, session: AsyncS
             new_category=category,
             created_at=datetime.now(timezone.utc),
         ))
+        changed += 1
+
+    if changed:
         await bust_insight_cache(user.id, session)
         await bust_progress_cache(user.id, session)
-    return f"Transaction categorized as {category}."
+
+    if changed == 0:
+        return f"Already categorized as {category}."
+    if len(targets) == 1:
+        return f"Categorized “{matched_desc}” as {category}."
+    return f"Categorized {changed} matching transactions ({matched_desc}…) as {category}."
 
 
 async def _exec_create_asset(user: User, params: dict, session: AsyncSession) -> str:

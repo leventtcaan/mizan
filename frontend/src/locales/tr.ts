@@ -963,6 +963,8 @@ export const tr = {
       s1Title: "Finansal tablonu oluşturalım",
       s1Sub: "Başlamak için banka ekstrelerini yükle — ya da her şeyi elle gir.",
       s1Motivate: "Tüm banka ekstrelerini yükleyebilirsin — ne kadar çok veri, o kadar doğru analiz.",
+      addManual: "Ya da bir işlemi elle gir",
+      manualAdded: "elle eklendi",
       addAnother: "Başka ekstre ekle",
       statementsLoaded: "ekstre yüklendi",
       txCount: "işlem",

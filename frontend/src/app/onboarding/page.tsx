@@ -7,7 +7,8 @@ import {
   uploadStatement, analyzeOnboarding,
   type UploadResponse,
 } from "@/lib/api";
-import { FileText, ArrowRight, Brain, CheckCircle } from "@/components/ui/Icons";
+import { FileText, ArrowRight, Brain, CheckCircle, Plus } from "@/components/ui/Icons";
+import AddTransactionModal from "@/components/AddTransactionModal";
 import { useLanguage } from "@/lib/i18n";
 
 // Onboarding is now just: upload statement(s) → AI first impression → Home.
@@ -55,10 +56,12 @@ export default function OnboardingPage() {
   const [error, setError] = useState<string | null>(null);
   const [currency, setCurrency] = useState("USD");
 
-  // Step 1 — statements (multiple)
+  // Step 1 — statements (multiple) + optional manual entry
   const [dragging, setDragging] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [uploads, setUploads] = useState<UploadEntry[]>([]);
+  const [manualOpen, setManualOpen] = useState(false);
+  const [manualCount, setManualCount] = useState(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Step 2 — first impression
@@ -143,13 +146,15 @@ export default function OnboardingPage() {
 
   // With a parsed statement, route through /review so the user can catch parse errors
   // before the brief narrates them as truth; review then hands off to /brief.
+  // Onboarding is NOT marked complete here — only after the review is confirmed
+  // (review completes it via ?onboarding=1) or via the skip path. Marking it before
+  // review would leave an "onboarded" account if the user abandons review.
   // With no statement, fall through to step 2's plain welcome.
   const next = async () => {
     setError(null);
     if (hasStatement) {
-      await markDone();
       const ids = successUploads.map((u) => u.result.job_id).join(",");
-      router.push(`/review?batch_ids=${ids}`);
+      router.push(`/review?batch_ids=${ids}&onboarding=1`);
       return;
     }
     setStep(2);
@@ -195,6 +200,21 @@ export default function OnboardingPage() {
                 </>
               )}
             </div>
+
+            {/* Manual entry — makes the "enter everything by hand" promise real */}
+            <button
+              onClick={() => setManualOpen(true)}
+              className="w-full mb-3 flex items-center justify-center gap-1.5 text-gray-400 hover:text-gray-200 text-sm transition-colors py-2"
+            >
+              <Plus size={15} /> {t("onboarding.flow.addManual")}
+            </button>
+
+            {manualCount > 0 && (
+              <div className="mb-3 p-3 rounded-xl bg-emerald-950/30 border border-emerald-800/40 flex items-center gap-2 text-sm">
+                <CheckCircle size={14} className="text-emerald-400 shrink-0" />
+                <span className="text-emerald-300">{manualCount} {t("onboarding.flow.manualAdded")}</span>
+              </div>
+            )}
 
             {/* Running count — rewarding, not a chore */}
             {hasStatement && (
@@ -275,6 +295,13 @@ export default function OnboardingPage() {
           </div>
         )}
       </div>
+
+      {manualOpen && (
+        <AddTransactionModal
+          onClose={() => setManualOpen(false)}
+          onSuccess={() => { setManualCount((c) => c + 1); setManualOpen(false); }}
+        />
+      )}
     </div>
   );
 }
