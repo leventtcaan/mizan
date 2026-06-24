@@ -12,7 +12,7 @@ from datetime import date, datetime
 from decimal import Decimal, InvalidOperation
 from typing import Any
 
-from sqlalchemy import delete, select
+from sqlalchemy import delete, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.transaction import Transaction
@@ -120,6 +120,9 @@ async def get_transactions_for_user(
     WHY: Returning all batches by default would mix stale test uploads with the
          current statement — confusing for the user and noisy for the LLM coach.
          ?all=true is available for debugging and future batch-management UI.
+         Manual entries (upload_batch_id=NULL) are NEVER scoped out — they belong
+         to no batch, so they must surface alongside whichever batch is shown,
+         otherwise they silently vanish once the user has any uploaded statement.
     BREAKS IF REMOVED: GET /transactions has nowhere to fetch data from.
     """
     if all_batches:
@@ -152,10 +155,16 @@ async def get_transactions_for_user(
             .order_by(Transaction.transaction_date.desc())
         )
     else:
+        # Latest batch OR any manual/unbatched row (upload_batch_id IS NULL).
         stmt = (
             select(Transaction)
             .where(Transaction.user_id == user_id)
-            .where(Transaction.upload_batch_id == latest_batch_id)
+            .where(
+                or_(
+                    Transaction.upload_batch_id == latest_batch_id,
+                    Transaction.upload_batch_id.is_(None),
+                )
+            )
             .order_by(Transaction.transaction_date.desc())
         )
 

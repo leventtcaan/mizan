@@ -177,11 +177,15 @@ async def build_scorecard(
     })
     for t in txns:
         mk = _month_key(t.transaction_date)
+        # Convert into the display currency BEFORE aggregating. A multi-currency
+        # user otherwise sums e.g. TRY + USD as if 1 USD == 1 TRY, producing a
+        # mathematically meaningless savings rate / discipline / score.
+        amount = Decimal(str(await _to(float(t.amount), t.currency or cur, cur)))
         if t.transaction_type == "debit":
-            by_month[mk]["spent"] += t.amount
-            by_month[mk]["by_category"][t.category or "diger"] += t.amount
+            by_month[mk]["spent"] += amount
+            by_month[mk]["by_category"][t.category or "diger"] += amount
         else:
-            by_month[mk]["income"] += t.amount
+            by_month[mk]["income"] += amount
 
     now = datetime.now(timezone.utc)
     this_key = f"{now.year:04d}-{now.month:02d}"
@@ -387,7 +391,8 @@ async def _reconstruct_trajectory(by_month: dict, nw_now_cur: float, cur: str) -
     for mk in months:
         income = float(by_month.get(mk, {}).get("income", 0) or 0)
         spent = float(by_month.get(mk, {}).get("spent", 0) or 0)
-        flows[mk] = await _to(income - spent, "TRY", cur)
+        # by_month is already aggregated in the display currency — do not re-convert.
+        flows[mk] = income - spent
 
     today = date.today()
     this_key = f"{today.year:04d}-{today.month:02d}"
@@ -472,14 +477,15 @@ async def _drivers(this_m: dict, last_m: dict, snaps: list, cur: str) -> dict:
     increases.sort(key=lambda x: x[1], reverse=True)
     decreases.sort(key=lambda x: x[1], reverse=True)
 
+    # this_cat / last_cat come from by_month, already in the display currency.
     worst = None
     if increases:
         worst = {"kind": "category", "name": increases[0][0],
-                 "amount": round(await _to(increases[0][1], "TRY", cur), 2)}
+                 "amount": round(increases[0][1], 2)}
     best = None
     if decreases:
         best = {"kind": "category", "name": decreases[0][0],
-                "amount": round(await _to(decreases[0][1], "TRY", cur), 2)}
+                "amount": round(decreases[0][1], 2)}
 
     # debt paydown can beat a category cut as the headline win
     if len(snaps) >= 2:
