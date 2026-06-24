@@ -3,7 +3,7 @@
 import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import PageLayout from "@/components/ui/PageLayout";
-import { ArrowRight, Plus, X as XIcon, TrendingUp, TrendingDown } from "@/components/ui/Icons";
+import { ArrowRight, Plus, X as XIcon, TrendingUp, TrendingDown, CheckCircle } from "@/components/ui/Icons";
 import { useLanguage } from "@/lib/i18n";
 import { CATEGORY_LABELS } from "@/lib/categories";
 import {
@@ -37,6 +37,35 @@ function toNum(s: string): number {
 
 function todayISO(): string {
   return new Date().toISOString().slice(0, 10);
+}
+
+/** Upload → Review → Brief — shows the user this is a step in the product, not a QA chore. */
+function FlowStepper({ labels }: { labels: [string, string, string] }) {
+  // index 1 (Review) is the active step; 0 is already done.
+  const steps = [
+    { label: labels[0], state: "done" as const },
+    { label: labels[1], state: "active" as const },
+    { label: labels[2], state: "todo" as const },
+  ];
+  return (
+    <div className="flex items-center gap-2 mb-5 text-xs">
+      {steps.map((s, i) => (
+        <div key={s.label} className="flex items-center gap-2">
+          <span
+            className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full font-medium ${
+              s.state === "done" ? "text-emerald-400"
+                : s.state === "active" ? "bg-indigo-600 text-white"
+                : "text-gray-600"
+            }`}
+          >
+            {s.state === "done" && <CheckCircle size={13} />}
+            {s.label}
+          </span>
+          {i < steps.length - 1 && <span className="text-gray-700">›</span>}
+        </div>
+      ))}
+    </div>
+  );
 }
 
 function ReviewContent() {
@@ -188,20 +217,40 @@ function ReviewContent() {
 
   const inputCls = "bg-[#0F0F0F] border border-[#2A2A2A] rounded-lg px-2 py-1.5 text-sm text-white focus:outline-none focus:border-indigo-600";
 
+  const flaggedCount = highAmount.size + duplicates.size;
+
   return (
-    <PageLayout title={`${rows.length} ${t("review.found")}`} subtitle={t("review.subtitle")} maxWidth="xl">
-      {/* Summary bar */}
-      <div className="flex flex-wrap items-center gap-x-6 gap-y-2 mb-4 p-4 rounded-xl bg-[#1A1A1A] border border-[#2A2A2A]">
-        <span className="text-emerald-400 font-semibold tabular-nums text-sm flex items-center gap-1">
-          <TrendingUp size={14} /> {money(income)} <span className="text-gray-500 font-normal text-xs">{t("review.income")}</span>
-        </span>
-        <span className="text-red-400 font-semibold tabular-nums text-sm flex items-center gap-1">
-          <TrendingDown size={14} /> {money(expenses)} <span className="text-gray-500 font-normal text-xs">{t("review.expenses")}</span>
-        </span>
-        <span className={`font-semibold tabular-nums text-sm ${net >= 0 ? "text-white" : "text-orange-400"}`}>
-          {net >= 0 ? "" : "−"}{money(Math.abs(net))} <span className="text-gray-500 font-normal text-xs">{t("review.net")}</span>
-        </span>
+    <PageLayout title={t("review.title")} maxWidth="xl">
+      <FlowStepper labels={[t("review.stepUpload"), t("review.stepReview"), t("review.stepDone")]} />
+
+      {/* Warm intro — frames this as Mizan showing its work, not a QA request */}
+      <p className="text-gray-400 text-sm leading-relaxed mb-5 max-w-2xl">
+        {t("review.introPre")} <span className="text-white font-semibold">{rows.length}</span> {t("review.introPost")}
+      </p>
+
+      {/* Summary bar — confident "this adds up to", not QA stats */}
+      <div className="mb-4 p-4 rounded-xl bg-[#1A1A1A] border border-[#2A2A2A]">
+        <p className="text-[11px] font-semibold tracking-wide text-gray-500 uppercase mb-2.5">{t("review.addsUpTo")}</p>
+        <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
+          <span className="text-emerald-400 font-semibold tabular-nums text-sm flex items-center gap-1">
+            <TrendingUp size={14} /> {money(income)} <span className="text-gray-500 font-normal text-xs">{t("review.income")}</span>
+          </span>
+          <span className="text-red-400 font-semibold tabular-nums text-sm flex items-center gap-1">
+            <TrendingDown size={14} /> {money(expenses)} <span className="text-gray-500 font-normal text-xs">{t("review.expenses")}</span>
+          </span>
+          <span className={`font-semibold tabular-nums text-sm ${net >= 0 ? "text-white" : "text-orange-400"}`}>
+            {net >= 0 ? "" : "−"}{money(Math.abs(net))} <span className="text-gray-500 font-normal text-xs">{t("review.net")}</span>
+          </span>
+        </div>
       </div>
+
+      {/* Gentle heads-up when rows are flagged — guidance, not an error */}
+      {flaggedCount > 0 && (
+        <p className="flex items-center gap-2 text-amber-300/90 text-xs mb-3">
+          <span className="w-1.5 h-1.5 rounded-full bg-amber-400 shrink-0" />
+          {t("review.flaggedHint")}
+        </p>
+      )}
 
       {/* Editable table */}
       <div className="overflow-x-auto rounded-xl border border-[#2A2A2A]">
@@ -292,7 +341,7 @@ function ReviewContent() {
       <div className="flex gap-3 mt-6">
         <button onClick={cancel} disabled={saving}
           className="px-5 py-3 rounded-xl bg-[#1A1A1A] border border-[#2A2A2A] hover:bg-[#2A2A2A] text-gray-300 font-semibold transition-colors disabled:opacity-50">
-          {t("review.cancel")}
+          {t("review.startOver")}
         </button>
         <button onClick={confirm} disabled={saving || rows.length === 0}
           className="flex-1 py-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 font-semibold transition-colors flex items-center justify-center gap-2">

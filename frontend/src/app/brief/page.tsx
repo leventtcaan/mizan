@@ -84,14 +84,21 @@ function BriefContent() {
     <AskMim prefill={prefill} label={t("brief.askMizan")} className="mt-3" />
   );
 
+  // Every number says where it comes from. Flow/categories are this one statement;
+  // recurring is computed across all the user's activity, so it's labelled differently.
+  const Source = ({ text }: { text: string }) => (
+    <p className="text-[11px] text-gray-600 mt-3 pt-3 border-t border-[#2A2A2A]/60">{text}</p>
+  );
+  const statementSource = `${t("brief.fromStatement")} · ${periodRange}`;
+
   return (
     <div className="min-h-screen bg-[#0F0F0F] text-white px-4 py-12">
       <div className="w-full max-w-lg mx-auto">
-        {/* Eyebrow + period */}
+        {/* Eyebrow + explicit data source */}
         <div className={beatCls} style={beatStyle(0)}>
           <p className="text-center text-gray-600 text-xs font-medium tracking-widest uppercase mb-2">{t("brief.eyebrow")}</p>
           <p className="text-center text-gray-500 text-sm mb-8">
-            {period.transaction_count} {t("brief.transactions")} · {periodRange}
+            {t("brief.sourceStatement")} · {periodRange} · {period.transaction_count} {t("brief.transactions")}
           </p>
         </div>
 
@@ -124,6 +131,7 @@ function BriefContent() {
                 <p className="text-red-400 font-semibold tabular-nums">{money(flow.expenses, ccy)}</p>
               </div>
             </div>
+            <Source text={statementSource} />
             <AskLink prefill={t("brief.askFlow")} />
           </div>
 
@@ -159,6 +167,7 @@ function BriefContent() {
                   <span className="text-red-400 font-medium tabular-nums">{money(largest_transaction.amount, ccy)}</span>
                 </p>
               )}
+              <Source text={statementSource} />
               <AskLink prefill={t("brief.askCategories")} />
             </div>
           )}
@@ -179,6 +188,7 @@ function BriefContent() {
             ) : (
               <p className="text-gray-400 text-sm">{t("brief.noRecurring")}</p>
             )}
+            <Source text={t("brief.fromAllActivity")} />
             <AskLink prefill={t("brief.askRecurring")} />
           </div>
 

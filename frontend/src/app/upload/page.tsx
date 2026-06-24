@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { uploadStatement, getStoredUser, type UploadResponse } from "@/lib/api";
 import PageLayout from "@/components/ui/PageLayout";
-import { FileText, ArrowRight, CheckCircle } from "@/components/ui/Icons";
+import { FileText, ArrowRight, CheckCircle, ShieldCheck } from "@/components/ui/Icons";
 import { useLanguage } from "@/lib/i18n";
 
 type FileState = "queued" | "uploading" | "done" | "error";
@@ -160,6 +160,22 @@ export default function UploadPage() {
           {t("upload.noneSucceeded")}
         </div>
       )}
+
+      {/* Privacy reassurance — honest, plain account of what happens to the file */}
+      <div className="mt-6 rounded-xl bg-[#1A1A1A] border border-[#2A2A2A] p-4">
+        <div className="flex items-center gap-2 mb-3">
+          <ShieldCheck size={16} className="text-emerald-400 shrink-0" />
+          <p className="text-sm font-medium text-gray-200">{t("upload.privacyTitle")}</p>
+        </div>
+        <ul className="space-y-2">
+          {["privacy1", "privacy2", "privacy3"].map((k) => (
+            <li key={k} className="flex gap-2 text-xs text-gray-500 leading-relaxed">
+              <span className="text-gray-600 shrink-0 mt-px">•</span>
+              <span>{t(`upload.${k}`)}</span>
+            </li>
+          ))}
+        </ul>
+      </div>
     </PageLayout>
   );
 }

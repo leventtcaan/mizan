@@ -197,7 +197,7 @@ export default function HomePage() {
             <p className="text-gray-500 text-sm mb-1.5">{greeting}{name ? `, ${name}` : ""}</p>
             {hasFigures && (
               <p className="text-[11px] font-semibold tracking-wide text-gray-600 uppercase mb-2">
-                {monthLabel} · {t("home.daily.calendarMonth")}
+                {monthLabel} · {t("home.daily.calendarMonth")} · {t("home.daily.fromTransactions")}
               </p>
             )}
             <h1 className="text-[24px] sm:text-[30px] font-bold leading-snug tracking-tight">
@@ -238,11 +238,13 @@ export default function HomePage() {
             <Wallet size={17} className="text-emerald-400 mb-3" />
             <p className="text-gray-500 text-[11px] truncate">{monthLabel}</p>
             <p className={`font-bold tabular-nums text-sm sm:text-base mt-0.5 ${net >= 0 ? "text-white" : "text-orange-400"}`}>{net >= 0 ? "+" : "−"}{fmt(Math.abs(net))}</p>
+            <p className="text-[10px] text-gray-600 mt-1 truncate">{t("home.daily.fromTransactions")}</p>
           </Link>
           <Link href="/networth" className="rounded-2xl bg-[#1A1A1A] border border-[#2A2A2A] hover:border-indigo-700/60 p-4 transition-colors">
             <Scale size={17} className="text-indigo-400 mb-3" />
             <p className="text-gray-500 text-[11px]">{t("home.daily.netWorth")}</p>
             <p className={`font-bold tabular-nums text-sm sm:text-base mt-0.5 ${netWorth >= 0 ? "text-white" : "text-red-400"}`}>{fmt(netWorth)}</p>
+            <p className="text-[10px] text-gray-600 mt-1 truncate">{t("home.daily.fromAssets")} · {t("home.daily.asOfToday")}</p>
           </Link>
           <Link href="/simulator" className="rounded-2xl bg-[#1A1A1A] border border-[#2A2A2A] hover:border-indigo-700/60 p-4 transition-colors">
             <Sparkles size={17} className="text-violet-400 mb-3" />
