@@ -82,7 +82,7 @@ export default function SettingsPage() {
           {/* Language */}
           <div className="flex items-center justify-between gap-4 mb-5">
             <span className="text-white text-sm">{t("settings.language")}</span>
-            <div className="flex rounded-lg overflow-hidden border border-[#2A2A2A] text-xs font-medium">
+            <div className="flex rounded-lg overflow-hidden border border-[#2C2922] text-xs font-medium">
               <button onClick={() => handleLanguage("tr")} className={`px-3 py-1.5 transition-colors ${lang === "tr" ? "bg-indigo-600 text-white" : "text-gray-400 hover:text-gray-200"}`}>TR</button>
               <button onClick={() => handleLanguage("en")} className={`px-3 py-1.5 transition-colors ${lang === "en" ? "bg-indigo-600 text-white" : "text-gray-400 hover:text-gray-200"}`}>EN</button>
             </div>
@@ -109,7 +109,7 @@ export default function SettingsPage() {
             <button
               onClick={handleEmailWeekly}
               disabled={emailWeekly === null}
-              className={`relative w-10 h-5 rounded-full transition-colors shrink-0 disabled:opacity-40 ${emailWeekly ? "bg-indigo-600" : "bg-[#2A2A2A]"}`}
+              className={`relative w-10 h-5 rounded-full transition-colors shrink-0 disabled:opacity-40 ${emailWeekly ? "bg-indigo-600" : "bg-[#2C2922]"}`}
             >
               <span className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white transition-transform ${emailWeekly ? "translate-x-5" : ""}`} />
             </button>
@@ -126,7 +126,7 @@ export default function SettingsPage() {
             </div>
             <button
               onClick={handleLogout}
-              className="flex items-center gap-2 px-3 py-2 rounded-lg border border-[#2A2A2A] text-gray-400 hover:text-red-300 hover:border-red-900 text-sm transition-colors shrink-0"
+              className="flex items-center gap-2 px-3 py-2 rounded-lg border border-[#2C2922] text-gray-400 hover:text-red-300 hover:border-red-900 text-sm transition-colors shrink-0"
             >
               <LogOut size={15} /> {t("settings.logout")}
             </button>

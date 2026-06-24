@@ -344,7 +344,7 @@ When context reaches ~70% capacity:
 
 ## Current Status
 
-**Phases 1–69 complete. Alembic head = 0034.** (CLAUDE.md is authoritative for detail.) **Vision: chief of staff, not dashboard. Brief + Simulator = soul; dashboards = doorways. One sentence + everything behind a tap; subtraction > addition.** Home (69) is now a one-sentence coach. Most of 65–69 verified by build/py_compile only (no live LLM key here). Loop: Upload → Review → Brief → Home (Phases 61–64). Brief reuses ProgressInsight `data_type="brief"` (no new table). Progress = Financial Health scorecard. Net Worth = GuidancePanel + AllocationChart (no history chart). Upload returns status/reason; parser is global. Deferred: `_generate_networth_suggestions` Turkish bank keywords; account connectivity (Plaid — deferred, manual-first chosen); CSV unquoted comma-thousands edge case; scorecard synthetic score when thin; real snapshots need time (trajectory estimated until then); P1-deep valuation migration; P2 tx↔account reconciliation.
+**Phases 1–69 complete. Alembic head = 0035.** (CLAUDE.md is authoritative for detail.) **Vision: chief of staff, not dashboard. Brief + Simulator = soul; dashboards = doorways. One sentence + everything behind a tap; subtraction > addition.** Home (69) is now a one-sentence coach. Most of 65–69 verified by build/py_compile only (no live LLM key here). Loop: Upload → Review → Brief → Home (Phases 61–64). Brief reuses ProgressInsight `data_type="brief"` (no new table). Progress = Financial Health scorecard. Net Worth = GuidancePanel + AllocationChart (no history chart). Upload returns status/reason; parser is global. Deferred: `_generate_networth_suggestions` Turkish bank keywords; account connectivity (Plaid — deferred, manual-first chosen); CSV unquoted comma-thousands edge case; scorecard synthetic score when thin; real snapshots need time (trajectory estimated until then); P1-deep valuation migration; P2 tx↔account reconciliation.
 
 **(historical, Phase 34) Phases 1–34 complete. Alembic head = 0022. No new migrations since Phase 32.**
 
@@ -798,13 +798,13 @@ Full stack: register/login → JWT → upload (rate-limited, busts caches) → 3
 
 ## Next Session — Start Here
 
-**Phases 1–69 complete. Alembic head = 0034.** (Older Phase 42/head-0022 notes below are historical — CLAUDE.md is authoritative.) Shipped since last update: weekly money brief (64.5, migration 0033), simulator (65), landing+navbar (66), report export (67), BR/PT categorizer+faiz+forced overrides (68), Home subtraction redesign (69). **Next: ask the model what's highest-leverage now** (user's standing pattern). **Hold the line on SUBTRACTION** (brother's "too complex" feedback drove 69 — don't re-add panels). Candidate threads: dogfood with the real user; verify untested surfaces live (most of 65–69 build/py_compile-only, no live LLM key here); same subtraction pass on Net Worth / Progress / Money Flow (still multi-panel); Resend domain verification so weekly brief delivers. Deferred items in Current Status.
+**Phases 1–69 complete. Alembic head = 0035.** (Older Phase 42/head-0022 notes below are historical — CLAUDE.md is authoritative.) Shipped since last update: weekly money brief (64.5, migration 0033), simulator (65), landing+navbar (66), report export (67), BR/PT categorizer+faiz+forced overrides (68), Home subtraction redesign (69). **Next: ask the model what's highest-leverage now** (user's standing pattern). **Hold the line on SUBTRACTION** (brother's "too complex" feedback drove 69 — don't re-add panels). Candidate threads: dogfood with the real user; verify untested surfaces live (most of 65–69 build/py_compile-only, no live LLM key here); same subtraction pass on Net Worth / Progress / Money Flow (still multi-panel); Resend domain verification so weekly brief delivers. Deferred items in Current Status.
 
 Pre-flight (if docker was restarted):
 ```bash
 docker compose up -d
 docker compose exec backend alembic upgrade head
-docker compose exec backend alembic current   # must say 0034 (head)
+docker compose exec backend alembic current   # must say 0035 (head)
 ```
 
 ### Immediate fixes (do first, in order):

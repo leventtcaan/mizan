@@ -51,7 +51,7 @@ const TYPE_CONFIG: Record<string, {
 const DEFAULT_CONFIG = {
   accent: "border-l-gray-600",
   icon: "💡",
-  badgeBg: "bg-[#2A2A2A] border-[#3A3A3A]",
+  badgeBg: "bg-[#2C2922] border-[#3C3832]",
   badgeText: "text-gray-300",
   dotColor: "bg-gray-500",
 };
@@ -70,10 +70,10 @@ export default function PersonalityCard() {
 
   if (loading) {
     return (
-      <div className="bg-[#1A1A1A] border border-[#2A2A2A] rounded-xl p-6 animate-pulse mb-6">
-        <div className="h-5 w-48 bg-[#2A2A2A] rounded mb-3" />
-        <div className="h-4 w-full bg-[#2A2A2A]/60 rounded mb-2" />
-        <div className="h-4 w-3/4 bg-[#2A2A2A]/60 rounded" />
+      <div className="bg-[#1C1915] border border-[#2C2922] rounded-xl p-6 animate-pulse mb-6">
+        <div className="h-5 w-48 bg-[#2C2922] rounded mb-3" />
+        <div className="h-4 w-full bg-[#2C2922]/60 rounded mb-2" />
+        <div className="h-4 w-3/4 bg-[#2C2922]/60 rounded" />
       </div>
     );
   }
@@ -83,7 +83,7 @@ export default function PersonalityCard() {
   const cfg = TYPE_CONFIG[data.type] ?? DEFAULT_CONFIG;
 
   return (
-    <div className={`bg-[#1A1A1A] border border-[#2A2A2A] border-l-2 ${cfg.accent} rounded-xl p-6 mb-6`}>
+    <div className={`bg-[#1C1915] border border-[#2C2922] border-l-2 ${cfg.accent} rounded-xl p-6 mb-6`}>
       <div className="flex items-start justify-between gap-4 mb-4">
         <div className="flex items-center gap-3">
           <div className="text-2xl">{cfg.icon}</div>

@@ -103,7 +103,7 @@ export default function TransactionsPage() {
       : undefined;
 
   const titleBadge = txState === "ready" && transactions.length > 0 ? (
-    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-[#2A2A2A] text-gray-400">
+    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-[#2C2922] text-gray-400">
       {transactions.length}
     </span>
   ) : undefined;
@@ -111,7 +111,7 @@ export default function TransactionsPage() {
   const pageActions = (
     <button
       onClick={() => setShowAddModal(true)}
-      className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-[#2A2A2A] hover:border-[#3A3A3A] hover:bg-[#1A1A1A] text-sm text-gray-400 hover:text-gray-200 transition-colors"
+      className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-[#2C2922] hover:border-[#3C3832] hover:bg-[#1C1915] text-sm text-gray-400 hover:text-gray-200 transition-colors"
     >
       <Plus size={14} />
       {t("tx.addManual")}
@@ -123,7 +123,7 @@ export default function TransactionsPage() {
       <MoneyTabs />
 
       {batches.length > 0 && (
-        <div className="mb-6 bg-[#1A1A1A] border border-[#2A2A2A] rounded-xl p-4">
+        <div className="mb-6 bg-[#1C1915] border border-[#2C2922] rounded-xl p-4">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
             <div className="flex items-center gap-2 text-sm min-w-0">
               <CalendarIcon />
@@ -148,7 +148,7 @@ export default function TransactionsPage() {
             </div>
 
             <div className="flex items-center gap-2 shrink-0">
-              <div className="flex rounded-full overflow-hidden border border-[#2A2A2A] text-xs">
+              <div className="flex rounded-full overflow-hidden border border-[#2C2922] text-xs">
                 <button
                   onClick={() => setShowAll(false)}
                   className={`px-3.5 py-1.5 transition-colors font-medium ${
@@ -169,7 +169,7 @@ export default function TransactionsPage() {
               {batches.length > 1 && (
                 <button
                   onClick={() => setShowBatchHistory((v) => !v)}
-                  className="px-3 py-1.5 rounded-full border border-[#2A2A2A] hover:border-[#3A3A3A] hover:bg-[#2A2A2A] text-xs text-gray-500 hover:text-gray-300 transition-colors"
+                  className="px-3 py-1.5 rounded-full border border-[#2C2922] hover:border-[#3C3832] hover:bg-[#2C2922] text-xs text-gray-500 hover:text-gray-300 transition-colors"
                 >
                   {showBatchHistory ? t("common.close") : t("tx.batchHistory")}
                 </button>
@@ -178,11 +178,11 @@ export default function TransactionsPage() {
           </div>
 
           {showBatchHistory && (
-            <div className="mt-4 border-t border-[#2A2A2A] pt-4 space-y-1.5">
+            <div className="mt-4 border-t border-[#2C2922] pt-4 space-y-1.5">
               {batches.map((b, i) => (
                 <div
                   key={b.batch_id}
-                  className="flex items-center justify-between text-xs py-2 px-3 rounded-lg bg-[#0F0F0F] border border-[#2A2A2A]"
+                  className="flex items-center justify-between text-xs py-2 px-3 rounded-lg bg-[#11100E] border border-[#2C2922]"
                 >
                   <div className="flex items-center gap-2">
                     {i === 0 && (
@@ -207,14 +207,14 @@ export default function TransactionsPage() {
 
       {/* Empty state — brand-new account, no transactions yet */}
       {txState === "ready" && transactions.length === 0 && (
-        <div className="bg-[#1A1A1A] border border-[#2A2A2A] rounded-2xl p-10 text-center">
+        <div className="bg-[#1C1915] border border-[#2C2922] rounded-2xl p-10 text-center">
           <p className="text-gray-300 text-base font-medium">{t("tx.empty")}</p>
           <p className="text-gray-500 text-sm mt-1.5 mb-5">{t("tx.uploadCTA")}</p>
           <div className="flex items-center justify-center gap-3 flex-wrap">
             <Link href="/upload" className="px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-sm font-medium text-white transition-colors">
               {t("nav.upload")}
             </Link>
-            <button onClick={() => setShowAddModal(true)} className="px-4 py-2 rounded-lg border border-[#2A2A2A] hover:border-[#3A3A3A] text-sm text-gray-300 transition-colors">
+            <button onClick={() => setShowAddModal(true)} className="px-4 py-2 rounded-lg border border-[#2C2922] hover:border-[#3C3832] text-sm text-gray-300 transition-colors">
               {t("tx.addManual")}
             </button>
           </div>
@@ -237,9 +237,9 @@ export default function TransactionsPage() {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder={t("tx.searchPlaceholder")}
-            className="flex-1 min-w-[160px] bg-[#1A1A1A] border border-[#2A2A2A] rounded-lg px-3 py-2 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-indigo-600"
+            className="flex-1 min-w-[160px] bg-[#1C1915] border border-[#2C2922] rounded-lg px-3 py-2 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-indigo-600"
           />
-          <div className="flex rounded-lg overflow-hidden border border-[#2A2A2A] text-xs">
+          <div className="flex rounded-lg overflow-hidden border border-[#2C2922] text-xs">
             {(["all", "debit", "credit"] as const).map((tf) => (
               <button
                 key={tf}
@@ -253,7 +253,7 @@ export default function TransactionsPage() {
           <select
             value={catFilter}
             onChange={(e) => setCatFilter(e.target.value)}
-            className="bg-[#1A1A1A] border border-[#2A2A2A] rounded-lg px-3 py-2 text-sm text-gray-300 focus:outline-none focus:border-indigo-600"
+            className="bg-[#1C1915] border border-[#2C2922] rounded-lg px-3 py-2 text-sm text-gray-300 focus:outline-none focus:border-indigo-600"
           >
             <option value="all">{t("tx.filter.allCategories")}</option>
             {TX_CATEGORIES.map((c) => (
@@ -266,9 +266,9 @@ export default function TransactionsPage() {
       )}
 
       {txState === "loading" && (
-        <div className="space-y-px mt-4 rounded-xl overflow-hidden border border-[#2A2A2A]">
+        <div className="space-y-px mt-4 rounded-xl overflow-hidden border border-[#2C2922]">
           {[1, 2, 3, 4, 5].map((i) => (
-            <div key={i} className={`h-14 animate-pulse ${i % 2 !== 0 ? "bg-[#111]" : "bg-[#0F0F0F]"}`} />
+            <div key={i} className={`h-14 animate-pulse ${i % 2 !== 0 ? "bg-[#13110D]" : "bg-[#11100E]"}`} />
           ))}
         </div>
       )}
@@ -281,7 +281,7 @@ export default function TransactionsPage() {
         <TransactionTable transactions={filtered} onCategoryCorrection={handleCategoryCorrection} />
       )}
       {txState === "ready" && filtered.length === 0 && transactions.length > 0 && (
-        <div className="mt-4 bg-[#1A1A1A] border border-[#2A2A2A] rounded-xl p-8 text-center text-gray-500 text-sm">
+        <div className="mt-4 bg-[#1C1915] border border-[#2C2922] rounded-xl p-8 text-center text-gray-500 text-sm">
           {t("tx.noMatches")}
         </div>
       )}

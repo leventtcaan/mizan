@@ -79,7 +79,7 @@ function Metric({ label, value, sub, icon, accent = "text-white" }: {
   label: string; value: string; sub?: string; icon?: React.ReactNode; accent?: string;
 }) {
   return (
-    <div className="rounded-xl bg-[#1A1A1A] border border-[#2A2A2A] p-4">
+    <div className="rounded-xl bg-[#1C1915] border border-[#2C2922] p-4">
       <div className="flex items-center gap-1.5 text-gray-500 text-[11px] uppercase tracking-wide mb-2">{icon}{label}</div>
       <p className={`text-2xl font-bold tabular-nums ${accent}`}>{value}</p>
       {sub && <p className="text-gray-600 text-xs mt-1">{sub}</p>}
@@ -100,7 +100,7 @@ function Badge({ tone, children }: { tone: "founder" | "admin" | "ok" | "muted";
     founder: "bg-amber-950/40 text-amber-300 border-amber-800/50",
     admin: "bg-indigo-950/40 text-indigo-300 border-indigo-800/50",
     ok: "bg-emerald-950/30 text-emerald-300 border-emerald-800/40",
-    muted: "bg-[#1A1A1A] text-gray-500 border-[#2A2A2A]",
+    muted: "bg-[#1C1915] text-gray-500 border-[#2C2922]",
   }[tone];
   return <span className={`px-2 py-0.5 rounded text-[10px] font-medium border ${cls}`}>{children}</span>;
 }
@@ -232,7 +232,7 @@ export default function AdminPage() {
     return (
       <PageLayout maxWidth="xl">
         <div className="h-[40vh] flex items-center justify-center">
-          <span className="w-6 h-6 border-2 border-[#2A2A2A] border-t-indigo-400 rounded-full animate-spin" />
+          <span className="w-6 h-6 border-2 border-[#2C2922] border-t-indigo-400 rounded-full animate-spin" />
         </div>
       </PageLayout>
     );
@@ -244,7 +244,7 @@ export default function AdminPage() {
 
   const refreshAction = (
     <button onClick={() => { loadOverview(); loadSystem(); loadUsers(search, offset); }}
-      className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-[#2A2A2A] hover:border-[#3A3A3A] hover:bg-[#1A1A1A] text-sm text-gray-400 hover:text-gray-200 transition-colors">
+      className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-[#2C2922] hover:border-[#3C3832] hover:bg-[#1C1915] text-sm text-gray-400 hover:text-gray-200 transition-colors">
       <RefreshCw size={14} /> Refresh
     </button>
   );
@@ -294,7 +294,7 @@ export default function AdminPage() {
 
       {/* SYSTEM + JOBS */}
       {system && (
-        <div className="mb-8 rounded-xl bg-[#1A1A1A] border border-[#2A2A2A] p-5">
+        <div className="mb-8 rounded-xl bg-[#1C1915] border border-[#2C2922] p-5">
           <div className="flex items-center justify-between mb-4">
             <p className="text-[11px] font-bold tracking-widest text-gray-600 uppercase">System</p>
             <span className="text-xs text-gray-500">
@@ -313,7 +313,7 @@ export default function AdminPage() {
               const next = system.scheduler.jobs[j.schedJobId]?.next_run ?? null;
               const last = system.scheduler.last_run[j.key] ?? null;
               return (
-                <div key={j.key} className="flex items-center gap-3 p-3 rounded-lg bg-[#0F0F0F] border border-[#2A2A2A]">
+                <div key={j.key} className="flex items-center gap-3 p-3 rounded-lg bg-[#11100E] border border-[#2C2922]">
                   <Zap size={15} className="text-indigo-400 shrink-0" />
                   <div className="flex-1 min-w-0">
                     <p className="text-sm text-gray-200">{j.label}</p>
@@ -321,7 +321,7 @@ export default function AdminPage() {
                   </div>
                   {jobMsg[j.key] && <span className="text-xs text-emerald-400 shrink-0">{jobMsg[j.key]}</span>}
                   <button onClick={() => triggerJob(j.key)} disabled={Boolean(jobMsg[j.key])}
-                    className="shrink-0 px-3 py-1.5 rounded-lg text-xs font-medium bg-[#2A2A2A] hover:bg-[#333] text-gray-200 transition-colors disabled:opacity-50">Run now</button>
+                    className="shrink-0 px-3 py-1.5 rounded-lg text-xs font-medium bg-[#2C2922] hover:bg-[#36322B] text-gray-200 transition-colors disabled:opacity-50">Run now</button>
                 </div>
               );
             })}
@@ -335,12 +335,12 @@ export default function AdminPage() {
         <span className="text-xs text-gray-600">{num(usersTotal)} total</span>
       </div>
       <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search by email…"
-        className="w-full mb-3 bg-[#1A1A1A] border border-[#2A2A2A] rounded-lg px-3 py-2 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-indigo-600" />
+        className="w-full mb-3 bg-[#1C1915] border border-[#2C2922] rounded-lg px-3 py-2 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-indigo-600" />
 
-      <div className="overflow-x-auto rounded-xl border border-[#2A2A2A]">
+      <div className="overflow-x-auto rounded-xl border border-[#2C2922]">
         <table className="w-full text-sm min-w-[720px]">
           <thead>
-            <tr className="bg-[#1A1A1A] text-left text-gray-500 text-xs">
+            <tr className="bg-[#1C1915] text-left text-gray-500 text-xs">
               <th className="px-3 py-2.5 font-medium">User</th>
               <th className="px-3 py-2.5 font-medium">Joined</th>
               <th className="px-3 py-2.5 font-medium text-right">Txns</th>
@@ -354,7 +354,7 @@ export default function AdminPage() {
             {usersLoading && users.length === 0 && <tr><td colSpan={7} className="px-3 py-8 text-center text-gray-600">Loading…</td></tr>}
             {!usersLoading && users.length === 0 && <tr><td colSpan={7} className="px-3 py-8 text-center text-gray-600">No users found.</td></tr>}
             {users.map((u) => (
-              <tr key={u.id} className="border-t border-[#2A2A2A] bg-[#0F0F0F] hover:bg-[#141414] transition-colors">
+              <tr key={u.id} className="border-t border-[#2C2922] bg-[#11100E] hover:bg-[#16130F] transition-colors">
                 <td className="px-3 py-2.5">
                   <button onClick={() => openProfile(u.id)} className="text-left group inline-flex items-center gap-1.5">
                     <span className="text-gray-200 group-hover:text-indigo-300 transition-colors truncate block max-w-[220px]">{u.email}</span>
@@ -376,7 +376,7 @@ export default function AdminPage() {
                   <div className="flex items-center justify-end gap-1.5">
                     <button onClick={() => patchUser(u.id, { is_admin: !u.is_admin })}
                       disabled={busy || (u.id === meId && u.is_admin)} title={u.is_admin ? "Revoke admin" : "Make admin"}
-                      className="px-2 py-1 rounded-md text-[11px] font-medium border border-[#2A2A2A] hover:bg-[#2A2A2A] text-gray-300 transition-colors disabled:opacity-40 whitespace-nowrap">
+                      className="px-2 py-1 rounded-md text-[11px] font-medium border border-[#2C2922] hover:bg-[#2C2922] text-gray-300 transition-colors disabled:opacity-40 whitespace-nowrap">
                       {u.is_admin ? "Revoke" : "Make admin"}
                     </button>
                     <button onClick={() => setDeleteTarget({ id: u.id, email: u.email })}
@@ -393,10 +393,10 @@ export default function AdminPage() {
       {usersTotal > PAGE_SIZE && (
         <div className="flex items-center justify-between mt-3 text-sm">
           <button disabled={offset === 0} onClick={() => { const o = Math.max(0, offset - PAGE_SIZE); setOffset(o); loadUsers(search, o); }}
-            className="px-3 py-1.5 rounded-lg border border-[#2A2A2A] text-gray-400 hover:bg-[#1A1A1A] disabled:opacity-40 transition-colors">Previous</button>
+            className="px-3 py-1.5 rounded-lg border border-[#2C2922] text-gray-400 hover:bg-[#1C1915] disabled:opacity-40 transition-colors">Previous</button>
           <span className="text-gray-600 text-xs">{offset + 1}–{Math.min(offset + PAGE_SIZE, usersTotal)} of {num(usersTotal)}</span>
           <button disabled={offset + PAGE_SIZE >= usersTotal} onClick={() => { const o = offset + PAGE_SIZE; setOffset(o); loadUsers(search, o); }}
-            className="px-3 py-1.5 rounded-lg border border-[#2A2A2A] text-gray-400 hover:bg-[#1A1A1A] disabled:opacity-40 transition-colors">Next</button>
+            className="px-3 py-1.5 rounded-lg border border-[#2C2922] text-gray-400 hover:bg-[#1C1915] disabled:opacity-40 transition-colors">Next</button>
         </div>
       )}
 
@@ -405,9 +405,9 @@ export default function AdminPage() {
         <div className="fixed inset-0 z-50 overflow-y-auto" onClick={closeProfile}>
           <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" />
           <div onClick={(e) => e.stopPropagation()}
-            className="relative max-w-4xl mx-auto my-6 bg-[#0F0F0F] border border-[#2A2A2A] rounded-2xl shadow-2xl shadow-black/60">
+            className="relative max-w-4xl mx-auto my-6 bg-[#11100E] border border-[#2C2922] rounded-2xl shadow-2xl shadow-black/60">
             {/* sticky header */}
-            <div className="sticky top-0 z-10 flex items-center justify-between gap-4 px-6 py-4 bg-[#0F0F0F]/95 backdrop-blur border-b border-[#2A2A2A] rounded-t-2xl">
+            <div className="sticky top-0 z-10 flex items-center justify-between gap-4 px-6 py-4 bg-[#11100E]/95 backdrop-blur border-b border-[#2C2922] rounded-t-2xl">
               <p className="text-[11px] font-bold tracking-widest text-gray-600 uppercase">User profile</p>
               <button onClick={closeProfile} className="text-gray-500 hover:text-gray-200 transition-colors"><XIcon size={18} /></button>
             </div>
@@ -439,11 +439,11 @@ export default function AdminPage() {
                     <div className="flex flex-wrap gap-2 shrink-0">
                       <button onClick={() => patchUser(profile.id, { is_admin: !profile.is_admin })}
                         disabled={busy || (profile.id === meId && profile.is_admin)}
-                        className="px-3 py-1.5 rounded-lg text-xs font-medium border border-[#2A2A2A] hover:bg-[#1A1A1A] text-gray-300 transition-colors disabled:opacity-40">
+                        className="px-3 py-1.5 rounded-lg text-xs font-medium border border-[#2C2922] hover:bg-[#1C1915] text-gray-300 transition-colors disabled:opacity-40">
                         {profile.is_admin ? "Revoke admin" : "Make admin"}
                       </button>
                       <button onClick={() => patchUser(profile.id, { onboarding_completed: !profile.onboarding_completed })} disabled={busy}
-                        className="px-3 py-1.5 rounded-lg text-xs font-medium border border-[#2A2A2A] hover:bg-[#1A1A1A] text-gray-300 transition-colors disabled:opacity-40">
+                        className="px-3 py-1.5 rounded-lg text-xs font-medium border border-[#2C2922] hover:bg-[#1C1915] text-gray-300 transition-colors disabled:opacity-40">
                         {profile.onboarding_completed ? "Reset onboarding" : "Mark onboarded"}
                       </button>
                       <button onClick={() => setDeleteTarget({ id: profile.id, email: profile.email })} disabled={profile.id === meId}
@@ -453,7 +453,7 @@ export default function AdminPage() {
 
                   {/* health + timeline strip */}
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                    <div className="rounded-xl bg-[#1A1A1A] border border-[#2A2A2A] p-4 col-span-2 sm:col-span-1">
+                    <div className="rounded-xl bg-[#1C1915] border border-[#2C2922] p-4 col-span-2 sm:col-span-1">
                       <div className="flex items-center gap-1.5 text-gray-500 text-[11px] uppercase tracking-wide mb-2"><Target size={12} /> Health</div>
                       {profile.health && profile.health.has_data && profile.health.score != null ? (
                         <>
@@ -484,7 +484,7 @@ export default function AdminPage() {
                     {profile.statements.length === 0 ? <p className="text-gray-600 text-sm">No statements uploaded.</p> : (
                       <div className="space-y-1.5">
                         {profile.statements.map((s) => (
-                          <div key={s.batch_id} className="flex items-center justify-between gap-3 p-3 rounded-lg bg-[#1A1A1A] border border-[#2A2A2A] text-sm">
+                          <div key={s.batch_id} className="flex items-center justify-between gap-3 p-3 rounded-lg bg-[#1C1915] border border-[#2C2922] text-sm">
                             <div className="min-w-0">
                               <p className="text-gray-200">{fmtDate(s.min_date)} – {fmtDate(s.max_date)}</p>
                               <p className="text-gray-600 text-xs">uploaded {fmtDateTime(s.uploaded_at)}</p>
@@ -503,7 +503,7 @@ export default function AdminPage() {
                       {profile.assets.length === 0 ? <p className="text-gray-600 text-sm">No assets.</p> : (
                         <div className="space-y-1.5">
                           {profile.assets.map((a) => (
-                            <div key={a.id} className="flex items-center justify-between gap-3 p-3 rounded-lg bg-[#1A1A1A] border border-[#2A2A2A] text-sm">
+                            <div key={a.id} className="flex items-center justify-between gap-3 p-3 rounded-lg bg-[#1C1915] border border-[#2C2922] text-sm">
                               <div className="min-w-0">
                                 <p className="text-gray-200 truncate">{a.name}</p>
                                 <p className="text-gray-600 text-xs capitalize">{slug(a.asset_type)}</p>
@@ -519,7 +519,7 @@ export default function AdminPage() {
                       {profile.liabilities.length === 0 ? <p className="text-gray-600 text-sm">No liabilities.</p> : (
                         <div className="space-y-1.5">
                           {profile.liabilities.map((li) => (
-                            <div key={li.id} className="flex items-center justify-between gap-3 p-3 rounded-lg bg-[#1A1A1A] border border-[#2A2A2A] text-sm">
+                            <div key={li.id} className="flex items-center justify-between gap-3 p-3 rounded-lg bg-[#1C1915] border border-[#2C2922] text-sm">
                               <div className="min-w-0">
                                 <p className="text-gray-200 truncate">{li.name}</p>
                                 <p className="text-gray-600 text-xs capitalize">{slug(li.liability_type)}{li.interest_rate ? ` · ${li.interest_rate}%` : ""}</p>
@@ -538,7 +538,7 @@ export default function AdminPage() {
                       <p className="flex items-center gap-1.5 text-[11px] font-bold tracking-widest text-gray-600 uppercase mb-3"><Wallet size={12} /> Receivables ({profile.receivables.length})</p>
                       <div className="space-y-1.5">
                         {profile.receivables.map((r) => (
-                          <div key={r.id} className="flex items-center justify-between gap-3 p-3 rounded-lg bg-[#1A1A1A] border border-[#2A2A2A] text-sm">
+                          <div key={r.id} className="flex items-center justify-between gap-3 p-3 rounded-lg bg-[#1C1915] border border-[#2C2922] text-sm">
                             <div className="min-w-0">
                               <p className="text-gray-200 truncate">{r.from_person}</p>
                               <p className="text-gray-600 text-xs">{r.status}{r.expected_date ? ` · due ${fmtDate(r.expected_date)}` : ""}</p>
@@ -555,10 +555,10 @@ export default function AdminPage() {
                     <p className="flex items-center gap-1.5 text-[11px] font-bold tracking-widest text-gray-600 uppercase mb-3"><Wallet size={12} /> Transactions ({num(txTotal)})</p>
                     {txTotal === 0 && !txLoading ? <p className="text-gray-600 text-sm">No transactions.</p> : (
                       <>
-                        <div className="overflow-x-auto rounded-xl border border-[#2A2A2A]">
+                        <div className="overflow-x-auto rounded-xl border border-[#2C2922]">
                           <table className="w-full text-sm min-w-[560px]">
                             <thead>
-                              <tr className="bg-[#1A1A1A] text-left text-gray-500 text-xs">
+                              <tr className="bg-[#1C1915] text-left text-gray-500 text-xs">
                                 <th className="px-3 py-2 font-medium">Date</th>
                                 <th className="px-3 py-2 font-medium">Description</th>
                                 <th className="px-3 py-2 font-medium">Category</th>
@@ -568,7 +568,7 @@ export default function AdminPage() {
                             <tbody>
                               {txLoading && <tr><td colSpan={4} className="px-3 py-6 text-center text-gray-600">Loading…</td></tr>}
                               {!txLoading && txns.map((t) => (
-                                <tr key={t.id} className="border-t border-[#2A2A2A] bg-[#0F0F0F]">
+                                <tr key={t.id} className="border-t border-[#2C2922] bg-[#11100E]">
                                   <td className="px-3 py-2 text-gray-500 text-xs whitespace-nowrap">{fmtDate(t.transaction_date)}</td>
                                   <td className="px-3 py-2 text-gray-300 truncate max-w-[260px]" title={t.description}>{t.description}</td>
                                   <td className="px-3 py-2 text-gray-500 text-xs">{t.category ? (CATEGORY_LABELS[t.category] || t.category) : "—"}</td>
@@ -584,11 +584,11 @@ export default function AdminPage() {
                           <div className="flex items-center justify-between mt-3 text-sm">
                             <button disabled={txOffset === 0 || txLoading}
                               onClick={() => { const o = Math.max(0, txOffset - TX_PAGE); setTxOffset(o); loadTxns(profile.id, o); }}
-                              className="px-3 py-1.5 rounded-lg border border-[#2A2A2A] text-gray-400 hover:bg-[#1A1A1A] disabled:opacity-40 transition-colors">Previous</button>
+                              className="px-3 py-1.5 rounded-lg border border-[#2C2922] text-gray-400 hover:bg-[#1C1915] disabled:opacity-40 transition-colors">Previous</button>
                             <span className="text-gray-600 text-xs">{txOffset + 1}–{Math.min(txOffset + TX_PAGE, txTotal)} of {num(txTotal)}</span>
                             <button disabled={txOffset + TX_PAGE >= txTotal || txLoading}
                               onClick={() => { const o = txOffset + TX_PAGE; setTxOffset(o); loadTxns(profile.id, o); }}
-                              className="px-3 py-1.5 rounded-lg border border-[#2A2A2A] text-gray-400 hover:bg-[#1A1A1A] disabled:opacity-40 transition-colors">Next</button>
+                              className="px-3 py-1.5 rounded-lg border border-[#2C2922] text-gray-400 hover:bg-[#1C1915] disabled:opacity-40 transition-colors">Next</button>
                           </div>
                         )}
                       </>
@@ -605,7 +605,7 @@ export default function AdminPage() {
       {deleteTarget && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center p-4" onClick={() => { if (!deleting) { setDeleteTarget(null); setDeleteText(""); } }}>
           <div className="absolute inset-0 bg-black/75 backdrop-blur-sm" />
-          <div onClick={(e) => e.stopPropagation()} className="relative w-full max-w-md bg-[#161616] border border-red-900/50 rounded-2xl shadow-2xl shadow-black/60 p-6">
+          <div onClick={(e) => e.stopPropagation()} className="relative w-full max-w-md bg-[#181510] border border-red-900/50 rounded-2xl shadow-2xl shadow-black/60 p-6">
             <div className="flex items-center gap-2 mb-3">
               <span className="w-8 h-8 rounded-full bg-red-950/50 border border-red-800/50 flex items-center justify-center text-red-400 text-lg font-bold">!</span>
               <h2 className="text-white font-semibold">Delete this user?</h2>
@@ -617,10 +617,10 @@ export default function AdminPage() {
             <label className="block text-xs text-gray-500 mb-1.5">Type the email to confirm</label>
             <input autoFocus value={deleteText} onChange={(e) => setDeleteText(e.target.value)}
               placeholder={deleteTarget.email}
-              className="w-full mb-4 bg-[#0F0F0F] border border-[#2A2A2A] rounded-lg px-3 py-2 text-sm text-white placeholder-gray-700 focus:outline-none focus:border-red-600" />
+              className="w-full mb-4 bg-[#11100E] border border-[#2C2922] rounded-lg px-3 py-2 text-sm text-white placeholder-gray-700 focus:outline-none focus:border-red-600" />
             <div className="flex gap-3">
               <button onClick={() => { setDeleteTarget(null); setDeleteText(""); }} disabled={deleting}
-                className="flex-1 py-2.5 rounded-xl bg-[#2A2A2A] hover:bg-[#333] text-gray-200 text-sm font-medium transition-colors disabled:opacity-50">Cancel</button>
+                className="flex-1 py-2.5 rounded-xl bg-[#2C2922] hover:bg-[#36322B] text-gray-200 text-sm font-medium transition-colors disabled:opacity-50">Cancel</button>
               <button onClick={confirmDelete} disabled={deleting || deleteText !== deleteTarget.email}
                 className="flex-1 py-2.5 rounded-xl bg-red-600 hover:bg-red-500 text-white text-sm font-semibold transition-colors disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2">
                 {deleting ? <><span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> Deleting…</> : "Delete permanently"}

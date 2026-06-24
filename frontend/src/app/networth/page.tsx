@@ -838,7 +838,7 @@ export default function NetWorthPage() {
         const target = lastPrice ? lastPrice * (1 - alertPct / 100) : null;
         return (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm" onClick={() => setAlertModalAsset(null)}>
-          <div className="bg-[#1A1A1A] border border-[#2A2A2A] rounded-2xl p-6 w-full max-w-sm mx-4 space-y-4" onClick={(e) => e.stopPropagation()}>
+          <div className="bg-[#1C1915] border border-[#2C2922] rounded-2xl p-6 w-full max-w-sm mx-4 space-y-4" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center gap-2">
               <Bell size={16} className="text-amber-400" />
               <h3 className="text-white font-semibold">{t("nw.addAlert")}</h3>
@@ -851,7 +851,7 @@ export default function NetWorthPage() {
               </div>
             ) : (
               <>
-                <div className="flex items-center justify-between text-xs bg-[#0F0F0F] border border-[#2A2A2A] rounded-lg px-3 py-2.5">
+                <div className="flex items-center justify-between text-xs bg-[#11100E] border border-[#2C2922] rounded-lg px-3 py-2.5">
                   <span className="text-gray-500">{t("nw.alertCurrentPrice")}</span>
                   <span className="text-gray-200 font-medium tabular-nums">${lastPrice.toLocaleString(undefined, { maximumFractionDigits: 2 })}</span>
                 </div>
@@ -861,7 +861,7 @@ export default function NetWorthPage() {
                     {[10, 15, 20, 25].map((p) => (
                       <button key={p} onClick={() => setAlertPct(p)}
                         className={`py-2 rounded-lg text-sm font-medium border transition-colors ${
-                          alertPct === p ? "bg-amber-600/20 border-amber-600/60 text-amber-300" : "bg-[#0F0F0F] border-[#2A2A2A] text-gray-400 hover:border-amber-700/50"
+                          alertPct === p ? "bg-amber-600/20 border-amber-600/60 text-amber-300" : "bg-[#11100E] border-[#2C2922] text-gray-400 hover:border-amber-700/50"
                         }`}>
                         −{p}%
                       </button>
@@ -884,7 +884,7 @@ export default function NetWorthPage() {
               >
                 {alertSaving ? "…" : t("nw.alertSave")}
               </button>
-              <button onClick={() => setAlertModalAsset(null)} className="px-4 py-2.5 rounded-lg bg-[#2A2A2A] text-gray-400 hover:text-gray-200 text-sm transition-colors">
+              <button onClick={() => setAlertModalAsset(null)} className="px-4 py-2.5 rounded-lg bg-[#2C2922] text-gray-400 hover:text-gray-200 text-sm transition-colors">
                 {t("common.cancel")}
               </button>
             </div>
@@ -894,11 +894,11 @@ export default function NetWorthPage() {
       })()}
 
       {/* Hero */}
-      <div className="bg-[#1A1A1A] border border-[#2A2A2A] rounded-2xl p-8 mb-6 text-center">
+      <div className="bg-[#1C1915] border border-[#2C2922] rounded-2xl p-8 mb-6 text-center">
         {loading ? (
           <div className="space-y-3">
-            <div className="h-12 w-64 bg-[#2A2A2A] rounded-lg mx-auto animate-pulse" />
-            <div className="h-5 w-48 bg-[#2A2A2A] rounded mx-auto animate-pulse" />
+            <div className="h-12 w-64 bg-[#2C2922] rounded-lg mx-auto animate-pulse" />
+            <div className="h-5 w-48 bg-[#2C2922] rounded mx-auto animate-pulse" />
           </div>
         ) : (
           <>
@@ -950,9 +950,9 @@ export default function NetWorthPage() {
               )}
             </div>
             {summary && summary.currency_breakdown.length > 1 && (
-              <div className="mt-5 pt-5 border-t border-[#2A2A2A] flex flex-wrap gap-3 justify-center">
+              <div className="mt-5 pt-5 border-t border-[#2C2922] flex flex-wrap gap-3 justify-center">
                 {[...summary.currency_breakdown].sort((a, b) => b.display_value - a.display_value).map((c) => (
-                  <span key={c.code} className="px-2.5 py-1 rounded-full bg-[#2A2A2A] text-xs text-gray-400">{c.code}: {fmt(c.display_value, displayCurrency)}</span>
+                  <span key={c.code} className="px-2.5 py-1 rounded-full bg-[#2C2922] text-xs text-gray-400">{c.code}: {fmt(c.display_value, displayCurrency)}</span>
                 ))}
               </div>
             )}
@@ -962,7 +962,7 @@ export default function NetWorthPage() {
 
       {/* Empty state — guide first asset */}
       {!loading && assets.length === 0 && liabilities.length === 0 && receivables.length === 0 && (
-        <div className="bg-[#1A1A1A] border border-[#2A2A2A] rounded-2xl p-6 mb-6">
+        <div className="bg-[#1C1915] border border-[#2C2922] rounded-2xl p-6 mb-6">
           <p className="text-white font-semibold mb-1">{t("nw.empty.title")}</p>
           <p className="text-gray-500 text-sm mb-5">{t("nw.empty.subtitle")}</p>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
@@ -974,7 +974,7 @@ export default function NetWorthPage() {
               <button
                 key={c.type}
                 onClick={() => { setAddAssetInitialType(c.type); setShowAddAsset(true); }}
-                className="flex flex-col items-center gap-2 p-5 rounded-xl bg-[#0F0F0F] border border-[#2A2A2A] hover:border-indigo-600 transition-colors"
+                className="flex flex-col items-center gap-2 p-5 rounded-xl bg-[#11100E] border border-[#2C2922] hover:border-indigo-600 transition-colors"
               >
                 <span className="text-2xl">{c.emoji}</span>
                 <span className="text-white text-sm font-medium">{c.label}</span>
@@ -1028,9 +1028,9 @@ export default function NetWorthPage() {
           addColor="indigo"
         />
         {loading ? (
-          <div className="space-y-2">{[1,2,3].map((i) => <div key={i} className="h-16 bg-[#1A1A1A] border border-[#2A2A2A] rounded-xl animate-pulse" />)}</div>
+          <div className="space-y-2">{[1,2,3].map((i) => <div key={i} className="h-16 bg-[#1C1915] border border-[#2C2922] rounded-xl animate-pulse" />)}</div>
         ) : assets.length === 0 ? (
-          <div className="bg-[#1A1A1A] border border-[#2A2A2A] border-dashed rounded-xl p-8 text-center">
+          <div className="bg-[#1C1915] border border-[#2C2922] border-dashed rounded-xl p-8 text-center">
             <p className="text-gray-600 text-sm">{t("nw.noAssets")}</p>
             <button onClick={() => setShowAddAsset(true)} className="mt-3 text-indigo-400 text-sm hover:text-indigo-300 transition-colors">{t("nw.addFirstAsset")}</button>
           </div>
@@ -1041,8 +1041,8 @@ export default function NetWorthPage() {
               if (groupAssets.length === 0) return null;
               
               return (
-                <div key={group.label} className="bg-[#1A1A1A] border border-[#2A2A2A] rounded-xl overflow-hidden">
-                  <div className="flex items-center gap-2 px-4 py-2.5 border-b border-[#2A2A2A] bg-[#111]">
+                <div key={group.label} className="bg-[#1C1915] border border-[#2C2922] rounded-xl overflow-hidden">
+                  <div className="flex items-center gap-2 px-4 py-2.5 border-b border-[#2C2922] bg-[#13110D]">
                     {group.icon}
                     <span className="text-xs text-gray-400 font-medium">{group.label}</span>
                   </div>
@@ -1051,7 +1051,7 @@ export default function NetWorthPage() {
                     const priceBadge = getPriceBadge(a);
                     const maturity = a.asset_type === "bank_account" ? maturityCountdown(a.source_detail ?? null, t) : null;
                     return (
-                      <div key={a.id} className={`flex items-center justify-between px-4 py-3 ${idx < groupAssets.length - 1 ? "border-b border-[#2A2A2A]" : ""}`}>
+                      <div key={a.id} className={`flex items-center justify-between px-4 py-3 ${idx < groupAssets.length - 1 ? "border-b border-[#2C2922]" : ""}`}>
                         <div>
                           <div className="flex items-center gap-2 flex-wrap">
                             <p className="text-white text-sm font-medium">{a.name}</p>
@@ -1062,7 +1062,7 @@ export default function NetWorthPage() {
                               <span className={`text-[10px] px-1.5 py-0.5 rounded-full border ${
                                 maturity.days <= 0 ? "bg-amber-950/40 border-amber-700/40 text-amber-400"
                                   : maturity.days <= 7 ? "bg-orange-950/40 border-orange-700/40 text-orange-400"
-                                  : "bg-[#1A1A1A] border-[#2A2A2A] text-gray-400"
+                                  : "bg-[#1C1915] border-[#2C2922] text-gray-400"
                               }`}>{maturity.label}</span>
                             )}
                             {!AUTO_PRICE_TYPES.has(a.asset_type) && !priceBadge && (() => {
@@ -1151,9 +1151,9 @@ export default function NetWorthPage() {
           addColor="red"
         />
         {loading ? (
-          <div className="space-y-2">{[1,2].map((i) => <div key={i} className="h-20 bg-[#1A1A1A] border border-[#2A2A2A] rounded-xl animate-pulse" />)}</div>
+          <div className="space-y-2">{[1,2].map((i) => <div key={i} className="h-20 bg-[#1C1915] border border-[#2C2922] rounded-xl animate-pulse" />)}</div>
         ) : liabilities.length === 0 ? (
-          <div className="bg-[#1A1A1A] border border-[#2A2A2A] border-dashed rounded-xl p-8 text-center">
+          <div className="bg-[#1C1915] border border-[#2C2922] border-dashed rounded-xl p-8 text-center">
             <p className="text-gray-600 text-sm">{t("nw.noLiabilities")}</p>
             <button onClick={() => setShowAddLiability(true)} className="mt-3 text-red-400 text-sm hover:text-red-300 transition-colors">{t("nw.addFirstLiability")}</button>
           </div>
@@ -1165,12 +1165,12 @@ export default function NetWorthPage() {
               const pct = total > 0 ? Math.min(100, ((total - remaining) / total) * 100) : 0;
               const highInterest = l.interest_rate && parseFloat(l.interest_rate) > 30;
               return (
-                <div key={l.id} className="bg-[#1A1A1A] border border-[#2A2A2A] rounded-xl p-4">
+                <div key={l.id} className="bg-[#1C1915] border border-[#2C2922] rounded-xl p-4">
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
                         <p className="text-white text-sm font-medium">{l.name}</p>
-                        <span className="text-xs px-2 py-0.5 rounded-full bg-[#2A2A2A] text-gray-400">{getLiabilityTypeLabel(l.liability_type)}</span>
+                        <span className="text-xs px-2 py-0.5 rounded-full bg-[#2C2922] text-gray-400">{getLiabilityTypeLabel(l.liability_type)}</span>
                         {highInterest && (
                           <span className="text-xs px-2 py-0.5 rounded-full bg-red-900/30 text-red-400 border border-red-800/40">
                             %{l.interest_rate} {t("nw.highInterest").replace("% ", "")}
@@ -1182,7 +1182,7 @@ export default function NetWorthPage() {
                         {l.monthly_payment && <span>{t("nw.monthly")}: {fmtItem(l.monthly_payment, l.currency)}</span>}
                         {l.due_date && <span>{t("nw.due")}: {l.due_date}</span>}
                       </div>
-                      <div className="mt-3 h-1.5 bg-[#2A2A2A] rounded-full overflow-hidden">
+                      <div className="mt-3 h-1.5 bg-[#2C2922] rounded-full overflow-hidden">
                         <div className="h-full bg-red-500 rounded-full transition-all" style={{ width: `${100 - pct}%` }} />
                       </div>
                       <p className="text-xs text-gray-600 mt-1">{Math.round(pct)}{t("nw.totalPaid")} · {t("nw.total")} {fmtItem(l.total_amount, l.currency)}</p>
@@ -1211,9 +1211,9 @@ export default function NetWorthPage() {
           addColor="amber"
         />
         {loading ? (
-          <div className="space-y-2"><div className="h-16 bg-[#1A1A1A] border border-[#2A2A2A] rounded-xl animate-pulse" /></div>
+          <div className="space-y-2"><div className="h-16 bg-[#1C1915] border border-[#2C2922] rounded-xl animate-pulse" /></div>
         ) : receivables.length === 0 ? (
-          <div className="bg-[#1A1A1A] border border-[#2A2A2A] border-dashed rounded-xl p-8 text-center">
+          <div className="bg-[#1C1915] border border-[#2C2922] border-dashed rounded-xl p-8 text-center">
             <p className="text-gray-600 text-sm">{t("nw.noReceivables")}</p>
             <button onClick={() => setShowAddReceivable(true)} className="mt-3 text-amber-400 text-sm hover:text-amber-300 transition-colors">{t("nw.addFirstReceivable")}</button>
           </div>
@@ -1223,7 +1223,7 @@ export default function NetWorthPage() {
               const isOverdue = r.status === "overdue" || (r.status === "pending" && r.expected_date && r.expected_date < new Date().toISOString().slice(0, 10));
               const isReceived = r.status === "received";
               return (
-                <div key={r.id} className={`bg-[#1A1A1A] border rounded-xl px-4 py-3 flex items-center justify-between gap-3 ${isOverdue ? "border-orange-800/40" : isReceived ? "border-emerald-900/40 opacity-60" : "border-[#2A2A2A]"}`}>
+                <div key={r.id} className={`bg-[#1C1915] border rounded-xl px-4 py-3 flex items-center justify-between gap-3 ${isOverdue ? "border-orange-800/40" : isReceived ? "border-emerald-900/40 opacity-60" : "border-[#2C2922]"}`}>
                   <div>
                     <div className="flex items-center gap-2">
                       <p className="text-white text-sm font-medium">{r.from_person}</p>
@@ -1272,7 +1272,7 @@ export default function NetWorthPage() {
           </div>
           <div className="space-y-3">
             {pendingSuggestions.map((s) => (
-              <div key={s.id} className="bg-[#1A1A1A] border border-amber-900/30 rounded-xl p-4 flex items-start justify-between gap-3">
+              <div key={s.id} className="bg-[#1C1915] border border-amber-900/30 rounded-xl p-4 flex items-start justify-between gap-3">
                 <div className="flex-1 min-w-0">
                   <p className="text-gray-200 text-sm">{s.reason}</p>
                   <p className="text-amber-400 text-xs mt-1 font-semibold tabular-nums">
@@ -1283,7 +1283,7 @@ export default function NetWorthPage() {
                   <button onClick={() => handleAcceptSuggestion(s.id)} className="px-3 py-1.5 rounded-lg bg-indigo-600/20 text-indigo-400 border border-indigo-800/40 hover:bg-indigo-600/30 text-xs font-medium transition-colors">
                     {t("nw.accept")}
                   </button>
-                  <button onClick={() => handleDismissSuggestion(s.id)} className="px-3 py-1.5 rounded-lg bg-[#2A2A2A] text-gray-400 hover:text-gray-200 text-xs font-medium transition-colors">
+                  <button onClick={() => handleDismissSuggestion(s.id)} className="px-3 py-1.5 rounded-lg bg-[#2C2922] text-gray-400 hover:text-gray-200 text-xs font-medium transition-colors">
                     {t("nw.rejectSuggestion")}
                   </button>
                 </div>
@@ -1304,7 +1304,7 @@ export default function NetWorthPage() {
             <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
               reconciliationItems.length > 0
                 ? "bg-cyan-950/50 border border-cyan-800/40 text-cyan-300"
-                : "bg-[#2A2A2A] text-gray-500"
+                : "bg-[#2C2922] text-gray-500"
             }`}>
               {reconciliationItems.length}
             </span>
@@ -1315,7 +1315,7 @@ export default function NetWorthPage() {
           </button>
 
           {actionQueueOpen && reconciliationItems.length === 0 && (
-            <div className="bg-[#1A1A1A] border border-[#2A2A2A] rounded-xl p-6 flex items-center gap-3 mb-3 text-gray-400">
+            <div className="bg-[#1C1915] border border-[#2C2922] rounded-xl p-6 flex items-center gap-3 mb-3 text-gray-400">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-emerald-500 shrink-0"><polyline points="20 6 9 17 4 12" /></svg>
               <span className="text-sm">{t("nw.allClear")}</span>
             </div>
@@ -1381,7 +1381,7 @@ export default function NetWorthPage() {
                   actionButtons = (<>
                     {btn("mark_received", t("nw.markReceived"), "bg-emerald-600/20 text-emerald-400 border border-emerald-800/40 hover:bg-emerald-600/30")}
                     {btn("write_off", t("nw.writeOff"), "bg-red-600/10 text-red-400 border border-red-800/30 hover:bg-red-600/20")}
-                    {btn("dismiss", t("common.dismiss"), "bg-[#2A2A2A] text-gray-400 hover:text-gray-200")}
+                    {btn("dismiss", t("common.dismiss"), "bg-[#2C2922] text-gray-400 hover:text-gray-200")}
                   </>);
                 } else if (item.issue_type === "received_receivable_missing_asset") {
                   actionButtons = (<>
@@ -1394,22 +1394,22 @@ export default function NetWorthPage() {
                   actionButtons = (<>
                     {batchIds.length >= 2 && btn("delete_duplicate_batch", t("nw.recon.deleteOlderDuplicate"), "bg-red-600/10 text-red-400 border border-red-800/30 hover:bg-red-600/20")}
                     {btn("keep_all", t("nw.recon.keepAll"), "bg-emerald-600/20 text-emerald-400 border border-emerald-800/40 hover:bg-emerald-600/30")}
-                    {btn("dismiss", t("common.dismiss"), "bg-[#2A2A2A] text-gray-400 hover:text-gray-200")}
+                    {btn("dismiss", t("common.dismiss"), "bg-[#2C2922] text-gray-400 hover:text-gray-200")}
                   </>);
                 } else if (item.issue_type === "large_transaction_review") {
                   actionButtons = (<>
                     {btn("confirm_category", t("common.confirm"), "bg-emerald-600/20 text-emerald-400 border border-emerald-800/40 hover:bg-emerald-600/30")}
-                    {btn("ignore", t("common.dismiss"), "bg-[#2A2A2A] text-gray-400 hover:text-gray-200")}
+                    {btn("ignore", t("common.dismiss"), "bg-[#2C2922] text-gray-400 hover:text-gray-200")}
                   </>);
                 } else {
                   actionButtons = (<>
                     {btn("resolve", t("common.resolve"), "bg-emerald-600/20 text-emerald-400 border border-emerald-800/40 hover:bg-emerald-600/30")}
-                    {btn("dismiss", t("common.dismiss"), "bg-[#2A2A2A] text-gray-400 hover:text-gray-200")}
+                    {btn("dismiss", t("common.dismiss"), "bg-[#2C2922] text-gray-400 hover:text-gray-200")}
                   </>);
                 }
 
                 return (
-                  <div key={item.id} className="bg-[#1A1A1A] border border-cyan-900/30 rounded-xl p-4">
+                  <div key={item.id} className="bg-[#1C1915] border border-cyan-900/30 rounded-xl p-4">
                     <div className="flex items-start justify-between gap-3 flex-wrap">
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2 flex-wrap">
@@ -1417,7 +1417,7 @@ export default function NetWorthPage() {
                           <span className={`px-2 py-0.5 rounded-full text-xs ${
                             item.severity === "high" ? "bg-red-950/50 text-red-400 border border-red-800/30"
                               : item.severity === "medium" ? "bg-amber-950/50 text-amber-400 border border-amber-800/30"
-                              : "bg-[#2A2A2A] text-gray-400"
+                              : "bg-[#2C2922] text-gray-400"
                           }`}>
                             {item.severity}
                           </span>
@@ -1438,14 +1438,14 @@ export default function NetWorthPage() {
           )}
 
           {actionQueueOpen && events.length > 0 && (
-            <div className="bg-[#1A1A1A] border border-[#2A2A2A] rounded-xl overflow-hidden">
-              <div className="px-4 py-2.5 border-b border-[#2A2A2A] bg-[#111]">
+            <div className="bg-[#1C1915] border border-[#2C2922] rounded-xl overflow-hidden">
+              <div className="px-4 py-2.5 border-b border-[#2C2922] bg-[#13110D]">
                 <span className="text-xs text-gray-400 font-medium">{t("nw.recentEvents")}</span>
               </div>
               {events.map((event, idx) => {
                 const detail = eventDetail(event.source_detail);
                 return (
-                  <div key={event.id} className={`flex items-center justify-between gap-3 px-4 py-3 ${idx < events.length - 1 ? "border-b border-[#2A2A2A]" : ""}`}>
+                  <div key={event.id} className={`flex items-center justify-between gap-3 px-4 py-3 ${idx < events.length - 1 ? "border-b border-[#2C2922]" : ""}`}>
                     <div className="min-w-0">
                       <p className="text-gray-200 text-sm">{eventLabel(event.event_type, t)}</p>
                       <p className="text-gray-500 text-xs mt-0.5">
@@ -1475,7 +1475,7 @@ export default function NetWorthPage() {
           </div>
           <div className="space-y-2">
             {wealthAlerts.map((a) => (
-              <div key={a.id} className="bg-[#1A1A1A] border border-[#2A2A2A] rounded-xl px-4 py-3 flex items-center justify-between gap-3">
+              <div key={a.id} className="bg-[#1C1915] border border-[#2C2922] rounded-xl px-4 py-3 flex items-center justify-between gap-3">
                 <div className="min-w-0 flex items-center gap-2.5">
                   <span className="w-1.5 h-1.5 rounded-full bg-amber-500 shrink-0" />
                   <div className="min-w-0">

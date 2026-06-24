@@ -54,7 +54,7 @@ export default function MoneyOverview() {
   }, [ccy]);
 
   if (loading) {
-    return <div className="mb-6 h-[88px] rounded-2xl bg-[#1A1A1A] border border-[#2A2A2A] animate-pulse" />;
+    return <div className="mb-6 h-[88px] rounded-2xl bg-[#1C1915] border border-[#2C2922] animate-pulse" />;
   }
   if (!cashflow) return null;
 
@@ -72,7 +72,7 @@ export default function MoneyOverview() {
   );
 
   return (
-    <div className="mb-6 bg-[#1A1A1A] border border-[#2A2A2A] rounded-2xl p-5">
+    <div className="mb-6 bg-[#1C1915] border border-[#2C2922] rounded-2xl p-5">
       {/* Explicit window — income/expenses/net below are this calendar month, never an ambiguous "this month". */}
       <p className="text-[11px] font-semibold tracking-wide text-gray-500 uppercase mb-3">
         {currentMonthLabel(lang)} · {t("money.periodTag")}

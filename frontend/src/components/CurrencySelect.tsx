@@ -88,7 +88,7 @@ export default function CurrencySelect({ value, onChange, className = "" }: Prop
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className="w-full bg-[#0F0F0F] border border-[#2A2A2A] rounded-lg px-3 py-2 text-sm text-white text-left flex items-center justify-between focus:outline-none focus:border-indigo-600 transition-colors"
+        className="w-full bg-[#11100E] border border-[#2C2922] rounded-lg px-3 py-2 text-sm text-white text-left flex items-center justify-between focus:outline-none focus:border-indigo-600 transition-colors"
       >
         {loading ? (
           <span className="text-gray-500">{t("currencySelect.loading")}</span>
@@ -115,15 +115,15 @@ export default function CurrencySelect({ value, onChange, className = "" }: Prop
 
       {/* Dropdown */}
       {open && (
-        <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-[#0F0F0F] border border-[#2A2A2A] rounded-lg shadow-xl overflow-hidden">
+        <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-[#11100E] border border-[#2C2922] rounded-lg shadow-xl overflow-hidden">
           {/* Search */}
-          <div className="p-2 border-b border-[#2A2A2A]">
+          <div className="p-2 border-b border-[#2C2922]">
             <input
               autoFocus
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder={t("currencySelect.searchPlaceholder")}
-              className="w-full bg-[#1A1A1A] border border-[#2A2A2A] rounded-md px-2.5 py-1.5 text-xs text-white placeholder-gray-600 focus:outline-none focus:border-indigo-600"
+              className="w-full bg-[#1C1915] border border-[#2C2922] rounded-md px-2.5 py-1.5 text-xs text-white placeholder-gray-600 focus:outline-none focus:border-indigo-600"
             />
           </div>
 
@@ -135,7 +135,7 @@ export default function CurrencySelect({ value, onChange, className = "" }: Prop
 
             {fiatFiltered.length > 0 && (
               <div>
-                <p className="px-3 py-1.5 text-[10px] font-semibold text-gray-600 uppercase tracking-wider bg-[#111]">
+                <p className="px-3 py-1.5 text-[10px] font-semibold text-gray-600 uppercase tracking-wider bg-[#13110D]">
                   {t("currencySelect.fiatGroup")}
                 </p>
                 {fiatFiltered.map((e) => (
@@ -143,7 +143,7 @@ export default function CurrencySelect({ value, onChange, className = "" }: Prop
                     key={e.code}
                     type="button"
                     onClick={() => handleSelect(e.code)}
-                    className={`w-full text-left px-3 py-2 text-sm hover:bg-[#1A1A1A] transition-colors flex items-center justify-between ${
+                    className={`w-full text-left px-3 py-2 text-sm hover:bg-[#1C1915] transition-colors flex items-center justify-between ${
                       e.code === value ? "bg-indigo-950/40 text-indigo-300" : "text-white"
                     }`}
                   >
@@ -156,7 +156,7 @@ export default function CurrencySelect({ value, onChange, className = "" }: Prop
 
             {cryptoFiltered.length > 0 && (
               <div>
-                <p className="px-3 py-1.5 text-[10px] font-semibold text-gray-600 uppercase tracking-wider bg-[#111]">
+                <p className="px-3 py-1.5 text-[10px] font-semibold text-gray-600 uppercase tracking-wider bg-[#13110D]">
                   {t("currencySelect.cryptoGroup")}
                 </p>
                 {cryptoFiltered.map((e) => (
@@ -164,7 +164,7 @@ export default function CurrencySelect({ value, onChange, className = "" }: Prop
                     key={e.code}
                     type="button"
                     onClick={() => handleSelect(e.code)}
-                    className={`w-full text-left px-3 py-2 text-sm hover:bg-[#1A1A1A] transition-colors flex items-center justify-between ${
+                    className={`w-full text-left px-3 py-2 text-sm hover:bg-[#1C1915] transition-colors flex items-center justify-between ${
                       e.code === value ? "bg-indigo-950/40 text-indigo-300" : "text-white"
                     }`}
                   >
@@ -177,7 +177,7 @@ export default function CurrencySelect({ value, onChange, className = "" }: Prop
 
             {commodityFiltered.length > 0 && (
               <div>
-                <p className="px-3 py-1.5 text-[10px] font-semibold text-gray-600 uppercase tracking-wider bg-[#111]">
+                <p className="px-3 py-1.5 text-[10px] font-semibold text-gray-600 uppercase tracking-wider bg-[#13110D]">
                   {t("currencySelect.commodityGroup")}
                 </p>
                 {commodityFiltered.map((e) => (
@@ -185,7 +185,7 @@ export default function CurrencySelect({ value, onChange, className = "" }: Prop
                     key={e.code}
                     type="button"
                     onClick={() => handleSelect(e.code)}
-                    className={`w-full text-left px-3 py-2 text-sm hover:bg-[#1A1A1A] transition-colors flex items-center justify-between ${
+                    className={`w-full text-left px-3 py-2 text-sm hover:bg-[#1C1915] transition-colors flex items-center justify-between ${
                       e.code === value ? "bg-indigo-950/40 text-indigo-300" : "text-white"
                     }`}
                   >

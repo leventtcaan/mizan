@@ -75,7 +75,7 @@ export default function TransactionTable({ transactions, onCategoryCorrection }:
 
   if (transactions.length === 0) {
     return (
-      <div className="text-center py-16 bg-[#1A1A1A] border border-[#2A2A2A] rounded-xl">
+      <div className="text-center py-16 bg-[#1C1915] border border-[#2C2922] rounded-xl">
         <p className="text-gray-500 text-sm">{t("tx.empty")}</p>
         <p className="text-gray-700 text-xs mt-1">{t("tx.emptyHint")}</p>
       </div>
@@ -115,10 +115,10 @@ export default function TransactionTable({ transactions, onCategoryCorrection }:
   };
 
   return (
-    <div className="rounded-xl border border-[#2A2A2A] overflow-hidden">
+    <div className="rounded-xl border border-[#2C2922] overflow-hidden">
       <table className="w-full text-sm">
         <thead>
-          <tr className="bg-[#1A1A1A] border-b border-[#2A2A2A]">
+          <tr className="bg-[#1C1915] border-b border-[#2C2922]">
             <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wide w-28">{t("tx.date")}</th>
             <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wide">{t("tx.description")}</th>
             <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wide w-36">{t("common.amount")}</th>
@@ -132,12 +132,12 @@ export default function TransactionTable({ transactions, onCategoryCorrection }:
               category: tx.category, notes: [], notesLoaded: false, expanded: false, saving: false, error: null,
             };
             const isOdd = i % 2 !== 0;
-            const rowBg = isOdd ? "bg-[#111]" : "bg-[#0F0F0F]";
+            const rowBg = isOdd ? "bg-[#13110D]" : "bg-[#11100E]";
 
             return (
               <Fragment key={tx.id}>
                 <tr
-                  className={`${rowBg} hover:bg-[#1A1A1A] transition-colors duration-100 cursor-pointer group border-b border-[#2A2A2A] last:border-0`}
+                  className={`${rowBg} hover:bg-[#1C1915] transition-colors duration-100 cursor-pointer group border-b border-[#2C2922] last:border-0`}
                   onClick={() => void toggleExpand(tx.id)}
                 >
                   <td className="px-4 py-3.5 whitespace-nowrap">
@@ -162,9 +162,9 @@ export default function TransactionTable({ transactions, onCategoryCorrection }:
                 </tr>
 
                 {row.expanded && (
-                  <tr key={`${tx.id}-detail`} className="bg-[#1A1A1A] border-b border-[#2A2A2A]">
+                  <tr key={`${tx.id}-detail`} className="bg-[#1C1915] border-b border-[#2C2922]">
                     <td colSpan={5} className="px-5 py-4">
-                      <div className="flex items-start justify-between mb-4 pb-3 border-b border-[#2A2A2A]">
+                      <div className="flex items-start justify-between mb-4 pb-3 border-b border-[#2C2922]">
                         <div>
                           <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-0.5">{t("tx.detail")}</p>
                           <p className="text-sm text-gray-300 leading-relaxed">{tx.description}</p>
@@ -193,7 +193,7 @@ export default function TransactionTable({ transactions, onCategoryCorrection }:
                                 disabled={row.saving}
                                 onClick={() => void handleCategoryChange(tx.id, cat)}
                                 className={`shrink-0 px-3 py-1 rounded-full text-xs font-medium transition-colors disabled:opacity-40 ${
-                                  isActive ? "bg-indigo-600 text-white" : "bg-[#2A2A2A] text-gray-400 hover:bg-[#333] hover:text-gray-200"
+                                  isActive ? "bg-indigo-600 text-white" : "bg-[#2C2922] text-gray-400 hover:bg-[#36322B] hover:text-gray-200"
                                 }`}
                               >
                                 {label}

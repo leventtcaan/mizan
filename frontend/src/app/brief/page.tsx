@@ -62,7 +62,7 @@ function BriefContent() {
 
   if (!brief) {
     return (
-      <div className="min-h-screen bg-[#0F0F0F] text-white flex flex-col items-center justify-center px-4">
+      <div className="min-h-screen bg-[#11100E] text-white flex flex-col items-center justify-center px-4">
         <div className="flex items-center gap-3 text-gray-400">
           <span className="w-5 h-5 border-2 border-gray-600 border-t-indigo-400 rounded-full animate-spin" />
           <span className="text-sm">{t("brief.loading")}</span>
@@ -87,12 +87,12 @@ function BriefContent() {
   // Every number says where it comes from. Flow/categories are this one statement;
   // recurring is computed across all the user's activity, so it's labelled differently.
   const Source = ({ text }: { text: string }) => (
-    <p className="text-[11px] text-gray-600 mt-3 pt-3 border-t border-[#2A2A2A]/60">{text}</p>
+    <p className="text-[11px] text-gray-600 mt-3 pt-3 border-t border-[#2C2922]/60">{text}</p>
   );
   const statementSource = `${t("brief.fromStatement")} · ${periodRange}`;
 
   return (
-    <div className="min-h-screen bg-[#0F0F0F] text-white px-4 py-12">
+    <div className="min-h-screen bg-[#11100E] text-white px-4 py-12">
       <div className="w-full max-w-lg mx-auto">
         {/* Eyebrow + explicit data source */}
         <div className={beatCls} style={beatStyle(0)}>
@@ -111,7 +111,7 @@ function BriefContent() {
 
         <div className="space-y-4">
           {/* BEAT — flow */}
-          <div className={`bg-[#1A1A1A] border border-[#2A2A2A] rounded-2xl p-6 ${beatCls}`} style={beatStyle(2)}>
+          <div className={`bg-[#1C1915] border border-[#2C2922] rounded-2xl p-6 ${beatCls}`} style={beatStyle(2)}>
             <p className="text-gray-500 text-xs font-medium uppercase tracking-wide mb-3">{t("brief.b2Title")}</p>
             <p className={`text-4xl font-bold tabular-nums ${positive ? "text-emerald-400" : "text-red-400"}`}>
               {positive ? "+" : "−"}{money(Math.abs(flow.net), ccy)}
@@ -121,7 +121,7 @@ function BriefContent() {
               <span className="font-semibold text-white">{money(Math.abs(flow.net), ccy)}</span>{" "}
               {positive ? t("brief.aheadPost") : t("brief.behindPost")}
             </p>
-            <div className="flex gap-6 mt-4 pt-4 border-t border-[#2A2A2A] text-sm">
+            <div className="flex gap-6 mt-4 pt-4 border-t border-[#2C2922] text-sm">
               <div>
                 <p className="text-gray-500 text-xs">{t("brief.income")}</p>
                 <p className="text-emerald-400 font-semibold tabular-nums">{money(flow.income, ccy)}</p>
@@ -137,7 +137,7 @@ function BriefContent() {
 
           {/* BEAT — where it went */}
           {top_categories.length > 0 && (
-            <div className={`bg-[#1A1A1A] border border-[#2A2A2A] rounded-2xl p-6 ${beatCls}`} style={beatStyle(3)}>
+            <div className={`bg-[#1C1915] border border-[#2C2922] rounded-2xl p-6 ${beatCls}`} style={beatStyle(3)}>
               <p className="text-gray-500 text-xs font-medium uppercase tracking-wide mb-4">{t("brief.b3Title")}</p>
               <div className="space-y-3">
                 {top_categories.map((c) => {
@@ -154,7 +154,7 @@ function BriefContent() {
                           {money(c.amount, ccy)} <span className="text-gray-600 text-xs">· {c.share.toFixed(0)}%</span>
                         </span>
                       </div>
-                      <div className="h-1.5 rounded-full bg-[#2A2A2A] overflow-hidden">
+                      <div className="h-1.5 rounded-full bg-[#2C2922] overflow-hidden">
                         <div className="h-full rounded-full" style={{ width: `${Math.min(c.share, 100)}%`, backgroundColor: color }} />
                       </div>
                     </div>
@@ -162,7 +162,7 @@ function BriefContent() {
                 })}
               </div>
               {largest_transaction && (
-                <p className="text-gray-500 text-xs mt-4 pt-4 border-t border-[#2A2A2A]">
+                <p className="text-gray-500 text-xs mt-4 pt-4 border-t border-[#2C2922]">
                   {t("brief.largest")}: <span className="text-gray-300">{largest_transaction.description}</span>{" "}
                   <span className="text-red-400 font-medium tabular-nums">{money(largest_transaction.amount, ccy)}</span>
                 </p>
@@ -173,7 +173,7 @@ function BriefContent() {
           )}
 
           {/* BEAT — recurring commitments */}
-          <div className={`bg-[#1A1A1A] border border-[#2A2A2A] rounded-2xl p-6 ${beatCls}`} style={beatStyle(4)}>
+          <div className={`bg-[#1C1915] border border-[#2C2922] rounded-2xl p-6 ${beatCls}`} style={beatStyle(4)}>
             <p className="text-gray-500 text-xs font-medium uppercase tracking-wide mb-3">{t("brief.b4Title")}</p>
             {recurring_signal.monthly_total > 0 ? (
               <>
@@ -216,7 +216,7 @@ function BriefContent() {
 
 export default function BriefPage() {
   return (
-    <Suspense fallback={<div className="min-h-screen bg-[#0F0F0F]" />}>
+    <Suspense fallback={<div className="min-h-screen bg-[#11100E]" />}>
       <BriefContent />
     </Suspense>
   );

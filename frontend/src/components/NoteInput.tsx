@@ -45,7 +45,7 @@ export default function NoteInput({ transactionId, existingNotes, onNoteAdded }:
       {existingNotes.length > 0 && (
         <ul className="space-y-1.5">
           {existingNotes.map((n) => (
-            <li key={n.id} className="flex items-start gap-2 text-xs bg-[#0F0F0F] border border-[#2A2A2A] rounded-lg px-3 py-2">
+            <li key={n.id} className="flex items-start gap-2 text-xs bg-[#11100E] border border-[#2C2922] rounded-lg px-3 py-2">
               <span className="text-gray-300 flex-1 leading-relaxed">{n.note_text}</span>
               {"created_at" in n && typeof (n as { created_at?: string }).created_at === "string" && (
                 <span className="text-gray-600 shrink-0 mt-0.5">{timeAgo((n as { created_at: string }).created_at)}</span>
@@ -68,7 +68,7 @@ export default function NoteInput({ transactionId, existingNotes, onNoteAdded }:
             }
           }}
           placeholder={t("common.notes") + "..."}
-          className="w-full resize-none rounded-lg bg-[#0F0F0F] border border-[#2A2A2A] text-xs text-gray-200 placeholder-gray-700 px-3 py-2 focus:outline-none focus:border-indigo-600 transition-colors leading-relaxed"
+          className="w-full resize-none rounded-lg bg-[#11100E] border border-[#2C2922] text-xs text-gray-200 placeholder-gray-700 px-3 py-2 focus:outline-none focus:border-indigo-600 transition-colors leading-relaxed"
         />
         <div className="flex items-center justify-between">
           <span className={`text-xs ${remaining < 50 ? "text-amber-500" : "text-gray-700"}`}>

@@ -149,11 +149,11 @@ export default function AddAssetModal({ onClose, onAdded, onUpdated, displayCurr
   }
 
   const inputClass =
-    "w-full bg-[#0F0F0F] border border-[#2A2A2A] rounded-lg px-3 py-2 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-indigo-600";
+    "w-full bg-[#11100E] border border-[#2C2922] rounded-lg px-3 py-2 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-indigo-600";
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm" onClick={onClose}>
-      <div className="bg-[#1A1A1A] border border-[#2A2A2A] rounded-2xl w-full max-w-md mx-4 p-6 max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+      <div className="bg-[#1C1915] border border-[#2C2922] rounded-2xl w-full max-w-md mx-4 p-6 max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between mb-5">
           <div className="flex items-center gap-2.5">
             {assetType && !isEdit && (
@@ -180,7 +180,7 @@ export default function AddAssetModal({ onClose, onAdded, onUpdated, displayCurr
                 <div className="grid grid-cols-2 gap-2">
                   {group.types.map((tp) => (
                     <button key={tp} type="button" onClick={() => chooseType(tp)}
-                      className="text-left px-3 py-2.5 rounded-lg bg-[#0F0F0F] border border-[#2A2A2A] text-sm text-gray-300 hover:border-indigo-600 hover:text-white transition-colors">
+                      className="text-left px-3 py-2.5 rounded-lg bg-[#11100E] border border-[#2C2922] text-sm text-gray-300 hover:border-indigo-600 hover:text-white transition-colors">
                       {typeLabel(tp)}
                     </button>
                   ))}
@@ -195,7 +195,7 @@ export default function AddAssetModal({ onClose, onAdded, onUpdated, displayCurr
           <form onSubmit={submit} className="space-y-4">
             {routeForm(assetType, setDraft, displayCurrency)}
 
-            <div className="pt-1 border-t border-[#2A2A2A] space-y-4">
+            <div className="pt-1 border-t border-[#2C2922] space-y-4">
               {accountRelevant && (
                 <div>
                   <label className="block text-xs text-gray-400 mb-1.5">{t("nw.account")} ({t("common.optional")})</label>
@@ -226,7 +226,7 @@ export default function AddAssetModal({ onClose, onAdded, onUpdated, displayCurr
             {error && <p className="text-red-400 text-xs">{error}</p>}
 
             <div className="flex gap-3 pt-1">
-              <button type="button" onClick={back} className="flex-1 px-4 py-2 rounded-lg border border-[#2A2A2A] text-sm text-gray-400 hover:text-gray-200 transition-colors">
+              <button type="button" onClick={back} className="flex-1 px-4 py-2 rounded-lg border border-[#2C2922] text-sm text-gray-400 hover:text-gray-200 transition-colors">
                 {isEdit ? t("common.cancel") : t("common.back")}
               </button>
               <button type="submit" disabled={loading || !draft}

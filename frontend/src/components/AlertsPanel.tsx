@@ -66,7 +66,7 @@ export default function AlertsPanel() {
     return (
       <div className="space-y-2 animate-pulse mb-6">
         {[1, 2].map((i) => (
-          <div key={i} className="h-16 bg-[#1A1A1A] rounded-xl" />
+          <div key={i} className="h-16 bg-[#1C1915] rounded-xl" />
         ))}
       </div>
     );
@@ -87,7 +87,7 @@ export default function AlertsPanel() {
           return (
             <div
               key={alert.dismiss_key}
-              className={`bg-[#1A1A1A] border border-[#2A2A2A] border-l-2 ${accent} rounded-xl p-4 flex items-start gap-3`}
+              className={`bg-[#1C1915] border border-[#2C2922] border-l-2 ${accent} rounded-xl p-4 flex items-start gap-3`}
             >
               <span className="text-base mt-0.5 shrink-0">{TYPE_ICON[alert.type] ?? "⚠"}</span>
 

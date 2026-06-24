@@ -86,7 +86,7 @@ export default function UploadPage() {
         onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
         onDragLeave={() => setDragOver(false)}
         className={`relative border-2 border-dashed rounded-xl p-12 text-center transition-all cursor-pointer mb-4 ${
-          dragOver ? "border-indigo-500 bg-indigo-950/20" : "border-[#2A2A2A] bg-[#1A1A1A] hover:border-[#3A3A3A]"
+          dragOver ? "border-indigo-500 bg-indigo-950/20" : "border-[#2C2922] bg-[#1C1915] hover:border-[#3C3832]"
         }`}
         onClick={() => document.getElementById("file-input")?.click()}
       >
@@ -98,7 +98,7 @@ export default function UploadPage() {
           className="hidden"
           onChange={(e) => { if (e.target.files) addFiles(e.target.files); e.target.value = ""; }}
         />
-        <div className="w-12 h-12 rounded-xl bg-[#2A2A2A] flex items-center justify-center mx-auto mb-3">
+        <div className="w-12 h-12 rounded-xl bg-[#2C2922] flex items-center justify-center mx-auto mb-3">
           <FileText size={22} className="text-gray-400" />
         </div>
         <p className="text-gray-300 font-medium">{t("upload.dropHintMulti")}</p>
@@ -110,7 +110,7 @@ export default function UploadPage() {
       {entries.length > 0 && (
         <div className="mb-4 space-y-2">
           {entries.map((e, i) => (
-            <div key={`${e.file.name}-${i}`} className="flex items-center gap-3 p-3 rounded-lg bg-[#1A1A1A] border border-[#2A2A2A]">
+            <div key={`${e.file.name}-${i}`} className="flex items-center gap-3 p-3 rounded-lg bg-[#1C1915] border border-[#2C2922]">
               <span className="shrink-0">
                 {e.state === "uploading" ? (
                   <span className="block w-4 h-4 border-2 border-white/30 border-t-indigo-400 rounded-full animate-spin" />
@@ -162,7 +162,7 @@ export default function UploadPage() {
       )}
 
       {/* Privacy reassurance — honest, plain account of what happens to the file */}
-      <div className="mt-6 rounded-xl bg-[#1A1A1A] border border-[#2A2A2A] p-4">
+      <div className="mt-6 rounded-xl bg-[#1C1915] border border-[#2C2922] p-4">
         <div className="flex items-center gap-2 mb-3">
           <ShieldCheck size={16} className="text-emerald-400 shrink-0" />
           <p className="text-sm font-medium text-gray-200">{t("upload.privacyTitle")}</p>

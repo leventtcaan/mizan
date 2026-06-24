@@ -31,7 +31,7 @@ export default function MoneyTabs() {
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm whitespace-nowrap transition-colors ${
               active
                 ? "bg-indigo-600 text-white"
-                : "bg-[#1A1A1A] border border-[#2A2A2A] text-gray-400 hover:text-gray-200 hover:border-[#3A3A3A]"
+                : "bg-[#1C1915] border border-[#2C2922] text-gray-400 hover:text-gray-200 hover:border-[#3C3832]"
             }`}
           >
             <Icon size={14} />

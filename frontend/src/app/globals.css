@@ -3,14 +3,22 @@
 @tailwind utilities;
 
 @layer base {
+  /* Warm-neutral dark theme: a near-black with a faint warm tilt (R≥G≥B) reads as
+     calm and trustworthy for a finance product, rather than a cold pure black.
+     color-scheme keeps native controls / scrollbars in the same warm dark register. */
+  html {
+    color-scheme: dark;
+  }
+
   body {
-    background-color: #0F0F0F;
-    color: #ffffff;
+    background-color: #11100E;
+    /* Soft warm off-white instead of pure #FFF — gentler contrast, more premium. */
+    color: #F4F2EE;
   }
 
   * {
     scrollbar-width: thin;
-    scrollbar-color: #2A2A2A transparent;
+    scrollbar-color: #2C2922 transparent;
   }
 
   *::-webkit-scrollbar {
@@ -22,7 +30,7 @@
   }
 
   *::-webkit-scrollbar-thumb {
-    background-color: #2A2A2A;
+    background-color: #2C2922;
     border-radius: 3px;
   }
 }

@@ -171,7 +171,7 @@ export default function SimulatorPage() {
   const noData = levers && levers.net_worth === 0 && levers.subscriptions.length === 0
     && levers.debts.length === 0 && levers.monthly_surplus === 0;
 
-  const inputCls = "bg-[#0F0F0F] border border-[#2A2A2A] rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-600 w-full";
+  const inputCls = "bg-[#11100E] border border-[#2C2922] rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-600 w-full";
 
   return (
     <PageLayout
@@ -187,7 +187,7 @@ export default function SimulatorPage() {
           <p className="text-gray-500 text-sm mb-4">{t("sim.emptyBody")}</p>
           <div className="flex justify-center gap-3">
             <Link href="/upload" className="px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-medium">{t("sim.emptyUpload")}</Link>
-            <Link href="/networth" className="px-4 py-2 rounded-lg border border-[#2A2A2A] text-gray-300 hover:text-white text-sm font-medium">{t("sim.emptyNetworth")}</Link>
+            <Link href="/networth" className="px-4 py-2 rounded-lg border border-[#2C2922] text-gray-300 hover:text-white text-sm font-medium">{t("sim.emptyNetworth")}</Link>
           </div>
         </div>
       ) : (
@@ -235,7 +235,7 @@ export default function SimulatorPage() {
               <div>
                 <label className="text-gray-400 text-xs block mb-1">{t("sim.incomeChange")}</label>
                 <div className="flex gap-2">
-                  <div className="flex rounded-lg overflow-hidden border border-[#2A2A2A] shrink-0">
+                  <div className="flex rounded-lg overflow-hidden border border-[#2C2922] shrink-0">
                     {(["raise", "cut"] as const).map((d) => (
                       <button key={d} onClick={() => applyIncome(d, incomeMag)}
                         className={`px-2.5 text-xs font-medium transition-colors ${effIncomeDir === d
@@ -256,7 +256,7 @@ export default function SimulatorPage() {
               {/* Horizon */}
               <div>
                 <label className="text-gray-400 text-xs block mb-1">{t("sim.horizon")}</label>
-                <div className="flex rounded-lg overflow-hidden border border-[#2A2A2A]">
+                <div className="flex rounded-lg overflow-hidden border border-[#2C2922]">
                   {HORIZONS.map((h) => (
                     <button key={h} onClick={() => setHorizon(h)}
                       className={`flex-1 py-2 text-xs font-medium transition-colors ${horizon === h ? "bg-indigo-600 text-white" : "text-gray-400 hover:text-gray-200"}`}>
@@ -277,7 +277,7 @@ export default function SimulatorPage() {
                       <button key={s.key} onClick={() => toggleCancel(s.label, s.monthly_amount)}
                         className={`px-2.5 py-1.5 rounded-lg text-xs border transition-colors ${isCancelled(s.label)
                           ? "bg-emerald-950/40 border-emerald-700/50 text-emerald-300"
-                          : "bg-[#0F0F0F] border-[#2A2A2A] text-gray-300 hover:border-[#3A3A3A]"}`}>
+                          : "bg-[#11100E] border-[#2C2922] text-gray-300 hover:border-[#3C3832]"}`}>
                         {isCancelled(s.label) ? "✓ " : ""}{s.label} · {money(s.monthly_amount)}/{lang === "tr" ? "ay" : "mo"}
                       </button>
                     ))}
@@ -351,13 +351,13 @@ export default function SimulatorPage() {
                         <stop offset="100%" stopColor="#6366f1" stopOpacity={0.04} />
                       </linearGradient>
                     </defs>
-                    <CartesianGrid stroke="#2A2A2A" vertical={false} />
+                    <CartesianGrid stroke="#2C2922" vertical={false} />
                     <XAxis dataKey="month" stroke="#6b7280" fontSize={11} tickLine={false} axisLine={false}
                       tickFormatter={(m) => `${m}${lang === "tr" ? "a" : "mo"}`} />
                     <YAxis stroke="#6b7280" fontSize={11} tickLine={false} axisLine={false} width={48}
                       tickFormatter={(v) => Intl.NumberFormat(undefined, { notation: "compact" }).format(v)} />
                     <Tooltip
-                      contentStyle={{ backgroundColor: "#1A1A1A", border: "1px solid #2A2A2A", borderRadius: 8 }}
+                      contentStyle={{ backgroundColor: "#1C1915", border: "1px solid #2C2922", borderRadius: 8 }}
                       labelStyle={{ color: "#9ca3af" }}
                       formatter={(v: number | number[], name: string) => {
                         if (name === "range") {
@@ -408,7 +408,7 @@ export default function SimulatorPage() {
 
 function DeltaCard({ label, value, positive }: { label: string; value: string; positive: boolean }) {
   return (
-    <div className="bg-[#1A1A1A] border border-[#2A2A2A] rounded-xl p-3">
+    <div className="bg-[#1C1915] border border-[#2C2922] rounded-xl p-3">
       <p className="text-gray-500 text-[11px] mb-1">{label}</p>
       <p className={`text-base font-semibold tabular-nums flex items-center gap-1 ${positive ? "text-emerald-400" : "text-red-400"}`}>
         {positive ? <TrendingUp size={13} /> : <TrendingDown size={13} />}{value}

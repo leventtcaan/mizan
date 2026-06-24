@@ -116,26 +116,26 @@ export default function ProgressPage() {
     <PageLayout title={t("scorecard.title")} subtitle={t("scorecard.subtitle")}>
       {state === "loading" && (
         <div className="space-y-6">
-          <div className="h-48 rounded-2xl bg-[#1A1A1A] animate-pulse" />
-          <div className="h-32 rounded-2xl bg-[#1A1A1A] animate-pulse" />
+          <div className="h-48 rounded-2xl bg-[#1C1915] animate-pulse" />
+          <div className="h-32 rounded-2xl bg-[#1C1915] animate-pulse" />
         </div>
       )}
 
       {state === "error" && (
-        <div className="bg-[#1A1A1A] border border-[#2A2A2A] rounded-2xl p-10 text-center text-red-400 text-sm">
+        <div className="bg-[#1C1915] border border-[#2C2922] rounded-2xl p-10 text-center text-red-400 text-sm">
           {t("common.error")}
         </div>
       )}
 
       {state === "ready" && data && !data.has_data && (
-        <div className="bg-[#1A1A1A] border border-[#2A2A2A] border-dashed rounded-2xl p-12 text-center">
+        <div className="bg-[#1C1915] border border-[#2C2922] border-dashed rounded-2xl p-12 text-center">
           <h3 className="text-white text-lg font-semibold mb-2">{t("scorecard.empty.title")}</h3>
           <p className="text-gray-500 text-sm max-w-md mx-auto mb-6">{t("scorecard.empty.desc")}</p>
           <div className="flex items-center justify-center gap-3">
             <Link href="/upload" className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-indigo-600 text-white text-sm font-medium hover:bg-indigo-500 transition-colors">
               <Upload size={15} /> {t("scorecard.empty.cta")}
             </Link>
-            <Link href="/transactions" className="flex items-center gap-1.5 px-4 py-2 rounded-lg border border-[#2A2A2A] text-gray-300 text-sm hover:border-indigo-700 transition-colors">
+            <Link href="/transactions" className="flex items-center gap-1.5 px-4 py-2 rounded-lg border border-[#2C2922] text-gray-300 text-sm hover:border-indigo-700 transition-colors">
               <Plus size={15} /> {t("scorecard.empty.addManual")}
             </Link>
           </div>
@@ -188,7 +188,7 @@ export default function ProgressPage() {
           <AlertsPanel />
 
           {/* Demoted: financial personality as an opt-in footnote */}
-          <div className="bg-[#1A1A1A] border border-[#2A2A2A] rounded-xl">
+          <div className="bg-[#1C1915] border border-[#2C2922] rounded-xl">
             <button
               onClick={() => setShowBehavior((v) => !v)}
               className="w-full flex items-center justify-between px-5 py-4 text-sm text-gray-400 hover:text-gray-200 transition-colors"
@@ -209,13 +209,13 @@ function ProvisionalHero({
   pillars, realPillars, t,
 }: { pillars: ScorecardPillar[]; realPillars: number; t: (k: string) => string }) {
   return (
-    <div className="bg-[#1A1A1A] border border-[#2A2A2A] rounded-2xl p-6">
+    <div className="bg-[#1C1915] border border-[#2C2922] rounded-2xl p-6">
       <p className="text-xs uppercase tracking-wider text-gray-500 mb-2">{t("scorecard.healthLabel")}</p>
       <h2 className="text-2xl sm:text-3xl font-bold text-gray-100 mb-4">{t("scorecard.building.title")}</h2>
       {/* Four-signal indicator — filled for each pillar that has real data */}
       <div className="flex items-center gap-2 mb-2.5">
         {pillars.map((p) => (
-          <div key={p.key} className={`h-1.5 flex-1 rounded-full ${p.status === "ok" ? "bg-indigo-500" : "bg-[#2A2A2A]"}`} />
+          <div key={p.key} className={`h-1.5 flex-1 rounded-full ${p.status === "ok" ? "bg-indigo-500" : "bg-[#2C2922]"}`} />
         ))}
       </div>
       <p className="text-sm text-indigo-300 font-medium mb-3">
@@ -237,7 +237,7 @@ function HeroScore({ data, t }: { data: Scorecard; t: (k: string) => string }) {
   const delta = data.score_delta;
 
   return (
-    <div className={`bg-[#1A1A1A] border ${style.ring} rounded-2xl p-6 ${style.glow}`}>
+    <div className={`bg-[#1C1915] border ${style.ring} rounded-2xl p-6 ${style.glow}`}>
       <div className="flex items-start justify-between gap-6 flex-wrap">
         <div className="min-w-0 flex-1">
           <p className="text-xs uppercase tracking-wider text-gray-500 mb-1">{t("scorecard.healthLabel")}</p>
@@ -259,7 +259,7 @@ function HeroScore({ data, t }: { data: Scorecard; t: (k: string) => string }) {
       </div>
 
       {/* score meter */}
-      <div className="mt-5 h-2 rounded-full bg-[#0F0F0F] overflow-hidden">
+      <div className="mt-5 h-2 rounded-full bg-[#11100E] overflow-hidden">
         <div className={`h-full rounded-full ${style.bar} transition-all`} style={{ width: `${data.score}%` }} />
       </div>
     </div>
@@ -285,7 +285,7 @@ function Pillars({ pillars, t }: { pillars: ScorecardPillar[]; t: (k: string) =>
         const mark = trendMark(p.trend);
         const pct = Math.round((p.score / p.max) * 100);
         return (
-          <div key={p.key} className="bg-[#1A1A1A] border border-[#2A2A2A] rounded-xl p-4">
+          <div key={p.key} className="bg-[#1C1915] border border-[#2C2922] rounded-xl p-4">
             <div className="flex items-center justify-between mb-1.5">
               <span className="text-sm text-gray-300 font-medium">{t(`scorecard.pillar.${p.key}`)}</span>
               <span className="text-sm tabular-nums">
@@ -294,7 +294,7 @@ function Pillars({ pillars, t }: { pillars: ScorecardPillar[]; t: (k: string) =>
                 {mark.icon && <span className={`ml-1.5 ${mark.cls}`}>{mark.icon}</span>}
               </span>
             </div>
-            <div className="h-1.5 rounded-full bg-[#0F0F0F] overflow-hidden mb-2">
+            <div className="h-1.5 rounded-full bg-[#11100E] overflow-hidden mb-2">
               <div
                 className={`h-full rounded-full ${pct >= 80 ? "bg-emerald-500" : pct >= 50 ? "bg-sky-500" : pct >= 30 ? "bg-amber-500" : "bg-red-500"}`}
                 style={{ width: `${pct}%` }}
@@ -325,7 +325,7 @@ function Trajectory({
   const hasChart = chartData.length >= 2;
 
   return (
-    <div className="bg-[#1A1A1A] border border-[#2A2A2A] rounded-xl p-5">
+    <div className="bg-[#1C1915] border border-[#2C2922] rounded-xl p-5">
       <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
         <div className="flex items-center gap-2">
           <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">{t("scorecard.trajectory.title")}</p>
@@ -335,7 +335,7 @@ function Trajectory({
             </span>
           )}
         </div>
-        <div className="flex items-center gap-1 bg-[#0F0F0F] border border-[#2A2A2A] rounded-full p-0.5">
+        <div className="flex items-center gap-1 bg-[#11100E] border border-[#2C2922] rounded-full p-0.5">
           {ranges.map((r) => (
             <button
               key={r}
@@ -364,14 +364,14 @@ function Trajectory({
                   <stop offset="100%" stopColor="#6366f1" stopOpacity={0} />
                 </linearGradient>
               </defs>
-              <CartesianGrid strokeDasharray="3 3" stroke="#2A2A2A" vertical={false} />
+              <CartesianGrid strokeDasharray="3 3" stroke="#2C2922" vertical={false} />
               <XAxis dataKey="label" tick={{ fill: "#6b7280", fontSize: 10 }} axisLine={false} tickLine={false} minTickGap={28} />
               <YAxis
                 tick={{ fill: "#4b5563", fontSize: 10 }} axisLine={false} tickLine={false} width={44}
                 tickFormatter={(v: number) => Math.abs(v) >= 1000 ? `${(v / 1000).toFixed(0)}k` : String(v)}
               />
               <Tooltip
-                contentStyle={{ backgroundColor: "#1A1A1A", border: "1px solid #2A2A2A", borderRadius: 8 }}
+                contentStyle={{ backgroundColor: "#1C1915", border: "1px solid #2C2922", borderRadius: 8 }}
                 labelStyle={{ color: "#e5e7eb", fontSize: 12 }}
                 itemStyle={{ fontSize: 12, color: "#a5b4fc" }}
                 formatter={(v: number) => [fmt(v, ccy), undefined]}
@@ -419,13 +419,13 @@ function Drivers({
     <div>
       <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">{t("scorecard.drivers.title")}</p>
       {!best && !worst ? (
-        <div className="bg-[#1A1A1A] border border-[#2A2A2A] rounded-xl p-5 text-center text-gray-600 text-sm">
+        <div className="bg-[#1C1915] border border-[#2C2922] rounded-xl p-5 text-center text-gray-600 text-sm">
           {t("scorecard.drivers.none")}
         </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           {best && (
-            <div className="bg-[#1A1A1A] border border-emerald-900/30 rounded-xl p-4">
+            <div className="bg-[#1C1915] border border-emerald-900/30 rounded-xl p-4">
               <div className="flex items-center gap-2 text-emerald-400 text-xs font-semibold mb-2">
                 <TrendingUp size={14} /> {t("scorecard.drivers.best")}
               </div>
@@ -436,7 +436,7 @@ function Drivers({
             </div>
           )}
           {worst && (
-            <div className="bg-[#1A1A1A] border border-red-900/30 rounded-xl p-4">
+            <div className="bg-[#1C1915] border border-red-900/30 rounded-xl p-4">
               <div className="flex items-center gap-2 text-red-400 text-xs font-semibold mb-2">
                 <TrendingDown size={14} /> {t("scorecard.drivers.worst")}
               </div>
@@ -460,7 +460,7 @@ function Milestones({
     return (
       <div>
         <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">{t("scorecard.milestones.title")}</p>
-        <div className="bg-[#1A1A1A] border border-[#2A2A2A] rounded-xl p-5 text-center text-gray-600 text-sm">
+        <div className="bg-[#1C1915] border border-[#2C2922] rounded-xl p-5 text-center text-gray-600 text-sm">
           {t("scorecard.milestones.empty")}
         </div>
       </div>
@@ -489,7 +489,7 @@ function Milestones({
         {milestones.map((m) => {
           const d = detail(m);
           return (
-            <div key={m.key} className="bg-[#1A1A1A] border border-[#2A2A2A] rounded-xl p-4">
+            <div key={m.key} className="bg-[#1C1915] border border-[#2C2922] rounded-xl p-4">
               <p className="text-xs text-gray-500 mb-1">{headline(m)}</p>
               <p className={`text-lg font-semibold tabular-nums ${d.cls}`}>{d.text}</p>
             </div>
@@ -524,7 +524,7 @@ function Streaks({
       </div>
 
       {streaks.length === 0 ? (
-        <div className="bg-[#1A1A1A] border border-[#2A2A2A] rounded-xl p-5 text-center text-gray-600 text-sm">
+        <div className="bg-[#1C1915] border border-[#2C2922] rounded-xl p-5 text-center text-gray-600 text-sm">
           {t("scorecard.streaks.empty")}
         </div>
       ) : (
@@ -533,7 +533,7 @@ function Streaks({
             const over = s.current_pct > 100;
             const pct = Math.min(100, s.current_pct);
             return (
-              <div key={s.category} className="bg-[#1A1A1A] border border-[#2A2A2A] rounded-xl p-4">
+              <div key={s.category} className="bg-[#1C1915] border border-[#2C2922] rounded-xl p-4">
                 <div className="flex items-center justify-between mb-2 gap-2">
                   <span className="text-sm text-gray-200 font-medium truncate">{catLabel(s.category)}</span>
                   {s.months > 0 ? (
@@ -544,7 +544,7 @@ function Streaks({
                     <span className="text-xs text-gray-600 shrink-0">{t("scorecard.streaks.newGoal")}</span>
                   )}
                 </div>
-                <div className="h-1.5 rounded-full bg-[#0F0F0F] overflow-hidden mb-1.5">
+                <div className="h-1.5 rounded-full bg-[#11100E] overflow-hidden mb-1.5">
                   <div className={`h-full rounded-full ${over ? "bg-red-500" : pct > 85 ? "bg-amber-500" : "bg-emerald-500"}`} style={{ width: `${pct}%` }} />
                 </div>
                 <div className="flex items-center justify-between text-[11px]">

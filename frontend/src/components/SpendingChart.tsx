@@ -67,7 +67,7 @@ export default function SpendingChart({ transactions, periodLabel }: Props) {
   const max = rows[0].amount;
 
   return (
-    <div className="mb-8 p-5 rounded-xl bg-[#1A1A1A] border border-[#2A2A2A]">
+    <div className="mb-8 p-5 rounded-xl bg-[#1C1915] border border-[#2C2922]">
       <div className="flex items-baseline justify-between mb-4">
         <div className="min-w-0">
           <p className="text-xs text-gray-500 uppercase tracking-wide font-semibold">{t("tx.spending")}</p>
@@ -88,7 +88,7 @@ export default function SpendingChart({ transactions, periodLabel }: Props) {
                 <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: r.color }} />
                 <span className="text-xs text-gray-300 truncate">{r.label}</span>
               </div>
-              <div className="flex-1 h-2 rounded-full bg-[#0F0F0F] overflow-hidden">
+              <div className="flex-1 h-2 rounded-full bg-[#11100E] overflow-hidden">
                 <div
                   className="h-full rounded-full transition-all"
                   style={{ width: `${Math.max(3, (r.amount / max) * 100)}%`, backgroundColor: r.color }}

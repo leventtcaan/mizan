@@ -57,7 +57,7 @@ export default function AllocationChart({
   const ccyTotal = currencyBars.reduce((s, x) => s + x.value, 0);
 
   return (
-    <div className="mb-6 bg-[#1A1A1A] border border-[#2A2A2A] rounded-2xl p-5">
+    <div className="mb-6 bg-[#1C1915] border border-[#2C2922] rounded-2xl p-5">
       <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-4">{t("nw.allocation.title")}</h3>
 
       <div className="flex flex-col sm:flex-row items-center gap-6">
@@ -114,7 +114,7 @@ export default function AllocationChart({
                 onMouseEnter={() => setActive(i)}
                 onMouseLeave={() => setActive(null)}
                 className={`w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg transition-colors text-left ${
-                  isActive ? "bg-[#222]" : "hover:bg-[#1E1E1E]"
+                  isActive ? "bg-[#242019]" : "hover:bg-[#201D17]"
                 }`}
               >
                 <span className="w-2.5 h-2.5 rounded-sm shrink-0" style={{ backgroundColor: PALETTE[i % PALETTE.length] }} />
@@ -129,7 +129,7 @@ export default function AllocationChart({
 
       {/* Per-currency exposure bars */}
       {currencyBars.length > 1 && ccyTotal > 0 && (
-        <div className="mt-5 pt-4 border-t border-[#2A2A2A]">
+        <div className="mt-5 pt-4 border-t border-[#2C2922]">
           <p className="text-[11px] text-gray-500 uppercase tracking-wide mb-3">{t("nw.allocation.currencyExposure")}</p>
           {/* Stacked bar */}
           <div className="flex h-2.5 rounded-full overflow-hidden mb-3">

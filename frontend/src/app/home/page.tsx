@@ -164,7 +164,7 @@ export default function HomePage() {
   const reveal = (d: number) => `transition-all duration-700 ease-out ${mounted ? "opacity-100 translate-y-0" : "opacity-0 translate-y-2"}`;
 
   if (loading) {
-    return <PageLayout maxWidth="md"><div className="h-[40vh] flex items-center justify-center"><span className="w-6 h-6 border-2 border-[#2A2A2A] border-t-indigo-400 rounded-full animate-spin" /></div></PageLayout>;
+    return <PageLayout maxWidth="md"><div className="h-[40vh] flex items-center justify-center"><span className="w-6 h-6 border-2 border-[#2C2922] border-t-indigo-400 rounded-full animate-spin" /></div></PageLayout>;
   }
 
   // ── cold start — one warm prompt, nothing else ──
@@ -179,7 +179,7 @@ export default function HomePage() {
             <Link href="/upload" className="inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 font-semibold transition-colors">
               <Upload size={18} /> {t("home.daily.coldUpload")}
             </Link>
-            <button onClick={() => setTxModalOpen(true)} className="inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-xl bg-[#1A1A1A] border border-[#2A2A2A] hover:bg-[#2A2A2A] font-semibold text-gray-300 transition-colors">
+            <button onClick={() => setTxModalOpen(true)} className="inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-xl bg-[#1C1915] border border-[#2C2922] hover:bg-[#2C2922] font-semibold text-gray-300 transition-colors">
               <Plus size={18} /> {t("home.daily.add")}
             </button>
           </div>
@@ -214,7 +214,7 @@ export default function HomePage() {
         <div className={`${reveal(100)}`} style={{ transitionDelay: "100ms" }}>
           <p className="text-[11px] font-bold tracking-widest text-gray-600 uppercase mb-3">{t("home.daily.needsYou")}</p>
           {needs.length === 0 ? (
-            <div className="flex items-center gap-3 px-4 py-4 rounded-2xl bg-[#1A1A1A] border border-[#2A2A2A]">
+            <div className="flex items-center gap-3 px-4 py-4 rounded-2xl bg-[#1C1915] border border-[#2C2922]">
               <CheckCircle size={20} className="text-emerald-400 shrink-0" />
               <p className="text-gray-300 text-sm">{t("home.daily.allClear")}</p>
             </div>
@@ -222,7 +222,7 @@ export default function HomePage() {
             <div className="space-y-2.5">
               {needs.map((n) => (
                 <Link key={n.key} href={n.href}
-                  className="flex items-center gap-3 px-4 py-4 rounded-2xl bg-[#1A1A1A] border border-[#2A2A2A] hover:border-indigo-700/60 transition-colors group">
+                  className="flex items-center gap-3 px-4 py-4 rounded-2xl bg-[#1C1915] border border-[#2C2922] hover:border-indigo-700/60 transition-colors group">
                   <span className={`w-1.5 h-10 rounded-full shrink-0 ${n.severity >= 4 ? "bg-red-500" : n.severity >= 3 ? "bg-amber-500" : "bg-gray-600"}`} />
                   <div className="flex-1 min-w-0">
                     <p className="text-white text-sm font-medium truncate group-hover:text-indigo-200 transition-colors">{n.title}</p>
@@ -237,19 +237,19 @@ export default function HomePage() {
 
         {/* Three quiet taps to the soul — one number each */}
         <div className={`grid grid-cols-3 gap-3 ${reveal(200)}`} style={{ transitionDelay: "200ms" }}>
-          <Link href="/transactions" className="rounded-2xl bg-[#1A1A1A] border border-[#2A2A2A] hover:border-indigo-700/60 p-4 transition-colors group">
+          <Link href="/transactions" className="rounded-2xl bg-[#1C1915] border border-[#2C2922] hover:border-indigo-700/60 p-4 transition-colors group">
             <Wallet size={17} className="text-emerald-400 mb-3" />
             <p className="text-gray-500 text-[11px] truncate">{monthLabel}</p>
             <p className={`font-bold tabular-nums text-sm sm:text-base mt-0.5 ${net >= 0 ? "text-white" : "text-orange-400"}`}>{net >= 0 ? "+" : "−"}{fmt(Math.abs(net))}</p>
             <p className="text-[10px] text-gray-600 mt-1 truncate">{t("home.daily.fromTransactions")}</p>
           </Link>
-          <Link href="/networth" className="rounded-2xl bg-[#1A1A1A] border border-[#2A2A2A] hover:border-indigo-700/60 p-4 transition-colors">
+          <Link href="/networth" className="rounded-2xl bg-[#1C1915] border border-[#2C2922] hover:border-indigo-700/60 p-4 transition-colors">
             <Scale size={17} className="text-indigo-400 mb-3" />
             <p className="text-gray-500 text-[11px]">{t("home.daily.netWorth")}</p>
             <p className={`font-bold tabular-nums text-sm sm:text-base mt-0.5 ${netWorth >= 0 ? "text-white" : "text-red-400"}`}>{fmt(netWorth)}</p>
             <p className="text-[10px] text-gray-600 mt-1 truncate">{t("home.daily.fromAssets")} · {t("home.daily.asOfToday")}</p>
           </Link>
-          <Link href="/simulator" className="rounded-2xl bg-[#1A1A1A] border border-[#2A2A2A] hover:border-indigo-700/60 p-4 transition-colors">
+          <Link href="/simulator" className="rounded-2xl bg-[#1C1915] border border-[#2C2922] hover:border-indigo-700/60 p-4 transition-colors">
             <Sparkles size={17} className="text-violet-400 mb-3" />
             <p className="text-gray-500 text-[11px]">{t("home.daily.simulate")}</p>
             <p className="text-gray-300 text-sm mt-0.5">{t("home.daily.simulateHint")}</p>

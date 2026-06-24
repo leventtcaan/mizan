@@ -548,7 +548,7 @@ export default function ManualAssetForm({ assetType, onDraftChange, displayCurre
             {RE_TYPES.map((rt) => (
               <button key={rt.value} type="button" onClick={() => setReType(rt.value)}
                 className={`px-3 py-2 rounded-lg text-sm border transition-colors text-left ${
-                  reType === rt.value ? "bg-indigo-600/20 border-indigo-600/50 text-indigo-200" : "bg-[#0F0F0F] border-[#2A2A2A] text-gray-300 hover:border-indigo-700"
+                  reType === rt.value ? "bg-indigo-600/20 border-indigo-600/50 text-indigo-200" : "bg-[#11100E] border-[#2C2922] text-gray-300 hover:border-indigo-700"
                 }`}>
                 {rt.emoji} {t(rt.labelKey)}
               </button>
@@ -613,7 +613,7 @@ export default function ManualAssetForm({ assetType, onDraftChange, displayCurre
                 return (
                   <button key={bt.value} type="button" onClick={() => setBankAccountType(bt.value)}
                     className={`flex-1 px-2 py-1.5 rounded-lg text-xs border transition-colors ${
-                      bankAccountType === bt.value ? "bg-indigo-600/20 border-indigo-600/50 text-indigo-300" : "bg-[#0F0F0F] border-[#2A2A2A] text-gray-400 hover:border-indigo-700"
+                      bankAccountType === bt.value ? "bg-indigo-600/20 border-indigo-600/50 text-indigo-300" : "bg-[#11100E] border-[#2C2922] text-gray-400 hover:border-indigo-700"
                     }`}>{label}</button>
                 );
               })}

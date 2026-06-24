@@ -41,13 +41,13 @@ export default function LandingPage() {
   const simQuestions = [t("landing.simQ1"), t("landing.simQ2"), t("landing.simQ3")];
 
   return (
-    <main className="min-h-screen bg-[#0F0F0F] text-white overflow-x-hidden">
+    <main className="min-h-screen bg-[#11100E] text-white overflow-x-hidden">
       {/* Nav */}
       <nav className="flex items-center justify-between px-6 py-5 max-w-6xl mx-auto">
         <span className="text-lg font-bold tracking-tight">Mizan</span>
         <Link
           href={primaryHref}
-          className="px-4 py-2 rounded-lg bg-[#1A1A1A] hover:bg-[#2A2A2A] border border-[#2A2A2A] text-sm text-gray-200 transition-colors"
+          className="px-4 py-2 rounded-lg bg-[#1C1915] hover:bg-[#2C2922] border border-[#2C2922] text-sm text-gray-200 transition-colors"
         >
           {isLoggedIn ? t("landing.continue") : t("landing.signIn")}
         </Link>
@@ -55,20 +55,19 @@ export default function LandingPage() {
 
       {/* Hero */}
       <section className="relative px-6 pt-10 pb-20 max-w-6xl mx-auto">
-        <div className="absolute top-0 left-1/4 w-[28rem] h-[28rem] bg-indigo-600/10 rounded-full blur-3xl pointer-events-none" />
         <div className="relative grid lg:grid-cols-2 gap-12 items-center">
           {/* Copy */}
           <div>
-            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-indigo-950 border border-indigo-800 text-indigo-300 text-xs font-medium mb-7">
-              <span className="w-1.5 h-1.5 rounded-full bg-indigo-400 animate-pulse" />
+            {/* Calm trust badge — a steady shield, not a pulsing "new AI feature" pill. */}
+            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-[#1C1915] border border-[#2C2922] text-gray-300 text-xs font-medium mb-7">
+              <ShieldCheck size={13} className="text-indigo-400" />
               {t("landing.badge")}
             </div>
+            {/* Solid, authoritative type — one restrained accent line, no rainbow gradient. */}
             <h1 className="text-5xl sm:text-6xl font-bold tracking-tight leading-[1.04] mb-6">
               {t("landing.heroTitleA")}
               <br />
-              <span className="bg-gradient-to-r from-indigo-400 via-purple-400 to-indigo-400 bg-clip-text text-transparent">
-                {t("landing.heroTitleB")}
-              </span>
+              <span className="text-indigo-300">{t("landing.heroTitleB")}</span>
             </h1>
             <p className="text-gray-400 text-lg leading-relaxed mb-8 max-w-lg">
               {t("landing.heroDesc")}
@@ -82,7 +81,7 @@ export default function LandingPage() {
               </Link>
               <button
                 onClick={() => howRef.current?.scrollIntoView({ behavior: "smooth" })}
-                className="inline-flex items-center justify-center px-7 py-3.5 rounded-xl bg-[#1A1A1A] hover:bg-[#2A2A2A] border border-[#2A2A2A] font-semibold text-gray-300 transition-colors"
+                className="inline-flex items-center justify-center px-7 py-3.5 rounded-xl bg-[#1C1915] hover:bg-[#2C2922] border border-[#2C2922] font-semibold text-gray-300 transition-colors"
               >
                 {t("landing.ctaSecondary")}
               </button>
@@ -90,10 +89,9 @@ export default function LandingPage() {
             <p className="text-gray-600 text-xs mt-4">{t("landing.ctaNote")}</p>
           </div>
 
-          {/* Product preview mock */}
+          {/* Product preview mock — depth from a soft shadow, not a glowing orb. */}
           <div className="relative">
-            <div className="absolute -inset-4 bg-gradient-to-tr from-indigo-600/10 to-transparent rounded-3xl blur-2xl pointer-events-none" />
-            <div className="relative bg-[#161616] border border-[#2A2A2A] rounded-2xl p-5 shadow-2xl shadow-black/40">
+            <div className="relative bg-[#181510] border border-[#2C2922] rounded-2xl p-5 shadow-2xl shadow-black/50">
               {/* net worth */}
               <div className="flex items-start justify-between">
                 <div>
@@ -131,7 +129,7 @@ export default function LandingPage() {
                 ))}
               </div>
               {/* brief snippet */}
-              <div className="mt-4 pt-4 border-t border-[#2A2A2A]">
+              <div className="mt-4 pt-4 border-t border-[#2C2922]">
                 <p className="text-[10px] uppercase tracking-wider text-indigo-400/80 mb-1 flex items-center gap-1">
                   <Sparkles size={11} /> {t("landing.mockBriefLabel")}
                 </p>
@@ -143,18 +141,18 @@ export default function LandingPage() {
       </section>
 
       {/* Loop */}
-      <section ref={howRef} className="border-t border-[#1A1A1A] py-24 px-6">
+      <section ref={howRef} className="border-t border-[#1C1915] py-24 px-6">
         <div className="max-w-5xl mx-auto">
           <p className="text-center text-gray-500 text-xs uppercase tracking-widest mb-3">{t("landing.loopEyebrow")}</p>
           <h2 className="text-3xl font-bold text-center mb-16">{t("landing.loopTitle")}</h2>
           <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-5">
             {STEPS.map((s, i) => (
-              <div key={s.title} className="relative bg-[#1A1A1A] border border-[#2A2A2A] rounded-xl p-5">
+              <div key={s.title} className="relative bg-[#1C1915] border border-[#2C2922] rounded-xl p-5">
                 <div className="flex items-center justify-between mb-4">
                   <div className="w-11 h-11 rounded-xl bg-indigo-950 border border-indigo-900/50 flex items-center justify-center">
                     <s.icon size={20} className="text-indigo-400" />
                   </div>
-                  <span className="text-[#2A2A2A] font-bold text-3xl leading-none">{i + 1}</span>
+                  <span className="text-[#2C2922] font-bold text-3xl leading-none">{i + 1}</span>
                 </div>
                 <h3 className="font-semibold text-white mb-1.5">{s.title}</h3>
                 <p className="text-gray-400 text-sm leading-relaxed">{s.desc}</p>
@@ -165,13 +163,13 @@ export default function LandingPage() {
       </section>
 
       {/* Features */}
-      <section className="py-24 px-6 bg-[#0A0A0A]">
+      <section className="py-24 px-6 bg-[#0C0B09]">
         <div className="max-w-5xl mx-auto">
           <p className="text-center text-gray-500 text-xs uppercase tracking-widest mb-3">{t("landing.featEyebrow")}</p>
           <h2 className="text-3xl font-bold text-center mb-16">{t("landing.featTitle")}</h2>
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {FEATURES.map((f) => (
-              <div key={f.title} className="group bg-[#1A1A1A] border border-[#2A2A2A] hover:border-indigo-800/60 rounded-xl p-5 transition-colors">
+              <div key={f.title} className="group bg-[#1C1915] border border-[#2C2922] hover:border-indigo-800/60 rounded-xl p-5 transition-colors">
                 <div className="w-10 h-10 rounded-lg bg-indigo-950 border border-indigo-900/50 flex items-center justify-center mb-4 group-hover:bg-indigo-900/50 transition-colors">
                   <f.icon size={20} className="text-indigo-400" />
                 </div>
@@ -184,7 +182,7 @@ export default function LandingPage() {
       </section>
 
       {/* Simulator spotlight */}
-      <section className="py-24 px-6 border-t border-[#1A1A1A]">
+      <section className="py-24 px-6 border-t border-[#1C1915]">
         <div className="max-w-5xl mx-auto grid lg:grid-cols-2 gap-12 items-center">
           <div>
             <p className="text-indigo-400 text-xs uppercase tracking-widest mb-3 flex items-center gap-2">
@@ -194,14 +192,14 @@ export default function LandingPage() {
             <p className="text-gray-400 text-lg leading-relaxed mb-6">{t("landing.simDesc")}</p>
             <div className="space-y-2">
               {simQuestions.map((q) => (
-                <div key={q} className="flex items-start gap-2 px-3 py-2 rounded-lg bg-[#1A1A1A] border border-[#2A2A2A] text-gray-300 text-sm">
+                <div key={q} className="flex items-start gap-2 px-3 py-2 rounded-lg bg-[#1C1915] border border-[#2C2922] text-gray-300 text-sm">
                   <MessageCircle size={14} className="text-indigo-400 shrink-0 mt-0.5" /> {q}
                 </div>
               ))}
             </div>
           </div>
           {/* simulator chart mock — baseline (dashed) vs scenario (solid) + uncertainty cone */}
-          <div className="bg-[#161616] border border-[#2A2A2A] rounded-2xl p-5">
+          <div className="bg-[#181510] border border-[#2C2922] rounded-2xl p-5">
             <svg viewBox="0 0 320 160" className="w-full">
               <defs>
                 <linearGradient id="cone" x1="0" y1="0" x2="0" y2="1">
@@ -210,7 +208,7 @@ export default function LandingPage() {
                 </linearGradient>
               </defs>
               {/* grid lines */}
-              {[40, 80, 120].map((y) => <line key={y} x1="0" y1={y} x2="320" y2={y} stroke="#2A2A2A" strokeWidth="1" />)}
+              {[40, 80, 120].map((y) => <line key={y} x1="0" y1={y} x2="320" y2={y} stroke="#2C2922" strokeWidth="1" />)}
               {/* uncertainty cone around scenario */}
               <path d="M0 120 L80 96 L160 70 L240 44 L320 20 L320 56 L240 78 L160 100 L80 116 L0 124 Z" fill="url(#cone)" />
               {/* baseline (dashed) */}
@@ -227,19 +225,19 @@ export default function LandingPage() {
       </section>
 
       {/* Global / sources */}
-      <section className="py-20 px-6 bg-[#0A0A0A] border-t border-[#1A1A1A]">
+      <section className="py-20 px-6 bg-[#0C0B09] border-t border-[#1C1915]">
         <div className="max-w-4xl mx-auto text-center">
           <p className="text-gray-500 text-xs uppercase tracking-widest mb-3">{t("landing.globalEyebrow")}</p>
           <h2 className="text-3xl font-bold mb-3">{t("landing.globalTitle")}</h2>
           <p className="text-gray-400 mb-8">{t("landing.globalDesc")}</p>
           <div className="flex flex-wrap justify-center gap-2.5 mb-10">
             {Array.isArray(sourceTypes) && sourceTypes.map((s) => (
-              <span key={s} className="px-4 py-2 rounded-lg bg-[#1A1A1A] border border-[#2A2A2A] text-gray-300 text-sm font-medium">{s}</span>
+              <span key={s} className="px-4 py-2 rounded-lg bg-[#1C1915] border border-[#2C2922] text-gray-300 text-sm font-medium">{s}</span>
             ))}
           </div>
           <div className="grid grid-cols-3 gap-4 max-w-lg mx-auto">
             {[t("landing.stat1"), t("landing.stat2"), t("landing.stat3")].map((s) => (
-              <div key={s} className="bg-[#1A1A1A] border border-[#2A2A2A] rounded-xl py-4">
+              <div key={s} className="bg-[#1C1915] border border-[#2C2922] rounded-xl py-4">
                 <p className="text-indigo-400 font-semibold text-sm">{s}</p>
               </div>
             ))}
@@ -247,11 +245,10 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* CTA */}
+      {/* CTA — a calm, contained panel instead of a glowing gradient band. */}
       {!isLoggedIn && (
-        <section className="py-28 px-6 text-center relative">
-          <div className="absolute inset-0 bg-gradient-to-b from-transparent via-indigo-950/20 to-transparent pointer-events-none" />
-          <div className="relative">
+        <section className="py-24 px-6 border-t border-[#1C1915]">
+          <div className="max-w-3xl mx-auto text-center bg-[#181510] border border-[#2C2922] rounded-2xl px-6 py-14">
             <h2 className="text-4xl font-bold mb-4">{t("landing.ctaTitle")}</h2>
             <p className="text-gray-400 mb-8 text-lg">{t("landing.ctaSubtitle")}</p>
             <Link href="/login" className="inline-flex items-center gap-2 px-10 py-4 rounded-xl bg-indigo-600 hover:bg-indigo-500 font-semibold text-base transition-colors">
@@ -262,7 +259,7 @@ export default function LandingPage() {
       )}
 
       {/* Footer */}
-      <footer className="border-t border-[#1A1A1A] py-8 px-6 text-center text-gray-600 text-sm">
+      <footer className="border-t border-[#1C1915] py-8 px-6 text-center text-gray-600 text-sm">
         {t("landing.footer")}
       </footer>
     </main>

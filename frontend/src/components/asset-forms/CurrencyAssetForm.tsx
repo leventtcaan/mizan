@@ -73,7 +73,7 @@ export default function CurrencyAssetForm({ assetType, onDraftChange, displayCur
                   className={`flex flex-col items-center gap-0.5 px-2 py-3 rounded-lg text-xs border transition-colors ${
                     selected?.code === e.code
                       ? "bg-indigo-600/20 border-indigo-600/50 text-indigo-200"
-                      : "bg-[#0F0F0F] border-[#2A2A2A] text-gray-300 hover:border-indigo-700"
+                      : "bg-[#11100E] border-[#2C2922] text-gray-300 hover:border-indigo-700"
                   }`}>
                   <span className="font-bold text-sm">{e.code}</span>
                   <span className="text-gray-500 text-[10px] truncate w-full text-center">{e.name}</span>
@@ -127,10 +127,10 @@ export default function CurrencyAssetForm({ assetType, onDraftChange, displayCur
           <>
             <input value={query} onChange={(e) => setQuery(e.target.value)}
               placeholder={t("assetForm.currencySearchHint")} className={sharedInputClass} />
-            <div className="mt-2 max-h-40 overflow-y-auto rounded-lg border border-[#2A2A2A]">
+            <div className="mt-2 max-h-40 overflow-y-auto rounded-lg border border-[#2C2922]">
               {matches.map((e) => (
                 <button key={e.code} type="button" onClick={() => { setSelected(e); setQuery(""); }}
-                  className="w-full flex items-center justify-between px-3 py-2 text-left text-xs hover:bg-[#111] text-gray-300">
+                  className="w-full flex items-center justify-between px-3 py-2 text-left text-xs hover:bg-[#13110D] text-gray-300">
                   <span className="font-semibold">{e.code}</span>
                   <span className="text-gray-500 truncate ml-3">{e.name}</span>
                 </button>

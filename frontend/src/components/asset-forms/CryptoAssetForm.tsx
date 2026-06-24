@@ -75,7 +75,7 @@ export default function CryptoAssetForm({ onDraftChange, displayCurrency }: Asse
                   className={`flex flex-col items-center gap-0.5 px-1.5 py-2 rounded-lg text-xs border transition-colors ${
                     selected?.code === e.code
                       ? "bg-indigo-600/20 border-indigo-600/50 text-indigo-200"
-                      : "bg-[#0F0F0F] border-[#2A2A2A] text-gray-300 hover:border-indigo-700"
+                      : "bg-[#11100E] border-[#2C2922] text-gray-300 hover:border-indigo-700"
                   }`}>
                   <span className="font-bold">{e.code}</span>
                   {price !== null && (
@@ -100,10 +100,10 @@ export default function CryptoAssetForm({ onDraftChange, displayCurrency }: Asse
           className={sharedInputClass}
         />
         {matches.length > 0 && (
-          <div className="mt-2 max-h-40 overflow-y-auto rounded-lg border border-[#2A2A2A]">
+          <div className="mt-2 max-h-40 overflow-y-auto rounded-lg border border-[#2C2922]">
             {matches.map((e) => (
               <button key={`${e.code}-${e.name}`} type="button" onClick={() => pick(e)}
-                className="w-full flex items-center justify-between px-3 py-2 text-left text-xs text-gray-300 hover:bg-[#111]">
+                className="w-full flex items-center justify-between px-3 py-2 text-left text-xs text-gray-300 hover:bg-[#13110D]">
                 <span className="font-semibold">{e.code}</span>
                 <span className="text-gray-500 truncate ml-3">{e.name}</span>
               </button>

@@ -111,7 +111,7 @@ function AddPaymentModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm px-4">
-      <div className="bg-[#1A1A1A] border border-[#2A2A2A] rounded-2xl p-6 w-full max-w-sm shadow-xl">
+      <div className="bg-[#1C1915] border border-[#2C2922] rounded-2xl p-6 w-full max-w-sm shadow-xl">
         <div className="flex items-center justify-between mb-5">
           <h3 className="text-white font-semibold">{t("cashflow.addPaymentTitle")}</h3>
           <button onClick={onClose} className="text-gray-500 hover:text-gray-300 transition-colors">
@@ -127,7 +127,7 @@ function AddPaymentModal({
               placeholder={t("cashflow.paymentNamePlaceholder")}
               value={form.name}
               onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))}
-              className="w-full bg-[#0F0F0F] border border-[#2A2A2A] rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-indigo-600"
+              className="w-full bg-[#11100E] border border-[#2C2922] rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-indigo-600"
             />
           </div>
           <div className="flex gap-3">
@@ -140,7 +140,7 @@ function AddPaymentModal({
                 placeholder="0.00"
                 value={form.amount}
                 onChange={(e) => setForm((p) => ({ ...p, amount: e.target.value }))}
-                className="w-full bg-[#0F0F0F] border border-[#2A2A2A] rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-indigo-600"
+                className="w-full bg-[#11100E] border border-[#2C2922] rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-indigo-600"
               />
             </div>
             <div className="w-28">
@@ -154,7 +154,7 @@ function AddPaymentModal({
               type="date"
               value={form.due_date}
               onChange={(e) => setForm((p) => ({ ...p, due_date: e.target.value }))}
-              className="w-full bg-[#0F0F0F] border border-[#2A2A2A] rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-indigo-600"
+              className="w-full bg-[#11100E] border border-[#2C2922] rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-indigo-600"
             />
           </div>
         </div>
@@ -164,7 +164,7 @@ function AddPaymentModal({
         <div className="flex gap-2 mt-5">
           <button
             onClick={onClose}
-            className="flex-1 px-4 py-2 rounded-lg border border-[#2A2A2A] text-gray-400 hover:text-gray-200 text-sm transition-colors"
+            className="flex-1 px-4 py-2 rounded-lg border border-[#2C2922] text-gray-400 hover:text-gray-200 text-sm transition-colors"
           >
             {t("common.cancel")}
           </button>
@@ -287,7 +287,7 @@ export default function CashFlowPage() {
       action={
         <button
           onClick={() => setShowAddPayment(true)}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[#2A2A2A] text-indigo-400 hover:text-indigo-300 text-sm transition-colors"
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[#2C2922] text-indigo-400 hover:text-indigo-300 text-sm transition-colors"
         >
           <Plus size={14} />
           {t("cashflow.addPayment")}
@@ -305,7 +305,7 @@ export default function CashFlowPage() {
 
       {/* Controls */}
       <div className="flex items-center gap-3 mb-6 flex-wrap">
-        <div className="flex items-center gap-1 bg-[#1A1A1A] border border-[#2A2A2A] rounded-full p-1">
+        <div className="flex items-center gap-1 bg-[#1C1915] border border-[#2C2922] rounded-full p-1">
           {DAYS_OPTIONS.map((d) => (
             <button
               key={d}
@@ -331,9 +331,9 @@ export default function CashFlowPage() {
       {/* Summary Card — hidden for a truly-empty user (no upcoming items AND no liquid),
           so the page leads with the empty state instead of a card full of zeros. */}
       {loading ? (
-        <div className="h-32 bg-[#1A1A1A] border border-[#2A2A2A] rounded-2xl animate-pulse mb-6" />
+        <div className="h-32 bg-[#1C1915] border border-[#2C2922] rounded-2xl animate-pulse mb-6" />
       ) : summary && (sortedDates.length > 0 || liquidAssets > 0) && (
-        <div className="bg-[#1A1A1A] border border-[#2A2A2A] rounded-2xl p-6 mb-6">
+        <div className="bg-[#1C1915] border border-[#2C2922] rounded-2xl p-6 mb-6">
           <p className="text-gray-500 text-xs mb-4">{t("cashflow.upcomingPrefix")} {days} {t("cashflow.days")}</p>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <div>
@@ -378,14 +378,14 @@ export default function CashFlowPage() {
         <div className="space-y-4">
           {[1, 2, 3].map((i) => (
             <div key={i} className="space-y-2">
-              <div className="h-4 w-32 bg-[#1A1A1A] rounded animate-pulse" />
-              <div className="h-14 bg-[#1A1A1A] border border-[#2A2A2A] rounded-xl animate-pulse" />
+              <div className="h-4 w-32 bg-[#1C1915] rounded animate-pulse" />
+              <div className="h-14 bg-[#1C1915] border border-[#2C2922] rounded-xl animate-pulse" />
             </div>
           ))}
         </div>
       ) : sortedDates.length === 0 ? (
-        <div className="bg-[#1A1A1A] border border-[#2A2A2A] border-dashed rounded-2xl p-12 text-center">
-          <div className="w-12 h-12 rounded-2xl bg-[#0F0F0F] border border-[#2A2A2A] flex items-center justify-center mx-auto mb-4">
+        <div className="bg-[#1C1915] border border-[#2C2922] border-dashed rounded-2xl p-12 text-center">
+          <div className="w-12 h-12 rounded-2xl bg-[#11100E] border border-[#2C2922] flex items-center justify-center mx-auto mb-4">
             <Calendar size={22} className="text-indigo-400" />
           </div>
           <p className="text-gray-200 text-sm font-medium">{t("cashflow.noItems")}</p>
@@ -394,7 +394,7 @@ export default function CashFlowPage() {
             <button onClick={() => setShowAddPayment(true)} className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-medium transition-colors">
               <Plus size={15} /> {t("cashflow.addPayment")}
             </button>
-            <Link href="/upload" className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg border border-[#2A2A2A] text-gray-300 hover:border-indigo-700 text-sm transition-colors">
+            <Link href="/upload" className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg border border-[#2C2922] text-gray-300 hover:border-indigo-700 text-sm transition-colors">
               <Upload size={15} /> {t("nav.upload")}
             </Link>
           </div>
@@ -414,7 +414,7 @@ export default function CashFlowPage() {
                     <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
                       badge === t("cashflow.today")
                         ? "bg-indigo-900/50 text-indigo-300 border border-indigo-700/40"
-                        : "bg-[#2A2A2A] text-gray-400"
+                        : "bg-[#2C2922] text-gray-400"
                     }`}>
                       {badge}
                     </span>
@@ -426,8 +426,8 @@ export default function CashFlowPage() {
                   )}
                 </div>
 
-                <div className={`bg-[#1A1A1A] border rounded-xl overflow-hidden ${
-                  hasUrgent ? "border-red-800/30" : "border-[#2A2A2A]"
+                <div className={`bg-[#1C1915] border rounded-xl overflow-hidden ${
+                  hasUrgent ? "border-red-800/30" : "border-[#2C2922]"
                 }`}>
                   {dayItems.map((item, idx) => {
                     const cfg = TYPE_CONFIG[item.type] ?? TYPE_CONFIG.subscription;
@@ -435,7 +435,7 @@ export default function CashFlowPage() {
                       <div
                         key={`${dateStr}-${idx}`}
                         className={`flex items-center gap-3 px-4 py-3 ${
-                          idx < dayItems.length - 1 ? "border-b border-[#2A2A2A]" : ""
+                          idx < dayItems.length - 1 ? "border-b border-[#2C2922]" : ""
                         } ${item.urgent ? "bg-red-950/10" : ""}`}
                       >
                         <ItemIcon type={item.type} urgent={item.urgent} />

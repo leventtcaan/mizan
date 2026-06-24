@@ -9,7 +9,7 @@ import { useLanguage, setLanguage, detectBrowserLang, type Lang } from "@/lib/i1
 type Mode = "login" | "register";
 type FormState = "idle" | "loading" | "error";
 
-const inputClass = "w-full px-4 py-3 rounded-xl bg-[#1A1A1A] border border-[#2A2A2A] text-white placeholder-gray-700 focus:outline-none focus:border-indigo-600 transition-colors text-sm";
+const inputClass = "w-full px-4 py-3 rounded-xl bg-[#1C1915] border border-[#2C2922] text-white placeholder-gray-700 focus:outline-none focus:border-indigo-600 transition-colors text-sm";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -48,11 +48,11 @@ export default function LoginPage() {
   };
 
   return (
-    <main className="min-h-screen bg-[#0F0F0F] text-white flex flex-col items-center justify-center px-4">
+    <main className="min-h-screen bg-[#11100E] text-white flex flex-col items-center justify-center px-4">
       <div className="w-full max-w-sm">
         {/* Language toggle */}
         <div className="flex justify-end mb-4">
-          <div className="flex rounded-lg overflow-hidden border border-[#2A2A2A] text-xs font-medium">
+          <div className="flex rounded-lg overflow-hidden border border-[#2C2922] text-xs font-medium">
             <button onClick={() => setLanguage("tr")} className={`px-2 py-1 transition-colors ${lang === "tr" ? "bg-indigo-600 text-white" : "text-gray-400"}`}>TR</button>
             <button onClick={() => setLanguage("en")} className={`px-2 py-1 transition-colors ${lang === "en" ? "bg-indigo-600 text-white" : "text-gray-400"}`}>EN</button>
           </div>

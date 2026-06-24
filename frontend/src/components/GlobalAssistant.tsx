@@ -174,7 +174,7 @@ export default function GlobalAssistant() {
           {bubble && (
             // Hidden on small screens so the speech bubble never covers financial
             // content; the compact Mim FAB below stays (tap it to open the panel).
-            <div className="mim-bubble hidden sm:flex items-start gap-2 max-w-[270px] rounded-2xl rounded-br-md bg-[#1B1B1B] border border-[#2E2E2E] shadow-xl shadow-black/40 pl-3.5 pr-2 py-2.5">
+            <div className="mim-bubble hidden sm:flex items-start gap-2 max-w-[270px] rounded-2xl rounded-br-md bg-[#1D1A15] border border-[#302C25] shadow-xl shadow-black/40 pl-3.5 pr-2 py-2.5">
               <button
                 onClick={() => { setInput(bubble.prefill); setBubble(null); setOpen(true); }}
                 className="text-left text-[13px] leading-snug text-gray-200 hover:text-white transition-colors"
@@ -205,11 +205,11 @@ export default function GlobalAssistant() {
       {open && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-end sm:justify-end bg-black/40 sm:bg-transparent" onClick={() => setOpen(false)}>
           <div
-            className="w-full sm:w-[400px] sm:m-5 bg-[#161616] border border-[#2A2A2A] rounded-t-2xl sm:rounded-2xl shadow-2xl flex flex-col max-h-[80vh] sm:max-h-[600px]"
+            className="w-full sm:w-[400px] sm:m-5 bg-[#181510] border border-[#2C2922] rounded-t-2xl sm:rounded-2xl shadow-2xl flex flex-col max-h-[80vh] sm:max-h-[600px]"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Header */}
-            <div className="flex items-center justify-between px-4 py-3 border-b border-[#2A2A2A]">
+            <div className="flex items-center justify-between px-4 py-3 border-b border-[#2C2922]">
               <div className="flex items-center gap-2">
                 <Mim mood={pending ? "thinking" : "calm"} size={26} speaking={pending} />
                 <span className="text-white text-sm font-semibold">{t("assistant.title")}</span>
@@ -231,14 +231,14 @@ export default function GlobalAssistant() {
                 <div key={i} className="space-y-2">
                   <div className={`flex items-end gap-2 ${m.role === "user" ? "justify-end" : "justify-start"}`}>
                     {m.role === "assistant" && <Mim mood="calm" size={22} quiet className="shrink-0 mb-0.5" />}
-                    <div className={`max-w-[80%] px-3 py-2 rounded-xl text-sm leading-relaxed ${m.role === "user" ? "bg-indigo-600 text-white" : "bg-[#222] text-gray-200 rounded-bl-sm"}`}>
+                    <div className={`max-w-[80%] px-3 py-2 rounded-xl text-sm leading-relaxed ${m.role === "user" ? "bg-indigo-600 text-white" : "bg-[#242019] text-gray-200 rounded-bl-sm"}`}>
                       {m.text}
                     </div>
                   </div>
 
                   {/* Proposal card */}
                   {m.proposal && m.actionState !== "rejected" && (
-                    <div className="bg-[#0F0F0F] border border-indigo-800/40 rounded-xl p-3">
+                    <div className="bg-[#11100E] border border-indigo-800/40 rounded-xl p-3">
                       <p className="text-gray-400 text-xs mb-1">{t("assistant.proposalIntro")}</p>
                       <p className="text-white text-sm mb-3">{m.proposal.description}</p>
                       {m.actionState === "done" ? (
@@ -259,7 +259,7 @@ export default function GlobalAssistant() {
                           <button
                             onClick={() => reject(i, m.proposal!)}
                             disabled={m.actionState === "working"}
-                            className="flex-1 px-3 py-1.5 rounded-lg border border-[#2A2A2A] text-gray-400 hover:text-gray-200 disabled:opacity-50 text-xs font-medium transition-colors"
+                            className="flex-1 px-3 py-1.5 rounded-lg border border-[#2C2922] text-gray-400 hover:text-gray-200 disabled:opacity-50 text-xs font-medium transition-colors"
                           >
                             {t("assistant.reject")}
                           </button>
@@ -272,7 +272,7 @@ export default function GlobalAssistant() {
               {pending && (
                 <div className="flex items-end gap-2 justify-start">
                   <Mim mood="thinking" size={22} quiet className="shrink-0 mb-0.5" />
-                  <div className="bg-[#222] px-3 py-2 rounded-xl rounded-bl-sm">
+                  <div className="bg-[#242019] px-3 py-2 rounded-xl rounded-bl-sm">
                     <div className="flex gap-1 items-center h-4">
                       {[0, 1, 2].map((i) => (
                         <span key={i} className="w-1.5 h-1.5 rounded-full bg-gray-500 animate-bounce" style={{ animationDelay: `${i * 0.15}s` }} />
@@ -284,7 +284,7 @@ export default function GlobalAssistant() {
             </div>
 
             {/* Input */}
-            <div className="flex gap-2 px-4 py-3 border-t border-[#2A2A2A]">
+            <div className="flex gap-2 px-4 py-3 border-t border-[#2C2922]">
               <input
                 ref={inputRef}
                 value={input}
@@ -292,7 +292,7 @@ export default function GlobalAssistant() {
                 onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); void send(); } }}
                 placeholder={t("assistant.placeholder")}
                 disabled={pending}
-                className="flex-1 bg-[#0F0F0F] border border-[#2A2A2A] rounded-lg px-3 py-2 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-indigo-600"
+                className="flex-1 bg-[#11100E] border border-[#2C2922] rounded-lg px-3 py-2 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-indigo-600"
               />
               <button
                 onClick={() => void send()}

@@ -100,7 +100,7 @@ export default function Navbar() {
 
   return (
     <>
-      <nav className="fixed top-0 left-0 right-0 z-50 bg-[#0A0A0A]/95 backdrop-blur-md border-b border-[#2A2A2A]">
+      <nav className="fixed top-0 left-0 right-0 z-50 bg-[#0C0B09]/95 backdrop-blur-md border-b border-[#2C2922]">
         <div className="max-w-5xl mx-auto px-4 h-14 flex items-center justify-between gap-4">
           {/* Logo */}
           <Link href="/home" className="text-white font-bold text-lg tracking-tight shrink-0">
@@ -117,8 +117,8 @@ export default function Navbar() {
                   href={link.href}
                   className={`relative flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm transition-colors ${
                     isActive
-                      ? "text-white bg-[#2A2A2A]"
-                      : "text-gray-400 hover:text-gray-200 hover:bg-[#1A1A1A]"
+                      ? "text-white bg-[#2C2922]"
+                      : "text-gray-400 hover:text-gray-200 hover:bg-[#1C1915]"
                   }`}
                 >
                   {link.icon}
@@ -150,30 +150,30 @@ export default function Navbar() {
                 {userEmail?.[0]?.toUpperCase() ?? "?"}
               </button>
               {accountOpen && (
-                <div className="absolute right-0 mt-2 w-56 bg-[#161616] border border-[#2A2A2A] rounded-xl shadow-2xl shadow-black/50 py-2 z-50">
-                  <div className="px-3 py-2 border-b border-[#2A2A2A]">
+                <div className="absolute right-0 mt-2 w-56 bg-[#181510] border border-[#2C2922] rounded-xl shadow-2xl shadow-black/50 py-2 z-50">
+                  <div className="px-3 py-2 border-b border-[#2C2922]">
                     <p className="text-gray-500 text-[10px] uppercase tracking-wider">{t("settings.account")}</p>
                     <p className="text-gray-200 text-sm truncate">{userEmail}</p>
                   </div>
                   <div className="px-3 py-2 flex items-center justify-between">
                     <span className="text-gray-400 text-sm">{t("settings.language")}</span>
-                    <div className="flex rounded-lg overflow-hidden border border-[#2A2A2A] text-xs font-medium">
+                    <div className="flex rounded-lg overflow-hidden border border-[#2C2922] text-xs font-medium">
                       <button onClick={() => handleLangSwitch("tr")} className={`px-2 py-1 transition-colors ${lang === "tr" ? "bg-indigo-600 text-white" : "text-gray-400 hover:text-gray-200"}`}>TR</button>
                       <button onClick={() => handleLangSwitch("en")} className={`px-2 py-1 transition-colors ${lang === "en" ? "bg-indigo-600 text-white" : "text-gray-400 hover:text-gray-200"}`}>EN</button>
                     </div>
                   </div>
-                  <Link href="/simulator" className="flex items-center gap-2 px-3 py-2 text-sm text-gray-300 hover:bg-[#1A1A1A] transition-colors">
+                  <Link href="/simulator" className="flex items-center gap-2 px-3 py-2 text-sm text-gray-300 hover:bg-[#1C1915] transition-colors">
                     <Sparkles size={15} /> {t("nav.simulator")}
                   </Link>
-                  <Link href="/settings" className="flex items-center gap-2 px-3 py-2 text-sm text-gray-300 hover:bg-[#1A1A1A] transition-colors">
+                  <Link href="/settings" className="flex items-center gap-2 px-3 py-2 text-sm text-gray-300 hover:bg-[#1C1915] transition-colors">
                     <Settings size={15} /> {t("settings.title")}
                   </Link>
                   {isAdmin && (
-                    <Link href="/admin" className="flex items-center gap-2 px-3 py-2 text-sm text-amber-300 hover:bg-[#1A1A1A] transition-colors">
+                    <Link href="/admin" className="flex items-center gap-2 px-3 py-2 text-sm text-amber-300 hover:bg-[#1C1915] transition-colors">
                       <ShieldCheck size={15} /> Admin
                     </Link>
                   )}
-                  <button onClick={handleLogout} className="w-full flex items-center gap-2 px-3 py-2 text-sm text-red-400 hover:bg-[#1A1A1A] transition-colors">
+                  <button onClick={handleLogout} className="w-full flex items-center gap-2 px-3 py-2 text-sm text-red-400 hover:bg-[#1C1915] transition-colors">
                     <LogOut size={15} /> {t("nav.logout")}
                   </button>
                 </div>
@@ -184,7 +184,7 @@ export default function Navbar() {
           {/* Mobile hamburger */}
           <button
             onClick={() => setMobileOpen((v) => !v)}
-            className="md:hidden p-1.5 rounded-lg text-gray-400 hover:text-white hover:bg-[#2A2A2A] transition-colors"
+            className="md:hidden p-1.5 rounded-lg text-gray-400 hover:text-white hover:bg-[#2C2922] transition-colors"
           >
             {mobileOpen ? <X size={20} /> : <Menu size={20} />}
           </button>
@@ -198,7 +198,7 @@ export default function Navbar() {
             className="absolute inset-0 bg-black/60"
             onClick={() => setMobileOpen(false)}
           />
-          <div className="absolute top-14 left-0 right-0 bg-[#0F0F0F] border-b border-[#2A2A2A] px-4 py-4 space-y-1">
+          <div className="absolute top-14 left-0 right-0 bg-[#11100E] border-b border-[#2C2922] px-4 py-4 space-y-1">
             {NAV_LINKS.map((link) => {
               const isActive = link.match.some((p) => pathname === p || pathname.startsWith(p + "/"));
               return (
@@ -207,8 +207,8 @@ export default function Navbar() {
                   href={link.href}
                   className={`flex items-center gap-3 px-3 py-3 rounded-lg text-sm transition-colors ${
                     isActive
-                      ? "text-white bg-[#2A2A2A]"
-                      : "text-gray-300 hover:text-white hover:bg-[#1A1A1A]"
+                      ? "text-white bg-[#2C2922]"
+                      : "text-gray-300 hover:text-white hover:bg-[#1C1915]"
                   }`}
                 >
                   {link.icon}
@@ -218,14 +218,14 @@ export default function Navbar() {
             })}
             <Link
               href="/simulator"
-              className={`flex items-center gap-3 px-3 py-3 rounded-lg text-sm transition-colors ${pathname === "/simulator" ? "text-white bg-[#2A2A2A]" : "text-gray-300 hover:text-white hover:bg-[#1A1A1A]"}`}
+              className={`flex items-center gap-3 px-3 py-3 rounded-lg text-sm transition-colors ${pathname === "/simulator" ? "text-white bg-[#2C2922]" : "text-gray-300 hover:text-white hover:bg-[#1C1915]"}`}
             >
               <Sparkles size={16} />
               {t("nav.simulator")}
             </Link>
             <Link
               href="/settings"
-              className={`flex items-center gap-3 px-3 py-3 rounded-lg text-sm transition-colors ${pathname === "/settings" ? "text-white bg-[#2A2A2A]" : "text-gray-300 hover:text-white hover:bg-[#1A1A1A]"}`}
+              className={`flex items-center gap-3 px-3 py-3 rounded-lg text-sm transition-colors ${pathname === "/settings" ? "text-white bg-[#2C2922]" : "text-gray-300 hover:text-white hover:bg-[#1C1915]"}`}
             >
               <Settings size={16} />
               {t("settings.title")}
@@ -233,13 +233,13 @@ export default function Navbar() {
             {isAdmin && (
               <Link
                 href="/admin"
-                className={`flex items-center gap-3 px-3 py-3 rounded-lg text-sm transition-colors ${pathname === "/admin" ? "text-white bg-[#2A2A2A]" : "text-amber-300 hover:text-white hover:bg-[#1A1A1A]"}`}
+                className={`flex items-center gap-3 px-3 py-3 rounded-lg text-sm transition-colors ${pathname === "/admin" ? "text-white bg-[#2C2922]" : "text-amber-300 hover:text-white hover:bg-[#1C1915]"}`}
               >
                 <ShieldCheck size={16} />
                 Admin
               </Link>
             )}
-            <div className="pt-3 border-t border-[#2A2A2A] space-y-3">
+            <div className="pt-3 border-t border-[#2C2922] space-y-3">
               <div className="flex items-center justify-between gap-2">
                 <span className="text-gray-500 text-xs truncate">{userEmail}</span>
                 {/* Currency + notifications — parity with the desktop top bar */}
@@ -250,7 +250,7 @@ export default function Navbar() {
               </div>
               <div className="flex gap-2 items-center">
                 {/* Language toggle (mobile) */}
-                <div className="flex rounded-lg overflow-hidden border border-[#2A2A2A] text-xs font-medium">
+                <div className="flex rounded-lg overflow-hidden border border-[#2C2922] text-xs font-medium">
                   <button
                     onClick={() => handleLangSwitch("tr")}
                     className={`px-2 py-1 ${lang === "tr" ? "bg-indigo-600 text-white" : "text-gray-400"}`}
@@ -273,7 +273,7 @@ export default function Navbar() {
                 </Link>
                 <button
                   onClick={handleLogout}
-                  className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-[#2A2A2A] text-sm text-gray-300"
+                  className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-[#2C2922] text-sm text-gray-300"
                 >
                   <LogOut size={14} />
                   {t("nav.logout")}

@@ -164,12 +164,12 @@ export default function OnboardingPage() {
   const progressPct = (step / STEP_COUNT) * 100;
 
   return (
-    <div className="min-h-screen bg-[#0F0F0F] text-white flex flex-col items-center justify-center px-4 py-12">
+    <div className="min-h-screen bg-[#11100E] text-white flex flex-col items-center justify-center px-4 py-12">
       <div className="w-full max-w-md">
         {/* Logo + progress */}
         <div className="mb-10">
           <p className="text-center text-gray-600 text-sm mb-5 font-medium tracking-widest uppercase">Mizan</p>
-          <div className="w-full h-0.5 bg-[#2A2A2A] rounded-full overflow-hidden">
+          <div className="w-full h-0.5 bg-[#2C2922] rounded-full overflow-hidden">
             <div className="h-full bg-indigo-500 rounded-full transition-all duration-500" style={{ width: `${progressPct}%` }} />
           </div>
           <p className="text-right text-[11px] text-gray-700 mt-2">{step} / {STEP_COUNT}</p>
@@ -187,7 +187,7 @@ export default function OnboardingPage() {
               onDragLeave={() => setDragging(false)}
               onDrop={(e) => { e.preventDefault(); setDragging(false); const f = e.dataTransfer.files[0]; if (f) handleUpload(f); }}
               onClick={() => fileInputRef.current?.click()}
-              className={`border border-dashed rounded-xl p-6 text-center cursor-pointer transition-all mb-3 ${dragging ? "border-indigo-500 bg-indigo-950/20" : "border-[#2A2A2A] hover:border-[#3A3A3A]"}`}
+              className={`border border-dashed rounded-xl p-6 text-center cursor-pointer transition-all mb-3 ${dragging ? "border-indigo-500 bg-indigo-950/20" : "border-[#2C2922] hover:border-[#3C3832]"}`}
             >
               <input ref={fileInputRef} type="file" accept=".pdf,.csv,.xlsx" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) handleUpload(f); }} />
               <FileText size={22} className="text-indigo-400 mx-auto mb-2" />
@@ -268,8 +268,8 @@ export default function OnboardingPage() {
 
             {analyzing ? (
               <div className="space-y-3 mb-6">
-                <div className="h-3 w-full bg-[#2A2A2A] rounded animate-pulse" />
-                <div className="h-3 w-2/3 bg-[#2A2A2A] rounded animate-pulse" />
+                <div className="h-3 w-full bg-[#2C2922] rounded animate-pulse" />
+                <div className="h-3 w-2/3 bg-[#2C2922] rounded animate-pulse" />
                 <p className="text-gray-500 text-sm">{t("onboarding.flow.analyzing")}</p>
               </div>
             ) : (
@@ -285,7 +285,7 @@ export default function OnboardingPage() {
             {error && <p className="text-red-400 text-sm mb-4">{error}</p>}
 
             <div className="flex gap-3">
-              <button onClick={back} disabled={finishing} className="flex-1 py-3.5 rounded-xl bg-[#1A1A1A] border border-[#2A2A2A] hover:bg-[#2A2A2A] font-semibold transition-colors text-gray-300 disabled:opacity-50">
+              <button onClick={back} disabled={finishing} className="flex-1 py-3.5 rounded-xl bg-[#1C1915] border border-[#2C2922] hover:bg-[#2C2922] font-semibold transition-colors text-gray-300 disabled:opacity-50">
                 ← {t("common.back")}
               </button>
               <button onClick={goHome} disabled={finishing || analyzing} className="flex-[2] py-3.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 font-semibold transition-colors flex items-center justify-center gap-2">

@@ -75,7 +75,7 @@ export default function GoalsPanel() {
   const availableCategories = CATEGORIES.filter((c) => !goalCategories.has(c));
 
   return (
-    <div className="mb-6 bg-[#1A1A1A] border border-[#2A2A2A] rounded-xl p-6">
+    <div className="mb-6 bg-[#1C1915] border border-[#2C2922] rounded-xl p-6">
       <div className="flex items-center justify-between mb-4">
         <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">{t("goals.title")}</p>
         {availableCategories.length > 0 && (
@@ -89,14 +89,14 @@ export default function GoalsPanel() {
       </div>
 
       {showForm && (
-        <form onSubmit={handleAddGoal} className="mb-4 p-4 rounded-lg bg-[#0F0F0F] border border-[#2A2A2A] space-y-3">
+        <form onSubmit={handleAddGoal} className="mb-4 p-4 rounded-lg bg-[#11100E] border border-[#2C2922] space-y-3">
           <div className="flex gap-3 flex-wrap">
             <div className="flex-1 min-w-[140px]">
               <label className="block text-xs text-gray-500 mb-1">{t("goals.category")}</label>
               <select
                 value={formCategory}
                 onChange={(e) => setFormCategory(e.target.value)}
-                className="w-full bg-[#1A1A1A] border border-[#2A2A2A] rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-indigo-600"
+                className="w-full bg-[#1C1915] border border-[#2C2922] rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-indigo-600"
               >
                 {availableCategories.map((c) => {
                   const key = `category.${c}`;
@@ -115,7 +115,7 @@ export default function GoalsPanel() {
                 onChange={(e) => setFormLimit(e.target.value)}
                 required
                 placeholder="1500"
-                className="w-full bg-[#1A1A1A] border border-[#2A2A2A] rounded-lg px-3 py-2 text-white text-sm placeholder-gray-700 focus:outline-none focus:border-indigo-600"
+                className="w-full bg-[#1C1915] border border-[#2C2922] rounded-lg px-3 py-2 text-white text-sm placeholder-gray-700 focus:outline-none focus:border-indigo-600"
               />
             </div>
           </div>
@@ -146,7 +146,7 @@ export default function GoalsPanel() {
             const statusKey = `goals.status.${item.status}` as const;
             const statusText = t(statusKey) !== statusKey ? t(statusKey) : item.status;
             return (
-              <div key={item.category} className={`rounded-lg p-3.5 border border-[#2A2A2A] ${bg}`}>
+              <div key={item.category} className={`rounded-lg p-3.5 border border-[#2C2922] ${bg}`}>
                 <div className="flex items-center justify-between mb-2">
                   <div className="flex items-center gap-2">
                     <span className="text-sm font-medium text-gray-200">{catLabel}</span>
@@ -166,7 +166,7 @@ export default function GoalsPanel() {
                     </button>
                   </div>
                 </div>
-                <div className="w-full h-1.5 bg-[#2A2A2A] rounded-full overflow-hidden">
+                <div className="w-full h-1.5 bg-[#2C2922] rounded-full overflow-hidden">
                   <div className={`h-full rounded-full transition-all ${bar}`} style={{ width: `${pct}%` }} />
                 </div>
                 <div className="flex justify-between mt-1.5">

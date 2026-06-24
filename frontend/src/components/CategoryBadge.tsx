@@ -19,11 +19,11 @@ const CATEGORY_STYLES: Record<string, { bg: string; text: string; dot: string }>
   iade:      { bg: "bg-teal-950",    text: "text-teal-300",    dot: "bg-teal-400"    },
   vergi:     { bg: "bg-red-950",     text: "text-red-300",     dot: "bg-red-400"     },
   teknoloji: { bg: "bg-blue-950",    text: "text-blue-300",    dot: "bg-blue-400"    },
-  diger:     { bg: "bg-[#2A2A2A]",   text: "text-gray-400",   dot: "bg-gray-500"    },
+  diger:     { bg: "bg-[#2C2922]",   text: "text-gray-400",   dot: "bg-gray-500"    },
   egitim:    { bg: "bg-lime-950",    text: "text-lime-300",    dot: "bg-lime-400"    },
 };
 
-const FALLBACK = { bg: "bg-[#2A2A2A]", text: "text-gray-500", dot: "bg-gray-600" };
+const FALLBACK = { bg: "bg-[#2C2922]", text: "text-gray-500", dot: "bg-gray-600" };
 
 export default function CategoryBadge({ category }: CategoryBadgeProps) {
   const { t } = useLanguage();

@@ -228,7 +228,7 @@ function ReviewContent() {
     );
   }
 
-  const inputCls = "bg-[#0F0F0F] border border-[#2A2A2A] rounded-lg px-2 py-1.5 text-sm text-white focus:outline-none focus:border-indigo-600";
+  const inputCls = "bg-[#11100E] border border-[#2C2922] rounded-lg px-2 py-1.5 text-sm text-white focus:outline-none focus:border-indigo-600";
 
   const flaggedCount = highAmount.size + duplicates.size;
 
@@ -242,7 +242,7 @@ function ReviewContent() {
       </p>
 
       {/* Summary bar — confident "this adds up to", not QA stats */}
-      <div className="mb-4 p-4 rounded-xl bg-[#1A1A1A] border border-[#2A2A2A]">
+      <div className="mb-4 p-4 rounded-xl bg-[#1C1915] border border-[#2C2922]">
         <p className="text-[11px] font-semibold tracking-wide text-gray-500 uppercase mb-2.5">{t("review.addsUpTo")}</p>
         <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
           <span className="text-emerald-400 font-semibold tabular-nums text-sm flex items-center gap-1">
@@ -266,10 +266,10 @@ function ReviewContent() {
       )}
 
       {/* Editable table — desktop / tablet */}
-      <div className="hidden sm:block overflow-x-auto rounded-xl border border-[#2A2A2A]">
+      <div className="hidden sm:block overflow-x-auto rounded-xl border border-[#2C2922]">
         <table className="w-full text-sm min-w-[720px]">
           <thead>
-            <tr className="bg-[#1A1A1A] text-left text-gray-500 text-xs">
+            <tr className="bg-[#1C1915] text-left text-gray-500 text-xs">
               <th className="px-3 py-2 font-medium">{t("review.colDate")}</th>
               <th className="px-3 py-2 font-medium">{t("review.colDescription")}</th>
               <th className="px-3 py-2 font-medium">{t("review.colAmount")}</th>
@@ -287,7 +287,7 @@ function ReviewContent() {
                 <tr
                   key={r.key}
                   title={tip || undefined}
-                  className={`border-t border-[#2A2A2A] ${flagged ? "bg-amber-950/20" : "bg-[#0F0F0F]"}`}
+                  className={`border-t border-[#2C2922] ${flagged ? "bg-amber-950/20" : "bg-[#11100E]"}`}
                 >
                   <td className="px-3 py-2">
                     <input type="date" value={r.transaction_date}
@@ -350,7 +350,7 @@ function ReviewContent() {
             : duplicates.has(r.key) ? t("review.suspiciousDup") : "";
           return (
             <div key={r.key}
-              className={`rounded-xl border p-3 ${flagged ? "bg-amber-950/20 border-amber-800/40" : "bg-[#0F0F0F] border-[#2A2A2A]"}`}>
+              className={`rounded-xl border p-3 ${flagged ? "bg-amber-950/20 border-amber-800/40" : "bg-[#11100E] border-[#2C2922]"}`}>
               {/* Date + delete */}
               <div className="flex items-center gap-2 mb-2.5">
                 <input type="date" value={r.transaction_date}
@@ -421,7 +421,7 @@ function ReviewContent() {
       {/* CTAs */}
       <div className="flex gap-3 mt-6">
         <button onClick={cancel} disabled={saving}
-          className="px-5 py-3 rounded-xl bg-[#1A1A1A] border border-[#2A2A2A] hover:bg-[#2A2A2A] text-gray-300 font-semibold transition-colors disabled:opacity-50">
+          className="px-5 py-3 rounded-xl bg-[#1C1915] border border-[#2C2922] hover:bg-[#2C2922] text-gray-300 font-semibold transition-colors disabled:opacity-50">
           {t("review.startOver")}
         </button>
         <button onClick={confirm} disabled={saving || rows.length === 0}
@@ -439,7 +439,7 @@ function ReviewContent() {
 
 export default function ReviewPage() {
   return (
-    <Suspense fallback={<div className="min-h-screen bg-[#0F0F0F]" />}>
+    <Suspense fallback={<div className="min-h-screen bg-[#11100E]" />}>
       <ReviewContent />
     </Suspense>
   );

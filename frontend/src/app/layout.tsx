@@ -17,7 +17,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     // lang here is a server-rendered default; HtmlLangSync updates it to the
     // user's stored choice or detected browser locale after hydration.
     <html lang="tr">
-      <body className={`${inter.className} bg-[#0F0F0F] text-white antialiased`}>
+      <body className={`${inter.className} bg-[#11100E] text-white antialiased`}>
         <HtmlLangSync />
         <Navbar />
         {children}

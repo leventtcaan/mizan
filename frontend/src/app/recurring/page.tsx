@@ -85,12 +85,12 @@ export default function RecurringPage() {
       <MoneyTabs />
 
       {loading && (
-        <div className="space-y-3">{[1, 2, 3].map((i) => <div key={i} className="h-28 rounded-xl bg-[#1A1A1A] animate-pulse" />)}</div>
+        <div className="space-y-3">{[1, 2, 3].map((i) => <div key={i} className="h-28 rounded-xl bg-[#1C1915] animate-pulse" />)}</div>
       )}
 
       {isEmpty && (
-        <div className="text-center py-16 bg-[#1A1A1A] border border-[#2A2A2A] rounded-2xl">
-          <div className="w-12 h-12 rounded-2xl bg-[#0F0F0F] border border-[#2A2A2A] flex items-center justify-center mx-auto mb-4">
+        <div className="text-center py-16 bg-[#1C1915] border border-[#2C2922] rounded-2xl">
+          <div className="w-12 h-12 rounded-2xl bg-[#11100E] border border-[#2C2922] flex items-center justify-center mx-auto mb-4">
             <RefreshCw size={22} className="text-indigo-400" />
           </div>
           <p className="text-base text-gray-200 font-medium">{t("money.noRecurring")}</p>
@@ -142,7 +142,7 @@ export default function RecurringPage() {
                       <div className="min-w-0">
                         <div className="flex items-center gap-2 flex-wrap mb-1">
                           <h3 className="font-semibold text-white truncate">{s.merchant}</h3>
-                          <span className="text-xs px-2 py-0.5 rounded-full bg-[#2A2A2A] text-gray-400">{catLabel(s.category)}</span>
+                          <span className="text-xs px-2 py-0.5 rounded-full bg-[#2C2922] text-gray-400">{catLabel(s.category)}</span>
                           {s.frequency === "weekly" && (
                             <span className="text-xs px-2 py-0.5 rounded-full bg-blue-950 border border-blue-900 text-blue-400">{t("subscriptions.weekly")}</span>
                           )}
@@ -161,7 +161,7 @@ export default function RecurringPage() {
                           disabled={flagging === s.merchant_key}
                           onClick={() => handleFlag(s.merchant_key, f)}
                           className={`px-2.5 py-1 rounded-full text-xs font-medium border transition-colors disabled:opacity-50 ${
-                            s.flag === f ? FLAG_ACTIVE[f] : "border-[#2A2A2A] text-gray-500 hover:text-gray-300"
+                            s.flag === f ? FLAG_ACTIVE[f] : "border-[#2C2922] text-gray-500 hover:text-gray-300"
                           }`}
                         >
                           {t(`subscriptions.flag${f.charAt(0).toUpperCase()}${f.slice(1)}`)}
@@ -188,7 +188,7 @@ export default function RecurringPage() {
                         <div className="min-w-0">
                           <div className="flex items-center gap-2 flex-wrap mb-1">
                             <h3 className="font-semibold text-white truncate">{p.merchant}</h3>
-                            <span className="text-xs px-2 py-0.5 rounded-full bg-[#2A2A2A] text-gray-400">{catLabel(p.category)}</span>
+                            <span className="text-xs px-2 py-0.5 rounded-full bg-[#2C2922] text-gray-400">{catLabel(p.category)}</span>
                             {p.source === "explicit" && (
                               <span className="text-xs px-2 py-0.5 rounded-full bg-indigo-950 border border-indigo-900 text-indigo-400">{t("installments.explicit")}</span>
                             )}
@@ -200,7 +200,7 @@ export default function RecurringPage() {
                           <p className="text-xs text-gray-500">/{t("cashflow.legend.payment")}</p>
                         </div>
                       </div>
-                      <div className="h-2 rounded-full bg-[#0F0F0F] overflow-hidden mb-3">
+                      <div className="h-2 rounded-full bg-[#11100E] overflow-hidden mb-3">
                         <div className="h-full rounded-full bg-indigo-500" style={{ width: `${pctPaid}%` }} />
                       </div>
                       {p.estimated_remaining > 0 ? (
@@ -214,7 +214,7 @@ export default function RecurringPage() {
                           </button>
                           {open && (
                             <div className="mt-3 grid grid-cols-3 gap-3">
-                              <div className="bg-[#0F0F0F] rounded-lg p-3">
+                              <div className="bg-[#11100E] rounded-lg p-3">
                                 <p className="text-gray-500 text-xs mb-0.5">{t("installments.remaining")}</p>
                                 <p className="text-white font-semibold text-sm">{p.estimated_remaining}</p>
                               </div>
@@ -222,7 +222,7 @@ export default function RecurringPage() {
                                 <p className="text-amber-600 text-xs mb-0.5">{t("installments.realCost")}</p>
                                 <p className="text-amber-400 font-semibold text-sm">{fmt(p.real_cost_with_opportunity)}</p>
                               </div>
-                              <div className="bg-[#0F0F0F] rounded-lg p-3">
+                              <div className="bg-[#11100E] rounded-lg p-3">
                                 <p className="text-gray-500 text-xs mb-0.5">{t("installments.opportunityLoss")}</p>
                                 <p className="text-amber-400 font-semibold text-sm">{fmt(p.opportunity_loss)}</p>
                               </div>

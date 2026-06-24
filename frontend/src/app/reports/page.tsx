@@ -76,11 +76,11 @@ export default function ReportsPage() {
         </div>
         <div className="flex-1" />
         <select value={period} onChange={(e) => setPeriod(e.target.value)}
-          className="bg-[#1A1A1A] border border-[#2A2A2A] rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-600">
+          className="bg-[#1C1915] border border-[#2C2922] rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-600">
           {PERIODS.map((p) => <option key={p} value={p}>{t(`report.period.${p}`)}</option>)}
         </select>
         <button onClick={exportCsv} disabled={csvBusy}
-          className="px-3 py-2 rounded-lg border border-[#2A2A2A] text-gray-300 hover:text-white text-sm font-medium disabled:opacity-50">
+          className="px-3 py-2 rounded-lg border border-[#2C2922] text-gray-300 hover:text-white text-sm font-medium disabled:opacity-50">
           {t("report.csv")}
         </button>
         <button onClick={exportPdf} disabled={!report}

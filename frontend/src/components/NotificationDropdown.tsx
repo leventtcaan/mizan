@@ -15,7 +15,7 @@ import { useLanguage } from "@/lib/i18n";
 const TYPE_COLORS: Record<string, string> = {
   alert: "bg-red-950/40 border-red-800/40 text-red-200",
   warning: "bg-amber-950/40 border-amber-800/40 text-amber-200",
-  info: "bg-[#1A1A1A] border-[#2A2A2A] text-gray-300",
+  info: "bg-[#1C1915] border-[#2C2922] text-gray-300",
 };
 
 const TYPE_DOT: Record<string, string> = {
@@ -105,7 +105,7 @@ export default function NotificationDropdown({ onCountChange }: Props) {
     <div ref={ref} className="relative">
       <button
         onClick={handleOpen}
-        className="relative p-1.5 rounded-lg text-gray-500 hover:text-gray-300 hover:bg-[#2A2A2A] transition-colors"
+        className="relative p-1.5 rounded-lg text-gray-500 hover:text-gray-300 hover:bg-[#2C2922] transition-colors"
         title={t("notifications.title")}
       >
         <Bell size={18} />
@@ -117,8 +117,8 @@ export default function NotificationDropdown({ onCountChange }: Props) {
       </button>
 
       {open && (
-        <div className="absolute right-0 top-full mt-2 w-80 bg-[#1A1A1A] border border-[#2A2A2A] rounded-xl shadow-2xl z-50 overflow-hidden">
-          <div className="flex items-center justify-between px-4 py-3 border-b border-[#2A2A2A]">
+        <div className="absolute right-0 top-full mt-2 w-80 bg-[#1C1915] border border-[#2C2922] rounded-xl shadow-2xl z-50 overflow-hidden">
+          <div className="flex items-center justify-between px-4 py-3 border-b border-[#2C2922]">
             <span className="text-white text-sm font-semibold">{t("notifications.title")}</span>
             {unreadCount > 0 && (
               <button onClick={handleMarkAllRead} className="text-indigo-400 text-xs hover:text-indigo-300 transition-colors">
@@ -130,7 +130,7 @@ export default function NotificationDropdown({ onCountChange }: Props) {
           <div className="max-h-80 overflow-y-auto">
             {loading && (
               <div className="p-4 space-y-2">
-                {[1, 2, 3].map((i) => <div key={i} className="h-12 bg-[#2A2A2A] rounded-lg animate-pulse" />)}
+                {[1, 2, 3].map((i) => <div key={i} className="h-12 bg-[#2C2922] rounded-lg animate-pulse" />)}
               </div>
             )}
 
@@ -142,7 +142,7 @@ export default function NotificationDropdown({ onCountChange }: Props) {
               <button
                 key={n.id}
                 onClick={() => handleMarkRead(n)}
-                className={`w-full text-left px-4 py-3 border-b border-[#2A2A2A] last:border-0 hover:bg-[#2A2A2A]/50 transition-colors ${n.is_read ? "opacity-50" : ""}`}
+                className={`w-full text-left px-4 py-3 border-b border-[#2C2922] last:border-0 hover:bg-[#2C2922]/50 transition-colors ${n.is_read ? "opacity-50" : ""}`}
               >
                 <div className="flex items-start gap-2.5">
                   <span className={`w-2 h-2 rounded-full shrink-0 mt-1.5 ${TYPE_DOT[n.type] ?? "bg-gray-500"} ${n.is_read ? "opacity-0" : ""}`} />

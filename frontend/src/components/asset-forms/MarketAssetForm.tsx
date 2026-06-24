@@ -116,7 +116,7 @@ export default function MarketAssetForm({ assetType, onDraftChange, displayCurre
                 className={`px-2.5 py-1 rounded-full text-xs border transition-colors ${
                   exchange === ex.value
                     ? "bg-indigo-600/20 border-indigo-600/50 text-indigo-300"
-                    : "bg-[#0F0F0F] border-[#2A2A2A] text-gray-400 hover:border-indigo-700"
+                    : "bg-[#11100E] border-[#2C2922] text-gray-400 hover:border-indigo-700"
                 }`}>
                 {label}
               </button>
