@@ -80,8 +80,13 @@ function BriefContent() {
   const beatCls = `transition-all duration-500 ease-out ${revealed ? "opacity-100 translate-y-0" : "opacity-0 translate-y-3"}`;
   const beatStyle = (i: number) => ({ transitionDelay: `${i * 100}ms` });
 
+  // Scope every "ask Mizan" on the brief to THIS statement's batch, so Mim answers with
+  // this period's numbers — not a mix of every uploaded statement.
   const AskLink = ({ prefill }: { prefill: string }) => (
-    <AskMim prefill={prefill} label={t("brief.askMizan")} className="mt-3" />
+    <AskMim
+      prefill={prefill} label={t("brief.askMizan")} className="mt-3"
+      jobId={brief.job_id} scopeLabel={periodRange}
+    />
   );
 
   // Every number says where it comes from. Flow/categories are this one statement;

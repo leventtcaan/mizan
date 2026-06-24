@@ -125,6 +125,8 @@ export const en = {
     done: "Done",
     failed: "Action failed",
     error: "I can't respond right now. Please try again.",
+    scopedTo: "Talking about:",
+    scopedStatement: "statement",
   },
   settings: {
     title: "Settings",

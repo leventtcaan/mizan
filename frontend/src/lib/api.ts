@@ -1706,11 +1706,15 @@ export async function assistantChat(
   message: string,
   pageContext: AssistantPageContext,
   sessionHistory: AssistantChatMessage[],
+  jobId?: string | null,
 ): Promise<AssistantChatResponse> {
   const response = await fetch(`${API_BASE_URL}/assistant/chat`, {
     method: "POST",
     headers: { "Content-Type": "application/json", ...authHeaders() },
-    body: JSON.stringify({ message, page_context: pageContext, session_history: sessionHistory }),
+    body: JSON.stringify({
+      message, page_context: pageContext, session_history: sessionHistory,
+      ...(jobId ? { job_id: jobId } : {}),
+    }),
   });
   if (!response.ok) {
     const err = await response.json().catch(() => null);

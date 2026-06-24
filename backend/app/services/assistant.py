@@ -13,6 +13,7 @@ import json
 import logging
 import re
 import uuid
+from collections import Counter
 from datetime import date, datetime, timezone
 from decimal import Decimal, InvalidOperation
 
@@ -142,8 +143,78 @@ async def _action_queue_block(user_id: uuid.UUID, session: AsyncSession) -> str:
     )
 
 
-async def build_context(user_id: uuid.UUID, page_context: str, session: AsyncSession) -> str:
-    """Always include profile + spending + a compact balance sheet; add page-specific detail."""
+async def _batch_scoped_block(
+    job_id: str, user_id: uuid.UUID, session: AsyncSession
+) -> str | None:
+    """
+    Context for a question about ONE specific uploaded statement (one upload batch).
+
+    Returns a self-contained block with that batch's period, flow and transactions —
+    or None when the batch has no rows (not found / not owned), so the caller can fall
+    back to the normal aggregate context. When this is used, NO aggregate user data is
+    included: the assistant must answer about this statement only, with these numbers.
+    """
+    result = await session.execute(
+        select(Transaction)
+        .where(Transaction.user_id == user_id)
+        .where(Transaction.upload_batch_id == job_id)
+        .order_by(Transaction.transaction_date.asc())
+    )
+    txs = list(result.scalars().all())
+    if not txs:
+        return None
+
+    debits = [t for t in txs if t.transaction_type == "debit"]
+    credits = [t for t in txs if t.transaction_type == "credit"]
+    # Statements are effectively single-currency; report in the recorded currency.
+    currency = Counter(t.currency or "TRY" for t in txs).most_common(1)[0][0]
+    income = float(sum((t.amount for t in credits), Decimal("0")))
+    expenses = float(sum((t.amount for t in debits), Decimal("0")))
+    net = round(income - expenses, 2)
+    dates = [t.transaction_date for t in txs]
+    start, end = min(dates).isoformat(), max(dates).isoformat()
+
+    cat_totals: dict[str, Decimal] = {}
+    for t in debits:
+        cat = t.category or "diger"
+        cat_totals[cat] = cat_totals.get(cat, Decimal("0")) + t.amount
+    top = sorted(cat_totals.items(), key=lambda x: x[1], reverse=True)[:5]
+    top_line = ", ".join(f"{slug} {float(amt):.2f} {currency}" for slug, amt in top) or "None"
+
+    tx_lines = [
+        f"- [{t.id}] {t.transaction_date.isoformat()} · {t.description[:40]} · "
+        f"{float(t.amount):.2f} {t.currency} · {t.transaction_type} · {t.category or 'uncategorized'}"
+        for t in txs[:40]
+    ]
+
+    return (
+        "SCOPED STATEMENT CONTEXT\n"
+        "The user is asking specifically about ONE uploaded bank statement (the one they "
+        "just opened the brief for). Answer ONLY using the figures below. Do NOT reference "
+        "or mix in other statements, account-wide totals, or aggregate data.\n"
+        f"Period: {start} to {end} ({len(txs)} transactions)\n"
+        f"Income: {income:.2f} {currency}. Expenses: {expenses:.2f} {currency}. Net: {net:.2f} {currency}.\n"
+        f"Top spending categories: {top_line}\n\n"
+        "TRANSACTIONS IN THIS STATEMENT:\n" + ("\n".join(tx_lines) if tx_lines else "None")
+    )
+
+
+async def build_context(
+    user_id: uuid.UUID, page_context: str, session: AsyncSession, job_id: str | None = None
+) -> str:
+    """
+    Build the assistant's financial context.
+
+    When `job_id` is given and that upload batch has transactions, the context is scoped
+    to JUST that statement (so "ask about this brief" answers with that statement's
+    numbers, not a mix of every upload). Otherwise: profile + spending + a compact
+    balance sheet, plus page-specific detail.
+    """
+    if job_id:
+        scoped = await _batch_scoped_block(job_id, user_id, session)
+        if scoped is not None:
+            return scoped
+
     parts = [await _profile_and_spending(user_id, session)]
     parts.append(await _assets_block(user_id, session))
     parts.append(await _liabilities_block(user_id, session))
@@ -192,12 +263,16 @@ async def run_chat(
     page_context: str,
     session_history: list[dict],
     session: AsyncSession,
+    job_id: str | None = None,
 ) -> dict:
     """
     Returns {"reply": str, "proposal": {action_id, action_type, description, params} | None}.
     Persists a proposed AssistantAction when a valid proposal is parsed.
+
+    `job_id` scopes the financial context to a single uploaded statement (used when the
+    user asks the assistant about a specific brief).
     """
-    context = await build_context(user.id, page_context, session)
+    context = await build_context(user.id, page_context, session, job_id=job_id)
     lang = getattr(user, "language", None) or "en"
 
     messages = [

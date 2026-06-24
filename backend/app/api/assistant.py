@@ -32,6 +32,9 @@ class AssistantChatRequest(BaseModel):
     message: str
     page_context: str = "home"
     session_history: list[ChatMessageIn] = []
+    # When present, scope the financial context to this upload batch (a specific
+    # statement/brief) instead of the user's aggregate data.
+    job_id: str | None = None
 
     @field_validator("message")
     @classmethod
@@ -80,6 +83,7 @@ async def assistant_chat(
         body.page_context,
         [m.model_dump() for m in body.session_history],
         session,
+        job_id=body.job_id,
     )
     proposal = result.get("proposal")
     return AssistantChatResponse(

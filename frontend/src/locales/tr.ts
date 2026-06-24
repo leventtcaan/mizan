@@ -125,6 +125,8 @@ export const tr = {
     done: "Tamamlandı",
     failed: "İşlem başarısız oldu",
     error: "Şu anda yanıt veremiyorum. Lütfen tekrar deneyin.",
+    scopedTo: "Şununla ilgili:",
+    scopedStatement: "ekstresi",
   },
   settings: {
     title: "Ayarlar",

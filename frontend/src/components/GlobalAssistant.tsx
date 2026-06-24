@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
-import { Send, X as XIcon, CheckCircle } from "@/components/ui/Icons";
+import { Send, X as XIcon, CheckCircle, FileText } from "@/components/ui/Icons";
 import Mim from "@/components/companion/Mim";
 import { observe, checkEscalation, contextFromPath, type Observation } from "@/components/companion/voice";
 import { useLanguage } from "@/lib/i18n";
@@ -41,6 +41,9 @@ export default function GlobalAssistant() {
   const [pending, setPending] = useState(false);
   const [hasData, setHasData] = useState<boolean | null>(null);
   const [bubble, setBubble] = useState<Observation | null>(null);
+  // When opened from a specific brief, the conversation is bound to that upload batch
+  // so answers use THAT statement's numbers, not the user's aggregate data.
+  const [scope, setScope] = useState<{ jobId: string; label: string | null } | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const spokenPathRef = useRef<string | null>(null);
@@ -56,10 +59,18 @@ export default function GlobalAssistant() {
 
   useEffect(() => {
     const openHandler = (e: Event) => {
+      const detail = (e as CustomEvent<{ prefill?: string; jobId?: string; scopeLabel?: string }>).detail;
       setOpen(true);
-      const prefill = (e as CustomEvent<{ prefill?: string }>).detail?.prefill;
-      if (prefill) {
-        setInput(prefill);
+      // Bind to a statement when a jobId is supplied (asked from a brief). Start a fresh
+      // thread for the scoped question so an earlier unscoped chat doesn't bleed in.
+      if (detail?.jobId) {
+        setScope({ jobId: detail.jobId, label: detail.scopeLabel ?? null });
+        setMessages([]);
+      } else {
+        setScope(null);
+      }
+      if (detail?.prefill) {
+        setInput(detail.prefill);
         setTimeout(() => inputRef.current?.focus(), 80);
       }
     };
@@ -134,7 +145,7 @@ export default function GlobalAssistant() {
     setInput("");
     setPending(true);
     try {
-      const res = await assistantChat(text, detectContext(pathname), history);
+      const res = await assistantChat(text, detectContext(pathname), history, scope?.jobId);
       setMessages((prev) => [
         ...prev,
         { role: "assistant", text: res.reply, proposal: res.proposal, actionState: "idle" },
@@ -176,7 +187,7 @@ export default function GlobalAssistant() {
             // content; the compact Mim FAB below stays (tap it to open the panel).
             <div className="mim-bubble hidden sm:flex items-start gap-2 max-w-[270px] rounded-2xl rounded-br-md bg-[#1D1A15] border border-[#302C25] shadow-xl shadow-black/40 pl-3.5 pr-2 py-2.5">
               <button
-                onClick={() => { setInput(bubble.prefill); setBubble(null); setOpen(true); }}
+                onClick={() => { setScope(null); setInput(bubble.prefill); setBubble(null); setOpen(true); }}
                 className="text-left text-[13px] leading-snug text-gray-200 hover:text-white transition-colors"
               >
                 {bubble.line}
@@ -191,7 +202,7 @@ export default function GlobalAssistant() {
             </div>
           )}
           <button
-            onClick={() => setOpen(true)}
+            onClick={() => { setScope(null); setOpen(true); }}
             className="flex items-center justify-center transition-transform hover:scale-110"
             title={t("assistant.askMizan")}
             aria-label={t("assistant.askMizan")}
@@ -203,7 +214,7 @@ export default function GlobalAssistant() {
 
       {/* Slide-up panel */}
       {open && (
-        <div className="fixed inset-0 z-50 flex items-end sm:items-end sm:justify-end bg-black/40 sm:bg-transparent" onClick={() => setOpen(false)}>
+        <div className="fixed inset-0 z-50 flex items-end sm:items-end sm:justify-end bg-black/40 sm:bg-transparent" onClick={() => { setOpen(false); setScope(null); }}>
           <div
             className="w-full sm:w-[400px] sm:m-5 bg-[#181510] border border-[#2C2922] rounded-t-2xl sm:rounded-2xl shadow-2xl flex flex-col max-h-[80vh] sm:max-h-[600px]"
             onClick={(e) => e.stopPropagation()}
@@ -214,10 +225,20 @@ export default function GlobalAssistant() {
                 <Mim mood={pending ? "thinking" : "calm"} size={26} speaking={pending} />
                 <span className="text-white text-sm font-semibold">{t("assistant.title")}</span>
               </div>
-              <button onClick={() => setOpen(false)} title={t("assistant.close")} className="text-gray-500 hover:text-gray-300 transition-colors">
+              <button onClick={() => { setOpen(false); setScope(null); }} title={t("assistant.close")} className="text-gray-500 hover:text-gray-300 transition-colors">
                 <XIcon size={18} />
               </button>
             </div>
+
+            {/* Scope banner — makes it explicit the conversation is bound to one statement */}
+            {scope && (
+              <div className="flex items-center gap-2 px-4 py-2 bg-indigo-950/30 border-b border-indigo-900/40 text-xs text-indigo-200">
+                <FileText size={13} className="shrink-0 text-indigo-300" />
+                <span className="truncate">
+                  {t("assistant.scopedTo")}{scope.label ? ` ${scope.label}` : ""} {t("assistant.scopedStatement")}
+                </span>
+              </div>
+            )}
 
             {/* Messages */}
             <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-3 space-y-3 min-h-0">
