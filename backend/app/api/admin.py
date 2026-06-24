@@ -26,6 +26,7 @@ from app.models.app_notification import AppNotification
 from app.models.asset import Asset
 from app.models.liability import Liability
 from app.models.reconciliation_item import ReconciliationItem
+from app.models.receivable import Receivable
 from app.models.transaction import Transaction
 from app.models.user import User
 
@@ -52,6 +53,10 @@ class OverviewResponse(BaseModel):
     reconciliation_open: int
     notifications_total: int
     notifications_unread: int
+    # The "founder": the longest-standing admin (earliest-created admin account),
+    # falling back to the first registered user. Drives the founder badge — never
+    # hardcoded. None only if there are somehow no users.
+    founder_user_id: str | None
     generated_at: str
 
 
@@ -92,6 +97,99 @@ class AdminUserDetail(BaseModel):
     reconciliation_open: int
 
 
+class AdminStatement(BaseModel):
+    batch_id: str
+    uploaded_at: str
+    transaction_count: int
+    min_date: str
+    max_date: str
+
+
+class AdminAsset(BaseModel):
+    id: str
+    name: str
+    asset_type: str
+    currency: str
+    current_value: str
+    as_of_date: str | None
+    source: str
+
+
+class AdminLiability(BaseModel):
+    id: str
+    name: str
+    liability_type: str
+    currency: str
+    total_amount: str
+    remaining_amount: str
+    interest_rate: str | None
+    due_date: str | None
+
+
+class AdminReceivable(BaseModel):
+    id: str
+    from_person: str
+    amount: str
+    currency: str
+    status: str
+    expected_date: str | None
+
+
+class AdminHealth(BaseModel):
+    has_data: bool
+    score: int | None
+    band: str | None
+    currency: str | None
+
+
+class AdminUserProfile(BaseModel):
+    """Everything about one user, in one payload — the full profile view."""
+    # identity + status
+    id: str
+    email: str
+    is_admin: bool
+    is_founder: bool
+    onboarding_completed: bool
+    language: str
+    display_currency: str
+    email_weekly_enabled: bool
+    created_at: str
+    last_email_brief_sent: str | None
+    last_activity: str | None
+    # rolled-up counts
+    transaction_count: int
+    upload_batches: int
+    asset_count: int
+    liability_count: int
+    receivable_count: int
+    reconciliation_open: int
+    # the financial life
+    health: AdminHealth | None
+    statements: list[AdminStatement]
+    assets: list[AdminAsset]
+    liabilities: list[AdminLiability]
+    receivables: list[AdminReceivable]
+
+
+class AdminTxn(BaseModel):
+    id: str
+    transaction_date: str
+    description: str
+    amount: str
+    currency: str
+    transaction_type: str
+    category: str | None
+    source: str | None
+    upload_batch_id: str | None
+
+
+class AdminTxnPage(BaseModel):
+    transactions: list[AdminTxn]
+    total: int
+    limit: int
+    offset: int
+
+
 class UpdateUserRequest(BaseModel):
     is_admin: bool | None = None
     onboarding_completed: bool | None = None
@@ -129,6 +227,17 @@ async def overview(
     now = datetime.now(timezone.utc)
     d1, d7, d30 = now - timedelta(days=1), now - timedelta(days=7), now - timedelta(days=30)
 
+    # Founder = the admin who has held admin longest. We don't track a promoted-at
+    # timestamp, so the earliest-created admin is the faithful proxy; if there are no
+    # admins yet, fall back to the very first registered user.
+    founder_id = (await session.execute(
+        select(User.id).where(User.is_admin.is_(True)).order_by(User.created_at.asc()).limit(1)
+    )).scalar_one_or_none()
+    if founder_id is None:
+        founder_id = (await session.execute(
+            select(User.id).order_by(User.created_at.asc()).limit(1)
+        )).scalar_one_or_none()
+
     return OverviewResponse(
         users_total=await _scalar(session, select(func.count(User.id))),
         users_admins=await _scalar(session, select(func.count(User.id)).where(User.is_admin.is_(True))),
@@ -152,6 +261,7 @@ async def overview(
         notifications_unread=await _scalar(
             session, select(func.count(AppNotification.id)).where(AppNotification.is_read.is_(False))
         ),
+        founder_user_id=str(founder_id) if founder_id else None,
         generated_at=now.isoformat(),
     )
 
@@ -258,6 +368,178 @@ async def user_detail(
             .where(ReconciliationItem.user_id == uid).where(ReconciliationItem.status == "open"),
         ),
     )
+
+
+async def _is_founder(uid: uuid.UUID, session: AsyncSession) -> bool:
+    """Same rule as the overview: longest-standing admin, else first-ever user."""
+    founder = (await session.execute(
+        select(User.id).where(User.is_admin.is_(True)).order_by(User.created_at.asc()).limit(1)
+    )).scalar_one_or_none()
+    if founder is None:
+        founder = (await session.execute(
+            select(User.id).order_by(User.created_at.asc()).limit(1)
+        )).scalar_one_or_none()
+    return founder == uid
+
+
+@router.get("/users/{user_id}/profile", response_model=AdminUserProfile)
+async def user_profile(
+    user_id: str,
+    _: User = Depends(get_admin_user),
+    session: AsyncSession = Depends(get_session),
+) -> AdminUserProfile:
+    """The complete picture of one user's financial life in the app: profile,
+    every uploaded statement, all assets/liabilities/receivables, their financial
+    health score, and last activity. The transaction log is paginated separately
+    (could be thousands of rows)."""
+    from app.services.transaction_service import get_batch_summaries
+
+    user = await _load_user(user_id, session)
+    uid = user.id
+
+    # statements (one row per upload batch, newest first)
+    batches = await get_batch_summaries(uid, session)
+    statements = [
+        AdminStatement(
+            batch_id=b["batch_id"],
+            uploaded_at=b["uploaded_at"].isoformat() if b["uploaded_at"] else "",
+            transaction_count=int(b["transaction_count"]),
+            min_date=b["min_date"].isoformat() if b["min_date"] else "",
+            max_date=b["max_date"].isoformat() if b["max_date"] else "",
+        )
+        for b in batches
+    ]
+
+    # assets
+    asset_rows = list((await session.execute(
+        select(Asset).where(Asset.user_id == uid).order_by(Asset.current_value.desc())
+    )).scalars().all())
+    assets = [
+        AdminAsset(
+            id=str(a.id), name=a.name, asset_type=a.asset_type, currency=a.currency,
+            current_value=str(a.current_value),
+            as_of_date=a.as_of_date.isoformat() if a.as_of_date else None,
+            source=a.source,
+        )
+        for a in asset_rows
+    ]
+
+    # liabilities
+    liab_rows = list((await session.execute(
+        select(Liability).where(Liability.user_id == uid).order_by(Liability.remaining_amount.desc())
+    )).scalars().all())
+    liabilities = [
+        AdminLiability(
+            id=str(li.id), name=li.name, liability_type=li.liability_type, currency=li.currency,
+            total_amount=str(li.total_amount), remaining_amount=str(li.remaining_amount),
+            interest_rate=str(li.interest_rate) if li.interest_rate is not None else None,
+            due_date=li.due_date.isoformat() if li.due_date else None,
+        )
+        for li in liab_rows
+    ]
+
+    # receivables
+    recv_rows = list((await session.execute(
+        select(Receivable).where(Receivable.user_id == uid).order_by(Receivable.created_at.desc())
+    )).scalars().all())
+    receivables = [
+        AdminReceivable(
+            id=str(r.id), from_person=r.from_person, amount=str(r.amount), currency=r.currency,
+            status=r.status, expected_date=r.expected_date.isoformat() if r.expected_date else None,
+        )
+        for r in recv_rows
+    ]
+
+    # financial health — reuse the real scorecard engine; never let it break the page.
+    health: AdminHealth | None = None
+    try:
+        from app.services.scorecard import build_scorecard
+        sc = await build_scorecard(uid, user.display_currency, session)
+        health = AdminHealth(
+            has_data=bool(sc.get("has_data")),
+            score=sc.get("score") if sc.get("has_data") else None,
+            band=sc.get("band") if sc.get("has_data") else None,
+            currency=sc.get("currency"),
+        )
+    except Exception:
+        logger.exception("scorecard failed for user=%s in admin profile", uid)
+        health = None
+
+    # last activity = most recent of: latest tx, latest asset touch, account creation
+    last_tx = (await session.execute(
+        select(func.max(Transaction.created_at)).where(Transaction.user_id == uid)
+    )).scalar()
+    last_asset = (await session.execute(
+        select(func.max(Asset.updated_at)).where(Asset.user_id == uid)
+    )).scalar()
+    candidates = [d for d in (last_tx, last_asset, user.created_at) if d is not None]
+    last_activity = max(candidates).isoformat() if candidates else None
+
+    return AdminUserProfile(
+        id=str(uid),
+        email=user.email,
+        is_admin=user.is_admin,
+        is_founder=await _is_founder(uid, session),
+        onboarding_completed=user.onboarding_completed,
+        language=user.language,
+        display_currency=user.display_currency,
+        email_weekly_enabled=user.email_weekly_enabled,
+        created_at=user.created_at.isoformat(),
+        last_email_brief_sent=_iso(user.last_email_brief_sent),
+        last_activity=last_activity,
+        transaction_count=await _scalar(session, select(func.count(Transaction.id)).where(Transaction.user_id == uid)),
+        upload_batches=len(statements),
+        asset_count=len(assets),
+        liability_count=len(liabilities),
+        receivable_count=len(receivables),
+        reconciliation_open=await _scalar(
+            session,
+            select(func.count(ReconciliationItem.id))
+            .where(ReconciliationItem.user_id == uid).where(ReconciliationItem.status == "open"),
+        ),
+        health=health,
+        statements=statements,
+        assets=assets,
+        liabilities=liabilities,
+        receivables=receivables,
+    )
+
+
+@router.get("/users/{user_id}/transactions", response_model=AdminTxnPage)
+async def user_transactions(
+    user_id: str,
+    _: User = Depends(get_admin_user),
+    session: AsyncSession = Depends(get_session),
+    limit: int = Query(default=50, ge=1, le=200),
+    offset: int = Query(default=0, ge=0),
+) -> AdminTxnPage:
+    """Paginated transaction log for one user, newest first."""
+    user = await _load_user(user_id, session)
+    uid = user.id
+
+    total = await _scalar(session, select(func.count(Transaction.id)).where(Transaction.user_id == uid))
+    rows = list((await session.execute(
+        select(Transaction)
+        .where(Transaction.user_id == uid)
+        .order_by(Transaction.transaction_date.desc(), Transaction.created_at.desc())
+        .limit(limit).offset(offset)
+    )).scalars().all())
+
+    txns = [
+        AdminTxn(
+            id=str(t.id),
+            transaction_date=t.transaction_date.isoformat() if t.transaction_date else "",
+            description=t.description,
+            amount=str(t.amount),
+            currency=t.currency,
+            transaction_type=t.transaction_type,
+            category=t.category,
+            source=t.source,
+            upload_batch_id=t.upload_batch_id,
+        )
+        for t in rows
+    ]
+    return AdminTxnPage(transactions=txns, total=total, limit=limit, offset=offset)
 
 
 @router.patch("/users/{user_id}", response_model=AdminUserDetail)

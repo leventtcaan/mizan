@@ -1752,6 +1752,7 @@ export interface AdminOverview {
   reconciliation_open: number;
   notifications_total: number;
   notifications_unread: number;
+  founder_user_id: string | null;
   generated_at: string;
 }
 
@@ -1853,4 +1854,104 @@ export function getAdminSystem(): Promise<AdminSystem> {
 
 export function runAdminJob(job: string): Promise<{ job: string; status: string }> {
   return adminFetch<{ job: string; status: string }>(`/jobs/${job}`, { method: "POST" });
+}
+
+// ── Admin: full user profile + paginated transaction log ───────────────────────
+
+export interface AdminStatement {
+  batch_id: string;
+  uploaded_at: string;
+  transaction_count: number;
+  min_date: string;
+  max_date: string;
+}
+
+export interface AdminAsset {
+  id: string;
+  name: string;
+  asset_type: string;
+  currency: string;
+  current_value: string;
+  as_of_date: string | null;
+  source: string;
+}
+
+export interface AdminLiability {
+  id: string;
+  name: string;
+  liability_type: string;
+  currency: string;
+  total_amount: string;
+  remaining_amount: string;
+  interest_rate: string | null;
+  due_date: string | null;
+}
+
+export interface AdminReceivable {
+  id: string;
+  from_person: string;
+  amount: string;
+  currency: string;
+  status: string;
+  expected_date: string | null;
+}
+
+export interface AdminHealth {
+  has_data: boolean;
+  score: number | null;
+  band: string | null;
+  currency: string | null;
+}
+
+export interface AdminUserProfile {
+  id: string;
+  email: string;
+  is_admin: boolean;
+  is_founder: boolean;
+  onboarding_completed: boolean;
+  language: string;
+  display_currency: string;
+  email_weekly_enabled: boolean;
+  created_at: string;
+  last_email_brief_sent: string | null;
+  last_activity: string | null;
+  transaction_count: number;
+  upload_batches: number;
+  asset_count: number;
+  liability_count: number;
+  receivable_count: number;
+  reconciliation_open: number;
+  health: AdminHealth | null;
+  statements: AdminStatement[];
+  assets: AdminAsset[];
+  liabilities: AdminLiability[];
+  receivables: AdminReceivable[];
+}
+
+export interface AdminTxn {
+  id: string;
+  transaction_date: string;
+  description: string;
+  amount: string;
+  currency: string;
+  transaction_type: string;
+  category: string | null;
+  source: string | null;
+  upload_batch_id: string | null;
+}
+
+export interface AdminTxnPage {
+  transactions: AdminTxn[];
+  total: number;
+  limit: number;
+  offset: number;
+}
+
+export function getAdminUserProfile(id: string): Promise<AdminUserProfile> {
+  return adminFetch<AdminUserProfile>(`/users/${id}/profile`);
+}
+
+export function getAdminUserTransactions(id: string, limit = 50, offset = 0): Promise<AdminTxnPage> {
+  const q = new URLSearchParams({ limit: String(limit), offset: String(offset) });
+  return adminFetch<AdminTxnPage>(`/users/${id}/transactions?${q.toString()}`);
 }

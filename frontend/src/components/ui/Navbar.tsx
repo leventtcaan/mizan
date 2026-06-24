@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import Link from "next/link";
-import { getToken, getStoredUser, clearToken, updatePreferences } from "@/lib/api";
+import { getToken, getStoredUser, setStoredUser, clearToken, updatePreferences, getMe } from "@/lib/api";
 import { BarChart2, Upload, LogOut, Menu, X, Scale, Home, Settings, Sparkles, FileText, ShieldCheck } from "@/components/ui/Icons";
 import { useLanguage, type Lang } from "@/lib/i18n";
 import NotificationDropdown from "@/components/NotificationDropdown";
@@ -53,6 +53,22 @@ export default function Navbar() {
       setIsAdmin(false);
     }
   }, [pathname]);
+
+  // Reconcile admin status from the server once per mount. Covers sessions created
+  // before is_admin existed in the token, and users promoted in the DB after login —
+  // otherwise the Admin link never appears for a real admin with a stale stored user.
+  useEffect(() => {
+    if (!getToken() || !getStoredUser()) return;
+    getMe()
+      .then((me) => {
+        setIsAdmin(me.is_admin);
+        const stored = getStoredUser();
+        if (stored && stored.is_admin !== me.is_admin) {
+          setStoredUser({ ...stored, is_admin: me.is_admin });
+        }
+      })
+      .catch(() => { /* offline / token expired — keep the stored value */ });
+  }, []);
 
   useEffect(() => {
     setMobileOpen(false);
