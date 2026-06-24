@@ -7,8 +7,11 @@ BREAKS IF REMOVED: No web server, no routes, nothing to run.
 import logging
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+
+from app.core.dependencies import get_current_user
+from app.models.user import User
 
 from app.api.auth import router as auth_router
 from app.api.cashflow import router as cashflow_router
@@ -152,11 +155,11 @@ async def health() -> dict:
 
 
 @app.get("/admin/scheduler/status")
-async def scheduler_status_endpoint() -> dict:
+async def scheduler_status_endpoint(user: User = Depends(get_current_user)) -> dict:
     """
-    WHAT: Dev-only visibility into the background scheduler.
-    WHY: Verify jobs are registered and running inside Docker (next_run + last_run).
-    NOTE: No auth — development convenience only. Gate or remove before prod.
+    WHAT: Visibility into the background scheduler (registered jobs, next_run, last_run).
+    WHY: Verify jobs are running inside Docker.
+    AUTH: Requires a valid Bearer token — exposes internal operational state, not public.
     """
     from app.core.scheduler import scheduler_status
     return scheduler_status()

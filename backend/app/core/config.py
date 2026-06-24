@@ -25,15 +25,18 @@ class Settings(BaseSettings):
     # WHY: Frontend URL is needed by CORS middleware to allow only our own origin.
     FRONTEND_URL: str = "http://localhost:3000"
 
-    # WHY: SECRET_KEY signs JWTs — must be random and long (32+ bytes of entropy).
-    # Default is safe for dev only; prod must override this via environment variable.
+    # WHY: Resend API key for outbound email. Empty disables email sending (dev default).
     RESEND_API_KEY: str = ""
 
     # WHY: From-address for outbound email. Default is Resend's shared sandbox sender
     # (works without domain verification); prod must set a verified domain sender.
     RESEND_FROM_EMAIL: str = "Mizan <onboarding@resend.dev>"
 
-    SECRET_KEY: str = "change-me-in-production-use-openssl-rand-hex-32"
+    # WHY: SECRET_KEY signs JWTs — must be random and long (32+ bytes of entropy).
+    # No default: a missing SECRET_KEY raises a Pydantic ValidationError when Settings()
+    # is instantiated at import, so the app fails fast instead of signing tokens with a
+    # publicly-known key. Generate one with `openssl rand -hex 32`.
+    SECRET_KEY: str
     JWT_ALGORITHM: str = "HS256"
     JWT_EXPIRE_MINUTES: int = 60 * 24 * 7  # 7 days
 
