@@ -203,7 +203,10 @@ export default function CashFlowPage() {
   const { t } = useLanguage();
   const router = useRouter();
   const [days, setDays] = useState(30);
-  const [displayCurrency, setDisplayCurrency] = useState("TRY");
+  // Lazy-init from the stored display currency so the mount loadAll() fetches in the
+  // right currency immediately, instead of fetching TRY first and then re-fetching once
+  // the currency effect runs.
+  const [displayCurrency, setDisplayCurrency] = useState(() => getDefaultCurrency());
   const [items, setItems] = useState<CashFlowItem[]>([]);
   const [summary, setSummary] = useState<CashFlowSummary | null>(null);
   const [loading, setLoading] = useState(true);

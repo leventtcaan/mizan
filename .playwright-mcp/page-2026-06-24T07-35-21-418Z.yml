@@ -1,0 +1,41 @@
+- generic [active] [ref=e1]:
+  - navigation [ref=e2]:
+    - generic [ref=e3]:
+      - link "Mizan" [ref=e4] [cursor=pointer]:
+        - /url: /home
+      - button [ref=e5] [cursor=pointer]:
+        - img [ref=e6]
+  - generic [ref=e7]:
+    - generic [ref=e8]:
+      - generic [ref=e9]:
+        - heading "Net Worth" [level=1] [ref=e11]
+        - paragraph [ref=e12]: Assets, liabilities and receivables — your complete picture
+      - button "USD— US Dollar" [ref=e17] [cursor=pointer]:
+        - generic [ref=e18]:
+          - text: USD
+          - generic [ref=e19]: — US Dollar
+        - img [ref=e20]
+    - generic [ref=e28]:
+      - generic [ref=e29]:
+        - img [ref=e30]
+        - heading "Assets" [level=2] [ref=e33]
+      - button "Add Asset" [ref=e34] [cursor=pointer]:
+        - img [ref=e35]
+        - text: Add Asset
+    - generic [ref=e41]:
+      - generic [ref=e42]:
+        - img [ref=e43]
+        - heading "Liabilities" [level=2] [ref=e46]
+      - button "Add Liability" [ref=e47] [cursor=pointer]:
+        - img [ref=e48]
+        - text: Add Liability
+    - generic [ref=e53]:
+      - generic [ref=e54]:
+        - img [ref=e55]
+        - heading "Receivables" [level=2] [ref=e57]
+      - button "Add Receivable" [ref=e58] [cursor=pointer]:
+        - img [ref=e59]
+        - text: Add Receivable
+  - alert [ref=e62]
+  - button "Ask Mizan" [ref=e64] [cursor=pointer]:
+    - img [ref=e67]

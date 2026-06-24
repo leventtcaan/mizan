@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import PageLayout from "@/components/ui/PageLayout";
 import { FileText, ArrowRight, TrendingUp, TrendingDown } from "@/components/ui/Icons";
-import { useLanguage } from "@/lib/i18n";
+import { useLanguage, getCurrentLang } from "@/lib/i18n";
 import {
   getToken, getStoredUser, getDefaultCurrency, CURRENCY_CHANGE_EVENT,
   getFinancialReport, downloadTransactionsCsv, type FinancialReport,
@@ -16,7 +16,9 @@ const PALETTE = ["#4f46e5", "#10b981", "#f59e0b", "#0ea5e9", "#a855f7", "#ef4444
 export default function ReportsPage() {
   const router = useRouter();
   const { t, lang } = useLanguage();
-  const [ccy, setCcy] = useState("TRY");
+  // Lazy-init from the stored display currency so the first report fetch isn't fired
+  // under "TRY" and then redone under the real currency.
+  const [ccy, setCcy] = useState(() => getDefaultCurrency());
   const [email, setEmail] = useState<string>("");
   const [period, setPeriod] = useState("this_month");
   const [report, setReport] = useState<FinancialReport | null>(null);
@@ -34,7 +36,10 @@ export default function ReportsPage() {
 
   useEffect(() => {
     setLoading(true);
-    getFinancialReport(period, ccy, lang).then(setReport).catch(() => setReport(null)).finally(() => setLoading(false));
+    // getCurrentLang() resolves the language synchronously, so even the first fetch
+    // uses the real stored language (the hook's `lang` starts at the SSR-safe "tr");
+    // `lang` stays in deps so a language toggle re-fetches.
+    getFinancialReport(period, ccy, getCurrentLang()).then(setReport).catch(() => setReport(null)).finally(() => setLoading(false));
   }, [period, ccy, lang]);
 
   const money = useCallback((n: number) => {

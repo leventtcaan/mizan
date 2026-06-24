@@ -1,0 +1,21 @@
+- generic [active] [ref=e1]:
+  - main [ref=e2]:
+    - generic [ref=e3]:
+      - generic [ref=e5]:
+        - button "TR" [ref=e6] [cursor=pointer]
+        - button "EN" [ref=e7] [cursor=pointer]
+      - generic [ref=e8]:
+        - link "← Mizan" [ref=e9] [cursor=pointer]:
+          - /url: /
+        - heading "Welcome back" [level=1] [ref=e10]
+      - generic [ref=e11]:
+        - generic [ref=e12]:
+          - generic [ref=e13]: Email
+          - textbox "example@email.com" [ref=e14]
+        - generic [ref=e15]:
+          - generic [ref=e16]: Password
+          - textbox "••••••••" [ref=e17]
+        - button "Sign In" [ref=e18] [cursor=pointer]
+      - paragraph [ref=e19]:
+        - button "Don't have an account? Sign up" [ref=e20] [cursor=pointer]
+  - alert [ref=e21]

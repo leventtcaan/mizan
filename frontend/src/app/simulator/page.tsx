@@ -24,7 +24,9 @@ export default function SimulatorPage() {
   const router = useRouter();
   const { t, lang } = useLanguage();
 
-  const [ccy, setCcy] = useState("TRY");
+  // Lazy-init from the stored display currency so the levers fetch isn't fired under
+  // "TRY" and rendered, only to be redone (and visibly flash) under the real currency.
+  const [ccy, setCcy] = useState(() => getDefaultCurrency());
   const [levers, setLevers] = useState<SimLevers | null>(null);
   const [actions, setActions] = useState<SimAction[]>([]);
   const [horizon, setHorizon] = useState(24);

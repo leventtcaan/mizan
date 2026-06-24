@@ -299,8 +299,9 @@ async def cashflow_summary(
     month_expenses_actual = Decimal("0")
     for t in transactions:
         if month_start <= t.transaction_date <= today:
-            # Statement transactions carry no currency → treated as the legacy TRY base.
-            amt = await _conv(Decimal(str(t.amount)), "TRY")
+            # Honor each transaction's own recorded currency; fall back to the legacy
+            # TRY base only when a row predates per-transaction currency tracking.
+            amt = await _conv(Decimal(str(t.amount)), t.currency or "TRY")
             if t.transaction_type == "credit":
                 month_income_actual += amt
             elif t.transaction_type == "debit":

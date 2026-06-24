@@ -1,0 +1,18 @@
+- generic [active] [ref=e1]:
+  - alert [ref=e21]
+  - generic [ref=e23]:
+    - generic [ref=e24]:
+      - paragraph [ref=e25]: Mizan
+      - paragraph [ref=e28]: 1 / 2
+    - generic [ref=e29]:
+      - heading "Let's build your financial picture" [level=1] [ref=e30]
+      - paragraph [ref=e31]: audit-1782286281@example.com · Upload your bank statements to start — or enter everything by hand.
+      - paragraph [ref=e32]: Upload all your statements — the more data, the more accurate the analysis.
+      - generic [ref=e33] [cursor=pointer]:
+        - img [ref=e34]
+        - paragraph [ref=e37]: Drop the file here
+        - paragraph [ref=e38]: PDF, CSV or XLSX · Max 10 MB
+      - button "Continue" [ref=e39] [cursor=pointer]:
+        - text: Continue
+        - img [ref=e40]
+      - button "Not now, skip" [ref=e42] [cursor=pointer]

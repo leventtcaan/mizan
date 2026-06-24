@@ -29,7 +29,12 @@ export function detectBrowserLang(): Lang {
   return "en";
 }
 
-function getCurrentLang(): Lang {
+/**
+ * The active UI language, resolved synchronously from storage (or browser locale).
+ * Exported so pages can seed a data fetch with the correct language on first render
+ * instead of firing it under the SSR-safe "tr" default the hook starts at.
+ */
+export function getCurrentLang(): Lang {
   if (typeof window === "undefined") return "tr";
   const stored = localStorage.getItem(STORAGE_KEY);
   if (stored === "en" || stored === "tr") return stored;

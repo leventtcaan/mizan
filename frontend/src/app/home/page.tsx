@@ -48,7 +48,10 @@ const RECON_TITLE_KEY: Record<string, string> = {
 export default function HomePage() {
   const router = useRouter();
   const { t, lang } = useLanguage();
-  const [ccy, setCcy] = useState("TRY");
+  // Lazy-init from the stored display currency so the very first fetch uses the right
+  // currency — starting at "TRY" makes loadAll() fire a wasted TRY request that the
+  // currency effect then has to redo (and can flash TRY values under the real currency).
+  const [ccy, setCcy] = useState(() => getDefaultCurrency());
   const [name, setName] = useState("");
   const [mounted, setMounted] = useState(false);
 

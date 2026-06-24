@@ -1,0 +1,83 @@
+- generic [active] [ref=e1]:
+  - alert [ref=e21]
+  - navigation [ref=e43]:
+    - generic [ref=e44]:
+      - link "Mizan" [ref=e45] [cursor=pointer]:
+        - /url: /home
+      - generic [ref=e46]:
+        - link "Home" [ref=e47] [cursor=pointer]:
+          - /url: /home
+          - img [ref=e48]
+          - text: Home
+        - link "Money Flow" [ref=e51] [cursor=pointer]:
+          - /url: /transactions
+          - img [ref=e52]
+          - text: Money Flow
+        - link "Net Worth" [ref=e55] [cursor=pointer]:
+          - /url: /networth
+          - img [ref=e56]
+          - text: Net Worth
+        - link "Reports" [ref=e58] [cursor=pointer]:
+          - /url: /reports
+          - img [ref=e59]
+          - text: Reports
+        - link "Progress" [ref=e62] [cursor=pointer]:
+          - /url: /progress
+          - img [ref=e63]
+          - text: Progress
+      - generic [ref=e64]:
+        - button "USD" [ref=e66] [cursor=pointer]:
+          - text: USD
+          - img [ref=e67]
+        - button "Notifications" [ref=e70] [cursor=pointer]:
+          - img [ref=e71]
+        - link "Upload" [ref=e74] [cursor=pointer]:
+          - /url: /upload
+          - img [ref=e75]
+          - text: Upload
+        - button "A" [ref=e79] [cursor=pointer]
+  - generic [ref=e81]:
+    - generic [ref=e82]:
+      - img [ref=e85]
+      - generic [ref=e96]:
+        - paragraph [ref=e97]: Good morning, audit-1782286281
+        - paragraph [ref=e98]: June 2026 · calendar month · from your transactions
+        - heading "You're in good shape — $6,200.00 came in, $2,572.70 went out." [level=1] [ref=e99]
+        - button "Ask Mizan about this" [ref=e100] [cursor=pointer]:
+          - img [ref=e102]
+          - text: Ask Mizan about this
+    - generic [ref=e113]:
+      - paragraph [ref=e114]: Needs you
+      - 'link "Receivable: Client B · TRY 37,183 due in 1 day" [ref=e116] [cursor=pointer]':
+        - /url: /cashflow
+        - generic [ref=e118]:
+          - paragraph [ref=e119]: "Receivable: Client B · TRY 37,183"
+          - paragraph [ref=e120]: due in 1 day
+        - img [ref=e121]
+    - generic [ref=e123]:
+      - link "June 2026 +$3,627.30 from your transactions" [ref=e124] [cursor=pointer]:
+        - /url: /transactions
+        - img [ref=e125]
+        - paragraph [ref=e129]: June 2026
+        - paragraph [ref=e130]: +$3,627.30
+        - paragraph [ref=e131]: from your transactions
+      - link "Net worth $362,531.00 assets & debts · as of today" [ref=e132] [cursor=pointer]:
+        - /url: /networth
+        - img [ref=e133]
+        - paragraph [ref=e135]: Net worth
+        - paragraph [ref=e136]: $362,531.00
+        - paragraph [ref=e137]: assets & debts · as of today
+      - link "Simulate What if…?" [ref=e138] [cursor=pointer]:
+        - /url: /simulator
+        - img [ref=e139]
+        - paragraph [ref=e142]: Simulate
+        - paragraph [ref=e143]: What if…?
+    - generic [ref=e144]:
+      - link "Upload" [ref=e145] [cursor=pointer]:
+        - /url: /upload
+        - img [ref=e146]
+        - text: Upload
+      - generic [ref=e149]: ·
+      - button "Add transaction" [ref=e150] [cursor=pointer]:
+        - img [ref=e151]
+        - text: Add transaction

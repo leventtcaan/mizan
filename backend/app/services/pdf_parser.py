@@ -833,11 +833,171 @@ def _extract_with_regex(text: str) -> list[RawTransaction]:
 
 # ─── CSV extraction ───────────────────────────────────────────────────────────
 
+# Header hints for the OPTIONAL Type and Currency columns of a structured CSV.
+# (Date/Description/Amount reuse the multilingual XLSX hints + value inference.)
+_CSV_TYPE_HINTS = (
+    "type", "tür", "tur", "işlem türü", "islem turu", "transaction type",
+    "direction", "debit/credit", "d/c", "dc", "tip", "indicator",
+)
+_CSV_CURRENCY_HINTS = (
+    "currency", "para birimi", "döviz", "doviz", "ccy", "cur",
+    "währung", "wahrung", "devise", "moneda", "currency code",
+)
+
+# Type-column cell values naming a credit (money in) / debit (money out), multilingual.
+_CSV_CREDIT_VALUES = {"credit", "cr", "c", "alacak", "kredi", "deposit", "income",
+                      "gelir", "in", "haben", "+", "incoming"}
+_CSV_DEBIT_VALUES = {"debit", "dr", "d", "borç", "borc", "withdrawal", "expense",
+                     "gider", "out", "soll", "-", "payment", "outgoing"}
+
+_CCY_CODE_RE = re.compile(r"^[A-Za-z]{3}$")
+_CCY_IN_TEXT_RE = re.compile(r"\b([A-Za-z]{3})\b")
+_CCY_SYMBOLS = {"₺": "TRY", "$": "USD", "€": "EUR", "£": "GBP", "¥": "JPY", "₹": "INR", "₽": "RUB"}
+
+
+def _csv_col_by_hint(header: tuple, hints: tuple) -> int | None:
+    for i, cell in enumerate(header):
+        if cell is None:
+            continue
+        h = str(cell).strip().lower()
+        if h and any(k in h for k in hints):
+            return i
+    return None
+
+
+def _csv_type_sign(cell: object) -> str | None:
+    """Map a Type-column cell → 'credit'/'debit', or None when it isn't a clear sign."""
+    if cell is None:
+        return None
+    s = str(cell).strip().lower()
+    if not s:
+        return None
+    if s in _CSV_CREDIT_VALUES:
+        return "credit"
+    if s in _CSV_DEBIT_VALUES:
+        return "debit"
+    if s.startswith("credit") or "alacak" in s:
+        return "credit"
+    if s.startswith("debit") or "borç" in s or "borc" in s:
+        return "debit"
+    return None
+
+
+def _csv_amount_number(cell: object) -> float | None:
+    """Parse an Amount cell that may carry a currency symbol/code ("$1,234.56",
+    "1.234,56 TL", "(50.00)") → float, else None. Locale-aware via _normalise_amount."""
+    if isinstance(cell, bool) or cell is None:
+        return None
+    if isinstance(cell, (int, float)):
+        return float(cell)
+    s = str(cell).strip()
+    if not s:
+        return None
+    cleaned = re.sub(r"[^\d.,()+\-]", "", s)  # drop currency symbols / codes / stray text
+    if not re.search(r"\d", cleaned):
+        return None
+    return _coerce_number(cleaned)
+
+
+def _csv_currency(type_cell: object) -> str | None:
+    """A 3-letter ISO code from a Currency-column cell, else None."""
+    if type_cell is None:
+        return None
+    s = str(type_cell).strip().upper()
+    return s if _CCY_CODE_RE.match(s) else None
+
+
+def _csv_currency_from_amount(cell: object) -> str | None:
+    """Best-effort currency from an Amount cell's symbol/code ("100 USD", "₺50")."""
+    s = str(cell) if cell is not None else ""
+    for sym, code in _CCY_SYMBOLS.items():
+        if sym in s:
+            return code
+    m = _CCY_IN_TEXT_RE.search(s)
+    return m.group(1).upper() if m else None
+
+
+def _parse_csv_structured(rows: list[list[str]]) -> list[RawTransaction] | None:
+    """
+    WHAT: Map a standard tabular CSV by COLUMN — Date, Description, Amount, and the
+          optional Type and Currency columns — instead of flattening each row to a line.
+    WHY:  Line-join + regex silently drops rows whose amount/date the regex can't shape
+          out of a joined string (e.g. amounts with no thousands separator, descriptions
+          containing digits, an explicit Type column the regex ignores). Column mapping
+          reads the row's real fields, so those rows survive.
+    HOW:  Requires a NAMED header (a row whose cells name a date column in any language)
+          so this only claims confidently-structured exports; everything else returns
+          None and falls through to the regex path. Column roles reuse the same engine
+          the XLSX parser uses (header hints + per-column value inference).
+    """
+    tuples = [tuple(r) for r in rows]
+    limit = min(len(tuples), _XLSX_HEADER_SCAN_ROWS)
+    header_idx = next((h for h in range(limit) if _row_has_date_header(tuples[h])), None)
+    if header_idx is None:
+        return None
+
+    header = tuples[header_idx]
+    date_idx, desc_idx, amount_idx = _identify_xlsx_columns(header, tuples[header_idx + 1:])
+    if date_idx is None or amount_idx is None or date_idx == amount_idx:
+        return None
+
+    type_idx = _csv_col_by_hint(header, _CSV_TYPE_HINTS)
+    ccy_idx = _csv_col_by_hint(header, _CSV_CURRENCY_HINTS)
+    # A column can hold only one role.
+    if type_idx in (date_idx, desc_idx, amount_idx):
+        type_idx = None
+    if ccy_idx in (date_idx, desc_idx, amount_idx):
+        ccy_idx = None
+
+    logger.info(
+        "CSV structured: header row=%d → date=%s desc=%s amount=%s type=%s currency=%s",
+        header_idx, date_idx, desc_idx, amount_idx, type_idx, ccy_idx,
+    )
+
+    transactions: list[RawTransaction] = []
+    for row in tuples[header_idx + 1:]:
+        if amount_idx >= len(row):
+            continue
+        num = _csv_amount_number(row[amount_idx])
+        if num is None or abs(num) < 0.01:
+            continue  # blank / text / zero — not a transaction row
+        if date_idx >= len(row) or not _looks_like_date(row[date_idx]):
+            continue  # preamble / footer summary row (carries a number but no date)
+        date_str = _xlsx_date_str(row[date_idx])
+
+        description = ""
+        if desc_idx is not None and desc_idx < len(row) and row[desc_idx] is not None:
+            description = str(row[desc_idx]).strip()
+        if any(frag in description.lower() for frag in _SUMMARY_DESCRIPTION_FRAGMENTS):
+            continue
+
+        # Direction: an explicit Type column is authoritative; otherwise the amount's sign.
+        ttype = _csv_type_sign(row[type_idx]) if (type_idx is not None and type_idx < len(row)) else None
+        if ttype is None:
+            ttype = "debit" if num < 0 else "credit"
+
+        currency = _csv_currency(row[ccy_idx]) if (ccy_idx is not None and ccy_idx < len(row)) else None
+        if currency is None:
+            currency = _csv_currency_from_amount(row[amount_idx])
+
+        transactions.append(RawTransaction(
+            date=date_str,
+            description=description or "Transaction",
+            amount=_normalise_amount(str(abs(num))),
+            transaction_type=ttype,
+            currency=currency,
+        ))
+
+    return transactions or None
+
+
 def _parse_csv(contents: bytes) -> ParseResult:
     """
-    WHAT: Extracts transactions from a CSV bank statement, sniffing delimiter and encoding.
-    WHY: CSV exports vary between UTF-8/latin-1 and comma/semicolon delimiters.
-         Sniffing handles both without per-bank configuration.
+    WHAT: Extracts transactions from a CSV bank statement. Tries STRUCTURED column
+          mapping first (standard Date/Description/Amount/Type/Currency headers), then
+          falls back to line-join + regex for unstructured exports.
+    WHY: CSV exports vary in encoding (UTF-8/latin-1) and delimiter (comma/semicolon),
+         AND in shape. Column mapping recovers rows the regex would silently drop.
     BREAKS IF REMOVED: CSV statements produce no transactions.
     """
     try:
@@ -853,21 +1013,34 @@ def _parse_csv(contents: bytes) -> ParseResult:
         dialect.delimiter = ";"
         logger.info("CSV delimiter sniff failed — defaulting to semicolon")
 
-    reader = csv.reader(io.StringIO(text), dialect=dialect)
-    transactions: list[RawTransaction] = []
-    raw_row_count = 0
+    rows = [row for row in csv.reader(io.StringIO(text), dialect=dialect) if row]
+    raw_row_count = len(rows)
 
-    for row in reader:
-        if not row:
-            continue
-        raw_row_count += 1
+    # (1) Structured column mapping — the reliable path for standard tabular CSVs.
+    structured = _parse_csv_structured(rows)
+    if structured:
+        structured = _filter_zero_amount(_deduplicate(structured))
+        # Column roles are authoritative (explicit Type / signed Amount), so keyword
+        # sign-correction is intentionally NOT applied here — it would clobber them.
+        if structured:
+            logger.info("CSV parse complete (structured) — %d raw rows, %d transactions",
+                        raw_row_count, len(structured))
+            return ParseResult(
+                transactions=structured, page_count=1, raw_row_count=raw_row_count,
+                source_type="csv-structured", status="success",
+                detected_currency=_dominant_currency(structured),
+            )
+
+    # (2) Fallback — flatten each row to a line and regex-scan it.
+    transactions: list[RawTransaction] = []
+    for row in rows:
         line = " ".join(cell.strip() for cell in row)
         transactions.extend(_extract_with_regex(line))
 
     transactions = _deduplicate(transactions)
     transactions = _filter_zero_amount(transactions)
     transactions = _apply_sign_correction(transactions)
-    logger.info("CSV parse complete — %d raw rows, %d transactions", raw_row_count, len(transactions))
+    logger.info("CSV parse complete (regex) — %d raw rows, %d transactions", raw_row_count, len(transactions))
     if transactions:
         return ParseResult(
             transactions=transactions, page_count=1, raw_row_count=raw_row_count,
