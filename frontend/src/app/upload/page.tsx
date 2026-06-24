@@ -72,7 +72,14 @@ export default function UploadPage() {
 
     setProcessing(false);
     if (batchIds.length > 0) {
-      router.push(`/review?batch_ids=${batchIds.join(",")}`);
+      // Batches whose currency was NOT detected in the file → review must confirm it
+      // before trusting the inferred fallback. Carried in the URL so a refresh keeps it.
+      const inferred = entries
+        .filter((e) => e.result?.status === "success" && e.result.currency_detected === false)
+        .map((e) => e.result!.job_id);
+      const q = new URLSearchParams({ batch_ids: batchIds.join(",") });
+      if (inferred.length) q.set("inferred", inferred.join(","));
+      router.push(`/review?${q.toString()}`);
     }
   }, [entries, processing, router, t]);
 

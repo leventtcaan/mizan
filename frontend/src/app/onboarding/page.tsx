@@ -154,7 +154,13 @@ export default function OnboardingPage() {
     setError(null);
     if (hasStatement) {
       const ids = successUploads.map((u) => u.result.job_id).join(",");
-      router.push(`/review?batch_ids=${ids}&onboarding=1`);
+      // Statements with no currency in the file → review confirms the inferred fallback.
+      const inferred = successUploads
+        .filter((u) => u.result.currency_detected === false)
+        .map((u) => u.result.job_id);
+      const q = new URLSearchParams({ batch_ids: ids, onboarding: "1" });
+      if (inferred.length) q.set("inferred", inferred.join(","));
+      router.push(`/review?${q.toString()}`);
       return;
     }
     setStep(2);

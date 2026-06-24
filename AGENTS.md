@@ -340,11 +340,47 @@ When context reaches ~70% capacity:
 ### Phase 69 — Home redesign: subtraction mode (2026-06-24)
 - [x] Removed 6+ panels (snapshot/ratios, action center, cash-flow pulse, upcoming, insight, quick-actions, checklist, tour). New Home (7.96kB→**4.7kB**): greeting + **one deterministic sentence** (tone dot) + "Ask Mizan about this →" (assistant prefill) + **"Needs you"** max-2 ranked + **3 soul tiles** (Money/Net Worth/Simulate) + tiny capture row; cold start = one line + Upload. `home.daily.*` TR/EN. Coach not spreadsheet; dashboards = doorways.
 
+### Phase 72 — Audit fixes batch 1 (2026-06-24)
+- [x] Dual Mim killed (GlobalAssistant FAB/bubble hidden on `/home`; home owns inline Mim). Brief ISO dates → locale range (noon-anchored). NW language mixing → locale keys. Currency chip in navbar (top-7 + all →, broadcasts `mizan-currency-change`).
+
+### Phase 73 — Navigation cleanup (2026-06-24)
+- [x] Reports → top nav (destination, not buried). Simulator → account dropdown (power tool). Dead routes removed (`/subscriptions`, `/installments` stubs + orphan links); money unified under MoneyTabs.
+
+### Phase 74 — Empty states (2026-06-24)
+- [x] Scorecard provisional (honest thin-data state vs fake ~57). Recurring/cashflow/progress get real first-run cards (what + CTA) not blank panels.
+
+### Phase 75 — Mim unification (2026-06-24)
+- [x] One voice via `companion/voice` (observe + escalation, deduped vs session memory). Character in chat panel (mood avatar, not generic bot). Session memory: `spokenKeysRef` + `escalationCheckedRef` (once/session, reset on `mizan-data-changed`). Proactive escalation leads with cross-page urgent before page observations.
+
+### Phase 76 — Transactions page composition (2026-06-24)
+- [x] Two windows clarified: MoneyOverview = calendar month (labeled); spending chart + table below = STATEMENT period. Spending chart now labels its window (`dateRangeLabel` or "all statements") so they don't read as one. `tx.spendingAll` key.
+
+### Phase 77 — Full audit pass (2026-06-24): 6 CRITICAL · 15 HIGH · 7 MEDIUM · 3 LOW — all fixed
+- [x] **Currency lazy-init everywhere**: home/reports/simulator/cashflow/MoneyOverview `useState(() => getDefaultCurrency())` (no TRY flash/wasted fetch); reports seeds lang via `getCurrentLang()`.
+- [x] **CSV structured column mapping** (`pdf_parser._parse_csv_structured`): named-header CSVs mapped by column (Date/Desc/Amount/Type/Currency, multilingual) — Type authoritative for sign, Currency col + symbol detect — BEFORE regex fallback. Stops dropping standard rows.
+- [x] **`currency_breakdown` native+display** (networth.py): `[{code, native_value, display_value}]`, no hardcoded TRY base; chips use display_value.
+- [x] **Onboarding completion timing**: deferred to confirmed review (`?onboarding=1`) or skip path (not before review). Cancel-from-onboarding → back to onboarding.
+- [x] **Onboarding manual-entry path**: "enter by hand" real — Add-manually opens AddTransactionModal in step 1.
+- [x] **Fuzzy categorize** (assistant.py): `categorize_transaction` accepts `description` (substring→all; else best ≥0.6) across all batches; no ID needed. Turkish reason/keyword path gone.
+- [x] **Turkish bank keywords removed**: `_generate_networth_suggestions` deleted (last TR-hardcoding); `suggestions` kept empty for compat.
+- [x] **`.env.example` complete**: root + new `backend/.env.example`, all 10 settings, SECRET_KEY flagged required; `.env` gitignored (verified).
+- [x] **Mobile review cards**: table `hidden sm:block`; `sm:hidden` editable card per tx (no h-scroll).
+- [x] **Admin soft-delete + audit** (migration **0035**): `User.is_deleted` + `admin_audit_logs` (durable, plain-UUID + email snapshot). DELETE soft by default (`?hard=true` permanent), audit row FIRST either way. Soft-deleted can't log in (login + `get_current_user`), hidden from admin list/counts.
+- [x] **401 console noise**: NotificationDropdown + MoneyOverview short-circuit `if (!getToken()) return`.
+- [x] **Favicon**: `app/icon.svg` Mizan M monogram; stops `/favicon.ico` probe.
+- [x] **Warmer dark palette**: cold grays → warm-graphite (R≥G≥B) all surfaces (`#1A1A1A`→`#1C1915`, `#2A2A2A`→`#2C2922`, `#0F0F0F`→`#11100E`); accents untouched; `color-scheme: dark` + soft off-white body text.
+- [x] **Landing trust redesign**: removed AI-startup tropes (orbs/glow/gradient band/rainbow headline/pulsing dot) → ShieldCheck badge, solid type, soft-shadow depth, contained CTA. Chart gradients kept.
+- [x] **Security**: SECRET_KEY required (no default, fail-fast); `/admin/scheduler/status` admin-authenticated.
+- [x] **Manual tx always visible**: `get_transactions_for_user` default batch also includes `upload_batch_id IS NULL`.
+- [x] **Scorecard currency**: per-tx convert to display ccy BEFORE aggregate (multi-ccy score fixed); downstream double-convert removed.
+- [x] **Browser locale detection everywhere**: `detectBrowserLang`/`detectBrowserCurrency` seed lang+ccy for new visitors; login+register thread to backend.
+- [x] **Cashflow `t.currency`** (was forced TRY). **Mim bubble** hidden on mobile (can't cover content).
+
 ---
 
 ## Current Status
 
-**Phases 1–69 complete. Alembic head = 0035.** (CLAUDE.md is authoritative for detail.) **Vision: chief of staff, not dashboard. Brief + Simulator = soul; dashboards = doorways. One sentence + everything behind a tap; subtraction > addition.** Home (69) is now a one-sentence coach. Most of 65–69 verified by build/py_compile only (no live LLM key here). Loop: Upload → Review → Brief → Home (Phases 61–64). Brief reuses ProgressInsight `data_type="brief"` (no new table). Progress = Financial Health scorecard. Net Worth = GuidancePanel + AllocationChart (no history chart). Upload returns status/reason; parser is global. Deferred: `_generate_networth_suggestions` Turkish bank keywords; account connectivity (Plaid — deferred, manual-first chosen); CSV unquoted comma-thousands edge case; scorecard synthetic score when thin; real snapshots need time (trajectory estimated until then); P1-deep valuation migration; P2 tx↔account reconciliation.
+**Phases 1–77 complete. Alembic head = 0035. Full audit done (Phase 77: 6 CRITICAL · 15 HIGH · 7 MEDIUM · 3 LOW — all fixed); end-to-end live test in progress by external agent. Pending: live-test feedback + fixes, then deploy to prod.** (CLAUDE.md is authoritative for detail.) **Vision: chief of staff, not dashboard. Brief + Simulator = soul; dashboards = doorways. One sentence + everything behind a tap; subtraction > addition.** Home (69) is now a one-sentence coach. Most of 65–69 verified by build/py_compile only (no live LLM key here). Loop: Upload → Review → Brief → Home (Phases 61–64). Brief reuses ProgressInsight `data_type="brief"` (no new table). Progress = Financial Health scorecard. Net Worth = GuidancePanel + AllocationChart (no history chart). Upload returns status/reason; parser is global. Deferred: `_generate_networth_suggestions` Turkish bank keywords; account connectivity (Plaid — deferred, manual-first chosen); CSV unquoted comma-thousands edge case; scorecard synthetic score when thin; real snapshots need time (trajectory estimated until then); P1-deep valuation migration; P2 tx↔account reconciliation.
 
 **(historical, Phase 34) Phases 1–34 complete. Alembic head = 0022. No new migrations since Phase 32.**
 
@@ -798,7 +834,7 @@ Full stack: register/login → JWT → upload (rate-limited, busts caches) → 3
 
 ## Next Session — Start Here
 
-**Phases 1–69 complete. Alembic head = 0035.** (Older Phase 42/head-0022 notes below are historical — CLAUDE.md is authoritative.) Shipped since last update: weekly money brief (64.5, migration 0033), simulator (65), landing+navbar (66), report export (67), BR/PT categorizer+faiz+forced overrides (68), Home subtraction redesign (69). **Next: ask the model what's highest-leverage now** (user's standing pattern). **Hold the line on SUBTRACTION** (brother's "too complex" feedback drove 69 — don't re-add panels). Candidate threads: dogfood with the real user; verify untested surfaces live (most of 65–69 build/py_compile-only, no live LLM key here); same subtraction pass on Net Worth / Progress / Money Flow (still multi-panel); Resend domain verification so weekly brief delivers. Deferred items in Current Status.
+**Phases 1–77 complete. Alembic head = 0035.** (Older Phase 42/head-0022 notes below are historical — CLAUDE.md is authoritative.) Shipped since last update: audit fixes batch 1 (72), nav cleanup (73), empty states (74), Mim unification (75), transactions composition (76), full audit pass (77: 6 CRITICAL · 15 HIGH · 7 MEDIUM · 3 LOW — all fixed; migration 0035 admin soft-delete + audit log). **State: full audit complete; external agent running end-to-end live test. Next session is REACTIVE: wait for live-test feedback, fix what surfaces, then deploy to production.** **Hold the line on SUBTRACTION** (don't re-add panels). Deferred items in Current Status.
 
 Pre-flight (if docker was restarted):
 ```bash

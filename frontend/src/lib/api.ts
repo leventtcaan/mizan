@@ -186,6 +186,8 @@ export interface UploadResponse {
   parsed_income?: string;
   parsed_expenses?: string;
   currency?: string;
+  // True → currency came FROM the file. False → inferred fallback; user must confirm it.
+  currency_detected?: boolean;
 }
 
 export interface Transaction {

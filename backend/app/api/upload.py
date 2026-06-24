@@ -88,6 +88,10 @@ class UploadResponse(BaseModel):
     parsed_income: str = "0"
     parsed_expenses: str = "0"
     currency: str = "TRY"
+    # True  → currency was read FROM the file (a marker/symbol/column the parser saw).
+    # False → no currency in the file; `currency` is an INFERRED fallback (account default)
+    #         and must be confirmed by the user in review before it's trusted.
+    currency_detected: bool = False
 
 
 async def _flag_duplicate_batch(
@@ -232,6 +236,9 @@ async def upload_statement(
             message="No transactions were extracted from this file.",
         )
 
+    # Currency the file actually revealed — None means the file had no currency marker,
+    # so the value we stamp is only an inferred fallback the user must confirm in review.
+    currency_detected = parse_result.detected_currency is not None
     default_ccy = parse_result.detected_currency or (current_user.display_currency or "TRY")
     persisted = await insert_transactions(
         parse_result.transactions, current_user.id, session,
@@ -285,6 +292,7 @@ async def upload_statement(
         parsed_income=str(parsed_income),
         parsed_expenses=str(parsed_expenses),
         currency=default_ccy,
+        currency_detected=currency_detected,
     )
 
 

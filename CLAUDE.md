@@ -403,11 +403,59 @@ When context reaches ~70% capacity:
 - [x] **Thesis** (founder's-brother feedback: too complex/repetitive): coach not spreadsheet; one sentence + everything behind a tap; dashboards are doorways. **Removed** snapshot/ratios card, grouped action center, full cash-flow pulse, upcoming list, separate insight panel, quick-actions grid, checklist, tour card.
 - [x] **New Home** (`app/home/page.tsx`, 7.96kB→**4.7kB**): time-aware greeting + **one synthesized sentence** (deterministic verdict from month income/expenses, tone-colored pulsing dot) + "Ask Mizan about this →" (opens GlobalAssistant prefilled) + **"Needs you"** max-2 ranked items (overdue receivable > urgent payment > reconciliation; else "Nothing needs you today ✓") + **3 quiet soul tiles** (Money/Net Worth/Simulate, one number each → their pages) + tiny capture row. Cold start = one warm line + Upload CTA (no checklist). Staggered entrance animation. `home.daily.*` locale TR/EN.
 
+### Phase 72 — Audit fixes batch 1 (2026-06-24)
+- [x] **Dual Mim killed**: home rendered Mim inline AND GlobalAssistant FAB showed Mim → two at once. GlobalAssistant FAB/bubble now hidden on `/home` (home owns the inline companion).
+- [x] **Brief ISO dates**: brief period rendered raw ISO; now locale date-range (noon-anchored, no tz day-shift).
+- [x] **Net worth language mixing**: TR/EN strings bled together on the NW page → all routed through locale keys.
+- [x] **Currency chip**: navbar currency selector reworked to a compact chip (top-7 + "all currencies →"), broadcasts `mizan-currency-change`.
+
+### Phase 73 — Navigation cleanup (2026-06-24)
+- [x] **Reports → top nav** (the artifact an Excel-replacer wants is a destination, not buried).
+- [x] **Simulator → account dropdown** (power-user tool, not a primary tab).
+- [x] **Dead routes removed**: `/subscriptions`, `/installments` stubs and orphaned links culled; money pages unified under MoneyTabs.
+
+### Phase 74 — Empty states (2026-06-24)
+- [x] **Provisional health score**: scorecard shows an honest provisional state when data is thin instead of a fake-authoritative ~57.
+- [x] **Recurring / cashflow / progress empty states**: each gets a real first-run card (what it does + CTA) instead of a blank panel.
+
+### Phase 75 — Mim unification (2026-06-24)
+- [x] **One voice**: all of Mim's lines flow through the single `companion/voice` layer (observe + escalation), deduped against session memory so it never repeats.
+- [x] **Character in chat panel**: the assistant panel header/messages carry Mim's persona (mood-driven avatar), not a generic bot.
+- [x] **Session memory**: `spokenKeysRef` tracks voiced observation keys; `escalationCheckedRef` runs the cross-page urgent check once per session (reset on `mizan-data-changed`).
+- [x] **Proactive escalation**: leads with anything genuinely urgent (cross-page) before page-specific observations.
+
+### Phase 76 — Transactions page composition (2026-06-24)
+- [x] **Two competing time windows clarified**: MoneyOverview spine = calendar month (explicitly labeled), but the spending breakdown + table below cover the uploaded STATEMENT period. Spending chart now carries an explicit period label (statement date range via `dateRangeLabel`, or "all statements") so the two windows never read as one. New `tx.spendingAll` locale key.
+
+### Phase 77 — Full audit pass (2026-06-24): 6 CRITICAL · 15 HIGH · 7 MEDIUM · 3 LOW — all fixed
+Systematic audit + fixes across the whole app. Highlights:
+- [x] **Currency lazy-init everywhere**: home/reports/simulator/cashflow/MoneyOverview start from `getDefaultCurrency()` (lazy `useState(() => ...)`) instead of "TRY" — kills the wasted TRY fetch + value flash; reports also seeds language via `getCurrentLang()`.
+- [x] **CSV structured column mapping** (`pdf_parser._parse_csv_structured`): named-header CSVs (Date/Description/Amount/Type/Currency, multilingual) mapped by COLUMN via the XLSX engine — Type column is authoritative for sign, Currency column + symbol detection set currency — BEFORE the line-join regex fallback. Stops silently dropping standard rows.
+- [x] **`currency_breakdown` native+display** (`networth.py`): was TRY-based values mislabeled as the display currency. Now `[{code, native_value, display_value}]` — no hardcoded TRY base; frontend chips use `display_value`.
+- [x] **Onboarding completion timing**: no longer marked complete before review/brief — completion deferred to confirmed review (`?onboarding=1` → review confirm) or the skip path; review cancel from onboarding returns to onboarding.
+- [x] **Onboarding manual-entry path**: the "enter by hand" promise is now real — an Add-manually button opens AddTransactionModal in step 1.
+- [x] **Fuzzy transaction categorize** (`assistant.py`): "categorize my Netflix as fatura" works without an ID — `categorize_transaction` accepts a `description`, matched (substring → all matches; else best fuzzy ≥0.6) across all batches; Type/sign authoritative, keyword correction skipped.
+- [x] **Turkish bank keywords removed**: `_generate_networth_suggestions` (hardcoded Garanti/Ziraat/… + TR reason text + TRY) deleted — last Turkish-hardcoding thread; `suggestions` field kept empty for compat.
+- [x] **`.env.example` complete**: root + new `backend/.env.example` document ALL 10 settings with placeholders; SECRET_KEY flagged required; `.env` already gitignored (verified).
+- [x] **Mobile review cards**: review table is `hidden sm:block`; a `sm:hidden` card editor renders each transaction as an editable card (no horizontal scroll).
+- [x] **Admin soft-delete + audit log** (migration **0035**): `User.is_deleted` + `admin_audit_logs` table (durable, plain-UUID + email snapshot). DELETE soft-deletes by default (`?hard=true` for permanent), writing an audit row FIRST either way. Soft-deleted users can't log in (login + `get_current_user`), hidden from admin list/counts.
+- [x] **401 console noise**: background fetchers (NotificationDropdown, MoneyOverview) short-circuit `if (!getToken()) return` so they don't 401 during the logout→login transition.
+- [x] **Favicon added**: `app/icon.svg` Mizan "M" monogram (indigo on warm near-black); also stops the `/favicon.ico` probe.
+- [x] **Warmer dark palette**: cold pure-neutral grays swept to subtle warm-graphite (R≥G≥B) across all surfaces (cards `#1A1A1A`→`#1C1915`, borders `#2A2A2A`→`#2C2922`, page `#0F0F0F`→`#11100E`); accents untouched; `color-scheme: dark` + soft off-white body text.
+- [x] **Landing trust redesign**: removed AI-startup tropes (blur orbs, glow, gradient overlay band, rainbow gradient headline, pulsing badge dot) → calm/authoritative/premium (ShieldCheck trust badge, solid type, soft-shadow depth, contained CTA panel). Data-viz chart gradients kept.
+- [x] **Security**: `SECRET_KEY` now required (no default — app fails fast if unset); `/admin/scheduler/status` endpoint authenticated (admin-gated).
+- [x] **Manual transactions always visible**: `get_transactions_for_user` default-batch query now also includes `upload_batch_id IS NULL` (manual entries no longer vanish once a batch exists).
+- [x] **Scorecard currency conversion**: per-transaction amounts converted to display currency BEFORE aggregating (multi-currency users no longer get a meaningless score); double-conversion removed downstream.
+- [x] **Browser locale detection everywhere**: `detectBrowserLang` / `detectBrowserCurrency` seed language + currency for new visitors/accounts; login + register thread detected values to the backend.
+- [x] **Cashflow `t.currency`**: month actuals honor each transaction's recorded currency (was forced "TRY").
+- [x] **Mim bubble mobile**: auto-bubble hidden on small screens so it can't cover financial content (FAB stays).
+
 ---
 
 ## Current Status
 
-**Phases 1–69 complete. Alembic head = 0035.**
+**Phases 1–77 complete. Alembic head = 0035.**
+**Full audit complete (Phase 77: 6 CRITICAL · 15 HIGH · 7 MEDIUM · 3 LOW — all fixed). End-to-end live test in progress by external agent.**
 
 ### App structure (current)
 - **Nav**: Home · Money Flow · Net Değer · İlerleme · Settings (+ currency dropdown, notification bell, global assistant FAB)
@@ -1284,12 +1332,13 @@ Full stack: register/login → JWT → upload (rate-limited, busts caches) → 3
 
 ## Next Session — Start Here
 
-**Phases 1–69 complete. Alembic head = 0035.**
+**Phases 1–77 complete. Alembic head = 0035. Full audit done — live test in progress by external agent.**
 
 ### Next session setup:
 - Use claude-opus-4-8 model
-- **Shipped since last doc update**: weekly money brief (64.5, migration 0033), simulator (65), landing+navbar (66), report export (67), BR/PT categorizer + faiz + forced overrides (68), Home subtraction redesign (69). Loop intact: Upload → Review → Brief → Home (now a one-sentence coach).
-- **First task: ask the model what's highest-leverage now** (the user's standing pattern). Hold the line on SUBTRACTION — the brother's feedback (too complex/repetitive) drove Phase 69; resist re-adding panels. Candidate threads: dogfood with the real user; verify untested surfaces live (most of 65–69 verified by build/py_compile only, no live LLM key here); apply the same subtraction pass to Net Worth / Progress / Money Flow (still multi-panel); Resend domain verification so the weekly brief actually delivers.
+- **Shipped since last doc update**: audit fixes batch 1 (72), nav cleanup (73), empty states (74), Mim unification (75), transactions composition (76), full audit pass (77: 6 CRITICAL · 15 HIGH · 7 MEDIUM · 3 LOW — all fixed). Alembic head now **0035** (admin soft-delete + audit log). Loop intact: Upload → Review → Brief → Home.
+- **State: full audit complete; an external agent is running an end-to-end live test.** Next session is reactive: wait for live-test feedback, fix what it surfaces, then deploy to production.
+- **Pending**: (1) live-test feedback + fixes, (2) deploy to production. After that: ask the model what's highest-leverage. Hold the line on SUBTRACTION (don't re-add panels).
 - Deferred items live in "Known deferred (post-57)" under Current Status.
 
 ### Product vision (updated 2026-06-24):
