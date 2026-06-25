@@ -478,12 +478,75 @@ Systematic audit + fixes across the whole app. Highlights:
 - [x] **Money Flow period labels**: spending breakdown range now prefixed "Statement period · <range>" (`tx.statementPeriod`) so it never reads as the calendar-month MoneyOverview spine above; batch card ("Latest statement") + header ("<Month> · calendar month") already labeled.
 - [x] **OCR triage in review**: conservative `looksGarbled()` (6+ consonant runs, long vowel-less words, mostly-symbol strings) flags rows with an amber-bordered description + inline **"OCR likely garbled — re-type the description"** label (desktop + mobile, `review.ocrGarbled`), folded into `flaggedCount`.
 
+### Phase 82 — Light-first design system overhaul (2026-06-25)
+- [x] **Light mode = default.** `globals.css` channel-based CSS-var tokens: `:root` = light (warm canvas, white surface, near-black ink), `[data-theme="dark"]` = warm graphite. `lib/theme.ts` (`useTheme`, `getThemePref`, `THEME_BOOTSTRAP` no-FOUC inline script in layout) — default pref **"light"** (System only if explicitly chosen). Tailwind semantic colors map to vars (`canvas/surface/surface-2/3`, `line`, `ink/ink-soft/ink-mute`, `brand`, `action`, `pos`, `neg`, `warn`, `danger`); `darkMode: ["selector", '[data-theme="dark"]']`.
+- [x] **Teal brand throughout** — replaced ALL indigo/violet (#6366F1) with brand. Primary action accent = literal **#176B5B** (hover #125848) used across the product (not the `action`/`brand` token, which lightens in dark). Negatives = muted **terracotta #B54747** (`neg`); destructive = strong red (`danger`). `ThemeToggle` (Light/Dark/System) in navbar. `tabular-nums` on `body` (all figures).
+- [x] Mechanical sweep across ~44 files: hardcoded dark hexes → tokens; `text-white`→`text-ink`, gray text → ink tokens; recharts chrome hexes → `rgb(var(--c-*))`.
+
+### Phase 83 — Landing page complete redesign (2026-06-25)
+- [x] **Pricing section (new)**: 3 tiers (Ücretsiz / Plus / Pro), Aylık↔Yıllık toggle, "En popüler" teal badge on Plus straddling top, single-currency by lang (TR→TRY, EN→USD), per-tier features, CTAs. Trust row (no bank login / encrypted / cancel-anytime).
+- [x] **Working TR/EN toggle** on landing (segmented, teal active). **Hero browser-frame mock** with interactive sparkline (hover tooltip date+value) + asset rows (teal hover) + brief snippet. Section banding (canvas ↔ surface-2). Step cards (teal icons, hover lift), feature cards, simulator spotlight, dark-teal final CTA with trust statement.
+- [x] Removed AI-cliché badge + em dashes from landing copy; copy rewritten human. Global navbar hidden on `/` (kills post-login duplicate nav).
+
+### Phase 84 — Login/Register redesign (2026-06-25)
+- [x] Card on canvas, **two distinct tab buttons** (Giriş/Kayıt, active = solid teal), theme + lang toggles in a top bar, fixed inputs (teal focus ring, token placeholder), teal submit. Reassurance line.
+- [x] **Plan-aware routing**: landing Plus/Pro CTAs → `/login?mode=register&plan=plus|pro`; login reads `?mode` + `?plan` (via `window.location.search`, no Suspense), shows "you selected Plus" banner, and after a **plan registration** routes to `/upgrade?plan=…`. `/register` does not exist — `mode=register` selects the register tab.
+
+### Phase 85 — Upgrade page (2026-06-25)
+- [x] New authenticated `/upgrade` (3 tiers, billing toggle, current-plan badge from `getMe().plan`). **Honest "payment not live yet" banner.** Paid CTA = **interest capture** (localStorage `mizan_upgrade_interest` → inline "we'll be in touch" confirmation), NOT a fake checkout. Settings gets a **Plan card** at top → `/upgrade`. Plan changes remain admin-only until billing exists.
+
+### Phase 86 — Pre-production: verification + Redis + plans (2026-06-25) [migration 0036]
+- [x] **Email verification**: `User.email_verified` (migration 0036, existing rows grandfathered true). Signed token (`typ=email_verify`, 24h) in `security.py`. Register sends Resend verify email (best-effort, `api/email.py` `send_verification_email`). `POST /auth/verify-email`, `POST /auth/resend-verification` (non-enumerating). `get_verified_user` dep → 403 `email_not_verified`. Frontend `/verify` page (verify + notice/resend), login routes unverified → `/verify`.
+- [x] **Gated behind verification**: upload, assistant (`/assistant/*`), simulator (`/simulator/*`), brief (`GET /upload/brief`). Fixed a latent `get_current_user` import bug in upload.py.
+- [x] **Redis rate limiter**: `redis:7-alpine` in docker-compose + `REDIS_URL` (config + .env.example); `core/rate_limiter.py` rewritten — Redis sliding-window (sorted sets), **graceful in-memory fallback**. Upload limit = 3/10min per user + per IP. `redis==5.0.8`.
+- [x] **Plan system**: `User.plan` (free/plus/pro) + `plan_expires_at` (migration 0036). `core/plans.py` (`effective_plan` downgrades lapsed paid → free, `vision_enabled`, `FREE_MONTHLY_UPLOAD_CAP=1`, `FREE_DAILY_ASSISTANT_CAP=10`, `assistant_daily_cap`). Upload cap: free = 1 statement/calendar-month → **402 `upload_cap_reached`** (frontend upgrade prompt); vision PDF = paid only (`parse_statement(allow_vision=)`). Assistant: free = 10 msgs/rolling-24h → **429 `assistant_daily_cap_reached`** (frontend upgrade card with /settings link). Admin panel: change plan (`PATCH /admin/users/{id}` accepts `plan`, audited) + plan/verified badges.
+
+### Phase 87 — Home redesign (2026-06-25)
+- [x] **Mim front and center** (size 92, speaking, glow) as the hero; greeting + one-sentence verdict (em dashes removed from `home.daily` copy, cleaner sentences). Hierarchy: Mim → "Needs you" (+ collapsible upcoming calendar) → snapshot tiles (icon-in-tile, bigger numbers, hover lift) → quick-action buttons (proper teal Upload + outline Add).
+- [x] **Data-driven question as a speech bubble**: `suggestion` derived from real state (top need → overspend → surplus → net worth → fallback); rendered as a tappable bubble with an upward tail (emanates from Mim), Send icon + idle ping, "tap to ask" hint → `openMim(prefill)`.
+- [x] **Navbar active state**: clear teal indicator (`text-[#176B5B] bg-[#176B5B]/10 font-semibold`) on current page (desktop + mobile) — was an invisible `bg-surface-2`.
+- [x] GlobalAssistant: FAB hidden on Home (inline Mim) but **reappears after the panel is opened once** (`engaged` flag), so it can be reopened.
+
+### Phase 88 — Transactions page redesign (2026-06-25)
+- [x] Prominent count badge (solid teal pill), proper "Manuel Ekle" button. **MoneyOverview** rebuilt: Net headline + income/expenses tinted chips + commitments/projected footnotes. **Commitments stat** relabeled "Tekrarlayan taahhütler · N kalem" + info tooltip, tappable → /recurring. MoneyTabs: clear teal active state.
+- [x] **Dark-row bug fixed** (`#7`): removed `bg-[#13110D]` striping in TransactionTable + loading skeleton; `CategoryBadge` rewritten off dark `*-950` boxes to **color-tinted pills** (category color at ~12% opacity). Amounts → `pos`/`neg` tokens.
+- [x] **Tap-to-edit clarity**: hint row, whole row expands (category cell no longer swallows click), teal chevron; expanded panel = `surface-2` sub-panel; **category chips** flex-wrap, active solid teal, inactive bordered teal-hover. SpendingChart: stacked proportion bar + hover linking (focus row/segment, dim others).
+
+### Phase 89 — Cashflow + Recurring design-system pass (2026-06-25)
+- [x] Replaced all dark-only colors (`*-950/*-900` tints, emerald/orange/amber/red, blue-950) with semantic tokens (`pos`/`neg`/`warn`) + literal #176B5B teal. Cashflow: proper teal "Ödeme Ekle" button, themed item icons/type chips/urgent/today/warning/legend. Recurring: flag chips (pos/warn/neg), installment badges + progress + real-cost boxes, neutral weekly badge. Skeletons → `surface-2`.
+
+### Phase 90 — Upload page design-system pass (2026-06-25)
+- [x] Dropzone reworked: Upload icon in teal tile, explicit "browse" button, teal drag state. Tokens/teal across process button, cap card, verify card, file rows (`pos`/`warn` status icons), spinner track fixed (`border-line`).
+
+### Phase 91 — Navbar + overlay light-mode fixes (2026-06-25)
+- [x] Navbar **Upload button + avatar** were invisible (`bg-brand` token) → literal #176B5B + white + shadow (also mobile Upload + in-menu lang toggles).
+- [x] **Overlay transparency root cause**: solid `bg-surface`/`bg-<token>` fills were NOT painting opaquely at runtime (in-flow cards hide it; floating overlays expose it as see-through). Fixed the overlays with an **explicit theme-resolved inline background** (`useTheme` → `#FFFFFF` light / `#1C1915` dark), independent of token/`dark:` resolution: AddTransactionModal card, CurrencyMenu dropdown, Navbar account dropdown, CurrencySelect panel. (`dark:` variant was briefly tried and removed — it desynced from the token theme; app is fully token-driven + these inline-bg overlays.)
+- [x] **AddTransactionModal UX**: currency = `CurrencySelect` dropdown (its dark `#13110D` headers + brand tokens also fixed); type buttons = two clear color-coded buttons, **selected = solid inline fill (terracotta/green) + checkmark + white text** (bg-`neg`/`pos` token fills weren't painting → explicit inline hex), auto-category option clarified ("Otomatik belirle (AI)" + hint), live preview chip of what will be saved.
+- [x] **KNOWN RUNTIME QUIRK**: solid `bg-<token>` utilities (e.g. `bg-surface`, `bg-neg`) don't paint reliably in the current build while `text-<token>`/`border-<token>` do — root cause untraced. Mitigation: overlays + selected-state fills use explicit inline colors. Worth a real fix later (suspect stale/misbuilt CSS layer for the channel-token bg utilities).
+
 ---
 
 ## Current Status
 
-**Phases 1–81 complete. Alembic head = 0035.**
-**All audit report items complete. App is a production-ready candidate. Pending: deploy to production.**
+**Phases 1–91 complete. Alembic head = 0036.**
+**All audit report items complete + full light-first design-system overhaul + pre-production (verification, Redis, plans). Pending: deploy to production + billing integration.**
+
+### Design system (Phase 82, established)
+- **Light mode default**, dark toggle (Light/Dark/System) in navbar. Token system: `:root` (light) / `[data-theme="dark"]` (dark) channel CSS vars; Tailwind semantic colors.
+- Primary action accent: **#176B5B** (teal), hover **#125848** — used as a **literal hex** for primary buttons/active states (the `action`/`brand` tokens lighten in dark; literal keeps it consistent both modes).
+- Brand: **#0F5C5E**. Canvas: warm off-white (light) / warm graphite #11100E (dark). Negative: **#B54747** (terracotta) `neg`; destructive: strong red `danger`; positive: green `pos`; caution: `warn`.
+- Font: Inter. `tabular-nums` on all financial figures (body-level).
+- **⚠ Runtime quirk (untraced)**: solid `bg-<token>` utilities don't always paint at runtime (text/border tokens do). Overlays (modals/dropdowns) + selected-state fills use **explicit theme-resolved inline colors** (`useTheme` → hex) as the mitigation. Fix the bg-token CSS layer later.
+
+### Pricing (Phases 83/85, established — billing NOT yet integrated)
+- **Free**: ₺0 / $0 — manual entry, 1 statement upload/month, vision disabled.
+- **Plus**: **₺199/ay · ₺1.690/yıl** / **$7/mo · $59/yr** — unlimited uploads, brief, categorization, recurring, weekly email.
+- **Pro**: **₺349/ay · ₺2.990/yıl** / **$12/mo · $99/yr** — everything + simulator, unlimited assistant, reports, guidance.
+- Yearly ≈28–30% off monthly×12 (keeps "%28 tasarruf" chip honest). Plan changes admin-only until billing exists; `/upgrade` captures interest in localStorage only.
+
+### IMPORTANT — Next product bet (cash flow ↔ net worth bridge)
+- **Onboarding ekstre→varlık akışı**: after statement upload, detect account/closing balance from the statement footer → suggest adding it as an **asset** (e.g. "Ziraat vadesiz hesap, ₺8.643 — varlık olarak ekleyelim mi?"). **Credit card statement → suggest as a liability** (balance owed). Detect statement kind → asset vs liability. Closing-balance parse = new parser job, global (no Turkish hardcoding).
+- **Ekstre↔varlık otomatik eşleştirme**: when the user has a named asset (e.g. "Ziraat vadesiz") and uploads a matching bank statement, **auto-detect the match** (fuzzy, language-agnostic) and **offer to update the asset balance** to the statement's closing balance. This is THE bridge between cash flow (transactions) and net worth (assets). Reuse `reconciliation_items` propose→confirm (no silent overwrite).
 
 ### App structure (current)
 - **Nav**: Home · Money Flow · Net Değer · İlerleme · Settings (+ currency dropdown, notification bell, global assistant FAB)
@@ -508,7 +571,7 @@ Systematic audit + fixes across the whole app. Highlights:
 
 Full stack: register/login → JWT → upload (rate-limited, busts caches) → 3-layer OCR → LLM extract → OCR cleanup → dedup → zero-amount filter → persist → LLM categorize (13 categories) → insight cache → globalized LLM coach with corrections+notes injected → spending chart + progress page (LineChart 3-month trend + cross-batch-deduped category comparison + LLM one-liners, 24h cached) → PersonalityCard (5 types, cached per batch) → AlertsPanel (3 algorithmic detectors, dismiss persisted, stale dismissals auto-cleaned) → GoalsPanel (monthly budget vs actual) → ChatPanel (globalized conversational coaching, behavioral profile memory, voice input, chat-based tx entry with confirmation card, sessionStorage prefill from alerts) → weekly email summary (Resend HTML, preferences toggle) → inflation-adjusted analysis (TUFE 2023-2026, real vs nominal per category, ProgressInsight cache) → net worth asset subtype capture (all asset types have specific fields; crypto/fiat/commodity live picker; gold unit picker; stock/fund code fields; manual categories store structured metadata in `Asset.source_detail` JSON) → net worth display currency searchable via live `CurrencySelect` → receivable collection creates linked cash asset, repeated collection is idempotent, delete/write-off removes linked asset → stale received receivables and processed suggestions are hidden/cleaned after 30 days → onboarding accepts any institution/export source instead of hardcoded Turkish banks → financial event log + reconciliation item backend skeleton exists → net worth page shows Action Queue with open reconciliation items and recent financial events → reconciliation producers (overdue receivables, missing receivable assets, cross-batch duplicate detection) → Action Queue real action handlers per issue_type → net worth history AreaChart (daily USD snapshots, converted to display currency) → asset allocation donut PieChart (5 groups, click to highlight) → proactive threshold alerts (WealthAlert model, asset_price_drop / net_worth_drop / payment_coverage_risk, bell icon on auto-priced asset cards, triggered alerts banner).
 
-### Migrations (head = 0035)
+### Migrations (head = 0036)
 | Migration | What |
 |---|---|
 | 0001 | CREATE users + transactions |
@@ -546,6 +609,7 @@ Full stack: register/login → JWT → upload (rate-limited, busts caches) → 3
 | 0033 | ADD last_email_brief_sent to users (weekly money brief cadence) |
 | 0034 | ADD is_admin to users (founder admin panel gate, server_default false) |
 | 0035 | ADD is_deleted to users (soft-delete) + CREATE admin_audit_logs (durable admin-action trail) |
+| 0036 | ADD email_verified (grandfathered true) + plan (free/plus/pro) + plan_expires_at to users |
 
 ### Known Issues (open)
 - **PDF extraction not perfect** — scanned/image PDFs hit inherent OCR limits. Vision LLM (gpt-4o-mini, Phase 59) + strip tiling fixed column/sign/format errors and gets income exact on the Ziraat scan, but residual amount/count drift remains = pixel-level digit misreads on poor scans. gpt-4o is more accurate (swap `_VISION_MODEL`) at ~10x cost.
@@ -1360,13 +1424,15 @@ Full stack: register/login → JWT → upload (rate-limited, busts caches) → 3
 
 ## Next Session — Start Here
 
-**Phases 1–81 complete. Alembic head = 0035. All audit report items complete. Production-ready candidate.**
+**Phases 1–91 complete. Alembic head = 0036. Production-ready candidate + light-first design system + pre-production gates shipped.**
 
 ### Next session setup:
 - Use claude-opus-4-8 model
-- **Shipped since last doc update**: currency trust layer (78), assistant context binding (79), simulator horizon + recurring confidence + shared source + action-queue cap (80), English UI fix + scoped opener + Money Flow period labels + OCR triage (81). Alembic head still **0035**. Loop intact: Upload → Review → Brief → Home.
-- **State: ALL AUDIT REPORT ITEMS COMPLETE. App is a production-ready candidate.**
-- **Pending: deploy to production.** (Railway backend + Vercel frontend; SECRET_KEY + RESEND_API_KEY via platform env; `alembic upgrade head` on cold start.) After deploy: ask the model what's highest-leverage. Hold the line on SUBTRACTION (don't re-add panels).
+- **Shipped since last doc update**: light-first design-system overhaul (82), landing+pricing redesign (83), login/register redesign (84), upgrade page (85), pre-production — email verification + Redis rate limiter + plan system/upload cap, **migration 0036** (86), Home redesign (87), Transactions redesign (88), Cashflow/Recurring pass (89), Upload pass (90), Navbar + overlay light-mode fixes (91). Loop intact: Upload → Review → Brief → Home.
+- **State: design system established (light default, teal #176B5B, terracotta negatives). Email verification + Redis limiter + free/plus/pro plan + upload cap all live behind `get_verified_user` / `effective_plan`.**
+- **Pending: (1) deploy to production** — Railway backend + Vercel frontend; **SECRET_KEY + RESEND_API_KEY + REDIS_URL** via platform env; `docker compose` now includes Redis; `alembic upgrade head` (→0036) on cold start. **(2) billing integration** — `/upgrade` only captures interest in localStorage; wire real checkout → webhook sets `plan`/`plan_expires_at`.
+- **⚠ Untraced runtime quirk**: solid `bg-<token>` utilities (e.g. `bg-surface`, `bg-neg`) don't paint reliably while `text-`/`border-` tokens do. Overlays + selected-state fills mitigated with explicit inline colors; trace + fix the channel-token bg CSS layer.
+- **Next product bet (IMPORTANT)**: cash flow ↔ net worth bridge — see the IMPORTANT block under Current Status (onboarding ekstre→varlık asset/liability suggestion + ekstre↔varlık auto-match to update asset balance).
 - Deferred items live in "Known deferred (post-57)" under Current Status.
 
 ### Product vision (updated 2026-06-24):

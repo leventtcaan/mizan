@@ -404,11 +404,44 @@ When context reaches ~70% capacity:
 - [x] **Money Flow period labels**: spending breakdown prefixed "Statement period · <range>" (`tx.statementPeriod`) so it never reads as the calendar-month MoneyOverview spine; batch card + header already labeled.
 - [x] **OCR triage in review**: `looksGarbled()` (6+ consonant runs / vowel-less long words / mostly-symbol) flags rows with amber border + inline "OCR likely garbled — re-type the description" (`review.ocrGarbled`, desktop+mobile), folded into `flaggedCount`.
 
+### Phase 82 — Light-first design system (2026-06-25)
+- [x] Light default + dark toggle. Channel CSS-var tokens (`:root` light / `[data-theme="dark"]`); Tailwind semantic colors (`canvas/surface/line/ink/brand/action/pos/neg/warn/danger`). `lib/theme.ts` + no-FOUC bootstrap. Indigo/violet → teal. Primary accent literal **#176B5B** (hover #125848); negatives terracotta **#B54747**. `tabular-nums` on body. ~44-file sweep.
+
+### Phase 83 — Landing redesign + pricing (2026-06-25)
+- [x] Pricing section (Free/Plus/Pro, Aylık↔Yıllık toggle, popular badge, single-currency by lang). Working TR/EN toggle. Interactive hero browser-frame mock (sparkline hover tooltip, asset-row hover). Section banding, hover-lift cards, dark-teal final CTA. Em dashes + AI-cliché badge removed; global navbar hidden on `/`.
+
+### Phase 84 — Login/Register redesign (2026-06-25)
+- [x] Tabbed card (active = solid teal), theme + lang toggles, teal focus inputs. Plan-aware: landing Plus/Pro → `/login?mode=register&plan=…`; reads `?mode`/`?plan`, "selected Plus" banner, plan-registration → `/upgrade?plan=…`. (`/register` doesn't exist; mode selects tab.)
+
+### Phase 85 — Upgrade page (2026-06-25)
+- [x] `/upgrade` (3 tiers, billing toggle, current-plan badge). Honest "payment not live" banner; paid CTA = localStorage interest capture (`mizan_upgrade_interest`), no fake checkout. Settings Plan card → /upgrade. Plan change admin-only.
+
+### Phase 86 — Pre-production: verification + Redis + plans [migration 0036] (2026-06-25)
+- [x] **Email verification**: `User.email_verified` (0036, existing→true). Signed `typ=email_verify` 24h token. Register sends Resend verify (best-effort). `POST /auth/verify-email`, `/auth/resend-verification`. `get_verified_user` → 403 `email_not_verified`. `/verify` page. Gates: upload + `/assistant/*` + `/simulator/*` + `/upload/brief`.
+- [x] **Redis rate limiter**: `redis:7-alpine` + `REDIS_URL`; sorted-set sliding window w/ in-memory fallback; upload 3/10min per user+IP. `redis==5.0.8`.
+- [x] **Plans**: `User.plan` + `plan_expires_at` (0036). `core/plans.py` (`effective_plan`, `vision_enabled`, `FREE_MONTHLY_UPLOAD_CAP=1`, `FREE_DAILY_ASSISTANT_CAP=10`). Free upload cap → 402 `upload_cap_reached`; vision paid-only. Assistant free 10/day → 429 `assistant_daily_cap_reached`. Admin can change plan (audited).
+
+### Phase 87 — Home redesign (2026-06-25)
+- [x] Mim front-and-center hero (size 92, speaking); clean verdict (em dashes removed). Hierarchy Mim → Needs you (+ collapsible calendar) → snapshot tiles → action buttons. Data-driven question rendered as a tappable **speech bubble** (tail to Mim, Send + ping) → `openMim`. Navbar active state = teal pill (was invisible). GlobalAssistant FAB hidden on Home but reappears after first open (`engaged`).
+
+### Phase 88 — Transactions redesign (2026-06-25)
+- [x] Teal count badge, proper Manuel Ekle. MoneyOverview rebuilt (Net headline + chips + footnotes); commitments → "Tekrarlayan taahhütler · N kalem" tappable + tooltip. Dark-row bug fixed (`#13110D` striping + skeleton); CategoryBadge → color-tinted pills (no dark `*-950`). Tap-to-edit hint, flex-wrap teal category chips, SpendingChart stacked bar + hover linking.
+
+### Phase 89 — Cashflow + Recurring design-system pass (2026-06-25)
+- [x] Dark-only colors → `pos`/`neg`/`warn` tokens + #176B5B; proper teal buttons, themed chips/badges/skeletons.
+
+### Phase 90 — Upload design-system pass (2026-06-25)
+- [x] Dropzone (Upload icon tile + browse button + teal drag), tokens/teal on cap/verify cards + file rows; spinner track fixed.
+
+### Phase 91 — Navbar + overlay light-mode fixes (2026-06-25)
+- [x] Navbar Upload + avatar (were `bg-brand`-invisible) → literal #176B5B. **Overlay transparency**: solid `bg-<token>` fills don't paint at runtime → overlays use explicit theme-resolved inline bg (`useTheme` → #FFFFFF/#1C1915): AddTransactionModal, CurrencyMenu, Navbar account dropdown, CurrencySelect. AddTransactionModal: CurrencySelect dropdown (dark headers/brand fixed), type buttons = solid inline fill (terracotta/green) + check when selected, auto-category clarified + hint, live preview chip.
+- [x] **⚠ Untraced quirk**: solid `bg-<token>` utilities don't paint reliably (text/border tokens do) — overlays + selected fills mitigated with inline hex; fix the bg-token CSS layer later.
+
 ---
 
 ## Current Status
 
-**Phases 1–81 complete. Alembic head = 0035. ALL audit report items complete — app is a production-ready candidate. Pending: deploy to production.** (CLAUDE.md is authoritative for detail.) **Vision: chief of staff, not dashboard. Brief + Simulator = soul; dashboards = doorways. One sentence + everything behind a tap; subtraction > addition.** Home (69) is now a one-sentence coach. Most of 65–69 verified by build/py_compile only (no live LLM key here). Loop: Upload → Review → Brief → Home (Phases 61–64). Brief reuses ProgressInsight `data_type="brief"` (no new table). Progress = Financial Health scorecard. Net Worth = GuidancePanel + AllocationChart (no history chart). Upload returns status/reason; parser is global. Deferred: `_generate_networth_suggestions` Turkish bank keywords; account connectivity (Plaid — deferred, manual-first chosen); CSV unquoted comma-thousands edge case; scorecard synthetic score when thin; real snapshots need time (trajectory estimated until then); P1-deep valuation migration; P2 tx↔account reconciliation.
+**Phases 1–91 complete. Alembic head = 0036. Production-ready candidate + light-first design system + pre-production gates (email verification, Redis limiter, free/plus/pro plan + upload cap). Pending: deploy + billing integration.** (CLAUDE.md is authoritative for detail.) **Design: light default, teal #176B5B primary (literal hex — `bg-<token>` solid fills have an untraced runtime paint quirk, so overlays + selected fills use inline colors), terracotta #B54747 negatives. Pricing: Free ₺0 · Plus ₺199/ay·₺1.690/yıl ($7/$59) · Pro ₺349/ay·₺2.990/yıl ($12/$99) — billing NOT integrated, `/upgrade` captures interest only. IMPORTANT next bet: cash flow↔net worth bridge (ekstre→varlık asset/liability suggestion + ekstre↔varlık auto-match to update asset balance) — see Backlog.** **Vision: chief of staff, not dashboard. Brief + Simulator = soul; dashboards = doorways. One sentence + everything behind a tap; subtraction > addition.** Home (69) is now a one-sentence coach. Most of 65–69 verified by build/py_compile only (no live LLM key here). Loop: Upload → Review → Brief → Home (Phases 61–64). Brief reuses ProgressInsight `data_type="brief"` (no new table). Progress = Financial Health scorecard. Net Worth = GuidancePanel + AllocationChart (no history chart). Upload returns status/reason; parser is global. Deferred: `_generate_networth_suggestions` Turkish bank keywords; account connectivity (Plaid — deferred, manual-first chosen); CSV unquoted comma-thousands edge case; scorecard synthetic score when thin; real snapshots need time (trajectory estimated until then); P1-deep valuation migration; P2 tx↔account reconciliation.
 
 **(historical, Phase 34) Phases 1–34 complete. Alembic head = 0022. No new migrations since Phase 32.**
 
@@ -862,7 +895,7 @@ Full stack: register/login → JWT → upload (rate-limited, busts caches) → 3
 
 ## Next Session — Start Here
 
-**Phases 1–81 complete. Alembic head = 0035.** (Older Phase 42/head-0022 notes below are historical — CLAUDE.md is authoritative.) Shipped since last update: currency trust layer (78), assistant context binding (79), simulator horizon + recurring confidence + shared source + action-queue cap (80), English UI fix + scoped opener + Money Flow period labels + OCR triage (81). **State: ALL AUDIT REPORT ITEMS COMPLETE — app is a production-ready candidate. Pending: deploy to production** (Railway backend + Vercel frontend; SECRET_KEY + RESEND_API_KEY via platform env; `alembic upgrade head` on cold start). **Hold the line on SUBTRACTION** (don't re-add panels). Deferred items in Current Status.
+**Phases 1–91 complete. Alembic head = 0036.** (Older Phase 42/head-0022 notes below are historical — CLAUDE.md is authoritative.) Shipped since last update: light-first design system (82), landing+pricing (83), login/register (84), upgrade page (85), pre-production verification+Redis+plans **migration 0036** (86), Home (87), Transactions (88), Cashflow/Recurring (89), Upload (90), Navbar+overlay fixes (91). **State: design system established (light default, teal #176B5B, terracotta negatives); email verification + Redis limiter + free/plus/pro plan + upload cap live. Pending: (1) deploy** — Railway + Vercel; **SECRET_KEY + RESEND_API_KEY + REDIS_URL** via env; docker-compose now has Redis; `alembic upgrade head` (→0036) on cold start. **(2) billing** — `/upgrade` interest-only; wire checkout → webhook sets `plan`/`plan_expires_at`. **⚠ Untraced**: solid `bg-<token>` utilities don't paint reliably (mitigated with inline colors on overlays/selected fills). **Next product bet (IMPORTANT)**: cash flow↔net worth bridge (Backlog). **Hold the line on SUBTRACTION.**
 
 Pre-flight (if docker was restarted):
 ```bash
