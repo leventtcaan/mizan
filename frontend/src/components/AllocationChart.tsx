@@ -104,23 +104,35 @@ export default function AllocationChart({
         </div>
 
         {/* Legend */}
-        <div className="flex-1 w-full space-y-1.5">
+        <div className="flex-1 w-full space-y-1">
           {slices.map((s, i) => {
             const pct = Math.round((s.value / total) * 100);
             const isActive = active === i;
+            const color = PALETTE[i % PALETTE.length];
             return (
               <button
                 key={s.key}
                 onMouseEnter={() => setActive(i)}
                 onMouseLeave={() => setActive(null)}
-                className={`w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg transition-colors text-left ${
-                  isActive ? "bg-[#242019]" : "hover:bg-[#201D17]"
+                className={`group relative w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg transition-colors text-left ${
+                  isActive ? "bg-surface-2" : "hover:bg-surface-2/60"
                 }`}
               >
-                <span className="w-2.5 h-2.5 rounded-sm shrink-0" style={{ backgroundColor: PALETTE[i % PALETTE.length] }} />
-                <span className="text-sm text-ink-soft flex-1 truncate">{s.label}</span>
-                <span className="text-xs text-ink-mute tabular-nums">{pct}%</span>
-                <span className="text-sm text-ink-soft font-medium tabular-nums w-24 text-right">{fmt(s.value, displayCurrency)}</span>
+                <span
+                  className="w-2.5 h-2.5 rounded-sm shrink-0 transition-transform"
+                  style={{ backgroundColor: color, transform: isActive ? "scale(1.25)" : undefined }}
+                />
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-sm text-ink-soft truncate">{s.label}</span>
+                    <span className="text-sm text-ink font-semibold tabular-nums shrink-0">{fmt(s.value, displayCurrency)}</span>
+                  </div>
+                  {/* Proportion track */}
+                  <div className="mt-1 h-1 rounded-full bg-surface-3 overflow-hidden">
+                    <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, backgroundColor: color, opacity: isActive ? 1 : 0.65 }} />
+                  </div>
+                </div>
+                <span className="text-xs text-ink-mute tabular-nums w-9 text-right shrink-0">{pct}%</span>
               </button>
             );
           })}

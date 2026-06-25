@@ -52,40 +52,41 @@ export default function GuidancePanel({
   }
 
   return (
-    <div className="mb-6 bg-surface border border-line rounded-2xl overflow-hidden">
-      <div className="flex items-center gap-2 px-5 pt-4 pb-3">
-        <div className="w-7 h-7 flex items-center justify-center">
+    <div className="mb-6 bg-surface border border-line rounded-2xl overflow-hidden shadow-sm">
+      <div className="flex items-center gap-2.5 px-5 pt-4 pb-3 border-b border-line">
+        <div className="w-9 h-9 rounded-xl bg-brand/10 flex items-center justify-center shrink-0">
           <Mim size={26} quiet />
         </div>
-        <div className="flex-1">
+        <div className="flex-1 min-w-0">
           <p className="text-sm font-semibold text-ink">{t("nw.guidance.title")}</p>
           <p className="text-[11px] text-ink-mute">{t("nw.guidance.subtitle")}</p>
         </div>
+        <span className="text-[11px] px-1.5 py-0.5 rounded-full bg-surface-2 text-ink-mute font-medium tabular-nums shrink-0">{findings.length}</span>
       </div>
 
-      <div className="divide-y divide-surface-2">
+      <div className="divide-y divide-line">
         {findings.map((f) => {
           const sev = SEV[f.severity] ?? SEV.low;
           const open = expanded[f.id] ?? false;
           return (
-            <div key={f.id} className={`border-l-2 ${sev.border} px-5 py-3.5`}>
+            <div key={f.id} className={`border-l-[3px] ${sev.border} ${open ? "bg-surface-2/40" : "hover:bg-surface-2/30"} transition-colors`}>
               <button
                 onClick={() => setExpanded((p) => ({ ...p, [f.id]: !p[f.id] }))}
-                className="w-full flex items-start gap-2.5 text-left"
+                className="w-full flex items-start gap-2.5 text-left px-5 py-3.5"
               >
                 <span className="mt-1.5 w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: sev.dot }} />
                 <div className="flex-1 min-w-0">
-                  <p className="text-ink-soft text-sm font-medium leading-snug">{f.observation}</p>
+                  <p className="text-ink text-sm font-medium leading-snug">{f.observation}</p>
                   {!open && <p className="text-ink-mute text-xs mt-0.5 line-clamp-1">{f.context}</p>}
                 </div>
-                <span className="mt-0.5 text-ink-mute">{open ? <ChevronUp size={15} /> : <ChevronDown size={15} />}</span>
+                <span className={`mt-0.5 shrink-0 transition-colors ${open ? "text-brand" : "text-ink-mute"}`}>{open ? <ChevronUp size={15} /> : <ChevronDown size={15} />}</span>
               </button>
 
               {open && (
-                <div className="pl-[18px] mt-2 space-y-2">
+                <div className="px-5 pb-4 pl-[34px] -mt-1 space-y-2">
                   <p className="text-ink-mute text-sm leading-relaxed">{f.context}</p>
                   <p className="text-ink-soft text-sm leading-relaxed">{f.why}</p>
-                  <div className="flex items-start gap-2 bg-canvas border border-line rounded-lg px-3 py-2">
+                  <div className="flex items-start gap-2 bg-canvas border border-line rounded-lg px-3 py-2.5">
                     <ArrowRight size={14} className="text-brand mt-0.5 shrink-0" />
                     <p className="text-ink-soft text-sm leading-relaxed flex-1">{f.move}</p>
                   </div>

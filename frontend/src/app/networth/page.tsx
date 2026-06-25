@@ -52,7 +52,7 @@ import {
   TriggeredWealthAlert,
   GuidanceFinding,
 } from "@/lib/api";
-import { Plus, TrendingUp, TrendingDown, DollarSign, Home, Wallet, Briefcase, Scale, Brain, Zap, RefreshCw, Pencil, MessageCircle, Bell } from "@/components/ui/Icons";
+import { Plus, TrendingUp, TrendingDown, DollarSign, Home, Wallet, Briefcase, Scale, Brain, Zap, RefreshCw, Pencil, MessageCircle, Bell, X } from "@/components/ui/Icons";
 import { useLanguage, getCurrentLang } from "@/lib/i18n";
 import { useTheme } from "@/lib/theme";
 
@@ -220,10 +220,10 @@ async function loadOpenReconciliationItems(): Promise<ReconciliationItem[]> {
 }
 
 function SectionHeader({
-  label, icon, total, displayCurrency, onAdd, addLabel, addColor = "indigo", badge,
+  label, icon, total, count, displayCurrency, onAdd, addLabel, addColor = "indigo", iconTint = "bg-surface-2", badge,
 }: {
-  label: string; icon: ReactNode; total?: number; displayCurrency: string;
-  onAdd: () => void; addLabel: string; addColor?: string; badge?: ReactNode;
+  label: string; icon: ReactNode; total?: number; count?: number; displayCurrency: string;
+  onAdd: () => void; addLabel: string; addColor?: string; iconTint?: string; badge?: ReactNode;
 }) {
   const btnColors: Record<string, string> = {
     indigo: "bg-[#176B5B]/10 text-[#176B5B] hover:bg-[#176B5B]/20 border-[#176B5B]/30",
@@ -232,13 +232,20 @@ function SectionHeader({
   };
   return (
     <div className="flex items-center justify-between mb-4">
-      <div className="flex items-center gap-2">
-        {icon}
-        <h2 className="text-ink font-semibold">{label}</h2>
-        {badge}
-        {total !== undefined && <span className="text-sm text-ink-mute">{fmt(total, displayCurrency)}</span>}
+      <div className="flex items-center gap-2.5 min-w-0">
+        <span className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${iconTint}`}>{icon}</span>
+        <div className="min-w-0">
+          <div className="flex items-center gap-2">
+            <h2 className="text-ink font-semibold leading-tight">{label}</h2>
+            {count !== undefined && count > 0 && (
+              <span className="text-[11px] px-1.5 py-0.5 rounded-full bg-surface-2 text-ink-mute font-medium tabular-nums">{count}</span>
+            )}
+            {badge}
+          </div>
+          {total !== undefined && <span className="text-xs text-ink-mute tabular-nums">{fmt(total, displayCurrency)}</span>}
+        </div>
       </div>
-      <button onClick={onAdd} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-medium transition-colors ${btnColors[addColor] ?? btnColors.indigo}`}>
+      <button onClick={onAdd} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-medium transition-colors shrink-0 ${btnColors[addColor] ?? btnColors.indigo}`}>
         <Plus size={12} />
         {addLabel}
       </button>
@@ -494,6 +501,16 @@ export default function NetWorthPage() {
     window.addEventListener("mizan-data-changed", handler);
     return () => window.removeEventListener("mizan-data-changed", handler);
   }, []);
+
+  // Auto-expand the action queue once if anything urgent (high severity) is waiting.
+  const autoOpenedQueueRef = useRef(false);
+  useEffect(() => {
+    if (autoOpenedQueueRef.current) return;
+    if (reconciliationItems.some((i) => i.severity === "high")) {
+      setActionQueueOpen(true);
+      autoOpenedQueueRef.current = true;
+    }
+  }, [reconciliationItems]);
 
   const reloadGuidance = useCallback(() => {
     setGuidanceLoading(true);
@@ -913,70 +930,111 @@ export default function NetWorthPage() {
         );
       })()}
 
-      {/* Hero */}
-      <div className="bg-surface border border-line rounded-2xl p-8 mb-6 text-center">
+      {/* Hero — the centerpiece */}
+      <div className="relative overflow-hidden bg-surface border border-line rounded-2xl p-8 mb-6 shadow-sm">
+        {/* Soft brand wash behind the number (paints in both themes via inline gradient) */}
+        <div
+          className="pointer-events-none absolute inset-x-0 top-0 h-40"
+          style={{ background: "radial-gradient(120% 100% at 50% 0%, rgba(23,107,91,0.08), transparent 72%)" }}
+        />
         {loading ? (
-          <div className="space-y-3">
-            <div className="h-12 w-64 bg-surface-2 rounded-lg mx-auto animate-pulse" />
-            <div className="h-5 w-48 bg-surface-2 rounded mx-auto animate-pulse" />
+          <div className="relative space-y-3 text-center">
+            <div className="h-4 w-32 bg-surface-2 rounded mx-auto animate-pulse" />
+            <div className="h-14 w-72 bg-surface-2 rounded-xl mx-auto animate-pulse" />
+            <div className="h-7 w-40 bg-surface-2 rounded-full mx-auto animate-pulse" />
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 pt-4">
+              {[1, 2, 3].map((i) => <div key={i} className="h-20 bg-surface-2 rounded-xl animate-pulse" />)}
+            </div>
           </div>
         ) : (
-          <>
-            <p className="text-ink-mute text-sm mb-2">{t("nw.netWorth")}</p>
-            <div className="flex items-center justify-center gap-3 mb-4">
-              <p className={`text-5xl font-bold tabular-nums ${netPositive ? "text-pos" : "text-neg"} ${summaryLoading ? "opacity-50" : ""}`}>
+          <div className="relative">
+            {/* Number + trend */}
+            <div className="text-center">
+              <p className="text-ink-mute text-xs font-medium uppercase tracking-wider mb-2">{t("nw.netWorth")}</p>
+              <p className={`text-5xl sm:text-6xl font-bold tabular-nums leading-none ${netPositive ? "text-ink" : "text-neg"} ${summaryLoading ? "opacity-50" : ""}`}>
                 {summary ? fmt(summary.net_worth_try, displayCurrency) : "—"}
               </p>
+
+              {/* Trend chip — net change over the attribution window */}
+              {attribution && (() => {
+                const up = attribution.delta > 0;
+                const flat = Math.abs(attribution.delta) < 0.5;
+                const base = (summary?.net_worth_try ?? 0) - attribution.delta;
+                const pct = base > 0 ? (attribution.delta / base) * 100 : null;
+                return (
+                  <div className="flex justify-center mt-4">
+                    <span className={`inline-flex items-center gap-1.5 pl-2 pr-3 py-1 rounded-full text-sm font-semibold border ${
+                      flat ? "bg-surface-2 text-ink-mute border-line"
+                        : up ? "bg-pos/10 text-pos border-pos/20"
+                        : "bg-neg/10 text-neg border-neg/20"
+                    }`}>
+                      {flat ? null : up ? <TrendingUp size={15} /> : <TrendingDown size={15} />}
+                      {flat
+                        ? t("nw.trendFlat")
+                        : <>{up ? "+" : "−"}{fmt(Math.abs(attribution.delta), displayCurrency)}{pct !== null && ` · ${up ? "+" : "−"}${Math.abs(pct).toFixed(1)}%`}</>}
+                      <span className="text-ink-mute font-normal text-xs">· {t("nw.trendLastDays").replace("{n}", String(attribution.period_days))}</span>
+                    </span>
+                  </div>
+                );
+              })()}
             </div>
 
-            {/* Why it moved — change attribution (compact, one line) */}
+            {/* Pillars — distinct tiles */}
+            <div className={`grid gap-3 mt-7 ${summary && summary.pending_receivables_try > 0 ? "grid-cols-1 sm:grid-cols-3" : "grid-cols-1 sm:grid-cols-2"}`}>
+              <div className="rounded-xl bg-surface-2 border border-line/60 p-4">
+                <div className="flex items-center gap-2 mb-1.5">
+                  <span className="w-6 h-6 rounded-lg bg-pos/15 flex items-center justify-center"><TrendingUp size={13} className="text-pos" /></span>
+                  <span className="text-xs text-ink-mute font-medium">{t("nw.assets")}</span>
+                </div>
+                <p className="text-pos text-lg font-bold tabular-nums">{summary ? fmt(summary.total_assets_try, displayCurrency) : "—"}</p>
+              </div>
+              <div className="rounded-xl bg-surface-2 border border-line/60 p-4">
+                <div className="flex items-center gap-2 mb-1.5">
+                  <span className="w-6 h-6 rounded-lg bg-neg/15 flex items-center justify-center"><TrendingDown size={13} className="text-neg" /></span>
+                  <span className="text-xs text-ink-mute font-medium">{t("nw.liabilities")}</span>
+                </div>
+                <p className="text-neg text-lg font-bold tabular-nums">{summary ? fmt(summary.total_liabilities_try, displayCurrency) : "—"}</p>
+              </div>
+              {summary && summary.pending_receivables_try > 0 && (
+                <div className="rounded-xl bg-surface-2 border border-line/60 p-4">
+                  <div className="flex items-center gap-2 mb-1.5">
+                    <span className="w-6 h-6 rounded-lg bg-warn/15 flex items-center justify-center"><DollarSign size={13} className="text-warn" /></span>
+                    <span className="text-xs text-ink-mute font-medium">{t("nw.receivables")}</span>
+                  </div>
+                  <p className="text-warn text-lg font-bold tabular-nums">{fmt(summary.pending_receivables_try, displayCurrency)}</p>
+                </div>
+              )}
+            </div>
+
+            {/* Why it moved — attribution drivers */}
             {attribution && attribution.drivers.length > 0 && (
-              <div className="flex items-center justify-center flex-wrap gap-1.5 mb-4 -mt-1">
-                {attribution.drivers.map((d, i) => (
-                  <span
-                    key={i}
-                    className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-xs font-medium ${
+              <div className="mt-5 pt-4 border-t border-line">
+                <p className="text-[11px] text-ink-mute uppercase tracking-wide mb-2">{t("nw.trendWhy")}</p>
+                <div className="flex items-center flex-wrap gap-1.5">
+                  {attribution.drivers.map((d, i) => (
+                    <span key={i} className={`inline-flex items-center gap-1 pl-1.5 pr-2 py-0.5 rounded-lg text-xs font-medium ${
                       d.direction === "up" ? "bg-pos/10 text-pos" : "bg-neg/10 text-neg"
-                    }`}
-                  >
-                    {d.direction === "up" ? <TrendingUp size={11} /> : <TrendingDown size={11} />}
-                    <span className="text-ink-mute font-normal">{d.label}</span>
-                    {d.direction === "up" ? "+" : "−"}{fmt(d.amount, displayCurrency)}
+                    }`}>
+                      {d.direction === "up" ? <TrendingUp size={11} /> : <TrendingDown size={11} />}
+                      <span className="text-ink-soft font-normal">{d.label}</span>
+                      {d.direction === "up" ? "+" : "−"}{fmt(d.amount, displayCurrency)}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Currency mix */}
+            {summary && summary.currency_breakdown.length > 1 && (
+              <div className="mt-4 flex flex-wrap gap-2 justify-center">
+                {[...summary.currency_breakdown].sort((a, b) => b.display_value - a.display_value).map((c) => (
+                  <span key={c.code} className="px-2.5 py-1 rounded-full bg-surface-2 border border-line/60 text-xs text-ink-mute">
+                    <span className="text-ink-soft font-medium">{c.code}</span> · {fmt(c.display_value, displayCurrency)}
                   </span>
                 ))}
               </div>
             )}
-            <div className="flex items-center justify-center gap-6 flex-wrap text-sm">
-              <div className="flex items-center gap-1.5">
-                <TrendingUp size={14} className="text-pos" />
-                <span className="text-ink-mute">{t("nw.assets")}</span>
-                <span className="text-pos font-medium">{summary ? fmt(summary.total_assets_try, displayCurrency) : "—"}</span>
-              </div>
-              <span className="text-ink-mute">—</span>
-              <div className="flex items-center gap-1.5">
-                <TrendingDown size={14} className="text-neg" />
-                <span className="text-ink-mute">{t("nw.liabilities")}</span>
-                <span className="text-neg font-medium">{summary ? fmt(summary.total_liabilities_try, displayCurrency) : "—"}</span>
-              </div>
-              {summary && summary.pending_receivables_try > 0 && (
-                <>
-                  <span className="text-ink-mute">+</span>
-                  <div className="flex items-center gap-1.5">
-                    <DollarSign size={14} className="text-warn" />
-                    <span className="text-ink-mute">{t("nw.receivables")}</span>
-                    <span className="text-warn font-medium">{fmt(summary.pending_receivables_try, displayCurrency)}</span>
-                  </div>
-                </>
-              )}
-            </div>
-            {summary && summary.currency_breakdown.length > 1 && (
-              <div className="mt-5 pt-5 border-t border-line flex flex-wrap gap-3 justify-center">
-                {[...summary.currency_breakdown].sort((a, b) => b.display_value - a.display_value).map((c) => (
-                  <span key={c.code} className="px-2.5 py-1 rounded-full bg-surface-2 text-xs text-ink-mute">{c.code}: {fmt(c.display_value, displayCurrency)}</span>
-                ))}
-              </div>
-            )}
-          </>
+          </div>
         )}
       </div>
 
@@ -1041,7 +1099,9 @@ export default function NetWorthPage() {
         <SectionHeader
           label={t("nw.assets")}
           icon={<TrendingUp size={18} className="text-pos" />}
+          iconTint="bg-pos/15"
           total={summary?.total_assets_try}
+          count={assets.length}
           displayCurrency={displayCurrency}
           onAdd={() => setShowAddAsset(true)}
           addLabel={t("nw.addAsset")}
@@ -1059,20 +1119,25 @@ export default function NetWorthPage() {
             {ASSET_TYPE_GROUPS.map((group) => {
               const groupAssets = assets.filter((a) => group.types.includes(a.asset_type));
               if (groupAssets.length === 0) return null;
-              
+              const groupTotal = groupAssets.reduce(
+                (sum, a) => sum + (convertAmount(parseFloat(a.current_value), a.currency, displayCurrency, usdRates) ?? 0),
+                0,
+              );
               return (
                 <div key={group.label} className="bg-surface border border-line rounded-xl overflow-hidden">
                   <div className="flex items-center gap-2 px-4 py-2.5 border-b border-line bg-surface-2">
                     {group.icon}
-                    <span className="text-xs text-ink-mute font-medium">{group.label}</span>
+                    <span className="text-xs text-ink-soft font-semibold">{group.label}</span>
+                    <span className="text-[11px] text-ink-mute tabular-nums">· {groupAssets.length}</span>
+                    {groupTotal > 0 && <span className="ml-auto text-xs text-ink-soft font-semibold tabular-nums">{fmt(groupTotal, displayCurrency)}</span>}
                   </div>
                   {groupAssets.map((a, idx) => {
                     const detailLabel = assetDetailLabel(a, t);
                     const priceBadge = getPriceBadge(a);
                     const maturity = a.asset_type === "bank_account" ? maturityCountdown(a.source_detail ?? null, t) : null;
                     return (
-                      <div key={a.id} className={`flex items-center justify-between px-4 py-3 ${idx < groupAssets.length - 1 ? "border-b border-line" : ""}`}>
-                        <div>
+                      <div key={a.id} className={`group/row flex items-center justify-between gap-3 px-4 py-3 hover:bg-surface-2/60 transition-colors ${idx < groupAssets.length - 1 ? "border-b border-line" : ""}`}>
+                        <div className="min-w-0">
                           <div className="flex items-center gap-2 flex-wrap">
                             <p className="text-ink text-sm font-medium">{a.name}</p>
                             {priceBadge && (
@@ -1118,7 +1183,7 @@ export default function NetWorthPage() {
                             );
                           })()}
                         </div>
-                        <div className="flex items-center gap-3">
+                        <div className="flex items-center gap-2 shrink-0">
                           <div className="text-right">
                             {(() => {
                               const raw = parseFloat(a.current_value);
@@ -1128,26 +1193,30 @@ export default function NetWorthPage() {
                               return (
                                 <p
                                   title={nativeHint}
-                                  className={`text-pos text-sm font-semibold tabular-nums${nativeHint ? " cursor-help" : ""}`}
+                                  className={`text-ink text-sm font-semibold tabular-nums${nativeHint ? " cursor-help" : ""}`}
                                 >
                                   {showConverted ? fmt(converted!, displayCurrency) : fmtItem(a.current_value, a.currency)}
                                 </p>
                               );
                             })()}
                           </div>
-                          {PRICED_ALERT_TYPES.has(a.asset_type) && (
-                            <button
-                              onClick={() => { setAlertModalAsset(a); setAlertPct(15); setAlertMessage(""); }}
-                              title={t("nw.addAlert")}
-                              className="text-ink-mute hover:text-warn transition-colors px-1"
-                            >
-                              <Bell size={13} />
+                          <div className="flex items-center gap-0.5 sm:opacity-0 sm:group-hover/row:opacity-100 transition-opacity">
+                            {PRICED_ALERT_TYPES.has(a.asset_type) && (
+                              <button
+                                onClick={() => { setAlertModalAsset(a); setAlertPct(15); setAlertMessage(""); }}
+                                title={t("nw.addAlert")}
+                                className="w-7 h-7 rounded-lg flex items-center justify-center text-ink-mute hover:text-warn hover:bg-warn/10 transition-colors"
+                              >
+                                <Bell size={13} />
+                              </button>
+                            )}
+                            <button onClick={() => setEditingAsset(a)} title={t("common.edit")} className="w-7 h-7 rounded-lg flex items-center justify-center text-ink-mute hover:text-brand hover:bg-surface-3 transition-colors">
+                              <Pencil size={13} />
                             </button>
-                          )}
-                          <button onClick={() => setEditingAsset(a)} title={t("common.edit")} className="text-ink-mute hover:text-brand transition-colors px-1">
-                            <Pencil size={13} />
-                          </button>
-                          <button onClick={() => handleDeleteAsset(a.id)} className="text-ink-mute hover:text-danger transition-colors text-xs px-2">×</button>
+                            <button onClick={() => handleDeleteAsset(a.id)} title={t("common.delete")} className="w-7 h-7 rounded-lg flex items-center justify-center text-ink-mute hover:text-danger hover:bg-danger/10 transition-colors">
+                              <X size={13} />
+                            </button>
+                          </div>
                         </div>
                       </div>
                     );
@@ -1164,7 +1233,9 @@ export default function NetWorthPage() {
         <SectionHeader
           label={t("nw.liabilities")}
           icon={<TrendingDown size={18} className="text-neg" />}
+          iconTint="bg-neg/15"
           total={summary?.total_liabilities_try}
+          count={liabilities.length}
           displayCurrency={displayCurrency}
           onAdd={() => setShowAddLiability(true)}
           addLabel={t("nw.addLiability")}
@@ -1185,32 +1256,43 @@ export default function NetWorthPage() {
               const pct = total > 0 ? Math.min(100, ((total - remaining) / total) * 100) : 0;
               const highInterest = l.interest_rate && parseFloat(l.interest_rate) > 30;
               return (
-                <div key={l.id} className="bg-surface border border-line rounded-xl p-4">
+                <div key={l.id} className="group/row bg-surface border border-line rounded-xl p-4 hover:border-line-strong transition-colors">
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
-                        <p className="text-ink text-sm font-medium">{l.name}</p>
-                        <span className="text-xs px-2 py-0.5 rounded-full bg-surface-2 text-ink-mute">{getLiabilityTypeLabel(l.liability_type)}</span>
+                        <p className="text-ink text-sm font-semibold">{l.name}</p>
+                        <span className="text-[11px] px-2 py-0.5 rounded-full bg-surface-2 text-ink-mute">{getLiabilityTypeLabel(l.liability_type)}</span>
                         {highInterest && (
-                          <span className="text-xs px-2 py-0.5 rounded-full bg-neg/10 text-neg border border-neg/30">
+                          <span className="text-[11px] px-2 py-0.5 rounded-full bg-neg/10 text-neg border border-neg/30 font-medium">
                             %{l.interest_rate} {t("nw.highInterest").replace("% ", "")}
                           </span>
                         )}
                       </div>
-                      <div className="flex items-center gap-4 mt-2 text-xs text-ink-mute">
-                        <span>{t("nw.remaining")}: <span className="text-neg font-medium">{fmtItem(l.remaining_amount, l.currency)}</span></span>
-                        {l.monthly_payment && <span>{t("nw.monthly")}: {fmtItem(l.monthly_payment, l.currency)}</span>}
-                        {l.due_date && <span>{t("nw.due")}: {l.due_date}</span>}
-                      </div>
-                      <div className="mt-3 h-1.5 bg-surface-2 rounded-full overflow-hidden">
-                        <div className="h-full rounded-full transition-all" style={{ width: `${100 - pct}%`, backgroundColor: NEG }} />
-                      </div>
-                      <p className="text-xs text-ink-mute mt-1">{Math.round(pct)}{t("nw.totalPaid")} · {t("nw.total")} {fmtItem(l.total_amount, l.currency)}</p>
                     </div>
-                    <button onClick={() => setEditingLiability(l)} title={t("common.edit")} className="text-ink-mute hover:text-brand transition-colors px-1 shrink-0">
-                      <Pencil size={13} />
-                    </button>
-                    <button onClick={() => handleDeleteLiability(l.id)} className="text-ink-mute hover:text-danger transition-colors text-sm px-2 shrink-0">×</button>
+                    <div className="flex items-start gap-2 shrink-0">
+                      <div className="text-right">
+                        <p className="text-neg text-base font-bold tabular-nums leading-tight">{fmtItem(l.remaining_amount, l.currency)}</p>
+                        <p className="text-[11px] text-ink-mute">{t("nw.remaining")}</p>
+                      </div>
+                      <div className="flex items-center gap-0.5 sm:opacity-0 sm:group-hover/row:opacity-100 transition-opacity">
+                        <button onClick={() => setEditingLiability(l)} title={t("common.edit")} className="w-7 h-7 rounded-lg flex items-center justify-center text-ink-mute hover:text-brand hover:bg-surface-3 transition-colors">
+                          <Pencil size={13} />
+                        </button>
+                        <button onClick={() => handleDeleteLiability(l.id)} title={t("common.delete")} className="w-7 h-7 rounded-lg flex items-center justify-center text-ink-mute hover:text-danger hover:bg-danger/10 transition-colors">
+                          <X size={13} />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="mt-3 h-2 bg-surface-2 rounded-full overflow-hidden">
+                    <div className="h-full rounded-full transition-all" style={{ width: `${100 - pct}%`, backgroundColor: NEG }} />
+                  </div>
+                  <div className="flex items-center justify-between mt-1.5 text-[11px] text-ink-mute flex-wrap gap-x-3">
+                    <span><span className="text-ink-soft font-medium tabular-nums">{Math.round(pct)}%</span> {t("nw.totalPaid").replace("%", "").trim()} · {t("nw.total")} {fmtItem(l.total_amount, l.currency)}</span>
+                    <span className="flex items-center gap-3">
+                      {l.monthly_payment && <span>{t("nw.monthly")}: <span className="text-ink-soft tabular-nums">{fmtItem(l.monthly_payment, l.currency)}</span></span>}
+                      {l.due_date && <span>{t("nw.due")}: <span className="text-ink-soft">{l.due_date}</span></span>}
+                    </span>
                   </div>
                 </div>
               );
@@ -1224,7 +1306,9 @@ export default function NetWorthPage() {
         <SectionHeader
           label={t("nw.receivables")}
           icon={<Scale size={18} className="text-warn" />}
+          iconTint="bg-warn/15"
           total={summary?.pending_receivables_try}
+          count={receivables.length}
           displayCurrency={displayCurrency}
           onAdd={() => setShowAddReceivable(true)}
           addLabel={t("nw.addReceivable")}
@@ -1243,35 +1327,44 @@ export default function NetWorthPage() {
               const isOverdue = r.status === "overdue" || (r.status === "pending" && r.expected_date && r.expected_date < new Date().toISOString().slice(0, 10));
               const isReceived = r.status === "received";
               return (
-                <div key={r.id} className={`bg-surface border rounded-xl px-4 py-3 flex items-center justify-between gap-3 ${isOverdue ? "border-warn/40" : isReceived ? "border-pos/30 opacity-60" : "border-line"}`}>
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <p className="text-ink text-sm font-medium">{r.from_person}</p>
-                      {isReceived && (
-                        <span className="text-xs px-1.5 py-0.5 rounded bg-pos/10 text-pos">
-                          {t("nw.received")} ✓{r.linked_asset_id ? ` · ${t("nw.linkedAsset")}` : ""}
-                        </span>
-                      )}
-                      {isOverdue && !isReceived && (
-                        <span className="text-xs px-1.5 py-0.5 rounded bg-warn/10 text-warn">{t("nw.overdue")}</span>
-                      )}
+                <div key={r.id} className={`group/row bg-surface border rounded-xl px-4 py-3 flex items-center justify-between gap-3 transition-colors ${isOverdue ? "border-warn/40 bg-warn/5" : isReceived ? "border-pos/30 opacity-70 hover:opacity-100" : "border-line hover:border-line-strong"}`}>
+                  <div className="min-w-0 flex items-center gap-3">
+                    <span className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${isReceived ? "bg-pos/15" : isOverdue ? "bg-warn/15" : "bg-surface-2"}`}>
+                      <DollarSign size={15} className={isReceived ? "text-pos" : isOverdue ? "text-warn" : "text-ink-mute"} />
+                    </span>
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <p className="text-ink text-sm font-semibold truncate">{r.from_person}</p>
+                        {isReceived && (
+                          <span className="text-[11px] px-1.5 py-0.5 rounded-full bg-pos/10 text-pos font-medium">
+                            {t("nw.received")} ✓{r.linked_asset_id ? ` · ${t("nw.linkedAsset")}` : ""}
+                          </span>
+                        )}
+                        {isOverdue && !isReceived && (
+                          <span className="text-[11px] px-1.5 py-0.5 rounded-full bg-warn/10 text-warn border border-warn/30 font-medium">{t("nw.overdue")}</span>
+                        )}
+                      </div>
+                      <p className="text-ink-mute text-xs mt-0.5">
+                        {r.expected_date && r.expected_date}
+                        {r.notes && `${r.expected_date ? " · " : ""}${r.notes}`}
+                      </p>
                     </div>
-                    <p className="text-ink-mute text-xs mt-0.5">
-                      {fmtItem(r.amount, r.currency)}
-                      {r.expected_date && ` · ${r.expected_date}`}
-                      {r.notes && ` · ${r.notes}`}
-                    </p>
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
+                    <p className={`text-sm font-bold tabular-nums ${isReceived ? "text-pos" : "text-ink"}`}>{fmtItem(r.amount, r.currency)}</p>
                     {!isReceived && (
-                      <button onClick={() => handleMarkReceived(r.id)} className="text-xs px-2.5 py-1 rounded-lg bg-pos/10 text-pos border border-pos/30 hover:bg-pos/25 transition-colors">
+                      <button onClick={() => handleMarkReceived(r.id)} className="text-xs px-2.5 py-1.5 rounded-lg bg-pos/10 text-pos border border-pos/30 hover:bg-pos/20 transition-colors font-medium whitespace-nowrap">
                         {t("nw.markReceived")}
                       </button>
                     )}
-                    <button onClick={() => setEditingReceivable(r)} title={t("common.edit")} className="text-ink-mute hover:text-brand transition-colors px-1">
-                      <Pencil size={13} />
-                    </button>
-                    <button onClick={() => handleDeleteReceivable(r.id)} className="text-ink-mute hover:text-danger transition-colors text-sm px-1">×</button>
+                    <div className="flex items-center gap-0.5 sm:opacity-0 sm:group-hover/row:opacity-100 transition-opacity">
+                      <button onClick={() => setEditingReceivable(r)} title={t("common.edit")} className="w-7 h-7 rounded-lg flex items-center justify-center text-ink-mute hover:text-brand hover:bg-surface-3 transition-colors">
+                        <Pencil size={13} />
+                      </button>
+                      <button onClick={() => handleDeleteReceivable(r.id)} title={t("common.delete")} className="w-7 h-7 rounded-lg flex items-center justify-center text-ink-mute hover:text-danger hover:bg-danger/10 transition-colors">
+                        <X size={13} />
+                      </button>
+                    </div>
                   </div>
                 </div>
               );
@@ -1315,24 +1408,41 @@ export default function NetWorthPage() {
 
       {!loading && (
         <section className="mb-8">
+          {(() => {
+            const urgentCount = reconciliationItems.filter((i) => i.severity === "high").length;
+            return (
           <button
             onClick={() => setActionQueueOpen((v) => !v)}
-            className="w-full flex items-center gap-2 mb-4 text-left"
+            className="w-full flex items-center gap-2.5 mb-4 text-left group"
           >
-            <Zap size={18} className="text-brand" />
-            <h2 className="text-ink font-semibold">{t("nw.actionQueue")}</h2>
-            <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
-              reconciliationItems.length > 0
-                ? "bg-brand/10 border border-brand/30 text-brand"
-                : "bg-surface-2 text-ink-mute"
-            }`}>
-              {reconciliationItems.length}
+            <span className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${urgentCount > 0 ? "bg-danger/15" : "bg-brand/10"}`}>
+              <Zap size={18} className={urgentCount > 0 ? "text-danger" : "text-brand"} />
             </span>
+            <div className="min-w-0">
+              <div className="flex items-center gap-2">
+                <h2 className="text-ink font-semibold leading-tight">{t("nw.actionQueue")}</h2>
+                <span className={`px-1.5 py-0.5 rounded-full text-[11px] font-semibold tabular-nums ${
+                  urgentCount > 0 ? "bg-danger/15 text-danger"
+                    : reconciliationItems.length > 0 ? "bg-brand/10 text-brand"
+                    : "bg-surface-2 text-ink-mute"
+                }`}>
+                  {reconciliationItems.length}
+                </span>
+              </div>
+              {urgentCount > 0 && (
+                <span className="text-[11px] text-danger font-medium flex items-center gap-1">
+                  <span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ backgroundColor: resolved === "dark" ? "#E06666" : "#C03131" }} />
+                  {urgentCount} {t("nw.recon.urgent")}
+                </span>
+              )}
+            </div>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
-              className={`ml-auto text-ink-mute transition-transform ${actionQueueOpen ? "rotate-180" : ""}`}>
+              className={`ml-auto text-ink-mute transition-transform group-hover:text-ink-soft ${actionQueueOpen ? "rotate-180" : ""}`}>
               <polyline points="6 9 12 15 18 9" />
             </svg>
           </button>
+            );
+          })()}
 
           {actionQueueOpen && reconciliationItems.length === 0 && (
             <div className="bg-surface border border-line rounded-xl p-6 flex items-center gap-3 mb-3 text-ink-mute">
@@ -1428,22 +1538,24 @@ export default function NetWorthPage() {
                   </>);
                 }
 
+                const accent = item.severity === "high" ? "border-l-danger" : item.severity === "medium" ? "border-l-warn" : "border-l-brand";
                 return (
-                  <div key={item.id} className="bg-surface border border-brand/20 rounded-xl p-4">
+                  <div key={item.id} className={`bg-surface border border-line border-l-4 ${accent} rounded-xl p-4`}>
                     <div className="flex items-start justify-between gap-3 flex-wrap">
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2 flex-wrap">
-                          <p className="text-ink-soft text-sm font-medium">{itemTitle}</p>
-                          <span className={`px-2 py-0.5 rounded-full text-xs ${
-                            item.severity === "high" ? "bg-danger/10 text-neg border border-danger/30"
+                          <p className="text-ink text-sm font-semibold">{itemTitle}</p>
+                          <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium ${
+                            item.severity === "high" ? "bg-danger/10 text-danger border border-danger/30"
                               : item.severity === "medium" ? "bg-warn/10 text-warn border border-warn/30"
-                              : "bg-surface-2 text-ink-mute"
+                              : "bg-surface-2 text-ink-mute border border-line"
                           }`}>
-                            {item.severity}
+                            <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: item.severity === "high" ? (resolved === "dark" ? "#E06666" : "#C03131") : item.severity === "medium" ? (resolved === "dark" ? "#D9A441" : "#B0741E") : (resolved === "dark" ? "#2A9D8F" : "#0F5C5E") }} />
+                            {item.severity === "high" ? t("nw.recon.urgent") : item.severity}
                           </span>
                         </div>
                         {contextLine && (
-                          <p className="text-brand/70 text-xs mt-1 truncate">{contextLine}</p>
+                          <p className="text-ink-soft text-xs mt-1.5 truncate">{contextLine}</p>
                         )}
                         {subtitle && (
                           <p className="text-ink-mute text-xs leading-relaxed mt-1">{subtitle}</p>
