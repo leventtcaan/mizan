@@ -1,17 +1,18 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import PageLayout from "@/components/ui/PageLayout";
 import CurrencySelect from "@/components/CurrencySelect";
-import { LogOut, Sparkles, ArrowRight } from "@/components/ui/Icons";
-import { card, sectionHeading } from "@/lib/design";
+import { LogOut, Sparkles, ArrowRight, Settings, Mail, ShieldCheck, CheckCircle } from "@/components/ui/Icons";
 import { useLanguage, type Lang } from "@/lib/i18n";
 import {
   getToken, getStoredUser, setStoredUser, clearToken, getMe, updatePreferences,
   getDefaultCurrency, setDefaultCurrencyLocal,
 } from "@/lib/api";
+
+const TEAL = "#176B5B";
 
 export default function SettingsPage() {
   const router = useRouter();
@@ -70,99 +71,132 @@ export default function SettingsPage() {
     router.push("/login");
   };
 
+  const isPaid = plan !== "free";
+  const planName = plan === "free" ? t("pricing.freeName") : plan.charAt(0).toUpperCase() + plan.slice(1);
+
   return (
     <PageLayout title={t("settings.title")} subtitle={t("settings.subtitle")} maxWidth="md">
       {savedFlash && (
-        <div className="fixed bottom-5 left-1/2 -translate-x-1/2 z-50 px-4 py-2 rounded-lg bg-emerald-950/80 border border-emerald-800 text-emerald-300 text-sm">
-          {t("settings.saved")}
+        <div className="fixed bottom-5 left-1/2 -translate-x-1/2 z-50 flex items-center gap-1.5 px-4 py-2 rounded-lg text-white text-sm shadow-lg shadow-black/20" style={{ backgroundColor: TEAL }}>
+          <CheckCircle size={15} /> {t("settings.saved")}
         </div>
       )}
 
       <div className="space-y-4">
-        {/* Plan — current tier + upgrade entry point */}
-        <section className={card}>
-          <p className={`${sectionHeading} mb-4`}>{t("settings.plan")}</p>
-          <div className="flex items-center justify-between gap-4 flex-wrap">
+        {/* ── Plan ── */}
+        <Section icon={<Sparkles size={16} />} title={t("settings.plan")}>
+          <div className="flex items-center justify-between gap-4 py-4 flex-wrap">
             <div className="min-w-0">
-              <p className="text-ink text-sm font-semibold">
-                {plan === "free" ? t("pricing.freeName") : plan.charAt(0).toUpperCase() + plan.slice(1)}
-                {plan === "free"
-                  ? ""
-                  : <span className="ml-2 text-[10px] uppercase tracking-wider text-[#176B5B] bg-[#176B5B]/10 px-2 py-0.5 rounded-full">{t("settings.planCurrent")}</span>}
-              </p>
+              <div className="flex items-center gap-2">
+                <p className="text-ink text-base font-semibold">{planName}</p>
+                {isPaid && (
+                  <span className="text-[10px] uppercase tracking-wider text-[#176B5B] bg-[#176B5B]/10 px-2 py-0.5 rounded-full font-semibold">
+                    {t("settings.planCurrent")}
+                  </span>
+                )}
+              </div>
               <p className="text-ink-mute text-xs mt-0.5">
-                {plan === "free" ? t("settings.planFreeHint") : t("settings.planPaidHint")}
+                {isPaid ? t("settings.planPaidHint") : t("settings.planFreeHint")}
               </p>
             </div>
             <Link
               href="/upgrade"
-              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-[#176B5B] hover:bg-[#125848] text-white text-sm font-semibold transition-colors shrink-0"
+              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-white text-sm font-semibold shadow-sm transition-colors shrink-0"
+              style={{ backgroundColor: TEAL }}
             >
               <Sparkles size={15} />
-              {plan === "free" ? t("settings.upgradeCta") : t("settings.managePlan")}
+              {isPaid ? t("settings.managePlan") : t("settings.upgradeCta")}
               <ArrowRight size={15} />
             </Link>
           </div>
-        </section>
+        </Section>
 
-        {/* Preferences */}
-        <section className={card}>
-          <p className={`${sectionHeading} mb-4`}>{t("settings.preferences")}</p>
-
-          {/* Language */}
-          <div className="flex items-center justify-between gap-4 mb-5">
-            <span className="text-ink text-sm">{t("settings.language")}</span>
-            <div className="flex rounded-lg overflow-hidden border border-line text-xs font-medium">
-              <button onClick={() => handleLanguage("tr")} className={`px-3 py-1.5 transition-colors ${lang === "tr" ? "bg-brand text-white" : "text-ink-mute hover:text-ink-soft"}`}>TR</button>
-              <button onClick={() => handleLanguage("en")} className={`px-3 py-1.5 transition-colors ${lang === "en" ? "bg-brand text-white" : "text-ink-mute hover:text-ink-soft"}`}>EN</button>
+        {/* ── Preferences ── */}
+        <Section icon={<Settings size={16} />} title={t("settings.preferences")}>
+          <Row label={t("settings.language")}>
+            <div className="flex rounded-lg overflow-hidden border border-line text-xs font-semibold">
+              {(["tr", "en"] as const).map((l) => {
+                const active = lang === l;
+                return (
+                  <button
+                    key={l}
+                    onClick={() => handleLanguage(l)}
+                    className={`px-3.5 py-1.5 transition-colors ${active ? "text-white" : "text-ink-mute hover:text-ink-soft"}`}
+                    style={active ? { backgroundColor: TEAL } : undefined}
+                  >
+                    {l.toUpperCase()}
+                  </button>
+                );
+              })}
             </div>
-          </div>
+          </Row>
+          <Row label={t("settings.currency")} hint={t("settings.currencyHint")} last>
+            <div className="w-44"><CurrencySelect value={currency} onChange={handleCurrency} /></div>
+          </Row>
+        </Section>
 
-          {/* Default currency */}
-          <div>
-            <div className="flex items-center justify-between gap-4 mb-1.5">
-              <span className="text-ink text-sm">{t("settings.currency")}</span>
-              <div className="w-44"><CurrencySelect value={currency} onChange={handleCurrency} /></div>
-            </div>
-            <p className="text-ink-mute text-xs">{t("settings.currencyHint")}</p>
-          </div>
-        </section>
-
-        {/* Notifications */}
-        <section className={card}>
-          <p className={`${sectionHeading} mb-4`}>{t("settings.notifications")}</p>
-          <div className="flex items-center justify-between gap-4">
-            <div>
-              <p className="text-ink text-sm">{t("settings.weeklyEmail")}</p>
-              <p className="text-ink-mute text-xs">{t("settings.weeklyEmailHint")}</p>
-            </div>
+        {/* ── Notifications ── */}
+        <Section icon={<Mail size={16} />} title={t("settings.notifications")}>
+          <Row label={t("settings.weeklyEmail")} hint={t("settings.weeklyEmailHint")} last>
             <button
               onClick={handleEmailWeekly}
               disabled={emailWeekly === null}
-              className={`relative w-10 h-5 rounded-full transition-colors shrink-0 disabled:opacity-40 ${emailWeekly ? "bg-brand" : "bg-surface-2"}`}
+              aria-pressed={!!emailWeekly}
+              className={`relative w-11 h-6 rounded-full transition-colors shrink-0 disabled:opacity-40 ${emailWeekly ? "" : "bg-surface-2"}`}
+              style={emailWeekly ? { backgroundColor: TEAL } : undefined}
             >
-              <span className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white transition-transform ${emailWeekly ? "translate-x-5" : ""}`} />
+              <span className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow-sm transition-transform ${emailWeekly ? "translate-x-5" : ""}`} />
             </button>
-          </div>
-        </section>
+          </Row>
+        </Section>
 
-        {/* Account */}
-        <section className={card}>
-          <p className={`${sectionHeading} mb-4`}>{t("settings.account")}</p>
-          <div className="flex items-center justify-between gap-4">
-            <div className="min-w-0">
-              <p className="text-ink-mute text-xs">{t("settings.email")}</p>
-              <p className="text-ink text-sm truncate">{email}</p>
+        {/* ── Account ── */}
+        <Section icon={<ShieldCheck size={16} />} title={t("settings.account")}>
+          <div className="py-4 space-y-4">
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="w-10 h-10 rounded-full text-white text-base font-semibold flex items-center justify-center shrink-0" style={{ backgroundColor: TEAL }}>
+                {email?.[0]?.toUpperCase() ?? "?"}
+              </div>
+              <div className="min-w-0">
+                <p className="text-ink text-sm font-medium truncate">{email}</p>
+                <p className="text-ink-mute text-xs">{planName} · {t("settings.account")}</p>
+              </div>
             </div>
             <button
               onClick={handleLogout}
-              className="flex items-center gap-2 px-3 py-2 rounded-lg border border-line text-ink-mute hover:text-red-300 hover:border-red-900 text-sm transition-colors shrink-0"
+              className="w-full sm:w-auto flex items-center justify-center gap-2 px-4 py-2 rounded-lg border border-line text-ink-soft hover:text-danger hover:border-danger/40 text-sm font-medium transition-colors"
             >
               <LogOut size={15} /> {t("settings.logout")}
             </button>
           </div>
-        </section>
+        </Section>
       </div>
     </PageLayout>
+  );
+}
+
+// ── presentational pieces ────────────────────────────────────────────────────
+
+function Section({ icon, title, children }: { icon: ReactNode; title: string; children: ReactNode }) {
+  return (
+    <section className="bg-surface border border-line rounded-2xl overflow-hidden">
+      <div className="flex items-center gap-2.5 px-5 py-3.5 border-b border-line">
+        <span className="w-8 h-8 rounded-lg bg-brand/10 text-brand flex items-center justify-center shrink-0">{icon}</span>
+        <h2 className="text-sm font-semibold text-ink">{title}</h2>
+      </div>
+      <div className="px-5">{children}</div>
+    </section>
+  );
+}
+
+function Row({ label, hint, children, last }: { label: string; hint?: string; children: ReactNode; last?: boolean }) {
+  return (
+    <div className={`flex items-center justify-between gap-4 py-4 ${last ? "" : "border-b border-line"}`}>
+      <div className="min-w-0">
+        <p className="text-ink text-sm">{label}</p>
+        {hint && <p className="text-ink-mute text-xs mt-0.5">{hint}</p>}
+      </div>
+      <div className="shrink-0">{children}</div>
+    </div>
   );
 }
