@@ -54,6 +54,7 @@ import {
 } from "@/lib/api";
 import { Plus, TrendingUp, TrendingDown, DollarSign, Home, Wallet, Briefcase, Scale, Brain, Zap, RefreshCw, Pencil, MessageCircle, Bell } from "@/components/ui/Icons";
 import { useLanguage, getCurrentLang } from "@/lib/i18n";
+import { useTheme } from "@/lib/theme";
 
 const AUTO_PRICE_TYPES = new Set(["crypto", "gold", "foreign_currency", "commodity", "stock", "fund"]);
 // Price-drop alerts only make sense for genuinely priced assets — a fiat holding's
@@ -225,9 +226,9 @@ function SectionHeader({
   onAdd: () => void; addLabel: string; addColor?: string; badge?: ReactNode;
 }) {
   const btnColors: Record<string, string> = {
-    indigo: "bg-brand/20 text-brand hover:bg-brand-hover/30 border-brand/40",
-    red: "bg-red-600/20 text-danger hover:bg-red-600/30 border-red-800/40",
-    amber: "bg-amber-600/20 text-amber-400 hover:bg-amber-600/30 border-amber-800/40",
+    indigo: "bg-[#176B5B]/10 text-[#176B5B] hover:bg-[#176B5B]/20 border-[#176B5B]/30",
+    red: "bg-danger/10 text-danger hover:bg-danger/20 border-danger/30",
+    amber: "bg-warn/10 text-warn hover:bg-warn/20 border-warn/30",
   };
   return (
     <div className="flex items-center justify-between mb-4">
@@ -251,7 +252,7 @@ function Toast({ message, onDismiss }: { message: string; onDismiss: () => void 
     return () => clearTimeout(timer);
   }, [onDismiss]);
   return (
-    <div className="fixed bottom-4 right-4 z-50 bg-emerald-700 text-white rounded-lg px-4 py-3 shadow-lg text-sm max-w-xs">
+    <div className="fixed bottom-4 right-4 z-50 bg-[#176B5B] text-white rounded-lg px-4 py-3 shadow-lg shadow-black/20 text-sm max-w-xs">
       {message}
     </div>
   );
@@ -260,6 +261,13 @@ function Toast({ message, onDismiss }: { message: string; onDismiss: () => void 
 export default function NetWorthPage() {
   const { t, lang } = useLanguage();
   const router = useRouter();
+  // Explicit theme-resolved colors for cases the channel-token bg utilities don't
+  // paint reliably at runtime: floating overlays (alert modal) and solid in-flow
+  // fills (liability progress bar). text-/border- tokens are fine; only solid
+  // bg-<token> fills need this.
+  const { resolved } = useTheme();
+  const surfaceBg = resolved === "dark" ? "#1C1915" : "#FFFFFF";
+  const NEG = resolved === "dark" ? "#D17474" : "#B54747";
   // Initialize from the user's saved default BEFORE the first fetch, so loadAll()
   // always queries the summary in the correct currency. (Previously this started
   // as "TRY" and flipped to USD via an effect AFTER loadAll had already fetched,
@@ -321,10 +329,10 @@ export default function NetWorthPage() {
   };
 
   const ASSET_TYPE_GROUPS: { label: string; icon: ReactNode; types: string[] }[] = [
-    { label: t("nw.groups.cashBank"), icon: <Wallet size={16} className="text-emerald-400" />, types: ["cash", "bank_account", "foreign_currency"] },
+    { label: t("nw.groups.cashBank"), icon: <Wallet size={16} className="text-pos" />, types: ["cash", "bank_account", "foreign_currency"] },
     { label: t("nw.groups.investments"), icon: <TrendingUp size={16} className="text-brand" />, types: ["stock", "fund", "crypto", "bes", "gold", "bond", "commodity"] },
-    { label: t("nw.groups.propertyVehicle"), icon: <Home size={16} className="text-amber-400" />, types: ["real_estate", "vehicle"] },
-    { label: t("nw.groups.personalAssets"), icon: <Briefcase size={16} className="text-purple-400" />, types: ["art_collectible", "jewelry", "life_insurance", "pension", "business_ownership"] },
+    { label: t("nw.groups.propertyVehicle"), icon: <Home size={16} className="text-warn" />, types: ["real_estate", "vehicle"] },
+    { label: t("nw.groups.personalAssets"), icon: <Briefcase size={16} className="text-ink-soft" />, types: ["art_collectible", "jewelry", "life_insurance", "pension", "business_ownership"] },
     { label: t("nw.groups.other"), icon: <Briefcase size={16} className="text-ink-mute" />, types: ["other_asset"] },
   ];
 
@@ -335,7 +343,7 @@ export default function NetWorthPage() {
       if (asset.source_detail) detail = JSON.parse(asset.source_detail) as Record<string, unknown>;
     } catch { /* ignore */ }
     const fetchedAt = detail.price_fetched_at as string | undefined;
-    if (!fetchedAt) return { label: t("nw.priceBadgeManual"), cls: "text-orange-400 bg-orange-950/30 border-orange-800/30" };
+    if (!fetchedAt) return { label: t("nw.priceBadgeManual"), cls: "text-warn bg-warn/10 border-warn/30" };
     const when = new Date(fetchedAt);
     const ageMin = Math.floor((Date.now() - when.getTime()) / 60000);
     // Concrete clock time so the user can see it tick to "now" after a refresh,
@@ -343,9 +351,9 @@ export default function NetWorthPage() {
     const clock = fmtTime(when.getTime(), lang);
     const rel = ageMin < 2 ? t("nw.justNow") : ageMin < 60 ? `${ageMin} ${t("nw.minAgo")}` : `${Math.floor(ageMin / 60)} ${t("nw.hrAgo")}`;
     const title = `${t("nw.priceBadgeUpdated")} ${clock} · ${rel}`;
-    if (ageMin < 60) return { label: `${t("nw.priceBadgeUpdated")} ${clock}`, cls: "text-emerald-400 bg-emerald-950/30 border-emerald-800/30", title };
-    if (ageMin < 1440) return { label: `${t("nw.priceBadgeUpdated")} ${clock}`, cls: "text-amber-400 bg-amber-950/30 border-amber-800/30", title };
-    return { label: `${t("nw.priceBadgeAuto")} · ${t("nw.stale")}`, cls: "text-orange-400 bg-orange-950/30 border-orange-800/30", title };
+    if (ageMin < 60) return { label: `${t("nw.priceBadgeUpdated")} ${clock}`, cls: "text-pos bg-pos/10 border-pos/30", title };
+    if (ageMin < 1440) return { label: `${t("nw.priceBadgeUpdated")} ${clock}`, cls: "text-warn bg-warn/10 border-warn/30", title };
+    return { label: `${t("nw.priceBadgeAuto")} · ${t("nw.stale")}`, cls: "text-warn bg-warn/10 border-warn/30", title };
   }
 
   function getAssetTypeLabel(type: string): string {
@@ -850,15 +858,15 @@ export default function NetWorthPage() {
         const target = lastPrice ? lastPrice * (1 - alertPct / 100) : null;
         return (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm" onClick={() => setAlertModalAsset(null)}>
-          <div className="bg-surface border border-line rounded-2xl p-6 w-full max-w-sm mx-4 space-y-4" onClick={(e) => e.stopPropagation()}>
+          <div className="border border-line rounded-2xl p-6 w-full max-w-sm mx-4 space-y-4 shadow-2xl shadow-black/30" style={{ backgroundColor: surfaceBg }} onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center gap-2">
-              <Bell size={16} className="text-amber-400" />
+              <Bell size={16} className="text-warn" />
               <h3 className="text-ink font-semibold">{t("nw.addAlert")}</h3>
             </div>
             <p className="text-sm text-ink-mute">{alertModalAsset.name}</p>
 
             {!lastPrice ? (
-              <div className="bg-amber-950/30 border border-amber-900/40 rounded-lg px-3 py-2.5 text-amber-300 text-xs">
+              <div className="bg-warn/10 border border-warn/30 rounded-lg px-3 py-2.5 text-warn text-xs">
                 {t("nw.toast.alertNeedsPrice")}
               </div>
             ) : (
@@ -873,7 +881,7 @@ export default function NetWorthPage() {
                     {[10, 15, 20, 25].map((p) => (
                       <button key={p} onClick={() => setAlertPct(p)}
                         className={`py-2 rounded-lg text-sm font-medium border transition-colors ${
-                          alertPct === p ? "bg-amber-600/20 border-amber-600/60 text-amber-300" : "bg-canvas border-line text-ink-mute hover:border-amber-700/50"
+                          alertPct === p ? "bg-warn/20 border-warn/50 text-warn" : "bg-canvas border-line text-ink-mute hover:border-warn/50"
                         }`}>
                         −{p}%
                       </button>
@@ -892,7 +900,7 @@ export default function NetWorthPage() {
               <button
                 onClick={handleSaveAlert}
                 disabled={alertSaving || !lastPrice}
-                className="flex-1 bg-amber-600 text-white rounded-lg py-2.5 text-sm font-medium hover:bg-amber-500 transition-colors disabled:opacity-40"
+                className="flex-1 bg-[#176B5B] text-white rounded-lg py-2.5 text-sm font-medium hover:bg-[#125848] transition-colors disabled:opacity-40"
               >
                 {alertSaving ? "…" : t("nw.alertSave")}
               </button>
@@ -916,7 +924,7 @@ export default function NetWorthPage() {
           <>
             <p className="text-ink-mute text-sm mb-2">{t("nw.netWorth")}</p>
             <div className="flex items-center justify-center gap-3 mb-4">
-              <p className={`text-5xl font-bold tabular-nums ${netPositive ? "text-emerald-400" : "text-neg"} ${summaryLoading ? "opacity-50" : ""}`}>
+              <p className={`text-5xl font-bold tabular-nums ${netPositive ? "text-pos" : "text-neg"} ${summaryLoading ? "opacity-50" : ""}`}>
                 {summary ? fmt(summary.net_worth_try, displayCurrency) : "—"}
               </p>
             </div>
@@ -928,7 +936,7 @@ export default function NetWorthPage() {
                   <span
                     key={i}
                     className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-xs font-medium ${
-                      d.direction === "up" ? "bg-emerald-950/40 text-emerald-300" : "bg-red-950/40 text-red-300"
+                      d.direction === "up" ? "bg-pos/10 text-pos" : "bg-neg/10 text-neg"
                     }`}
                   >
                     {d.direction === "up" ? <TrendingUp size={11} /> : <TrendingDown size={11} />}
@@ -940,11 +948,11 @@ export default function NetWorthPage() {
             )}
             <div className="flex items-center justify-center gap-6 flex-wrap text-sm">
               <div className="flex items-center gap-1.5">
-                <TrendingUp size={14} className="text-emerald-400" />
+                <TrendingUp size={14} className="text-pos" />
                 <span className="text-ink-mute">{t("nw.assets")}</span>
-                <span className="text-emerald-400 font-medium">{summary ? fmt(summary.total_assets_try, displayCurrency) : "—"}</span>
+                <span className="text-pos font-medium">{summary ? fmt(summary.total_assets_try, displayCurrency) : "—"}</span>
               </div>
-              <span className="text-gray-700">—</span>
+              <span className="text-ink-mute">—</span>
               <div className="flex items-center gap-1.5">
                 <TrendingDown size={14} className="text-neg" />
                 <span className="text-ink-mute">{t("nw.liabilities")}</span>
@@ -952,11 +960,11 @@ export default function NetWorthPage() {
               </div>
               {summary && summary.pending_receivables_try > 0 && (
                 <>
-                  <span className="text-gray-700">+</span>
+                  <span className="text-ink-mute">+</span>
                   <div className="flex items-center gap-1.5">
-                    <DollarSign size={14} className="text-amber-400" />
+                    <DollarSign size={14} className="text-warn" />
                     <span className="text-ink-mute">{t("nw.receivables")}</span>
-                    <span className="text-amber-400 font-medium">{fmt(summary.pending_receivables_try, displayCurrency)}</span>
+                    <span className="text-warn font-medium">{fmt(summary.pending_receivables_try, displayCurrency)}</span>
                   </div>
                 </>
               )}
@@ -1003,10 +1011,10 @@ export default function NetWorthPage() {
       {triggeredAlerts.length > 0 && (
         <div className="mb-4 flex flex-col gap-2">
           {triggeredAlerts.map((ta) => (
-            <div key={ta.alert.id} className="flex items-start gap-2 bg-red-950/30 border border-red-800/40 rounded-xl px-4 py-3">
+            <div key={ta.alert.id} className="flex items-start gap-2 bg-danger/10 border border-neg/30 rounded-xl px-4 py-3">
               <span className="text-neg shrink-0">🔔</span>
               <div className="flex-1 min-w-0">
-                <p className="text-red-200 text-sm font-medium">{ta.alert.message_template}</p>
+                <p className="text-neg text-sm font-medium">{ta.alert.message_template}</p>
                 <p className="text-neg/70 text-xs mt-0.5">{ta.triggered_reason}</p>
               </div>
             </div>
@@ -1032,7 +1040,7 @@ export default function NetWorthPage() {
       <section className="mb-8">
         <SectionHeader
           label={t("nw.assets")}
-          icon={<TrendingUp size={18} className="text-emerald-400" />}
+          icon={<TrendingUp size={18} className="text-pos" />}
           total={summary?.total_assets_try}
           displayCurrency={displayCurrency}
           onAdd={() => setShowAddAsset(true)}
@@ -1054,7 +1062,7 @@ export default function NetWorthPage() {
               
               return (
                 <div key={group.label} className="bg-surface border border-line rounded-xl overflow-hidden">
-                  <div className="flex items-center gap-2 px-4 py-2.5 border-b border-line bg-[#13110D]">
+                  <div className="flex items-center gap-2 px-4 py-2.5 border-b border-line bg-surface-2">
                     {group.icon}
                     <span className="text-xs text-ink-mute font-medium">{group.label}</span>
                   </div>
@@ -1072,15 +1080,15 @@ export default function NetWorthPage() {
                             )}
                             {maturity && (
                               <span className={`text-[10px] px-1.5 py-0.5 rounded-full border ${
-                                maturity.days <= 0 ? "bg-amber-950/40 border-amber-700/40 text-amber-400"
-                                  : maturity.days <= 7 ? "bg-orange-950/40 border-orange-700/40 text-orange-400"
+                                maturity.days <= 0 ? "bg-warn/10 border-warn/30 text-warn"
+                                  : maturity.days <= 7 ? "bg-warn/10 border-warn/30 text-warn"
                                   : "bg-surface border-line text-ink-mute"
                               }`}>{maturity.label}</span>
                             )}
                             {!AUTO_PRICE_TYPES.has(a.asset_type) && !priceBadge && (() => {
                               const d = staleDays(a.as_of_date);
                               return d !== null && d >= 90 ? (
-                                <span className="text-[10px] px-1.5 py-0.5 rounded-full border bg-orange-950/30 border-orange-800/30 text-orange-400" title={t("nw.staleHint")}>
+                                <span className="text-[10px] px-1.5 py-0.5 rounded-full border bg-warn/10 border-warn/30 text-warn" title={t("nw.staleHint")}>
                                   {t("nw.stale")}
                                 </span>
                               ) : null;
@@ -1105,7 +1113,7 @@ export default function NetWorthPage() {
                             return (
                               <p className="text-[11px] text-ink-mute mt-0.5">
                                 {t("nw.lastPrice")}: ${lp.toLocaleString(undefined, { maximumFractionDigits: lp < 10 ? 2 : 0 })}
-                                <span className="text-gray-700"> · {t("nw.priceDelayed")}</span>
+                                <span className="text-ink-mute"> · {t("nw.priceDelayed")}</span>
                               </p>
                             );
                           })()}
@@ -1120,7 +1128,7 @@ export default function NetWorthPage() {
                               return (
                                 <p
                                   title={nativeHint}
-                                  className={`text-emerald-400 text-sm font-semibold tabular-nums${nativeHint ? " cursor-help" : ""}`}
+                                  className={`text-pos text-sm font-semibold tabular-nums${nativeHint ? " cursor-help" : ""}`}
                                 >
                                   {showConverted ? fmt(converted!, displayCurrency) : fmtItem(a.current_value, a.currency)}
                                 </p>
@@ -1131,15 +1139,15 @@ export default function NetWorthPage() {
                             <button
                               onClick={() => { setAlertModalAsset(a); setAlertPct(15); setAlertMessage(""); }}
                               title={t("nw.addAlert")}
-                              className="text-gray-700 hover:text-amber-400 transition-colors px-1"
+                              className="text-ink-mute hover:text-warn transition-colors px-1"
                             >
                               <Bell size={13} />
                             </button>
                           )}
-                          <button onClick={() => setEditingAsset(a)} title={t("common.edit")} className="text-gray-700 hover:text-brand transition-colors px-1">
+                          <button onClick={() => setEditingAsset(a)} title={t("common.edit")} className="text-ink-mute hover:text-brand transition-colors px-1">
                             <Pencil size={13} />
                           </button>
-                          <button onClick={() => handleDeleteAsset(a.id)} className="text-gray-700 hover:text-danger transition-colors text-xs px-2">×</button>
+                          <button onClick={() => handleDeleteAsset(a.id)} className="text-ink-mute hover:text-danger transition-colors text-xs px-2">×</button>
                         </div>
                       </div>
                     );
@@ -1167,7 +1175,7 @@ export default function NetWorthPage() {
         ) : liabilities.length === 0 ? (
           <div className="bg-surface border border-line border-dashed rounded-xl p-8 text-center">
             <p className="text-ink-mute text-sm">{t("nw.noLiabilities")}</p>
-            <button onClick={() => setShowAddLiability(true)} className="mt-3 text-neg text-sm hover:text-red-300 transition-colors">{t("nw.addFirstLiability")}</button>
+            <button onClick={() => setShowAddLiability(true)} className="mt-3 text-neg text-sm hover:text-neg transition-colors">{t("nw.addFirstLiability")}</button>
           </div>
         ) : (
           <div className="space-y-3">
@@ -1184,7 +1192,7 @@ export default function NetWorthPage() {
                         <p className="text-ink text-sm font-medium">{l.name}</p>
                         <span className="text-xs px-2 py-0.5 rounded-full bg-surface-2 text-ink-mute">{getLiabilityTypeLabel(l.liability_type)}</span>
                         {highInterest && (
-                          <span className="text-xs px-2 py-0.5 rounded-full bg-red-900/30 text-neg border border-red-800/40">
+                          <span className="text-xs px-2 py-0.5 rounded-full bg-neg/10 text-neg border border-neg/30">
                             %{l.interest_rate} {t("nw.highInterest").replace("% ", "")}
                           </span>
                         )}
@@ -1195,14 +1203,14 @@ export default function NetWorthPage() {
                         {l.due_date && <span>{t("nw.due")}: {l.due_date}</span>}
                       </div>
                       <div className="mt-3 h-1.5 bg-surface-2 rounded-full overflow-hidden">
-                        <div className="h-full bg-red-500 rounded-full transition-all" style={{ width: `${100 - pct}%` }} />
+                        <div className="h-full rounded-full transition-all" style={{ width: `${100 - pct}%`, backgroundColor: NEG }} />
                       </div>
                       <p className="text-xs text-ink-mute mt-1">{Math.round(pct)}{t("nw.totalPaid")} · {t("nw.total")} {fmtItem(l.total_amount, l.currency)}</p>
                     </div>
-                    <button onClick={() => setEditingLiability(l)} title={t("common.edit")} className="text-gray-700 hover:text-brand transition-colors px-1 shrink-0">
+                    <button onClick={() => setEditingLiability(l)} title={t("common.edit")} className="text-ink-mute hover:text-brand transition-colors px-1 shrink-0">
                       <Pencil size={13} />
                     </button>
-                    <button onClick={() => handleDeleteLiability(l.id)} className="text-gray-700 hover:text-danger transition-colors text-sm px-2 shrink-0">×</button>
+                    <button onClick={() => handleDeleteLiability(l.id)} className="text-ink-mute hover:text-danger transition-colors text-sm px-2 shrink-0">×</button>
                   </div>
                 </div>
               );
@@ -1215,7 +1223,7 @@ export default function NetWorthPage() {
       <section className="mb-8">
         <SectionHeader
           label={t("nw.receivables")}
-          icon={<Scale size={18} className="text-amber-400" />}
+          icon={<Scale size={18} className="text-warn" />}
           total={summary?.pending_receivables_try}
           displayCurrency={displayCurrency}
           onAdd={() => setShowAddReceivable(true)}
@@ -1227,7 +1235,7 @@ export default function NetWorthPage() {
         ) : receivables.length === 0 ? (
           <div className="bg-surface border border-line border-dashed rounded-xl p-8 text-center">
             <p className="text-ink-mute text-sm">{t("nw.noReceivables")}</p>
-            <button onClick={() => setShowAddReceivable(true)} className="mt-3 text-amber-400 text-sm hover:text-amber-300 transition-colors">{t("nw.addFirstReceivable")}</button>
+            <button onClick={() => setShowAddReceivable(true)} className="mt-3 text-warn text-sm hover:text-warn transition-colors">{t("nw.addFirstReceivable")}</button>
           </div>
         ) : (
           <div className="space-y-2">
@@ -1235,17 +1243,17 @@ export default function NetWorthPage() {
               const isOverdue = r.status === "overdue" || (r.status === "pending" && r.expected_date && r.expected_date < new Date().toISOString().slice(0, 10));
               const isReceived = r.status === "received";
               return (
-                <div key={r.id} className={`bg-surface border rounded-xl px-4 py-3 flex items-center justify-between gap-3 ${isOverdue ? "border-orange-800/40" : isReceived ? "border-emerald-900/40 opacity-60" : "border-line"}`}>
+                <div key={r.id} className={`bg-surface border rounded-xl px-4 py-3 flex items-center justify-between gap-3 ${isOverdue ? "border-warn/40" : isReceived ? "border-pos/30 opacity-60" : "border-line"}`}>
                   <div>
                     <div className="flex items-center gap-2">
                       <p className="text-ink text-sm font-medium">{r.from_person}</p>
                       {isReceived && (
-                        <span className="text-xs px-1.5 py-0.5 rounded bg-emerald-900/30 text-emerald-400">
+                        <span className="text-xs px-1.5 py-0.5 rounded bg-pos/10 text-pos">
                           {t("nw.received")} ✓{r.linked_asset_id ? ` · ${t("nw.linkedAsset")}` : ""}
                         </span>
                       )}
                       {isOverdue && !isReceived && (
-                        <span className="text-xs px-1.5 py-0.5 rounded bg-orange-900/30 text-orange-400">{t("nw.overdue")}</span>
+                        <span className="text-xs px-1.5 py-0.5 rounded bg-warn/10 text-warn">{t("nw.overdue")}</span>
                       )}
                     </div>
                     <p className="text-ink-mute text-xs mt-0.5">
@@ -1256,14 +1264,14 @@ export default function NetWorthPage() {
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
                     {!isReceived && (
-                      <button onClick={() => handleMarkReceived(r.id)} className="text-xs px-2.5 py-1 rounded-lg bg-emerald-900/30 text-emerald-400 border border-emerald-800/40 hover:bg-emerald-900/50 transition-colors">
+                      <button onClick={() => handleMarkReceived(r.id)} className="text-xs px-2.5 py-1 rounded-lg bg-pos/10 text-pos border border-pos/30 hover:bg-pos/25 transition-colors">
                         {t("nw.markReceived")}
                       </button>
                     )}
-                    <button onClick={() => setEditingReceivable(r)} title={t("common.edit")} className="text-gray-700 hover:text-brand transition-colors px-1">
+                    <button onClick={() => setEditingReceivable(r)} title={t("common.edit")} className="text-ink-mute hover:text-brand transition-colors px-1">
                       <Pencil size={13} />
                     </button>
-                    <button onClick={() => handleDeleteReceivable(r.id)} className="text-gray-700 hover:text-danger transition-colors text-sm px-1">×</button>
+                    <button onClick={() => handleDeleteReceivable(r.id)} className="text-ink-mute hover:text-danger transition-colors text-sm px-1">×</button>
                   </div>
                 </div>
               );
@@ -1276,23 +1284,23 @@ export default function NetWorthPage() {
       {pendingSuggestions.length > 0 && (
         <section className="mb-8">
           <div className="flex items-center gap-2 mb-4">
-            <Zap size={18} className="text-amber-400" />
+            <Zap size={18} className="text-warn" />
             <h2 className="text-ink font-semibold">{t("nw.suggestions")}</h2>
-            <span className="px-2 py-0.5 rounded-full bg-amber-950/50 border border-amber-800/40 text-amber-400 text-xs font-medium">
+            <span className="px-2 py-0.5 rounded-full bg-warn/10 border border-warn/30 text-warn text-xs font-medium">
               {pendingSuggestions.length}
             </span>
           </div>
           <div className="space-y-3">
             {pendingSuggestions.map((s) => (
-              <div key={s.id} className="bg-surface border border-amber-900/30 rounded-xl p-4 flex items-start justify-between gap-3">
+              <div key={s.id} className="bg-surface border border-warn/20 rounded-xl p-4 flex items-start justify-between gap-3">
                 <div className="flex-1 min-w-0">
                   <p className="text-ink-soft text-sm">{s.reason}</p>
-                  <p className="text-amber-400 text-xs mt-1 font-semibold tabular-nums">
+                  <p className="text-warn text-xs mt-1 font-semibold tabular-nums">
                     {parseFloat(s.suggested_change) >= 0 ? "+" : ""}{parseFloat(s.suggested_change).toLocaleString()} {s.currency}
                   </p>
                 </div>
                 <div className="flex gap-2 shrink-0">
-                  <button onClick={() => handleAcceptSuggestion(s.id)} className="px-3 py-1.5 rounded-lg bg-brand/20 text-brand border border-brand/40 hover:bg-brand-hover/30 text-xs font-medium transition-colors">
+                  <button onClick={() => handleAcceptSuggestion(s.id)} className="px-3 py-1.5 rounded-lg bg-[#176B5B]/10 text-[#176B5B] border border-[#176B5B]/30 hover:bg-[#176B5B]/20 text-xs font-medium transition-colors">
                     {t("nw.accept")}
                   </button>
                   <button onClick={() => handleDismissSuggestion(s.id)} className="px-3 py-1.5 rounded-lg bg-surface-2 text-ink-mute hover:text-ink-soft text-xs font-medium transition-colors">
@@ -1311,11 +1319,11 @@ export default function NetWorthPage() {
             onClick={() => setActionQueueOpen((v) => !v)}
             className="w-full flex items-center gap-2 mb-4 text-left"
           >
-            <Zap size={18} className="text-cyan-400" />
+            <Zap size={18} className="text-brand" />
             <h2 className="text-ink font-semibold">{t("nw.actionQueue")}</h2>
             <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
               reconciliationItems.length > 0
-                ? "bg-cyan-950/50 border border-cyan-800/40 text-cyan-300"
+                ? "bg-brand/10 border border-brand/30 text-brand"
                 : "bg-surface-2 text-ink-mute"
             }`}>
               {reconciliationItems.length}
@@ -1328,7 +1336,7 @@ export default function NetWorthPage() {
 
           {actionQueueOpen && reconciliationItems.length === 0 && (
             <div className="bg-surface border border-line rounded-xl p-6 flex items-center gap-3 mb-3 text-ink-mute">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-emerald-500 shrink-0"><polyline points="20 6 9 17 4 12" /></svg>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-pos shrink-0"><polyline points="20 6 9 17 4 12" /></svg>
               <span className="text-sm">{t("nw.allClear")}</span>
             </div>
           )}
@@ -1391,51 +1399,51 @@ export default function NetWorthPage() {
                 let actionButtons: ReactNode;
                 if (item.issue_type === "overdue_receivable") {
                   actionButtons = (<>
-                    {btn("mark_received", t("nw.markReceived"), "bg-emerald-600/20 text-emerald-400 border border-emerald-800/40 hover:bg-emerald-600/30")}
-                    {btn("write_off", t("nw.writeOff"), "bg-red-600/10 text-neg border border-red-800/30 hover:bg-red-600/20")}
+                    {btn("mark_received", t("nw.markReceived"), "bg-pos/15 text-pos border border-pos/30 hover:bg-pos/25")}
+                    {btn("write_off", t("nw.writeOff"), "bg-danger/10 text-neg border border-danger/30 hover:bg-danger/20")}
                     {btn("dismiss", t("common.dismiss"), "bg-surface-2 text-ink-mute hover:text-ink-soft")}
                   </>);
                 } else if (item.issue_type === "received_receivable_missing_asset") {
                   actionButtons = (<>
-                    {btn("create_cash_asset", t("nw.addAsset"), "bg-emerald-600/20 text-emerald-400 border border-emerald-800/40 hover:bg-emerald-600/30")}
-                    {btn("mark_pending", t("nw.pending"), "bg-amber-600/10 text-amber-400 border border-amber-800/30 hover:bg-amber-600/20")}
-                    {btn("write_off", t("nw.writeOff"), "bg-red-600/10 text-neg border border-red-800/30 hover:bg-red-600/20")}
+                    {btn("create_cash_asset", t("nw.addAsset"), "bg-pos/15 text-pos border border-pos/30 hover:bg-pos/25")}
+                    {btn("mark_pending", t("nw.pending"), "bg-warn/10 text-warn border border-warn/30 hover:bg-warn/20")}
+                    {btn("write_off", t("nw.writeOff"), "bg-danger/10 text-neg border border-danger/30 hover:bg-danger/20")}
                   </>);
                 } else if (item.issue_type === "possible_duplicate_transaction") {
                   const batchIds = (pa?.upload_batch_ids as string[] | undefined) ?? [];
                   actionButtons = (<>
-                    {batchIds.length >= 2 && btn("delete_duplicate_batch", t("nw.recon.deleteOlderDuplicate"), "bg-red-600/10 text-neg border border-red-800/30 hover:bg-red-600/20")}
-                    {btn("keep_all", t("nw.recon.keepAll"), "bg-emerald-600/20 text-emerald-400 border border-emerald-800/40 hover:bg-emerald-600/30")}
+                    {batchIds.length >= 2 && btn("delete_duplicate_batch", t("nw.recon.deleteOlderDuplicate"), "bg-danger/10 text-neg border border-danger/30 hover:bg-danger/20")}
+                    {btn("keep_all", t("nw.recon.keepAll"), "bg-pos/15 text-pos border border-pos/30 hover:bg-pos/25")}
                     {btn("dismiss", t("common.dismiss"), "bg-surface-2 text-ink-mute hover:text-ink-soft")}
                   </>);
                 } else if (item.issue_type === "large_transaction_review") {
                   actionButtons = (<>
-                    {btn("confirm_category", t("common.confirm"), "bg-emerald-600/20 text-emerald-400 border border-emerald-800/40 hover:bg-emerald-600/30")}
+                    {btn("confirm_category", t("common.confirm"), "bg-pos/15 text-pos border border-pos/30 hover:bg-pos/25")}
                     {btn("ignore", t("common.dismiss"), "bg-surface-2 text-ink-mute hover:text-ink-soft")}
                   </>);
                 } else {
                   actionButtons = (<>
-                    {btn("resolve", t("common.resolve"), "bg-emerald-600/20 text-emerald-400 border border-emerald-800/40 hover:bg-emerald-600/30")}
+                    {btn("resolve", t("common.resolve"), "bg-pos/15 text-pos border border-pos/30 hover:bg-pos/25")}
                     {btn("dismiss", t("common.dismiss"), "bg-surface-2 text-ink-mute hover:text-ink-soft")}
                   </>);
                 }
 
                 return (
-                  <div key={item.id} className="bg-surface border border-cyan-900/30 rounded-xl p-4">
+                  <div key={item.id} className="bg-surface border border-brand/20 rounded-xl p-4">
                     <div className="flex items-start justify-between gap-3 flex-wrap">
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2 flex-wrap">
                           <p className="text-ink-soft text-sm font-medium">{itemTitle}</p>
                           <span className={`px-2 py-0.5 rounded-full text-xs ${
-                            item.severity === "high" ? "bg-red-950/50 text-neg border border-red-800/30"
-                              : item.severity === "medium" ? "bg-amber-950/50 text-amber-400 border border-amber-800/30"
+                            item.severity === "high" ? "bg-danger/10 text-neg border border-danger/30"
+                              : item.severity === "medium" ? "bg-warn/10 text-warn border border-warn/30"
                               : "bg-surface-2 text-ink-mute"
                           }`}>
                             {item.severity}
                           </span>
                         </div>
                         {contextLine && (
-                          <p className="text-cyan-300/70 text-xs mt-1 truncate">{contextLine}</p>
+                          <p className="text-brand/70 text-xs mt-1 truncate">{contextLine}</p>
                         )}
                         {subtitle && (
                           <p className="text-ink-mute text-xs leading-relaxed mt-1">{subtitle}</p>
@@ -1451,7 +1459,7 @@ export default function NetWorthPage() {
 
           {actionQueueOpen && events.length > 0 && (
             <div className="bg-surface border border-line rounded-xl overflow-hidden">
-              <div className="px-4 py-2.5 border-b border-line bg-[#13110D]">
+              <div className="px-4 py-2.5 border-b border-line bg-surface-2">
                 <span className="text-xs text-ink-mute font-medium">{t("nw.recentEvents")}</span>
               </div>
               {events.map((event, idx) => {
@@ -1477,19 +1485,19 @@ export default function NetWorthPage() {
 
       {/* Wealth alerts list — dedicated, visually distinct section */}
       {!loading && wealthAlerts.length > 0 && (
-        <section ref={alertsSectionRef} className="mb-8 bg-amber-950/10 border border-amber-900/30 rounded-2xl p-5">
+        <section ref={alertsSectionRef} className="mb-8 bg-warn/5 border border-warn/20 rounded-2xl p-5">
           <div className="flex items-center gap-2 mb-3">
-            <div className="w-7 h-7 rounded-lg bg-amber-950/50 border border-amber-900/50 flex items-center justify-center">
-              <Bell size={14} className="text-amber-400" />
+            <div className="w-7 h-7 rounded-lg bg-warn/10 border border-warn/20 flex items-center justify-center">
+              <Bell size={14} className="text-warn" />
             </div>
             <h2 className="text-ink font-semibold text-sm flex-1">{t("nw.wealthAlerts")}</h2>
-            <span className="px-2 py-0.5 rounded-full bg-amber-950/40 border border-amber-800/30 text-amber-400 text-xs font-medium">{wealthAlerts.length}</span>
+            <span className="px-2 py-0.5 rounded-full bg-warn/10 border border-warn/30 text-warn text-xs font-medium">{wealthAlerts.length}</span>
           </div>
           <div className="space-y-2">
             {wealthAlerts.map((a) => (
               <div key={a.id} className="bg-surface border border-line rounded-xl px-4 py-3 flex items-center justify-between gap-3">
                 <div className="min-w-0 flex items-center gap-2.5">
-                  <span className="w-1.5 h-1.5 rounded-full bg-amber-500 shrink-0" />
+                  <span className="w-1.5 h-1.5 rounded-full bg-warn shrink-0" />
                   <div className="min-w-0">
                     <p className="text-ink-soft text-sm truncate">{a.message_template}</p>
                     <p className="text-ink-mute text-xs mt-0.5">
@@ -1497,7 +1505,7 @@ export default function NetWorthPage() {
                     </p>
                   </div>
                 </div>
-                <button onClick={() => handleDeleteAlert(a.id)} title={t("common.delete")} className="text-gray-700 hover:text-danger transition-colors text-xs px-1 shrink-0">×</button>
+                <button onClick={() => handleDeleteAlert(a.id)} title={t("common.delete")} className="text-ink-mute hover:text-danger transition-colors text-xs px-1 shrink-0">×</button>
               </div>
             ))}
           </div>

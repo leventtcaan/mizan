@@ -5,10 +5,12 @@ import type { GuidanceFinding } from "@/lib/api";
 import { ChevronDown, ChevronUp, ArrowRight, Bell, RefreshCw, Target, Plus } from "@/components/ui/Icons";
 import Mim from "@/components/companion/Mim";
 
+// Dots use literal hexes (tiny solid fills must paint reliably regardless of the
+// channel-token bg quirk); chips/borders use semantic tokens so they adapt to theme.
 const SEV: Record<string, { dot: string; chip: string; border: string }> = {
-  high:   { dot: "bg-red-500",    chip: "text-red-300 bg-red-950/40 border-red-900/40",       border: "border-l-red-600/60" },
-  medium: { dot: "bg-amber-500",  chip: "text-amber-300 bg-amber-950/40 border-amber-900/40", border: "border-l-amber-600/60" },
-  low:    { dot: "bg-sky-500",    chip: "text-sky-300 bg-sky-950/40 border-sky-900/40",       border: "border-l-sky-600/50" },
+  high:   { dot: "#C03131", chip: "text-danger bg-danger/10 border-danger/30", border: "border-l-danger" },
+  medium: { dot: "#B0741E", chip: "text-warn bg-warn/10 border-warn/30",       border: "border-l-warn" },
+  low:    { dot: "#176B5B", chip: "text-brand bg-brand/10 border-brand/30",     border: "border-l-brand" },
 };
 
 const ACTION_ICON: Record<string, React.ReactNode> = {
@@ -71,7 +73,7 @@ export default function GuidancePanel({
                 onClick={() => setExpanded((p) => ({ ...p, [f.id]: !p[f.id] }))}
                 className="w-full flex items-start gap-2.5 text-left"
               >
-                <span className={`mt-1.5 w-2 h-2 rounded-full shrink-0 ${sev.dot}`} />
+                <span className="mt-1.5 w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: sev.dot }} />
                 <div className="flex-1 min-w-0">
                   <p className="text-ink-soft text-sm font-medium leading-snug">{f.observation}</p>
                   {!open && <p className="text-ink-mute text-xs mt-0.5 line-clamp-1">{f.context}</p>}
@@ -90,7 +92,7 @@ export default function GuidancePanel({
                   {f.action && (
                     <button
                       onClick={() => onAction(f)}
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-brand/90 hover:bg-brand-hover text-white text-xs font-medium transition-colors"
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#176B5B] hover:bg-[#125848] text-white text-xs font-medium transition-colors"
                     >
                       {ACTION_ICON[f.action.type]}
                       {t(`nw.guidance.action.${f.action.type}`)}
@@ -103,7 +105,7 @@ export default function GuidancePanel({
         })}
       </div>
 
-      <p className="px-5 py-2.5 text-[10px] text-ink-mute border-t border-line bg-[#16130F]">
+      <p className="px-5 py-2.5 text-[10px] text-ink-mute border-t border-line bg-surface-2">
         {t("nw.guidance.disclaimer")}
       </p>
     </div>
