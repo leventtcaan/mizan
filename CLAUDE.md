@@ -524,12 +524,50 @@ Systematic audit + fixes across the whole app. Highlights:
 - [x] **AddTransactionModal UX**: currency = `CurrencySelect` dropdown (its dark `#13110D` headers + brand tokens also fixed); type buttons = two clear color-coded buttons, **selected = solid inline fill (terracotta/green) + checkmark + white text** (bg-`neg`/`pos` token fills weren't painting → explicit inline hex), auto-category option clarified ("Otomatik belirle (AI)" + hint), live preview chip of what will be saved.
 - [x] **KNOWN RUNTIME QUIRK**: solid `bg-<token>` utilities (e.g. `bg-surface`, `bg-neg`) don't paint reliably in the current build while `text-<token>`/`border-<token>` do — root cause untraced. Mitigation: overlays + selected-state fills use explicit inline colors. Worth a real fix later (suspect stale/misbuilt CSS layer for the channel-token bg utilities).
 
+### Phase 92 — Auth + onboarding flow redesign (2026-06-26)
+- [x] **Verification gate fixed (bypass closed)**: `postAuthRoute()` (api.ts) = single source of truth for "where a logged-in user goes" (unverified→/verify, verified-new→/onboarding, else→/home). Landing "Continue"/logo + login routing use it. Defense-in-depth guards on `/home` + `/onboarding` (`email_verified===false`→/verify). An unverified user can no longer slip past via the landing CTA.
+- [x] **Mim as a real presence** from the first screen: new `MimGuide` (companion/MimGuide.tsx) = Mim orb + speech bubble (theme-safe inline bubble bg). Scripted lines only → **NO LLM** on register/verify/onboarding (free/unverified see personality without AI cost). Mim greets on register/login, guides verify (mood by state), accompanies every onboarding step.
+- [x] **Verify page** redesigned (was dark-palette/`bg-emerald`/solid `bg-brand`) → tokens + literal teal + MimGuide.
+- [x] **Free-tier no-LLM + upsell**: onboarding AI "first impression" is paid-only; free users get scripted Mim + "AI reads are a Plus feature" upsell. Upload cap gate enriched (Mim + "what AI parsing does" value list → /upgrade).
+- [x] **Personal vs business flows**: distinct Mim lines/copy + account-type-aware onboarding; **Home dashboard emphasis** — business leads with a Receivables tile (+ cash flow + net worth), personal keeps spending→net worth→simulator.
+
+### Phase 93 — Registration improvements + consent (2026-06-26) [migration 0037]
+- [x] **DB (migration 0037, idempotent)**: User gains `full_name`, `country` (ISO-2), `marketing_consent` (bool, default false), `tos_accepted_at` (tz), `tos_version`, `primary_goal` (nullable). Existing rows keep NULL/false (no retroactive consent).
+- [x] **auth.py**: register accepts + persists profile, **enforces ToS acceptance** (422 if not accepted), stamps `tos_accepted_at`+`tos_version`, normalizes country; `/auth/preferences` accepts `full_name`/`country`/`marketing_consent`/`primary_goal` (goal validated vs `VALID_GOALS`); Token/UserResponse return the new fields; shared `_token_response`.
+- [x] **Registration form**: required **country** (`CountrySelect` — ~145 ISO codes, localized via `Intl.DisplayNames`, browser-region pre-fill); required **ToS+Privacy checkbox** (links to new `/terms` + `/privacy` bilingual pages, incl. AI-sub-processing/cross-border disclosure + GDPR/KVKK rights); **separate, unchecked-by-default marketing opt-in**. `register(email,password,opts)` + `detectBrowserCountry()` + `TOS_VERSION`.
+- [x] **Onboarding enrichment**: "What do you most want from Mizan?" — options tailored to account type (personal: understand spending/pay debt/grow net worth/save; business: cash flow/receivables/cut costs/grow), saved as `primary_goal`. (account_type stays localStorage per scope; durable column = future follow-up.)
+
+### Phase 94 — Statement bridge: ekstre→varlık (2026-06-26) [migration 0038]
+- [x] **THE cash-flow ↔ net-worth bridge** (deterministic, **NO LLM**). New `services/statement_bridge.py`: after upload, detect a statement's closing/account balance + kind + institution, then propose a net-worth action.
+- [x] **Balance detection (robust)**: `_running_balance` finds a column B + signed-amount column A where row-to-row **B changes by exactly A** (B *is* a running balance — works even with no "Balance" header). The delta **direction** picks the current end: chronological (oldest top)→`B[i]=B[i-1]+A[i]`→current=**bottom**; reverse-chron (newest top)→`B[i]=B[i+1]+A[i]`→current=**top**. Fallbacks: header-named balance col + date ordering → labelled footer ("Kapanış/Closing Balance X"). Covers PDF text, CSV, **XLSX (reuses parser `_read_xlsx_rows`)**. Cells coerced safely (dates/text rejected). (Fixed an `IndexError`: `cell(i+1)` past last row.)
+- [x] **Type classification fixed**: `_classify_kind` uses STRUCTURAL credit-card markers (`asgari ödeme`/`minimum payment` strong single, or ≥2 of credit-limit/statement-balance/payment-due/…), **not** transaction descriptions → a checking statement with a "kredi kartı ödemesi" tx stays **deposit** (asset), real card → **credit_card** (liability, amount owed).
+- [x] **Persistence + accept**: `propose_statement_bridge` writes a pending `NetworthSuggestion` (new `source_detail` JSON col, migration 0038), de-duped per batch; matches an existing deposit asset (fuzzy, ≥0.6) → `asset_balance_update`, else credit→`statement_liability`, else `statement_asset`. `accept_suggestion` branches: SET matched asset balance / create credit_card liability / create bank_account asset (legacy paths kept).
+- [x] **Surfaced on Brief** (post-review) — accept/skip card by type → acceptSuggestion/dismissSuggestion + `mizan-data-changed`; also flows into Net Worth "Smart Suggestions" if skipped.
+
+### Phase 95 — Add modals design-system pass (2026-06-26)
+- [x] AddAsset/AddLiability/AddReceivable modals: floating-overlay see-through bug fixed (explicit `useTheme` inline bg); palette → tokens; `placeholder-gray`→`placeholder:text-ink-mute`; focus → literal teal border+ring; **primary CTAs unified to solid teal** (#176B5B); entity-colored icon-chip headers (liability `neg`/receivable `warn`/asset `pos`). Five per-type asset forms + `shared.ts` sharedInputClass swept (brand chips → literal teal, emerald/amber boxes → pos/warn).
+
+### Phase 96 — Review + Brief design-system pass + Brief redesign (2026-06-26)
+- [x] **Review**: flow stepper teal, currency-confirm card warn-tinted, type-toggle pos/neg pills, flagged rows `warn/10`, inputs teal focus, CTAs solid teal, rounded-2xl + shadow polish.
+- [x] **Brief redesign (premium moment)**: Mim hero (76px + teal radial glow) with the AI narrative as the bold lead; headline flow card (pos/neg wash, text-5xl net, income/expense tiles + proportion bar); ranked categories; consistent tinted icon-chip headers per beat; bridge + one-move cards on the same system. Mim now "reads you your statement."
+
+### Phase 97 — Page-by-page design-system passes (2026-06-26)
+- [x] **Net Worth** (hero trend chip from attribution, pillar tiles, allocation donut hover, hover-revealed row actions, urgency-aware Action Queue, GuidancePanel accents → tokens; solid teal Add buttons + reusable empty states; subtitle em-dash removed).
+- [x] **Progress** (band/pillar/streak colors → tokens + literal hex bars, off-brand sky→teal, invisible chart tooltip fixed, currency lazy-init; GoalsPanel + PersonalityCard converted; **PersonalityCard redesigned** — color-driven identity hero, two insight panels, Mim tip).
+- [x] **Reports** (paper used theme tokens → washed out in dark; rebuilt with fixed print colors; letterhead, exec summary, statements, holdings/debts/receivables tables, currency mix, print-grade; CSV + **new Excel export** via openpyxl).
+- [x] **Simulator** (ask hero + sample-question chips, sticky builder/outcome two-pane, BigDelta/MiniDelta, token chart + readable tooltip, Mim-narrated result; SSR-safe currency init fixes a hydration mismatch).
+- [x] **Settings** (grouped icon-header sections, teal toggles, teal saved-toast) + **Admin** (palette→tokens, overlays inline-bg, durable; metric/badge/chip colors) + **Navbar** (theme toggle clear solid-teal active state, account dropdown redesign).
+
+### Phase 98 — Free-tier assistant cap fixed (2026-06-26)
+- [x] **Root cause**: the daily cap rode on the rate-limiter window only — **volatile** (in-memory resets on restart, per-process without Redis), so free users were effectively never capped. The new assistant doesn't persist messages, so nothing durable was counted.
+- [x] **Fix (api/assistant.py)**: cap is now **DB-backed** — counts the user's `role="user"` `ConversationMessage` rows in the last 24h vs `assistant_daily_cap` (10 free / None paid) → 429 `assistant_daily_cap_reached`; each exchange (user msg + reply) is **persisted** so the count is real and survives restarts/workers/no-Redis. Rate limiter kept as a secondary burst guard. `/assistant/chat` is the only path the UI uses (legacy `/chat` chat.py is unused by the frontend).
+
 ---
 
 ## Current Status
 
-**Phases 1–91 complete. Alembic head = 0036.**
-**All audit report items complete + full light-first design-system overhaul + pre-production (verification, Redis, plans). Pending: deploy to production + billing integration.**
+**Phases 1–98 complete. Alembic head = 0038.**
+**Light-first design system done app-wide + auth/onboarding redesign + registration consent fields (0037) + statement bridge ekstre→varlık (0038) + DB-backed free-tier assistant cap. Pending: deploy to production, Resend domain verify, Stripe billing, statement-bridge live testing.**
 
 ### Design system (Phase 82, established)
 - **Light mode default**, dark toggle (Light/Dark/System) in navbar. Token system: `:root` (light) / `[data-theme="dark"]` (dark) channel CSS vars; Tailwind semantic colors.
@@ -544,9 +582,9 @@ Systematic audit + fixes across the whole app. Highlights:
 - **Pro**: **₺349/ay · ₺2.990/yıl** / **$12/mo · $99/yr** — everything + simulator, unlimited assistant, reports, guidance.
 - Yearly ≈28–30% off monthly×12 (keeps "%28 tasarruf" chip honest). Plan changes admin-only until billing exists; `/upgrade` captures interest in localStorage only.
 
-### IMPORTANT — Next product bet (cash flow ↔ net worth bridge)
-- **Onboarding ekstre→varlık akışı**: after statement upload, detect account/closing balance from the statement footer → suggest adding it as an **asset** (e.g. "Ziraat vadesiz hesap, ₺8.643 — varlık olarak ekleyelim mi?"). **Credit card statement → suggest as a liability** (balance owed). Detect statement kind → asset vs liability. Closing-balance parse = new parser job, global (no Turkish hardcoding).
-- **Ekstre↔varlık otomatik eşleştirme**: when the user has a named asset (e.g. "Ziraat vadesiz") and uploads a matching bank statement, **auto-detect the match** (fuzzy, language-agnostic) and **offer to update the asset balance** to the statement's closing balance. This is THE bridge between cash flow (transactions) and net worth (assets). Reuse `reconciliation_items` propose→confirm (no silent overwrite).
+### IMPORTANT — Cash flow ↔ net worth bridge (Phase 94 — IMPLEMENTED, needs live testing)
+- **Ekstre→varlık: DONE.** `services/statement_bridge.py` detects a statement's closing/account balance (running-balance-column delta detection + direction → current end; header+date-order + labelled-footer fallbacks; PDF/CSV/XLSX) and kind (deposit vs credit_card via structural markers). Propose→confirm via `NetworthSuggestion` (no silent overwrite): deposit→**asset** (bank_account), credit card→**liability** (balance owed). Global, no Turkish hardcoding. Surfaced on Brief (post-review) + Net Worth Smart Suggestions.
+- **Ekstre↔varlık auto-match: PARTIAL — needs testing.** When the statement's institution fuzzy-matches an existing deposit asset (≥0.6) → `asset_balance_update` suggestion that SETs the asset's balance to the detected closing balance. Wired end-to-end but **not yet verified on real statements** — test balance detection + matching across banks/formats + edge cases.
 
 ### App structure (current)
 - **Nav**: Home · Money Flow · Net Değer · İlerleme · Settings (+ currency dropdown, notification bell, global assistant FAB)
@@ -571,7 +609,7 @@ Systematic audit + fixes across the whole app. Highlights:
 
 Full stack: register/login → JWT → upload (rate-limited, busts caches) → 3-layer OCR → LLM extract → OCR cleanup → dedup → zero-amount filter → persist → LLM categorize (13 categories) → insight cache → globalized LLM coach with corrections+notes injected → spending chart + progress page (LineChart 3-month trend + cross-batch-deduped category comparison + LLM one-liners, 24h cached) → PersonalityCard (5 types, cached per batch) → AlertsPanel (3 algorithmic detectors, dismiss persisted, stale dismissals auto-cleaned) → GoalsPanel (monthly budget vs actual) → ChatPanel (globalized conversational coaching, behavioral profile memory, voice input, chat-based tx entry with confirmation card, sessionStorage prefill from alerts) → weekly email summary (Resend HTML, preferences toggle) → inflation-adjusted analysis (TUFE 2023-2026, real vs nominal per category, ProgressInsight cache) → net worth asset subtype capture (all asset types have specific fields; crypto/fiat/commodity live picker; gold unit picker; stock/fund code fields; manual categories store structured metadata in `Asset.source_detail` JSON) → net worth display currency searchable via live `CurrencySelect` → receivable collection creates linked cash asset, repeated collection is idempotent, delete/write-off removes linked asset → stale received receivables and processed suggestions are hidden/cleaned after 30 days → onboarding accepts any institution/export source instead of hardcoded Turkish banks → financial event log + reconciliation item backend skeleton exists → net worth page shows Action Queue with open reconciliation items and recent financial events → reconciliation producers (overdue receivables, missing receivable assets, cross-batch duplicate detection) → Action Queue real action handlers per issue_type → net worth history AreaChart (daily USD snapshots, converted to display currency) → asset allocation donut PieChart (5 groups, click to highlight) → proactive threshold alerts (WealthAlert model, asset_price_drop / net_worth_drop / payment_coverage_risk, bell icon on auto-priced asset cards, triggered alerts banner).
 
-### Migrations (head = 0036)
+### Migrations (head = 0038)
 | Migration | What |
 |---|---|
 | 0001 | CREATE users + transactions |
@@ -610,6 +648,8 @@ Full stack: register/login → JWT → upload (rate-limited, busts caches) → 3
 | 0034 | ADD is_admin to users (founder admin panel gate, server_default false) |
 | 0035 | ADD is_deleted to users (soft-delete) + CREATE admin_audit_logs (durable admin-action trail) |
 | 0036 | ADD email_verified (grandfathered true) + plan (free/plus/pro) + plan_expires_at to users |
+| 0037 | ADD full_name + country + marketing_consent + tos_accepted_at + tos_version + primary_goal to users (registration profile + consent) |
+| 0038 | ADD source_detail (JSON) to networth_suggestions (statement bridge payload) |
 
 ### Known Issues (open)
 - **PDF extraction not perfect** — scanned/image PDFs hit inherent OCR limits. Vision LLM (gpt-4o-mini, Phase 59) + strip tiling fixed column/sign/format errors and gets income exact on the Ziraat scan, but residual amount/count drift remains = pixel-level digit misreads on poor scans. gpt-4o is more accurate (swap `_VISION_MODEL`) at ~10x cost.
@@ -1424,7 +1464,13 @@ Full stack: register/login → JWT → upload (rate-limited, busts caches) → 3
 
 ## Next Session — Start Here
 
-**Phases 1–91 complete. Alembic head = 0036. Production-ready candidate + light-first design system + pre-production gates shipped.**
+**Phases 1–98 complete. Alembic head = 0038. Design system done app-wide; auth/onboarding redesign + registration consent (0037) + statement bridge ekstre→varlık (0038) + DB-backed free-tier assistant cap shipped.**
+
+### Pending (priority)
+1. **Deploy to production** — Railway backend + Vercel frontend. SECRET_KEY + RESEND_API_KEY + REDIS_URL via platform env; `alembic upgrade head` (→0038) on cold start.
+2. **Resend domain verification** — verify sending domain (sandbox only sends to account owner).
+3. **Stripe payment integration** — `/upgrade` only captures interest in localStorage; wire real checkout → webhook sets `plan`/`plan_expires_at`.
+4. **Statement bridge testing + edge cases** — verify balance detection + ekstre↔varlık matching across real banks/formats (Phase 94 wired but not live-tested).
 
 ### Next session setup:
 - Use claude-opus-4-8 model
@@ -1453,7 +1499,7 @@ Pre-flight (if docker was restarted):
 ```bash
 docker compose up -d
 docker compose exec backend alembic upgrade head
-docker compose exec backend alembic current   # must say 0035 (head)
+docker compose exec backend alembic current   # must say 0038 (head)
 ```
 
 Quick smoke-test:
@@ -1466,14 +1512,9 @@ curl -s http://localhost:8000/currency/list | python3 -c "import sys,json; d=jso
 
 ## Backlog (priority order)
 
-### Next product bet — Cash flow ↔ Net Worth bridge (ekstre→varlık)
-- **Onboarding ekstre→varlık akışı.** After statement upload, read closing/account balance from statement footer. Suggest as asset. Example: "Ziraat vadesiz hesap, ₺8,643 — varlık olarak ekleyelim mi?" → one tap creates Asset.
-  - Credit card statement → suggest as **liability** (balance owed), not asset.
-  - Detect statement kind (deposit/checking vs credit card) → asset vs liability.
-  - Closing balance parse = new parser job (footer/"bakiye"/"closing balance" line). Global, not bank-specific. No Turkish hardcoding.
-- **Ekstre↔varlık otomatik eşleştirme.** User has named asset (e.g. "Ziraat vadesiz") + uploads Ziraat statement → auto-detect match → offer "varlığını güncelle: ₺X kapanış bakiyesi". One tap updates Asset.current_value to statement closing balance.
-  - Match heuristic: asset name ↔ statement institution/account hints (fuzzy, language-agnostic).
-  - This is **the bridge**: cash flow (transactions) ↔ net worth (assets). Makes upload feed net worth, not just spending.
+### Cash flow ↔ Net Worth bridge (ekstre→varlık) — IMPLEMENTED Phase 94, needs live testing
+- **DONE — ekstre→varlık.** After upload, `statement_bridge.py` detects closing balance + kind, proposes asset (deposit) / liability (credit card) via `NetworthSuggestion` (propose→confirm). Surfaced on Brief + Net Worth. Global, no Turkish hardcoding. Balance detection = running-balance-column delta (direction picks current end) + header/date-order + labelled-footer fallbacks; PDF/CSV/XLSX.
+- **PARTIAL — ekstre↔varlık auto-match.** Institution fuzzy-matches an existing deposit asset (≥0.6) → `asset_balance_update` SETs Asset.current_value to the detected closing balance. Wired end-to-end but **NOT yet live-tested** — verify across real banks/formats + edge cases (this is the remaining work).
   - Reuse reconciliation_items pattern (propose → user confirms), not silent overwrite.
 
 1. **Fix known issues** (1 item listed in Known Issues section) — do before new features
