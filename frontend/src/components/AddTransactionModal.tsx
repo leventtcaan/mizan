@@ -2,8 +2,10 @@
 
 import { useState } from "react";
 import { createTransaction, getDefaultCurrency, type Transaction } from "@/lib/api";
-import { X } from "@/components/ui/Icons";
+import { X, ArrowDown, ArrowUp, CheckCircle } from "@/components/ui/Icons";
+import CurrencySelect from "@/components/CurrencySelect";
 import { useLanguage } from "@/lib/i18n";
+import { useTheme } from "@/lib/theme";
 
 const CATEGORIES = [
   "market", "restoran", "ulasim", "eglence", "saglik",
@@ -11,7 +13,17 @@ const CATEGORIES = [
   "vergi", "teknoloji", "diger",
 ] as const;
 
-const inputClass = "w-full bg-canvas border border-line rounded-lg px-3 py-2.5 text-ink text-sm placeholder-gray-700 focus:outline-none focus:border-brand transition-colors";
+function fmtMoney(amount: string, currency: string): string {
+  const n = parseFloat(amount);
+  if (isNaN(n)) return "";
+  try {
+    return new Intl.NumberFormat(undefined, { style: "currency", currency, maximumFractionDigits: 2 }).format(n);
+  } catch {
+    return `${new Intl.NumberFormat(undefined, { maximumFractionDigits: 2 }).format(n)} ${currency}`;
+  }
+}
+
+const inputClass = "w-full bg-canvas border border-line rounded-lg px-3 py-2.5 text-ink text-sm placeholder:text-ink-mute focus:outline-none focus:border-[#176B5B] focus:ring-2 focus:ring-[#176B5B]/20 transition-shadow";
 
 interface InitialValues {
   amount?: string;
@@ -29,6 +41,14 @@ interface Props {
 
 export default function AddTransactionModal({ onClose, onSuccess, initialValues }: Props) {
   const { t } = useLanguage();
+  // Explicit opaque surface from the resolved theme — guarantees a solid background
+  // regardless of CSS-var/token resolution (overlays must never be see-through).
+  const { resolved } = useTheme();
+  const surfaceBg = resolved === "dark" ? "#1C1915" : "#FFFFFF";
+  // Explicit accent fills (matching --c-neg / --c-pos) so the selected type button is
+  // clearly filled — solid bg-<token> utilities aren't painting reliably at runtime.
+  const NEG = resolved === "dark" ? "#D17474" : "#B54747";
+  const POS = resolved === "dark" ? "#40B282" : "#1F7A5C";
   const [amount, setAmount] = useState(initialValues?.amount ?? "");
   const [type, setType] = useState<"debit" | "credit">(initialValues?.transaction_type ?? "debit");
   const [description, setDescription] = useState(initialValues?.description ?? "");
@@ -64,7 +84,7 @@ export default function AddTransactionModal({ onClose, onSuccess, initialValues 
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm"
       onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
     >
-      <div className="w-full max-w-md mx-4 bg-surface rounded-2xl border border-line p-6 shadow-2xl">
+      <div className="w-full max-w-md mx-4 rounded-2xl border border-line p-6 shadow-2xl shadow-black/30" style={{ backgroundColor: surfaceBg }}>
         <div className="flex items-center justify-between mb-6">
           <h2 className="text-lg font-semibold text-ink">{t("tx.addManual")}</h2>
           <button
@@ -76,28 +96,34 @@ export default function AddTransactionModal({ onClose, onSuccess, initialValues 
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
+          {/* Type — two clear, color-coded buttons */}
           <div>
             <label className="block text-xs text-ink-mute mb-2 uppercase tracking-wide">{t("common.type")}</label>
-            <div className="flex rounded-lg overflow-hidden border border-line text-sm">
+            <div className="grid grid-cols-2 gap-2.5">
               <button
                 type="button"
                 onClick={() => setType("debit")}
-                className={`flex-1 py-2.5 font-medium transition-colors ${type === "debit" ? "bg-red-950 text-red-300 border-r border-line" : "bg-canvas text-ink-mute hover:text-ink-soft border-r border-line"}`}
+                aria-pressed={type === "debit"}
+                style={type === "debit" ? { backgroundColor: NEG, borderColor: NEG, color: "#FFFFFF" } : undefined}
+                className={`flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-sm font-semibold border transition-colors ${type === "debit" ? "shadow-sm" : "bg-canvas text-ink-mute border-line hover:text-ink-soft hover:border-ink/30"}`}
               >
-                {t("progress.spending")}
+                {type === "debit" ? <CheckCircle size={15} /> : <ArrowDown size={15} />} {t("progress.spending")}
               </button>
               <button
                 type="button"
                 onClick={() => setType("credit")}
-                className={`flex-1 py-2.5 font-medium transition-colors ${type === "credit" ? "bg-emerald-950 text-emerald-300" : "bg-canvas text-ink-mute hover:text-ink-soft"}`}
+                aria-pressed={type === "credit"}
+                style={type === "credit" ? { backgroundColor: POS, borderColor: POS, color: "#FFFFFF" } : undefined}
+                className={`flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-sm font-semibold border transition-colors ${type === "credit" ? "shadow-sm" : "bg-canvas text-ink-mute border-line hover:text-ink-soft hover:border-ink/30"}`}
               >
-                {t("progress.income")}
+                {type === "credit" ? <CheckCircle size={15} /> : <ArrowUp size={15} />} {t("progress.income")}
               </button>
             </div>
           </div>
 
+          {/* Amount + currency dropdown */}
           <div className="flex gap-3">
-            <div className="flex-1">
+            <div className="flex-1 min-w-0">
               <label className="block text-xs text-ink-mute mb-1.5 uppercase tracking-wide">{t("common.amount")}</label>
               <input
                 type="number" min="0.01" step="0.01"
@@ -105,13 +131,9 @@ export default function AddTransactionModal({ onClose, onSuccess, initialValues 
                 required placeholder="0.00" className={inputClass}
               />
             </div>
-            <div className="w-24">
+            <div className="w-40 shrink-0">
               <label className="block text-xs text-ink-mute mb-1.5 uppercase tracking-wide">{t("common.currency")}</label>
-              <input
-                type="text" value={currency}
-                onChange={(e) => setCurrency(e.target.value.toUpperCase().slice(0, 10))}
-                maxLength={10} placeholder="TRY" className={inputClass}
-              />
+              <CurrencySelect value={currency} onChange={setCurrency} />
             </div>
           </div>
 
@@ -131,22 +153,41 @@ export default function AddTransactionModal({ onClose, onSuccess, initialValues 
             />
           </div>
 
+          {/* Category — empty = auto-detect by the backend (LLM) */}
           <div>
             <label className="block text-xs text-ink-mute mb-1.5 uppercase tracking-wide">
-              {t("goals.category")} <span className="text-gray-700 normal-case">({t("common.optional")})</span>
+              {t("goals.category")} <span className="text-ink-mute normal-case">({t("common.optional")})</span>
             </label>
             <select
               value={category} onChange={(e) => setCategory(e.target.value)}
               className={inputClass}
             >
-              <option value="">{t("common.autoRefresh")}</option>
+              <option value="">{t("tx.autoCategory")}</option>
               {CATEGORIES.map((c) => {
                 const key = `category.${c}`;
                 const label = t(key) !== key ? t(key) : c;
                 return <option key={c} value={c}>{label}</option>;
               })}
             </select>
+            {!category && <p className="text-[11px] text-ink-mute mt-1.5">{t("tx.autoCategoryHint")}</p>}
           </div>
+
+          {/* Live preview — what will be saved */}
+          {amount && parseFloat(amount) > 0 && (
+            <div className="flex items-center justify-between rounded-xl bg-surface-2 px-3.5 py-2.5">
+              <span className="text-xs text-ink-mute">{t("tx.willAdd")}</span>
+              <span className="text-sm font-semibold tabular-nums">
+                <span className={type === "credit" ? "text-pos" : "text-neg"}>
+                  {type === "credit" ? "+" : "−"}{fmtMoney(amount, currency)}
+                </span>
+                <span className="text-ink-mute font-normal"> · {
+                  category
+                    ? (t(`category.${category}`) !== `category.${category}` ? t(`category.${category}`) : category)
+                    : t("tx.autoCategory")
+                }</span>
+              </span>
+            </div>
+          )}
 
           {error && <p className="text-neg text-sm">{error}</p>}
 
@@ -159,7 +200,7 @@ export default function AddTransactionModal({ onClose, onSuccess, initialValues 
             </button>
             <button
               type="submit" disabled={loading}
-              className="flex-1 py-2.5 rounded-lg bg-brand hover:bg-brand-hover disabled:opacity-50 text-sm font-medium text-white transition-colors"
+              className="flex-1 py-2.5 rounded-lg bg-[#176B5B] hover:bg-[#125848] disabled:opacity-50 text-sm font-semibold text-white transition-colors"
             >
               {loading ? t("common.loading") : t("common.add")}
             </button>

@@ -7,12 +7,15 @@ import {
   getDefaultCurrency, setDefaultCurrencyLocal, updatePreferences, CURRENCY_CHANGE_EVENT,
 } from "@/lib/api";
 import { useLanguage } from "@/lib/i18n";
+import { useTheme } from "@/lib/theme";
 
 const TOP = ["TRY", "USD", "EUR", "GBP", "CHF", "JPY", "AED"];
 
 /** Persistent app-wide currency switcher in the navbar. Saves to prefs + broadcasts. */
 export default function CurrencyMenu() {
   const { t } = useLanguage();
+  const { resolved } = useTheme();
+  const surfaceBg = resolved === "dark" ? "#1C1915" : "#FFFFFF";
   const [open, setOpen] = useState(false);
   const [current, setCurrent] = useState("TRY");
   const ref = useRef<HTMLDivElement>(null);
@@ -43,7 +46,7 @@ export default function CurrencyMenu() {
     <div ref={ref} className="relative">
       <button
         onClick={() => setOpen((v) => !v)}
-        className="flex items-center gap-1 px-2 py-1.5 rounded-lg border border-line text-ink-soft hover:text-ink hover:border-[#3C3832] text-xs font-medium transition-colors"
+        className="flex items-center gap-1 px-2 py-1.5 rounded-lg border border-line text-ink-soft hover:text-ink hover:border-[#176B5B] text-xs font-medium transition-colors"
         title={t("settings.currency")}
       >
         {current}
@@ -51,13 +54,13 @@ export default function CurrencyMenu() {
       </button>
 
       {open && (
-        <div className="absolute right-0 top-full mt-2 w-36 bg-surface border border-line rounded-xl shadow-2xl z-50 overflow-hidden py-1">
+        <div className="absolute right-0 top-full mt-2 w-40 border border-line rounded-xl shadow-xl shadow-black/20 ring-1 ring-black/5 z-50 overflow-hidden py-1" style={{ backgroundColor: surfaceBg }}>
           {TOP.map((c) => (
             <button
               key={c}
               onClick={() => choose(c)}
-              className={`w-full text-left px-3 py-1.5 text-sm transition-colors ${
-                c === current ? "text-ink bg-surface-2" : "text-ink-mute hover:text-ink-soft hover:bg-surface-2/50"
+              className={`w-full text-left px-3 py-2 text-sm transition-colors ${
+                c === current ? "text-[#176B5B] bg-[#176B5B]/10 font-semibold" : "text-ink-soft hover:bg-surface-2"
               }`}
             >
               {c}
@@ -66,7 +69,7 @@ export default function CurrencyMenu() {
           <Link
             href="/settings"
             onClick={() => setOpen(false)}
-            className="block px-3 py-1.5 text-xs text-brand hover:text-brand border-t border-line mt-1"
+            className="block px-3 py-2 text-xs text-[#176B5B] hover:bg-surface-2 border-t border-line mt-1 transition-colors"
           >
             {t("settings.currencyMore")}
           </Link>

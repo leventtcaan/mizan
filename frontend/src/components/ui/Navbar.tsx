@@ -6,6 +6,7 @@ import Link from "next/link";
 import { getToken, getStoredUser, setStoredUser, clearToken, updatePreferences, getMe } from "@/lib/api";
 import { BarChart2, Upload, LogOut, Menu, X, Scale, Home, Settings, Sparkles, FileText, ShieldCheck } from "@/components/ui/Icons";
 import { useLanguage, type Lang } from "@/lib/i18n";
+import { useTheme } from "@/lib/theme";
 import NotificationDropdown from "@/components/NotificationDropdown";
 import CurrencyMenu from "@/components/ui/CurrencyMenu";
 import ThemeToggle from "@/components/ui/ThemeToggle";
@@ -27,6 +28,9 @@ export default function Navbar() {
   const pathname = usePathname();
   const router = useRouter();
   const { lang, setLanguage, t } = useLanguage();
+  // Explicit opaque surface for dropdown panels (overlays must never be see-through).
+  const { resolved } = useTheme();
+  const surfaceBg = resolved === "dark" ? "#1C1915" : "#FFFFFF";
   const [userEmail, setUserEmail] = useState<string | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -138,7 +142,7 @@ export default function Navbar() {
             <NotificationDropdown />
             <Link
               href="/upload"
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-brand hover:bg-brand-hover text-sm font-medium text-white transition-colors"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#176B5B] hover:bg-[#125848] text-sm font-semibold text-white shadow-sm transition-colors"
             >
               <Upload size={14} />
               {t("nav.upload")}
@@ -148,13 +152,13 @@ export default function Navbar() {
             <div className="relative" ref={accountRef}>
               <button
                 onClick={() => setAccountOpen((v) => !v)}
-                className="w-8 h-8 rounded-full bg-brand hover:bg-brand-hover text-white text-sm font-semibold flex items-center justify-center transition-colors"
+                className="w-8 h-8 rounded-full bg-[#176B5B] hover:bg-[#125848] text-white text-sm font-semibold flex items-center justify-center shadow-sm transition-colors"
                 title={userEmail ?? ""}
               >
                 {userEmail?.[0]?.toUpperCase() ?? "?"}
               </button>
               {accountOpen && (
-                <div className="absolute right-0 mt-2 w-56 bg-surface border border-line rounded-xl shadow-2xl shadow-black/50 py-2 z-50">
+                <div className="absolute right-0 mt-2 w-56 border border-line rounded-xl shadow-2xl shadow-black/30 py-2 z-50" style={{ backgroundColor: surfaceBg }}>
                   <div className="px-3 py-2 border-b border-line">
                     <p className="text-ink-mute text-[10px] uppercase tracking-wider">{t("settings.account")}</p>
                     <p className="text-ink-soft text-sm truncate">{userEmail}</p>
@@ -162,8 +166,8 @@ export default function Navbar() {
                   <div className="px-3 py-2 flex items-center justify-between">
                     <span className="text-ink-mute text-sm">{t("settings.language")}</span>
                     <div className="flex rounded-lg overflow-hidden border border-line text-xs font-medium">
-                      <button onClick={() => handleLangSwitch("tr")} className={`px-2 py-1 transition-colors ${lang === "tr" ? "bg-brand text-white" : "text-ink-mute hover:text-ink-soft"}`}>TR</button>
-                      <button onClick={() => handleLangSwitch("en")} className={`px-2 py-1 transition-colors ${lang === "en" ? "bg-brand text-white" : "text-ink-mute hover:text-ink-soft"}`}>EN</button>
+                      <button onClick={() => handleLangSwitch("tr")} className={`px-2 py-1 transition-colors ${lang === "tr" ? "bg-[#176B5B] text-white" : "text-ink-mute hover:text-ink-soft"}`}>TR</button>
+                      <button onClick={() => handleLangSwitch("en")} className={`px-2 py-1 transition-colors ${lang === "en" ? "bg-[#176B5B] text-white" : "text-ink-mute hover:text-ink-soft"}`}>EN</button>
                     </div>
                   </div>
                   <Link href="/simulator" className="flex items-center gap-2 px-3 py-2 text-sm text-ink-soft hover:bg-surface transition-colors">
@@ -257,20 +261,20 @@ export default function Navbar() {
                 <div className="flex rounded-lg overflow-hidden border border-line text-xs font-medium">
                   <button
                     onClick={() => handleLangSwitch("tr")}
-                    className={`px-2 py-1 ${lang === "tr" ? "bg-brand text-white" : "text-ink-mute"}`}
+                    className={`px-2 py-1 ${lang === "tr" ? "bg-[#176B5B] text-white" : "text-ink-mute"}`}
                   >
                     TR
                   </button>
                   <button
                     onClick={() => handleLangSwitch("en")}
-                    className={`px-2 py-1 ${lang === "en" ? "bg-brand text-white" : "text-ink-mute"}`}
+                    className={`px-2 py-1 ${lang === "en" ? "bg-[#176B5B] text-white" : "text-ink-mute"}`}
                   >
                     EN
                   </button>
                 </div>
                 <Link
                   href="/upload"
-                  className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-brand text-sm font-medium text-white"
+                  className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-[#176B5B] text-sm font-medium text-white"
                 >
                   <Upload size={14} />
                   {t("nav.upload")}
