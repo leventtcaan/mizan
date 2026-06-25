@@ -4,6 +4,9 @@ import { useEffect, useState } from "react";
 import { getPersonality, PersonalityData } from "@/lib/api";
 import { useLanguage } from "@/lib/i18n";
 
+// Literal-hex arbitrary classes (written out statically so Tailwind's JIT keeps
+// them) — theme-independent accent colours that read correctly on both the light
+// and dark card surface, unlike the old dark-only *-950 / *-300 palette.
 const TYPE_CONFIG: Record<string, {
   accent: string;
   icon: string;
@@ -12,48 +15,33 @@ const TYPE_CONFIG: Record<string, {
   dotColor: string;
 }> = {
   "Anlık Karar Verici": {
-    accent: "border-l-orange-500",
-    icon: "⚡",
-    badgeBg: "bg-orange-950 border-orange-800",
-    badgeText: "text-orange-300",
-    dotColor: "bg-orange-500",
+    accent: "border-l-[#B0741E]", icon: "⚡",
+    badgeBg: "bg-[#B0741E]/12 border-[#B0741E]/35", badgeText: "text-[#B0741E]", dotColor: "bg-[#B0741E]",
   },
   "Planlı Harcayan": {
-    accent: "border-l-emerald-500",
-    icon: "📋",
-    badgeBg: "bg-emerald-950 border-emerald-800",
-    badgeText: "text-emerald-300",
-    dotColor: "bg-emerald-500",
+    accent: "border-l-[#1F7A5C]", icon: "📋",
+    badgeBg: "bg-[#1F7A5C]/12 border-[#1F7A5C]/35", badgeText: "text-[#1F7A5C]", dotColor: "bg-[#1F7A5C]",
   },
   "Tasarruf Odaklı": {
-    accent: "border-l-blue-500",
-    icon: "🏦",
-    badgeBg: "bg-blue-950 border-blue-800",
-    badgeText: "text-blue-300",
-    dotColor: "bg-blue-500",
+    accent: "border-l-[#0F5C5E]", icon: "🏦",
+    badgeBg: "bg-[#0F5C5E]/12 border-[#0F5C5E]/35", badgeText: "text-[#0F5C5E]", dotColor: "bg-[#0F5C5E]",
   },
   "Konfor Odaklı": {
-    accent: "border-l-purple-500",
-    icon: "✨",
-    badgeBg: "bg-purple-950 border-purple-800",
-    badgeText: "text-purple-300",
-    dotColor: "bg-purple-500",
+    accent: "border-l-[#8A6FB0]", icon: "✨",
+    badgeBg: "bg-[#8A6FB0]/12 border-[#8A6FB0]/35", badgeText: "text-[#8A6FB0]", dotColor: "bg-[#8A6FB0]",
   },
   "Dengesiz Harcayan": {
-    accent: "border-l-yellow-500",
-    icon: "📊",
-    badgeBg: "bg-yellow-950 border-yellow-800",
-    badgeText: "text-yellow-300",
-    dotColor: "bg-yellow-500",
+    accent: "border-l-[#5B7A99]", icon: "📊",
+    badgeBg: "bg-[#5B7A99]/12 border-[#5B7A99]/35", badgeText: "text-[#5B7A99]", dotColor: "bg-[#5B7A99]",
   },
 };
 
 const DEFAULT_CONFIG = {
-  accent: "border-l-gray-600",
+  accent: "border-l-line-strong",
   icon: "💡",
-  badgeBg: "bg-surface-2 border-[#3C3832]",
+  badgeBg: "bg-surface-2 border-line",
   badgeText: "text-ink-soft",
-  dotColor: "bg-gray-500",
+  dotColor: "bg-[#94A3B8]",
 };
 
 export default function PersonalityCard() {
@@ -103,11 +91,11 @@ export default function PersonalityCard() {
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-5">
         {data.strengths.length > 0 && (
           <div>
-            <p className="text-xs font-semibold text-emerald-500 uppercase tracking-wider mb-2">✓</p>
+            <p className="text-xs font-semibold text-pos uppercase tracking-wider mb-2">✓</p>
             <ul className="space-y-1.5">
               {data.strengths.map((s, i) => (
                 <li key={i} className="flex gap-2 text-sm text-ink-soft items-start">
-                  <span className="text-emerald-500 shrink-0 mt-0.5">✓</span>
+                  <span className="text-pos shrink-0 mt-0.5">✓</span>
                   {s}
                 </li>
               ))}
@@ -116,11 +104,11 @@ export default function PersonalityCard() {
         )}
         {data.watch_out.length > 0 && (
           <div>
-            <p className="text-xs font-semibold text-amber-500 uppercase tracking-wider mb-2">!</p>
+            <p className="text-xs font-semibold text-warn uppercase tracking-wider mb-2">!</p>
             <ul className="space-y-1.5">
               {data.watch_out.map((w, i) => (
                 <li key={i} className="flex gap-2 text-sm text-ink-soft items-start">
-                  <span className="text-amber-500 shrink-0 mt-0.5">!</span>
+                  <span className="text-warn shrink-0 mt-0.5">!</span>
                   {w}
                 </li>
               ))}
@@ -130,7 +118,7 @@ export default function PersonalityCard() {
       </div>
 
       {data.tip && (
-        <div className="bg-brand/30 border border-brand/40 rounded-lg p-3">
+        <div className="bg-brand/10 border border-brand/30 rounded-lg p-3">
           <p className="text-sm text-ink-soft">{data.tip}</p>
         </div>
       )}

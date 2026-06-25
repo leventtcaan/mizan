@@ -40,15 +40,18 @@ function fmtDate(iso: string | null, withDay = false): string {
 }
 
 // ── band visuals ────────────────────────────────────────────────────────────
+// Solid bar fills use literal hexes (channel-token bg utilities don't always paint);
+// text/border use semantic tokens so they adapt to light/dark. Teal replaces the
+// off-brand sky-blue "steady" band.
 const BAND_STYLE: Record<string, { ring: string; text: string; bar: string; glow: string }> = {
-  strong:  { ring: "border-emerald-600/40", text: "text-emerald-400", bar: "bg-emerald-500", glow: "shadow-[0_0_60px_-20px_rgba(16,185,129,0.6)]" },
-  steady:  { ring: "border-sky-600/40",     text: "text-sky-400",     bar: "bg-sky-500",     glow: "shadow-[0_0_60px_-20px_rgba(14,165,233,0.5)]" },
-  fragile: { ring: "border-amber-600/40",   text: "text-amber-400",   bar: "bg-amber-500",   glow: "shadow-[0_0_60px_-20px_rgba(245,158,11,0.5)]" },
-  at_risk: { ring: "border-red-700/40",     text: "text-neg",     bar: "bg-red-500",     glow: "shadow-[0_0_60px_-20px_rgba(239,68,68,0.5)]" },
+  strong:  { ring: "border-pos/40",    text: "text-pos",    bar: "bg-[#1F7A5C]", glow: "shadow-[0_0_60px_-24px_rgba(31,122,92,0.5)]" },
+  steady:  { ring: "border-brand/40",  text: "text-brand",  bar: "bg-[#176B5B]", glow: "shadow-[0_0_60px_-24px_rgba(23,107,91,0.45)]" },
+  fragile: { ring: "border-warn/40",   text: "text-warn",   bar: "bg-[#B0741E]", glow: "shadow-[0_0_60px_-24px_rgba(176,116,30,0.4)]" },
+  at_risk: { ring: "border-neg/40",    text: "text-neg",    bar: "bg-[#B54747]", glow: "shadow-[0_0_60px_-24px_rgba(181,71,71,0.4)]" },
 };
 
 function trendMark(trend: string): { icon: string; cls: string } {
-  if (trend === "up") return { icon: "↑", cls: "text-emerald-400" };
+  if (trend === "up") return { icon: "↑", cls: "text-pos" };
   if (trend === "down") return { icon: "↓", cls: "text-neg" };
   if (trend === "flat") return { icon: "→", cls: "text-ink-mute" };
   return { icon: "", cls: "" };
@@ -59,7 +62,7 @@ export default function ProgressPage() {
   const router = useRouter();
   const [data, setData] = useState<Scorecard | null>(null);
   const [state, setState] = useState<LoadState>("loading");
-  const [ccy, setCcy] = useState("TRY");
+  const [ccy, setCcy] = useState(() => getDefaultCurrency());
   const [range, setRange] = useState<Range>("6m");
   const [manageGoals, setManageGoals] = useState(false);
   const [showBehavior, setShowBehavior] = useState(false);
@@ -132,7 +135,7 @@ export default function ProgressPage() {
           <h3 className="text-ink text-lg font-semibold mb-2">{t("scorecard.empty.title")}</h3>
           <p className="text-ink-mute text-sm max-w-md mx-auto mb-6">{t("scorecard.empty.desc")}</p>
           <div className="flex items-center justify-center gap-3">
-            <Link href="/upload" className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-brand text-white text-sm font-medium hover:bg-brand-hover transition-colors">
+            <Link href="/upload" className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-[#176B5B] text-white text-sm font-medium hover:bg-[#125848] transition-colors">
               <Upload size={15} /> {t("scorecard.empty.cta")}
             </Link>
             <Link href="/transactions" className="flex items-center gap-1.5 px-4 py-2 rounded-lg border border-line text-ink-soft text-sm hover:border-brand transition-colors">
@@ -215,7 +218,7 @@ function ProvisionalHero({
       {/* Four-signal indicator — filled for each pillar that has real data */}
       <div className="flex items-center gap-2 mb-2.5">
         {pillars.map((p) => (
-          <div key={p.key} className={`h-1.5 flex-1 rounded-full ${p.status === "ok" ? "bg-brand" : "bg-surface-2"}`} />
+          <div key={p.key} className={`h-1.5 flex-1 rounded-full ${p.status === "ok" ? "bg-[#176B5B]" : "bg-surface-2"}`} />
         ))}
       </div>
       <p className="text-sm text-brand font-medium mb-3">
@@ -245,7 +248,7 @@ function HeroScore({ data, t }: { data: Scorecard; t: (k: string) => string }) {
             <span className={`text-6xl font-bold tabular-nums ${style.text}`}>{data.score}</span>
             <span className="text-ink-mute text-sm mb-2">{t("scorecard.outOf")}</span>
             {delta !== null && delta !== 0 && (
-              <span className={`mb-2 text-sm font-semibold ${delta > 0 ? "text-emerald-400" : "text-neg"}`}>
+              <span className={`mb-2 text-sm font-semibold ${delta > 0 ? "text-pos" : "text-neg"}`}>
                 {delta > 0 ? "▲ +" : "▼ "}{delta} <span className="text-ink-mute font-normal">{t("scorecard.vsLastMonth")}</span>
               </span>
             )}
@@ -259,7 +262,7 @@ function HeroScore({ data, t }: { data: Scorecard; t: (k: string) => string }) {
       </div>
 
       {/* score meter */}
-      <div className="mt-5 h-2 rounded-full bg-canvas overflow-hidden">
+      <div className="mt-5 h-2 rounded-full bg-surface-2 overflow-hidden">
         <div className={`h-full rounded-full ${style.bar} transition-all`} style={{ width: `${data.score}%` }} />
       </div>
     </div>
@@ -294,9 +297,9 @@ function Pillars({ pillars, t }: { pillars: ScorecardPillar[]; t: (k: string) =>
                 {mark.icon && <span className={`ml-1.5 ${mark.cls}`}>{mark.icon}</span>}
               </span>
             </div>
-            <div className="h-1.5 rounded-full bg-canvas overflow-hidden mb-2">
+            <div className="h-1.5 rounded-full bg-surface-2 overflow-hidden mb-2">
               <div
-                className={`h-full rounded-full ${pct >= 80 ? "bg-emerald-500" : pct >= 50 ? "bg-sky-500" : pct >= 30 ? "bg-amber-500" : "bg-red-500"}`}
+                className={`h-full rounded-full ${pct >= 80 ? "bg-[#1F7A5C]" : pct >= 50 ? "bg-[#176B5B]" : pct >= 30 ? "bg-[#B0741E]" : "bg-[#B54747]"}`}
                 style={{ width: `${pct}%` }}
               />
             </div>
@@ -330,7 +333,7 @@ function Trajectory({
         <div className="flex items-center gap-2">
           <p className="text-xs font-semibold text-ink-mute uppercase tracking-wider">{t("scorecard.trajectory.title")}</p>
           {estimated && hasChart && (
-            <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-950/40 border border-amber-900/40 text-amber-400/90">
+            <span className="text-[10px] px-1.5 py-0.5 rounded bg-warn/10 border border-warn/30 text-warn">
               {t("scorecard.trajectory.estimated")}
             </span>
           )}
@@ -341,7 +344,7 @@ function Trajectory({
               key={r}
               onClick={() => setRange(r)}
               className={`px-2.5 py-0.5 rounded-full text-[11px] font-medium transition-colors ${
-                range === r ? "bg-brand text-white" : "text-ink-mute hover:text-ink-soft"
+                range === r ? "bg-[#176B5B] text-white" : "text-ink-mute hover:text-ink-soft"
               }`}
             >
               {t(`scorecard.trajectory.range${r === "all" ? "All" : r}`)}
@@ -365,15 +368,15 @@ function Trajectory({
                 </linearGradient>
               </defs>
               <CartesianGrid strokeDasharray="3 3" stroke="rgb(var(--c-line))" vertical={false} />
-              <XAxis dataKey="label" tick={{ fill: "#6b7280", fontSize: 10 }} axisLine={false} tickLine={false} minTickGap={28} />
+              <XAxis dataKey="label" tick={{ fill: "rgb(var(--c-text-muted))", fontSize: 10 }} axisLine={false} tickLine={false} minTickGap={28} />
               <YAxis
-                tick={{ fill: "#4b5563", fontSize: 10 }} axisLine={false} tickLine={false} width={44}
+                tick={{ fill: "rgb(var(--c-text-muted))", fontSize: 10 }} axisLine={false} tickLine={false} width={44}
                 tickFormatter={(v: number) => Math.abs(v) >= 1000 ? `${(v / 1000).toFixed(0)}k` : String(v)}
               />
               <Tooltip
                 contentStyle={{ backgroundColor: "rgb(var(--c-surface))", border: "1px solid rgb(var(--c-line))", borderRadius: 8 }}
-                labelStyle={{ color: "#e5e7eb", fontSize: 12 }}
-                itemStyle={{ fontSize: 12, color: "#a5b4fc" }}
+                labelStyle={{ color: "rgb(var(--c-text))", fontSize: 12 }}
+                itemStyle={{ fontSize: 12, color: "rgb(var(--c-brand))", fontWeight: 600 }}
                 formatter={(v: number) => [fmt(v, ccy), undefined]}
               />
               <Area type="monotone" dataKey="value" stroke="rgb(var(--c-brand))" strokeWidth={2} fill="url(#nwFill)" />
@@ -387,8 +390,8 @@ function Trajectory({
                   key={i}
                   className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] border ${
                     a.direction === "up"
-                      ? "bg-emerald-950/30 border-emerald-900/40 text-emerald-300"
-                      : "bg-red-950/30 border-red-900/40 text-red-300"
+                      ? "bg-pos/10 border-pos/30 text-pos"
+                      : "bg-neg/10 border-neg/30 text-neg"
                   }`}
                 >
                   <span className="text-ink-mute">{fmtDate(a.date, true)}</span>
@@ -425,18 +428,18 @@ function Drivers({
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           {best && (
-            <div className="bg-surface border border-emerald-900/30 rounded-xl p-4">
-              <div className="flex items-center gap-2 text-emerald-400 text-xs font-semibold mb-2">
+            <div className="bg-surface border border-pos/30 rounded-xl p-4">
+              <div className="flex items-center gap-2 text-pos text-xs font-semibold mb-2">
                 <TrendingUp size={14} /> {t("scorecard.drivers.best")}
               </div>
               <p className="text-ink font-semibold">{label(best)}</p>
-              <p className="text-emerald-400/80 text-sm mt-0.5">
+              <p className="text-pos/80 text-sm mt-0.5">
                 {fmt(best.amount, ccy)} {best.kind === "debt" ? "" : t("scorecard.drivers.spentLess")}
               </p>
             </div>
           )}
           {worst && (
-            <div className="bg-surface border border-red-900/30 rounded-xl p-4">
+            <div className="bg-surface border border-neg/30 rounded-xl p-4">
               <div className="flex items-center gap-2 text-neg text-xs font-semibold mb-2">
                 <TrendingDown size={14} /> {t("scorecard.drivers.worst")}
               </div>
@@ -478,7 +481,7 @@ function Milestones({
       return { text: `${fmtDate(m.date)}${approx}`, cls: "text-brand" };
     }
     if (m.status === "no_plan") return { text: t("scorecard.milestones.noPlan"), cls: "text-ink-mute" };
-    if (m.status === "stalled") return { text: t("scorecard.milestones.stalled"), cls: "text-amber-400" };
+    if (m.status === "stalled") return { text: t("scorecard.milestones.stalled"), cls: "text-warn" };
     return { text: "—", cls: "text-ink-mute" };
   };
 
@@ -537,15 +540,15 @@ function Streaks({
                 <div className="flex items-center justify-between mb-2 gap-2">
                   <span className="text-sm text-ink-soft font-medium truncate">{catLabel(s.category)}</span>
                   {s.months > 0 ? (
-                    <span className="flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-orange-950/40 border border-orange-900/40 text-orange-300 shrink-0">
+                    <span className="flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-warn/10 border border-warn/30 text-warn shrink-0">
                       <Flame size={11} /> {s.months} {t("scorecard.streaks.monthsUnder")}
                     </span>
                   ) : (
                     <span className="text-xs text-ink-mute shrink-0">{t("scorecard.streaks.newGoal")}</span>
                   )}
                 </div>
-                <div className="h-1.5 rounded-full bg-canvas overflow-hidden mb-1.5">
-                  <div className={`h-full rounded-full ${over ? "bg-red-500" : pct > 85 ? "bg-amber-500" : "bg-emerald-500"}`} style={{ width: `${pct}%` }} />
+                <div className="h-1.5 rounded-full bg-surface-2 overflow-hidden mb-1.5">
+                  <div className={`h-full rounded-full ${over ? "bg-[#B54747]" : pct > 85 ? "bg-[#B0741E]" : "bg-[#1F7A5C]"}`} style={{ width: `${pct}%` }} />
                 </div>
                 <div className="flex items-center justify-between text-[11px]">
                   <span className="text-ink-mute">{fmt(s.spent, ccy)} / {fmt(s.limit, ccy)}</span>

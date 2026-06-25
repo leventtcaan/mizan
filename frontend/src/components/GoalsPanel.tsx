@@ -15,10 +15,12 @@ function formatAmount(value: string | number): string {
   return new Intl.NumberFormat(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(n);
 }
 
+// Bars use literal hexes (solid channel-token bg utilities don't always paint);
+// text/tint use semantic tokens so they adapt to light/dark.
 function statusColor(s: string): { bar: string; text: string; bg: string } {
-  if (s === "exceeded") return { bar: "bg-red-500", text: "text-neg", bg: "bg-red-950/20" };
-  if (s === "warning")  return { bar: "bg-amber-400", text: "text-amber-400", bg: "bg-amber-950/20" };
-  return { bar: "bg-emerald-500", text: "text-emerald-400", bg: "" };
+  if (s === "exceeded") return { bar: "bg-[#B54747]", text: "text-neg", bg: "bg-neg/10" };
+  if (s === "warning")  return { bar: "bg-[#B0741E]", text: "text-warn", bg: "bg-warn/10" };
+  return { bar: "bg-[#1F7A5C]", text: "text-pos", bg: "" };
 }
 
 export default function GoalsPanel() {
@@ -81,7 +83,7 @@ export default function GoalsPanel() {
         {availableCategories.length > 0 && (
           <button
             onClick={() => { setShowForm((v) => !v); setFormCategory(availableCategories[0]); setFormError(null); }}
-            className="px-3 py-1 rounded-lg bg-brand hover:bg-brand-hover text-xs font-medium text-white transition-colors"
+            className="px-3 py-1 rounded-lg bg-[#176B5B] hover:bg-[#125848] text-xs font-medium text-white transition-colors"
           >
             {showForm ? t("common.cancel") : t("goals.addGoal")}
           </button>
@@ -96,7 +98,7 @@ export default function GoalsPanel() {
               <select
                 value={formCategory}
                 onChange={(e) => setFormCategory(e.target.value)}
-                className="w-full bg-surface border border-line rounded-lg px-3 py-2 text-ink text-sm focus:outline-none focus:border-brand"
+                className="w-full bg-surface border border-line rounded-lg px-3 py-2 text-ink text-sm focus:outline-none focus:border-[#176B5B]"
               >
                 {availableCategories.map((c) => {
                   const key = `category.${c}`;
@@ -115,7 +117,7 @@ export default function GoalsPanel() {
                 onChange={(e) => setFormLimit(e.target.value)}
                 required
                 placeholder="1500"
-                className="w-full bg-surface border border-line rounded-lg px-3 py-2 text-ink text-sm placeholder-gray-700 focus:outline-none focus:border-brand"
+                className="w-full bg-surface border border-line rounded-lg px-3 py-2 text-ink text-sm placeholder:text-ink-mute focus:outline-none focus:border-[#176B5B]"
               />
             </div>
           </div>
@@ -123,7 +125,7 @@ export default function GoalsPanel() {
           <button
             type="submit"
             disabled={formSaving}
-            className="px-4 py-1.5 rounded-lg bg-brand hover:bg-brand-hover disabled:opacity-50 text-sm font-medium text-white transition-colors"
+            className="px-4 py-1.5 rounded-lg bg-[#176B5B] hover:bg-[#125848] disabled:opacity-50 text-sm font-medium text-white transition-colors"
           >
             {formSaving ? t("common.loading") : t("goals.save")}
           </button>
@@ -159,7 +161,7 @@ export default function GoalsPanel() {
                     </span>
                     <button
                       onClick={() => void handleDelete(item.category)}
-                      className="text-gray-700 hover:text-neg text-sm leading-none transition-colors"
+                      className="text-ink-mute hover:text-neg text-sm leading-none transition-colors"
                       title={t("common.delete")}
                     >
                       ×
