@@ -6,6 +6,7 @@ import Link from "next/link";
 import { login, register, setToken, setStoredUser, detectBrowserCurrency } from "@/lib/api";
 import { useLanguage, setLanguage, detectBrowserLang, type Lang } from "@/lib/i18n";
 import ThemeToggle from "@/components/ui/ThemeToggle";
+import { Sparkles } from "@/components/ui/Icons";
 
 type Mode = "login" | "register";
 type FormState = "idle" | "loading" | "error";
@@ -22,14 +23,18 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [state, setState] = useState<FormState>("idle");
   const [errorMsg, setErrorMsg] = useState("");
+  // A paid plan chosen on the landing pricing section (?plan=plus|pro). Drives the
+  // "you selected X" banner and the post-registration redirect to /upgrade.
+  const [selectedPlan, setSelectedPlan] = useState<"plus" | "pro" | null>(null);
 
   // Open directly on the register form when arriving via /login?mode=register
-  // (the landing "Ücretsiz başla" CTAs). Read on mount from the URL — no
-  // useSearchParams, so the page keeps prerendering without a Suspense boundary.
+  // (the landing CTAs). Read on mount from the URL — no useSearchParams, so the
+  // page keeps prerendering without a Suspense boundary.
   useEffect(() => {
-    if (new URLSearchParams(window.location.search).get("mode") === "register") {
-      setMode("register");
-    }
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("mode") === "register") setMode("register");
+    const p = params.get("plan");
+    if (p === "plus" || p === "pro") setSelectedPlan(p);
   }, []);
 
   const switchMode = (next: Mode) => {
@@ -55,9 +60,13 @@ export default function LoginPage() {
       const resolvedCurrency = result.display_currency ?? detectBrowserCurrency();
       setStoredUser({ id: result.user_id, email: result.email, onboarding_completed: result.onboarding_completed, language: resolvedLang, display_currency: resolvedCurrency, is_admin: result.is_admin ?? false, email_verified: result.email_verified, plan: result.plan });
       setLanguage(resolvedLang);
-      // Email must be verified before upload/AI features unlock. Send unverified
-      // accounts (new registrations included) to the verify screen first.
-      if (!result.email_verified) {
+      // Registering from a paid-plan CTA → straight to /upgrade (carry the choice),
+      // not onboarding. (The verification email is still sent; upload/AI stay gated
+      // until verified, with the verify prompt shown at that point.)
+      if (mode === "register" && selectedPlan) {
+        router.push(`/upgrade?plan=${selectedPlan}`);
+      } else if (!result.email_verified) {
+        // Email must be verified before upload/AI features unlock.
         router.push(`/verify?email=${encodeURIComponent(result.email)}&sent=1`);
       } else if (mode === "register" || !result.onboarding_completed) {
         router.push("/onboarding");
@@ -114,8 +123,20 @@ export default function LoginPage() {
               </p>
             </div>
 
-            {/* Mode tabs */}
-            <div className="flex p-1 rounded-xl bg-surface-2 border border-line mb-6">
+            {/* Selected-plan banner (from the landing pricing CTA) */}
+            {isRegister && selectedPlan && (
+              <div className="mb-6 rounded-xl border border-[#176B5B]/30 bg-[#176B5B]/5 px-4 py-3 flex items-center gap-2.5">
+                <Sparkles size={16} className="text-[#176B5B] shrink-0" />
+                <p className="text-ink-soft text-sm">
+                  {lang === "tr"
+                    ? `${selectedPlan === "plus" ? "Plus" : "Pro"} planını seçtin. Devam etmek için hesabını oluştur.`
+                    : `You selected the ${selectedPlan === "plus" ? "Plus" : "Pro"} plan. Create your account to continue.`}
+                </p>
+              </div>
+            )}
+
+            {/* Mode tabs — two distinct buttons; active = solid teal */}
+            <div className="grid grid-cols-2 gap-2.5 mb-6">
               {([["login", t("auth.loginBtn")], ["register", t("auth.registerBtn")]] as [Mode, string][]).map(
                 ([m, label]) => (
                   <button
@@ -123,8 +144,10 @@ export default function LoginPage() {
                     type="button"
                     onClick={() => switchMode(m)}
                     aria-pressed={mode === m}
-                    className={`flex-1 py-2 rounded-lg text-sm font-semibold transition-colors ${
-                      mode === m ? "bg-surface text-ink shadow-sm" : "text-ink-mute hover:text-ink-soft"
+                    className={`py-2.5 rounded-xl text-sm font-semibold border transition-colors ${
+                      mode === m
+                        ? "bg-[#176B5B] text-white border-[#176B5B] shadow-sm"
+                        : "bg-surface text-ink border-ink/30 hover:border-[#176B5B] hover:text-[#176B5B]"
                     }`}
                   >
                     {label}

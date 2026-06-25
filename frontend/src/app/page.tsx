@@ -34,8 +34,9 @@ export default function LandingPage() {
   const startHref = isLoggedIn ? "/home" : "/login?mode=register";
   // Logo: landing for logged-out visitors, the app home for logged-in users.
   const logoHref = isLoggedIn ? "/home" : "/";
-  // A logged-in visitor upgrading goes to settings; a visitor starts by signing up.
-  const upgradeHref = isLoggedIn ? "/settings" : "/login";
+  // Paid-plan CTA: logged-in users jump straight to /upgrade; visitors register first
+  // with the chosen plan carried through so registration can land them on /upgrade.
+  const planHref = (p: "plus" | "pro") => (isLoggedIn ? "/upgrade" : `/login?mode=register&plan=${p}`);
 
   const STEPS = [
     { icon: FileText, title: t("landing.s1Title"), desc: t("landing.s1Desc") },
@@ -83,13 +84,13 @@ export default function LandingPage() {
       id: "plus", name: "Plus", tagline: t("pricing.plusTagline"),
       monthly: "₺199", yearly: "₺1.690", yearlyMo: "₺141", usdMonthly: "$7", usdYearly: "$59", usdMo: "$5",
       features: tList("pricing.plusFeatures"), cta: t("pricing.plusCta"),
-      href: upgradeHref, highlight: true,
+      href: planHref("plus"), highlight: true,
     },
     {
       id: "pro", name: "Pro", tagline: t("pricing.proTagline"),
       monthly: "₺349", yearly: "₺2.990", yearlyMo: "₺249", usdMonthly: "$12", usdYearly: "$99", usdMo: "$8",
       features: tList("pricing.proFeatures"), cta: t("pricing.proCta"),
-      href: upgradeHref, highlight: false,
+      href: planHref("pro"), highlight: false,
     },
   ];
 
