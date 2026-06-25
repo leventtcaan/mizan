@@ -1,15 +1,15 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
   AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend,
 } from "recharts";
 import PageLayout from "@/components/ui/PageLayout";
-import { card } from "@/lib/design";
+import Mim from "@/components/companion/Mim";
 import {
-  Sparkles, ArrowRight, TrendingUp, TrendingDown, X as XIcon, Send, Brain,
+  Sparkles, TrendingUp, TrendingDown, X as XIcon, Send, Brain,
 } from "@/components/ui/Icons";
 import { useLanguage } from "@/lib/i18n";
 import {
@@ -19,14 +19,19 @@ import {
 } from "@/lib/api";
 
 const HORIZONS = [12, 24, 36, 60];
+const TEAL = "#176B5B";
+const TEAL_HOVER = "#125848";
 
 export default function SimulatorPage() {
   const router = useRouter();
-  const { t, lang } = useLanguage();
+  const { t, tList, lang } = useLanguage();
 
-  // Lazy-init from the stored display currency so the levers fetch isn't fired under
-  // "TRY" and rendered, only to be redone (and visibly flash) under the real currency.
-  const [ccy, setCcy] = useState(() => getDefaultCurrency());
+  // Must start from an SSR-safe constant: getDefaultCurrency() reads localStorage /
+  // navigator, which don't exist during prerender, so a lazy initializer renders a
+  // different value on the server than on the client → hydration mismatch (the
+  // currency prefix flips, e.g. "USD"→"TRY"). The real currency is applied in the
+  // client-only effect below, before the first levers fetch resolves.
+  const [ccy, setCcy] = useState("TRY");
   const [levers, setLevers] = useState<SimLevers | null>(null);
   const [actions, setActions] = useState<SimAction[]>([]);
   const [horizon, setHorizon] = useState(24);
@@ -135,9 +140,10 @@ export default function SimulatorPage() {
 
   const clearAll = () => { setActions([]); setResult(null); setQuestion(""); setAskMiss(false); };
 
-  const ask = async () => {
-    const q = question.trim();
+  const ask = async (qText?: string) => {
+    const q = (qText ?? question).trim();
     if (!q || asking) return;
+    if (qText) setQuestion(qText);
     setAsking(true); setAskMiss(false);
     try {
       const res = await askSimulator(q, horizon, ccy, lang);
@@ -174,7 +180,7 @@ export default function SimulatorPage() {
   const noData = levers && levers.net_worth === 0 && levers.subscriptions.length === 0
     && levers.debts.length === 0 && levers.monthly_surplus === 0;
 
-  const inputCls = "bg-canvas border border-line rounded-lg px-3 py-2 text-sm text-ink focus:outline-none focus:border-brand w-full";
+  const samples = tList("sim.samples");
 
   return (
     <PageLayout
@@ -184,241 +190,346 @@ export default function SimulatorPage() {
       maxWidth="lg"
     >
       {noData ? (
-        <div className={`${card} text-center py-10`}>
-          <Sparkles size={28} className="text-brand mx-auto mb-3" />
-          <p className="text-ink font-medium mb-1">{t("sim.emptyTitle")}</p>
-          <p className="text-ink-mute text-sm mb-4">{t("sim.emptyBody")}</p>
-          <div className="flex justify-center gap-3">
-            <Link href="/upload" className="px-4 py-2 rounded-lg bg-brand hover:bg-brand-hover text-white text-sm font-medium">{t("sim.emptyUpload")}</Link>
-            <Link href="/networth" className="px-4 py-2 rounded-lg border border-line text-ink-soft hover:text-ink text-sm font-medium">{t("sim.emptyNetworth")}</Link>
+        <div className="bg-surface border border-line rounded-2xl text-center py-12 px-6">
+          <div className="w-14 h-14 rounded-2xl bg-brand/10 flex items-center justify-center mx-auto mb-4">
+            <Sparkles size={26} className="text-brand" />
+          </div>
+          <p className="text-ink font-semibold mb-1">{t("sim.emptyTitle")}</p>
+          <p className="text-ink-mute text-sm mb-5 max-w-sm mx-auto">{t("sim.emptyBody")}</p>
+          <div className="flex justify-center gap-3 flex-wrap">
+            <Link href="/upload" className="px-4 py-2 rounded-lg text-white text-sm font-semibold shadow-sm transition-colors" style={{ backgroundColor: TEAL }}>{t("sim.emptyUpload")}</Link>
+            <Link href="/networth" className="px-4 py-2 rounded-lg border border-line text-ink-soft hover:text-ink text-sm font-medium transition-colors">{t("sim.emptyNetworth")}</Link>
           </div>
         </div>
       ) : (
         <div className="flex flex-col gap-4">
-          {/* Ask in your own words */}
-          <section className={card}>
-            <div className="flex items-center gap-2 mb-2">
-              <Brain size={15} className="text-brand" />
-              <p className="text-sm font-semibold text-ink">{t("sim.askTitle")}</p>
-            </div>
-            <div className="flex gap-2">
-              <input
-                value={question}
-                onChange={(e) => setQuestion(e.target.value)}
-                onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); void ask(); } }}
-                placeholder={t("sim.askPlaceholder")}
-                className={inputCls}
-              />
-              <button onClick={() => void ask()} disabled={asking || !question.trim()}
-                className="px-3 py-2 rounded-lg bg-brand hover:bg-brand-hover disabled:opacity-40 text-white shrink-0">
-                {asking ? <span className="block w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <Send size={16} />}
-              </button>
-            </div>
-            {askMiss && <p className="text-amber-400 text-xs mt-2">{t("sim.askMiss")}</p>}
-          </section>
-
-          {/* Lever builder */}
-          <section className={card}>
-            <div className="flex items-center justify-between mb-3">
-              <p className="text-sm font-semibold text-ink">{t("sim.buildTitle")}</p>
-              {actions.length > 0 && (
-                <button onClick={clearAll} className="text-ink-mute hover:text-ink-soft text-xs flex items-center gap-1">
-                  <XIcon size={12} /> {t("sim.clear")}
+          {/* ── Ask hero — the differentiator, front and center ── */}
+          <section className="relative overflow-hidden bg-surface border border-line rounded-2xl p-5 sm:p-6 shadow-sm">
+            <div className="pointer-events-none absolute inset-x-0 top-0 h-24" style={{ background: "radial-gradient(120% 100% at 30% 0%, rgba(23,107,91,0.08), transparent 70%)" }} />
+            <div className="relative">
+              <div className="flex items-center gap-2 mb-3">
+                <span className="w-8 h-8 rounded-xl bg-brand/10 flex items-center justify-center">
+                  <Brain size={16} className="text-brand" />
+                </span>
+                <div>
+                  <p className="text-sm font-semibold text-ink leading-tight">{t("sim.askTitle")}</p>
+                </div>
+              </div>
+              <div className="flex gap-2">
+                <input
+                  value={question}
+                  onChange={(e) => setQuestion(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); void ask(); } }}
+                  placeholder={t("sim.askPlaceholder")}
+                  className="flex-1 bg-canvas border border-line rounded-xl px-4 py-3 text-sm text-ink placeholder:text-ink-mute focus:outline-none focus:border-[#176B5B] focus:ring-2 focus:ring-[#176B5B]/20 transition-shadow"
+                />
+                <button onClick={() => void ask()} disabled={asking || !question.trim()}
+                  className="px-4 rounded-xl text-white shrink-0 disabled:opacity-40 transition-colors flex items-center justify-center"
+                  style={{ backgroundColor: TEAL }}
+                  onMouseEnter={(e) => { if (!asking && question.trim()) e.currentTarget.style.backgroundColor = TEAL_HOVER; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = TEAL; }}
+                >
+                  {asking ? <span className="block w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <Send size={16} />}
                 </button>
+              </div>
+              {/* Sample questions — one tap to run, makes the feature self-explanatory */}
+              <div className="flex flex-wrap items-center gap-2 mt-3">
+                <span className="text-ink-mute text-xs">{t("sim.tryThese")}:</span>
+                {samples.map((s, i) => (
+                  <button key={i} onClick={() => void ask(s)} disabled={asking}
+                    className="px-2.5 py-1 rounded-full bg-surface-2 hover:bg-surface-3 border border-line text-ink-soft text-xs transition-colors disabled:opacity-50">
+                    {s}
+                  </button>
+                ))}
+              </div>
+              {askMiss && (
+                <p className="text-warn text-xs mt-3 flex items-center gap-1.5">
+                  <span className="w-1.5 h-1.5 rounded-full bg-warn" /> {t("sim.askMiss")}
+                </p>
               )}
             </div>
+          </section>
 
-            <div className="grid sm:grid-cols-2 gap-4">
-              {/* Save more */}
-              <div>
-                <label className="text-ink-mute text-xs block mb-1">{t("sim.saveMonthly")}</label>
-                <input inputMode="decimal" value={amountOf("save_monthly")} onChange={(e) => setSingle("save_monthly", e.target.value)} placeholder="0" className={inputCls} />
-              </div>
-              {/* Income change — direction toggle + magnitude (no bare-minus typing) */}
-              <div>
-                <label className="text-ink-mute text-xs block mb-1">{t("sim.incomeChange")}</label>
-                <div className="flex gap-2">
-                  <div className="flex rounded-lg overflow-hidden border border-line shrink-0">
-                    {(["raise", "cut"] as const).map((d) => (
-                      <button key={d} onClick={() => applyIncome(d, incomeMag)}
-                        className={`px-2.5 text-xs font-medium transition-colors ${effIncomeDir === d
-                          ? (d === "raise" ? "bg-emerald-800/40 text-emerald-200" : "bg-red-800/40 text-red-200")
-                          : "text-ink-mute hover:text-ink-soft"}`}>
-                        {d === "raise" ? t("sim.incomeRaise") : t("sim.incomeCut")}
-                      </button>
-                    ))}
-                  </div>
-                  <input inputMode="decimal" value={incomeMag} onChange={(e) => applyIncome(effIncomeDir, e.target.value)} placeholder="0" className={inputCls} />
+          {/* ── Builder + Outcome ── */}
+          <div className="grid lg:grid-cols-12 gap-4 items-start">
+            {/* Scenario builder (left, sticky on desktop) */}
+            <section className="lg:col-span-5 lg:sticky lg:top-20 bg-surface border border-line rounded-2xl p-5 space-y-5">
+              <div className="flex items-start justify-between gap-2">
+                <div>
+                  <p className="text-sm font-semibold text-ink">{t("sim.buildTitle")}</p>
+                  {levers && (
+                    <p className="text-xs text-ink-mute mt-0.5">{t("sim.nowLabel")}: <span className="text-ink-soft font-medium tabular-nums">{money(levers.net_worth)}</span></p>
+                  )}
                 </div>
-              </div>
-              {/* One-time purchase */}
-              <div>
-                <label className="text-ink-mute text-xs block mb-1">{t("sim.oneTime")}</label>
-                <input inputMode="decimal" value={amountOf("one_time_expense")} onChange={(e) => setSingle("one_time_expense", e.target.value)} placeholder="0" className={inputCls} />
-              </div>
-              {/* Horizon */}
-              <div>
-                <label className="text-ink-mute text-xs block mb-1">{t("sim.horizon")}</label>
-                <div className="flex rounded-lg overflow-hidden border border-line">
-                  {HORIZONS.map((h) => (
-                    <button key={h} onClick={() => setHorizon(h)}
-                      className={`flex-1 py-2 text-xs font-medium transition-colors ${horizon === h ? "bg-brand text-white" : "text-ink-mute hover:text-ink-soft"}`}>
-                      {h}{lang === "tr" ? "a" : "mo"}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </div>
-
-            {/* Cancel subscriptions — always visible so the feature explains itself */}
-            {levers && (
-              <div className="mt-4">
-                <label className="text-ink-mute text-xs block mb-2">{t("sim.cancelSubs")}</label>
-                {levers.subscriptions.length > 0 ? (
-                  <div className="flex flex-wrap gap-2">
-                    {levers.subscriptions.slice(0, 12).map((s) => (
-                      <button key={s.key} onClick={() => toggleCancel(s.label, s.monthly_amount)}
-                        className={`px-2.5 py-1.5 rounded-lg text-xs border transition-colors ${isCancelled(s.label)
-                          ? "bg-emerald-950/40 border-emerald-700/50 text-emerald-300"
-                          : "bg-canvas border-line text-ink-soft hover:border-[#3C3832]"}`}>
-                        {isCancelled(s.label) ? "✓ " : ""}{s.label} · {money(s.monthly_amount)}/{lang === "tr" ? "ay" : "mo"}
-                      </button>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="text-ink-mute text-xs">{t("sim.subsEmpty")}</p>
+                {actions.length > 0 && (
+                  <button onClick={clearAll} className="text-ink-mute hover:text-ink-soft text-xs flex items-center gap-1 shrink-0">
+                    <XIcon size={12} /> {t("sim.clear")}
+                  </button>
                 )}
               </div>
-            )}
 
-            {/* Prepay debts */}
-            {levers && levers.debts.length > 0 && (
-              <div className="mt-4">
-                <label className="text-ink-mute text-xs block mb-2">{t("sim.prepay")}</label>
-                <div className="space-y-2">
-                  {levers.debts.map((d) => (
-                    <div key={d.id} className="flex items-center gap-3">
-                      <span className="text-ink-soft text-sm flex-1 min-w-0 truncate">{d.label} <span className="text-ink-mute text-xs">· {money(d.remaining)}</span></span>
-                      <input inputMode="decimal" value={prepayOf(d.id)} onChange={(e) => setPrepay(d.id, d.label, e.target.value)} placeholder={t("sim.lumpSum")} className={`${inputCls} w-32`} />
+              <div className="grid grid-cols-1 gap-4">
+                <div className="grid sm:grid-cols-2 gap-4">
+                  <MoneyInput label={t("sim.saveMonthly")} ccy={ccy} value={amountOf("save_monthly")} onChange={(v) => setSingle("save_monthly", v)} />
+                  <MoneyInput label={t("sim.oneTime")} ccy={ccy} value={amountOf("one_time_expense")} onChange={(v) => setSingle("one_time_expense", v)} />
+                </div>
+
+                {/* Income — direction toggle + magnitude */}
+                <div>
+                  <label className="text-ink-mute text-xs block mb-1.5">{t("sim.incomeChange")}</label>
+                  <div className="flex gap-2">
+                    <div className="flex rounded-lg overflow-hidden border border-line shrink-0">
+                      {(["raise", "cut"] as const).map((d) => {
+                        const active = effIncomeDir === d;
+                        const cls = active
+                          ? (d === "raise" ? "bg-pos/15 text-pos" : "bg-neg/15 text-neg")
+                          : "text-ink-mute hover:text-ink-soft";
+                        return (
+                          <button key={d} onClick={() => applyIncome(d, incomeMag)} className={`px-3 text-xs font-semibold transition-colors ${cls}`}>
+                            {d === "raise" ? t("sim.incomeRaise") : t("sim.incomeCut")}
+                          </button>
+                        );
+                      })}
                     </div>
-                  ))}
+                    <div className="relative flex-1">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-ink-mute text-xs pointer-events-none">{ccy}</span>
+                      <input inputMode="decimal" value={incomeMag} onChange={(e) => applyIncome(effIncomeDir, e.target.value)} placeholder="0"
+                        className="w-full bg-canvas border border-line rounded-lg pl-11 pr-3 py-2 text-sm text-ink tabular-nums focus:outline-none focus:border-[#176B5B] focus:ring-2 focus:ring-[#176B5B]/20 transition-shadow" />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Horizon */}
+                <div>
+                  <label className="text-ink-mute text-xs block mb-1.5">{t("sim.horizon")}</label>
+                  <div className="flex rounded-lg overflow-hidden border border-line">
+                    {HORIZONS.map((h) => {
+                      const active = horizon === h;
+                      return (
+                        <button key={h} onClick={() => setHorizon(h)}
+                          className={`flex-1 py-2 text-xs font-semibold transition-colors ${active ? "text-white" : "text-ink-mute hover:text-ink-soft"}`}
+                          style={active ? { backgroundColor: TEAL } : undefined}>
+                          {h}{lang === "tr" ? "a" : "mo"}
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
               </div>
-            )}
-          </section>
 
-          {/* What I understood — parsed/active levers in plain language, so a misparse
-              (e.g. NL mode) is visible and correctable instead of silently wrong. */}
-          {actions.length > 0 && (
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="text-ink-mute text-xs">{t("sim.appliedTitle")}:</span>
-              {/* Horizon chip — shows the understood time window (e.g. parsed from "for a year") */}
-              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-surface border border-line text-ink-soft text-xs">
-                {t("sim.horizonChip")}: {horizon} {lang === "tr" ? "ay" : "mo"}
-              </span>
-              {actions.map((a, i) => (
-                <span key={i} className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-brand/40 border border-brand/40 text-brand text-xs">
-                  {renderAction(a)}
-                  <button onClick={() => removeAction(i)} className="text-brand/70 hover:text-brand"><XIcon size={11} /></button>
-                </span>
-              ))}
-            </div>
-          )}
+              {/* Cancel subscriptions */}
+              {levers && (
+                <div className="pt-1">
+                  <label className="text-ink-mute text-xs block mb-2">{t("sim.cancelSubs")}</label>
+                  {levers.subscriptions.length > 0 ? (
+                    <div className="flex flex-wrap gap-2">
+                      {levers.subscriptions.slice(0, 12).map((s) => {
+                        const on = isCancelled(s.label);
+                        return (
+                          <button key={s.key} onClick={() => toggleCancel(s.label, s.monthly_amount)}
+                            className={`px-2.5 py-1.5 rounded-lg text-xs border transition-colors ${on
+                              ? "bg-pos/10 border-pos/40 text-pos font-medium"
+                              : "bg-canvas border-line text-ink-soft hover:border-line-strong"}`}>
+                            {on ? "✓ " : ""}{s.label} · {money(s.monthly_amount)}/{lang === "tr" ? "ay" : "mo"}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <p className="text-ink-mute text-xs leading-relaxed bg-surface-2 rounded-lg px-3 py-2.5">{t("sim.subsEmpty")}</p>
+                  )}
+                </div>
+              )}
 
-          {/* Results */}
-          {actions.length === 0 ? (
-            <p className="text-ink-mute text-sm text-center py-6">{t("sim.hint")}</p>
-          ) : result ? (
-            <>
-              {/* Delta cards */}
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                <DeltaCard label={t("sim.dNetWorth")} value={signed(result.deltas.net_worth_end)} positive={result.deltas.net_worth_end >= 0} />
-                <DeltaCard label={t("sim.dMonthly")} value={signed(result.deltas.monthly_cashflow)} positive={result.deltas.monthly_cashflow >= 0} />
-                <DeltaCard
-                  label={t("sim.dDebtFree")}
-                  value={result.deltas.debt_free_months === 0 ? "—" : `${Math.abs(result.deltas.debt_free_months)} ${lang === "tr" ? "ay" : "mo"} ${result.deltas.debt_free_months > 0 ? (lang === "tr" ? "erken" : "sooner") : (lang === "tr" ? "geç" : "later")}`}
-                  positive={result.deltas.debt_free_months >= 0}
-                />
-                <DeltaCard label={t("sim.dInterest")} value={signed(result.deltas.interest_saved)} positive={result.deltas.interest_saved >= 0} />
-              </div>
+              {/* Prepay debts */}
+              {levers && levers.debts.length > 0 && (
+                <div className="pt-1">
+                  <label className="text-ink-mute text-xs block mb-2">{t("sim.prepay")}</label>
+                  <div className="space-y-2">
+                    {levers.debts.map((d) => (
+                      <div key={d.id} className="flex items-center gap-3">
+                        <span className="text-ink-soft text-sm flex-1 min-w-0 truncate">{d.label} <span className="text-ink-mute text-xs">· {money(d.remaining)}</span></span>
+                        <input inputMode="decimal" value={prepayOf(d.id)} onChange={(e) => setPrepay(d.id, d.label, e.target.value)} placeholder={t("sim.lumpSum")}
+                          className="w-32 bg-canvas border border-line rounded-lg px-3 py-2 text-sm text-ink tabular-nums focus:outline-none focus:border-[#176B5B] focus:ring-2 focus:ring-[#176B5B]/20 transition-shadow" />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </section>
 
-              {/* Warnings */}
-              {result.warnings.map((w, i) => (
-                <div key={i} className="bg-red-950/30 border border-red-800/40 rounded-xl p-3 text-red-300 text-sm">⚠ {w}</div>
-              ))}
+            {/* Outcome (right) */}
+            <section className="lg:col-span-7 space-y-4">
+              <p className="text-xs font-semibold text-ink-mute uppercase tracking-wider">{t("sim.outcomeTitle")}</p>
 
-              {/* Chart */}
-              <section className={card}>
-                <p className="text-ink-mute text-xs mb-3">{t("sim.chartTitle")} · {result.horizon_months} {lang === "tr" ? "ay" : "mo"}</p>
-                <ResponsiveContainer width="100%" height={240}>
-                  <AreaChart data={chartData} margin={{ top: 4, right: 8, left: 4, bottom: 0 }}>
-                    <defs>
-                      <linearGradient id="bandFill" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor="rgb(var(--c-brand))" stopOpacity={0.18} />
-                        <stop offset="100%" stopColor="rgb(var(--c-brand))" stopOpacity={0.04} />
-                      </linearGradient>
-                    </defs>
-                    <CartesianGrid stroke="rgb(var(--c-line))" vertical={false} />
-                    <XAxis dataKey="month" stroke="#6b7280" fontSize={11} tickLine={false} axisLine={false}
-                      tickFormatter={(m) => `${m}${lang === "tr" ? "a" : "mo"}`} />
-                    <YAxis stroke="#6b7280" fontSize={11} tickLine={false} axisLine={false} width={48}
-                      tickFormatter={(v) => Intl.NumberFormat(undefined, { notation: "compact" }).format(v)} />
-                    <Tooltip
-                      contentStyle={{ backgroundColor: "rgb(var(--c-surface))", border: "1px solid rgb(var(--c-line))", borderRadius: 8 }}
-                      labelStyle={{ color: "#9ca3af" }}
-                      formatter={(v: number | number[], name: string) => {
-                        if (name === "range") {
-                          const [lo, hi] = v as number[];
-                          return [`${money(lo)} – ${money(hi)}`, t("sim.range")];
-                        }
-                        return [money(v as number), name === "baseline" ? t("sim.baseline") : t("sim.scenario")];
-                      }}
-                      labelFormatter={(m) => `${lang === "tr" ? "Ay" : "Month"} ${m}`}
+              {result ? (
+                <>
+                  {/* What I understood */}
+                  {actions.length > 0 && (
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="text-ink-mute text-xs">{t("sim.appliedTitle")}:</span>
+                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-surface-2 border border-line text-ink-soft text-xs">
+                        {t("sim.horizonChip")}: {horizon} {lang === "tr" ? "ay" : "mo"}
+                      </span>
+                      {actions.map((a, i) => (
+                        <span key={i} className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium" style={{ backgroundColor: "rgba(23,107,91,0.1)", color: TEAL, border: "1px solid rgba(23,107,91,0.3)" }}>
+                          {renderAction(a)}
+                          <button onClick={() => removeAction(i)} className="opacity-70 hover:opacity-100"><XIcon size={11} /></button>
+                        </span>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Headline delta */}
+                  <BigDelta
+                    label={t("sim.dNetWorth")}
+                    value={signed(result.deltas.net_worth_end)}
+                    positive={result.deltas.net_worth_end >= 0}
+                    sub={`${t("sim.scenario")} · ${result.horizon_months} ${lang === "tr" ? "ay" : "mo"}`}
+                  />
+
+                  {/* Secondary deltas */}
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <MiniDelta label={t("sim.dMonthly")} value={signed(result.deltas.monthly_cashflow)} positive={result.deltas.monthly_cashflow >= 0} />
+                    <MiniDelta
+                      label={t("sim.dDebtFree")}
+                      value={result.deltas.debt_free_months === 0 ? "—" : `${Math.abs(result.deltas.debt_free_months)} ${lang === "tr" ? "ay" : "mo"} ${result.deltas.debt_free_months > 0 ? (lang === "tr" ? "erken" : "sooner") : (lang === "tr" ? "geç" : "later")}`}
+                      positive={result.deltas.debt_free_months >= 0}
+                      neutral={result.deltas.debt_free_months === 0}
                     />
-                    <Legend formatter={(v) => v === "baseline" ? t("sim.baseline") : v === "range" ? t("sim.range") : t("sim.scenario")} wrapperStyle={{ fontSize: 12 }} />
-                    {/* uncertainty cone behind the lines */}
-                    <Area type="monotone" dataKey="range" stroke="none" fill="url(#bandFill)" legendType="none" tooltipType="none" />
-                    <Area type="monotone" dataKey="baseline" stroke="#6b7280" strokeDasharray="4 4" strokeWidth={2} fill="none" />
-                    <Area type="monotone" dataKey="scenario" stroke="rgb(var(--c-brand))" strokeWidth={2.5} fill="none" />
-                  </AreaChart>
-                </ResponsiveContainer>
-                <p className="text-ink-mute text-[11px] mt-2">{t("sim.rangeNote")}</p>
-              </section>
+                    <MiniDelta label={t("sim.dInterest")} value={signed(result.deltas.interest_saved)} positive={result.deltas.interest_saved >= 0} />
+                  </div>
 
-              {/* Narrative */}
-              {result.narrative && (
-                <section className="bg-brand/30 border border-brand/40 rounded-xl p-4">
-                  <p className="text-ink-soft text-sm leading-relaxed">{result.narrative}</p>
-                </section>
-              )}
+                  {/* Warnings */}
+                  {result.warnings.map((w, i) => (
+                    <div key={i} className="bg-warn/10 border border-warn/30 rounded-xl p-3 text-warn text-sm flex items-start gap-2">
+                      <span className="shrink-0">⚠</span><span>{w}</span>
+                    </div>
+                  ))}
 
-              {/* Assumptions */}
-              <button onClick={() => setShowAssumptions((s) => !s)} className="text-ink-mute hover:text-ink-soft text-xs text-left">
-                {showAssumptions ? "▾" : "▸"} {t("sim.assumptions")}
-              </button>
-              {showAssumptions && (
-                <ul className="text-ink-mute text-xs space-y-1 pl-4">
-                  {result.assumptions.map((a, i) => <li key={i}>• {a}</li>)}
-                </ul>
+                  {/* Chart */}
+                  <div className="bg-surface border border-line rounded-2xl p-5">
+                    <p className="text-ink-mute text-xs mb-3">{t("sim.chartTitle")} · {result.horizon_months} {lang === "tr" ? "ay" : "mo"}</p>
+                    <ResponsiveContainer width="100%" height={240}>
+                      <AreaChart data={chartData} margin={{ top: 4, right: 8, left: 4, bottom: 0 }}>
+                        <defs>
+                          <linearGradient id="bandFill" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="0%" stopColor="rgb(var(--c-brand))" stopOpacity={0.18} />
+                            <stop offset="100%" stopColor="rgb(var(--c-brand))" stopOpacity={0.03} />
+                          </linearGradient>
+                        </defs>
+                        <CartesianGrid stroke="rgb(var(--c-line))" vertical={false} />
+                        <XAxis dataKey="month" stroke="rgb(var(--c-text-muted))" fontSize={11} tickLine={false} axisLine={false}
+                          tickFormatter={(m) => `${m}${lang === "tr" ? "a" : "mo"}`} />
+                        <YAxis stroke="rgb(var(--c-text-muted))" fontSize={11} tickLine={false} axisLine={false} width={48}
+                          tickFormatter={(v) => Intl.NumberFormat(undefined, { notation: "compact" }).format(v)} />
+                        <Tooltip
+                          contentStyle={{ backgroundColor: "rgb(var(--c-surface))", border: "1px solid rgb(var(--c-line))", borderRadius: 10, boxShadow: "0 4px 16px rgba(0,0,0,0.12)" }}
+                          labelStyle={{ color: "rgb(var(--c-text))", fontSize: 12, fontWeight: 600 }}
+                          itemStyle={{ fontSize: 12 }}
+                          formatter={(v: number | number[], name: string) => {
+                            if (name === "range") {
+                              const [lo, hi] = v as number[];
+                              return [`${money(lo)} – ${money(hi)}`, t("sim.range")];
+                            }
+                            return [money(v as number), name === "baseline" ? t("sim.baseline") : t("sim.scenario")];
+                          }}
+                          labelFormatter={(m) => `${lang === "tr" ? "Ay" : "Month"} ${m}`}
+                        />
+                        <Legend formatter={(v) => v === "baseline" ? t("sim.baseline") : v === "range" ? t("sim.range") : t("sim.scenario")} wrapperStyle={{ fontSize: 12 }} />
+                        {/* uncertainty cone behind the lines */}
+                        <Area type="monotone" dataKey="range" stroke="none" fill="url(#bandFill)" legendType="none" tooltipType="none" />
+                        <Area type="monotone" dataKey="baseline" stroke="rgb(var(--c-text-muted))" strokeDasharray="4 4" strokeWidth={2} fill="none" />
+                        <Area type="monotone" dataKey="scenario" stroke="rgb(var(--c-brand))" strokeWidth={2.5} fill="none" />
+                      </AreaChart>
+                    </ResponsiveContainer>
+                    <p className="text-ink-mute text-[11px] mt-2">{t("sim.rangeNote")}</p>
+                  </div>
+
+                  {/* Narrative — Mim's read */}
+                  {result.narrative && (
+                    <div className="flex items-start gap-3 rounded-2xl p-4 border border-line" style={{ backgroundColor: "rgba(23,107,91,0.06)" }}>
+                      <div className="w-8 h-8 rounded-xl bg-brand/10 flex items-center justify-center shrink-0">
+                        <Mim size={22} quiet mood="thinking" />
+                      </div>
+                      <p className="text-ink-soft text-sm leading-relaxed">{result.narrative}</p>
+                    </div>
+                  )}
+
+                  {/* Assumptions */}
+                  <div>
+                    <button onClick={() => setShowAssumptions((s) => !s)} className="text-ink-mute hover:text-ink-soft text-xs">
+                      {showAssumptions ? "▾" : "▸"} {t("sim.assumptions")}
+                    </button>
+                    {showAssumptions && (
+                      <ul className="text-ink-mute text-xs space-y-1 pl-4 mt-2">
+                        {result.assumptions.map((a, i) => <li key={i}>• {a}</li>)}
+                      </ul>
+                    )}
+                  </div>
+                </>
+              ) : (running || asking) ? (
+                <div className="bg-surface border border-line rounded-2xl flex items-center justify-center gap-2 text-ink-mute text-sm py-16">
+                  <span className="w-4 h-4 border-2 border-line border-t-[#176B5B] rounded-full animate-spin" /> {t("sim.running")}
+                </div>
+              ) : (
+                <div className="bg-surface border border-line border-dashed rounded-2xl text-center py-14 px-6">
+                  <div className="w-12 h-12 rounded-2xl bg-brand/10 flex items-center justify-center mx-auto mb-3">
+                    <Sparkles size={22} className="text-brand" />
+                  </div>
+                  <p className="text-ink-mute text-sm max-w-xs mx-auto leading-relaxed">{t("sim.outcomeEmpty")}</p>
+                </div>
               )}
-            </>
-          ) : running ? (
-            <div className="flex items-center justify-center gap-2 text-ink-mute text-sm py-6">
-              <span className="w-4 h-4 border-2 border-gray-600 border-t-brand rounded-full animate-spin" /> {t("sim.running")}
-            </div>
-          ) : null}
+            </section>
+          </div>
         </div>
       )}
     </PageLayout>
   );
 }
 
-function DeltaCard({ label, value, positive }: { label: string; value: string; positive: boolean }) {
+// ── helpers ──────────────────────────────────────────────────────────────────
+
+function MoneyInput({ label, value, onChange, ccy }: { label: string; value: string; onChange: (v: string) => void; ccy: string }) {
   return (
-    <div className="bg-surface border border-line rounded-xl p-3">
+    <div>
+      <label className="text-ink-mute text-xs block mb-1.5">{label}</label>
+      <div className="relative">
+        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-ink-mute text-xs pointer-events-none">{ccy}</span>
+        <input inputMode="decimal" value={value} onChange={(e) => onChange(e.target.value)} placeholder="0"
+          className="w-full bg-canvas border border-line rounded-lg pl-11 pr-3 py-2 text-sm text-ink tabular-nums placeholder:text-ink-mute focus:outline-none focus:border-[#176B5B] focus:ring-2 focus:ring-[#176B5B]/20 transition-shadow" />
+      </div>
+    </div>
+  );
+}
+
+function BigDelta({ label, value, positive, sub }: { label: string; value: string; positive: boolean; sub: string }) {
+  const color = positive ? "#1F7A5C" : "#B54747";
+  return (
+    <div className="relative overflow-hidden bg-surface border border-line rounded-2xl p-5">
+      <span className="absolute left-0 top-0 bottom-0 w-1" style={{ backgroundColor: color }} />
+      <div className="flex items-center justify-between gap-3">
+        <div>
+          <p className="text-ink-mute text-xs mb-1">{label}</p>
+          <p className="text-3xl font-bold tabular-nums leading-none" style={{ color }}>{value}</p>
+          <p className="text-ink-mute text-[11px] mt-1.5">{sub}</p>
+        </div>
+        <span className="w-11 h-11 rounded-2xl flex items-center justify-center shrink-0" style={{ backgroundColor: positive ? "rgba(31,122,92,0.12)" : "rgba(181,71,71,0.12)", color }}>
+          {positive ? <TrendingUp size={20} /> : <TrendingDown size={20} />}
+        </span>
+      </div>
+    </div>
+  );
+}
+
+function MiniDelta({ label, value, positive, neutral }: { label: string; value: string; positive: boolean; neutral?: boolean }) {
+  const cls = neutral ? "text-ink-soft" : positive ? "text-pos" : "text-neg";
+  const Icon: ReactNode = neutral ? null : positive ? <TrendingUp size={13} /> : <TrendingDown size={13} />;
+  return (
+    <div className="bg-surface border border-line rounded-xl p-3.5">
       <p className="text-ink-mute text-[11px] mb-1">{label}</p>
-      <p className={`text-base font-semibold tabular-nums flex items-center gap-1 ${positive ? "text-emerald-400" : "text-neg"}`}>
-        {positive ? <TrendingUp size={13} /> : <TrendingDown size={13} />}{value}
+      <p className={`text-base font-semibold tabular-nums flex items-center gap-1 ${cls}`}>
+        {Icon}{value}
       </p>
     </div>
   );
