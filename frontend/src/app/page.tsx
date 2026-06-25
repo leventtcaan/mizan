@@ -10,6 +10,13 @@ import {
 import { useLanguage } from "@/lib/i18n";
 import { useTheme, type ThemePref } from "@/lib/theme";
 
+// Hero sparkline geometry. cy = vertical position in the 320×70 viewBox (lower =
+// higher net worth); amt = the value (in millions) shown in the hover tooltip.
+const SPARK_CY = [56, 51, 54, 44, 40, 35, 28, 19, 12];
+const SPARK_AMT = [0.92, 1.0, 0.97, 1.08, 1.12, 1.16, 1.2, 1.23, 1.24];
+const SPARK_MONTHS_TR = ["Eki", "Kas", "Ara", "Oca", "Şub", "Mar", "Nis", "May", "Haz"];
+const SPARK_MONTHS_EN = ["Oct", "Nov", "Dec", "Jan", "Feb", "Mar", "Apr", "May", "Jun"];
+
 export default function LandingPage() {
   const { t, tList, lang, setLanguage } = useLanguage();
   const { pref: themePref, setTheme } = useTheme();
@@ -48,6 +55,12 @@ export default function LandingPage() {
 
   const sourceTypes = tList("landing.sourceTypes");
   const simQuestions = [t("landing.simQ1"), t("landing.simQ2"), t("landing.simQ3")];
+
+  // Hero sparkline hover state + locale-aware tooltip formatting (₺/, vs $/.).
+  const [activePoint, setActivePoint] = useState<number | null>(null);
+  const sym = (t("landing.mockNetWorthValue").trim()[0]) || "₺";
+  const dec = lang === "tr" ? "," : ".";
+  const sparkMonths = lang === "tr" ? SPARK_MONTHS_TR : SPARK_MONTHS_EN;
 
   const perMo = t("pricing.perMonthShort");
   const perYr = t("pricing.perYearShort");
@@ -96,10 +109,10 @@ export default function LandingPage() {
         </Link>
 
         <div className="flex items-center gap-2 sm:gap-3">
-          {/* Pricing — reads as a nav link (hover color + teal underline) */}
+          {/* Pricing — a pill button matching the navbar control style */}
           <button
             onClick={() => pricingRef.current?.scrollIntoView({ behavior: "smooth" })}
-            className="hidden sm:inline-flex items-center h-9 px-2 text-sm font-medium text-ink-soft hover:text-[#176B5B] hover:underline underline-offset-[6px] decoration-2 decoration-[#176B5B] transition-colors"
+            className="hidden sm:inline-flex items-center h-9 px-4 rounded-lg border border-ink/30 text-sm font-medium text-ink-soft hover:text-[#176B5B] hover:border-[#176B5B] transition-colors"
           >
             {t("pricing.navLink")}
           </button>
@@ -187,7 +200,7 @@ export default function LandingPage() {
               </Link>
               <button
                 onClick={() => howRef.current?.scrollIntoView({ behavior: "smooth" })}
-                className="inline-flex items-center justify-center px-7 py-3.5 rounded-xl bg-transparent hover:bg-surface-2 border border-ink/30 hover:border-ink/55 font-semibold text-ink transition-colors"
+                className="inline-flex items-center justify-center px-7 py-3.5 rounded-xl bg-surface hover:bg-surface-2 border-2 border-ink/40 hover:border-[#176B5B] font-semibold text-ink hover:text-[#176B5B] transition-colors"
               >
                 {t("landing.ctaSecondary")}
               </button>
@@ -221,23 +234,57 @@ export default function LandingPage() {
                     <TrendingUp size={14} /> {t("landing.mockDelta")}
                   </span>
                 </div>
-                <svg viewBox="0 0 320 70" className="w-full h-20 mt-4" preserveAspectRatio="none">
-                  <defs>
-                    <linearGradient id="spark" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="rgb(var(--c-brand))" stopOpacity="0.35" />
-                      <stop offset="100%" stopColor="rgb(var(--c-brand))" stopOpacity="0" />
-                    </linearGradient>
-                  </defs>
-                  <path d="M0 56 L40 51 L80 54 L120 44 L160 40 L200 35 L240 28 L280 19 L320 12 L320 70 L0 70 Z" fill="url(#spark)" />
-                  <path d="M0 56 L40 51 L80 54 L120 44 L160 40 L200 35 L240 28 L280 19 L320 12" fill="none" stroke="rgb(var(--c-brand))" strokeWidth="2.5" />
-                </svg>
-                <div className="mt-5 space-y-3">
+                {/* Sparkline — hover any point for its date + value */}
+                <div className="relative mt-4 h-20" onMouseLeave={() => setActivePoint(null)}>
+                  <svg viewBox="0 0 320 70" className="w-full h-20 block" preserveAspectRatio="none">
+                    <defs>
+                      <linearGradient id="spark" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor="rgb(var(--c-brand))" stopOpacity="0.35" />
+                        <stop offset="100%" stopColor="rgb(var(--c-brand))" stopOpacity="0" />
+                      </linearGradient>
+                    </defs>
+                    <path d="M0 56 L40 51 L80 54 L120 44 L160 40 L200 35 L240 28 L280 19 L320 12 L320 70 L0 70 Z" fill="url(#spark)" />
+                    <path d="M0 56 L40 51 L80 54 L120 44 L160 40 L200 35 L240 28 L280 19 L320 12" fill="none" stroke="rgb(var(--c-brand))" strokeWidth="2.5" />
+                    {/* invisible hover hit-areas, one per data point */}
+                    {SPARK_CY.map((_, i) => (
+                      <rect
+                        key={i}
+                        x={Math.max(0, i * 40 - 20)}
+                        y="0"
+                        width="40"
+                        height="70"
+                        fill="transparent"
+                        className="cursor-pointer"
+                        onMouseEnter={() => setActivePoint(i)}
+                      />
+                    ))}
+                  </svg>
+                  {/* active dot — HTML (not SVG) so it isn't stretched by the non-uniform scale */}
+                  <span
+                    className={`absolute w-2.5 h-2.5 rounded-full bg-[#176B5B] ring-2 ring-surface -translate-x-1/2 -translate-y-1/2 pointer-events-none transition-opacity duration-150 ${activePoint !== null ? "opacity-100" : "opacity-0"}`}
+                    style={activePoint !== null ? { left: `${(activePoint * 40 / 320) * 100}%`, top: `${(SPARK_CY[activePoint] / 70) * 100}%` } : undefined}
+                  />
+                  {/* tooltip */}
+                  <div
+                    className={`absolute z-10 -translate-x-1/2 -translate-y-full pointer-events-none transition-opacity duration-150 ${activePoint !== null ? "opacity-100" : "opacity-0"}`}
+                    style={activePoint !== null ? { left: `${(activePoint * 40 / 320) * 100}%`, top: `${(SPARK_CY[activePoint] / 70) * 100}%` } : undefined}
+                  >
+                    <div className="mb-2 px-2 py-1 rounded-md bg-ink text-canvas text-[11px] font-semibold whitespace-nowrap shadow-md">
+                      {activePoint !== null && `${sparkMonths[activePoint]} · ${sym}${SPARK_AMT[activePoint].toFixed(2).replace(".", dec)}M`}
+                    </div>
+                  </div>
+                </div>
+                {/* Asset rows — hover highlights with a soft teal background */}
+                <div className="mt-5 space-y-1">
                   {[
                     { dot: "#16a34a", label: t("landing.mockCash"), val: t("landing.mockCashValue") },
                     { dot: "#d97706", label: t("landing.mockCrypto"), val: "0.42 BTC" },
                     { dot: "rgb(var(--c-brand))", label: t("landing.mockProperty"), val: t("landing.mockPropertyValue") },
                   ].map((r) => (
-                    <div key={r.label} className="flex items-center justify-between text-base">
+                    <div
+                      key={r.label}
+                      className="flex items-center justify-between text-base rounded-lg -mx-2 px-2 py-2 hover:bg-[#176B5B]/10 transition-colors cursor-default"
+                    >
                       <span className="flex items-center gap-2.5 text-ink-soft">
                         <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: r.dot }} />{r.label}
                       </span>
