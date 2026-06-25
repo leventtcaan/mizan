@@ -39,6 +39,10 @@ export default function GlobalAssistant() {
   const { t } = useLanguage();
   const [authed, setAuthed] = useState(false);
   const [open, setOpen] = useState(false);
+  // True once the user has opened the panel this session. On Home the FAB is normally
+  // hidden (Mim greets inline at the top), but once they've engaged the assistant we
+  // keep the FAB so they can reopen the conversation instead of it vanishing.
+  const [engaged, setEngaged] = useState(false);
   const [messages, setMessages] = useState<Msg[]>([]);
   const [input, setInput] = useState("");
   const [pending, setPending] = useState(false);
@@ -133,6 +137,7 @@ export default function GlobalAssistant() {
 
   useEffect(() => {
     if (open) {
+      setEngaged(true);
       scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
       setTimeout(() => inputRef.current?.focus(), 60);
     }
@@ -189,13 +194,14 @@ export default function GlobalAssistant() {
   return (
     <>
       {/* Mim — the companion, present on every page. Notices things, then waits. Tap to talk.
-          Hidden on Home, which already renders Mim inline as the greeting (avoids two Mims at once). */}
-      {!open && pathname !== "/home" && (
+          On Home it's hidden by default (Mim greets inline at the top, avoiding two Mims),
+          but reappears once the user has opened the panel so they can reopen it. */}
+      {!open && (pathname !== "/home" || engaged) && (
         <div className="fixed bottom-5 right-5 z-50 flex flex-col items-end gap-2.5">
           {bubble && (
             // Hidden on small screens so the speech bubble never covers financial
             // content; the compact Mim FAB below stays (tap it to open the panel).
-            <div className="mim-bubble hidden sm:flex items-start gap-2 max-w-[270px] rounded-2xl rounded-br-md bg-[#1D1A15] border border-[#302C25] shadow-xl shadow-black/40 pl-3.5 pr-2 py-2.5">
+            <div className="mim-bubble hidden sm:flex items-start gap-2 max-w-[270px] rounded-2xl rounded-br-md bg-surface border border-line shadow-xl shadow-ink/10 pl-3.5 pr-2 py-2.5">
               <button
                 onClick={() => { setScope(null); setInput(bubble.prefill); setBubble(null); setOpen(true); }}
                 className="text-left text-[13px] leading-snug text-ink-soft hover:text-ink transition-colors"
@@ -205,7 +211,7 @@ export default function GlobalAssistant() {
               <button
                 onClick={() => setBubble(null)}
                 aria-label={t("assistant.close")}
-                className="shrink-0 text-ink-mute hover:text-ink-mute transition-colors -mt-0.5"
+                className="shrink-0 text-ink-mute hover:text-ink-soft transition-colors -mt-0.5"
               >
                 <XIcon size={14} />
               </button>
@@ -242,8 +248,8 @@ export default function GlobalAssistant() {
 
             {/* Scope banner — makes it explicit the conversation is bound to one statement */}
             {scope && (
-              <div className="flex items-center gap-2 px-4 py-2 bg-brand/30 border-b border-brand/40 text-xs text-brand">
-                <FileText size={13} className="shrink-0 text-brand" />
+              <div className="flex items-center gap-2 px-4 py-2 bg-[#176B5B]/10 border-b border-[#176B5B]/20 text-xs text-[#176B5B]">
+                <FileText size={13} className="shrink-0 text-[#176B5B]" />
                 <span className="truncate">
                   {t("assistant.scopedTo")}{scope.label ? ` ${scope.label}` : ""} {t("assistant.scopedStatement")}
                 </span>
@@ -270,12 +276,12 @@ export default function GlobalAssistant() {
                     /* Free-tier daily message cap → friendly upgrade card */
                     <div className="flex items-start gap-2 justify-start">
                       <Mim mood="calm" size={22} quiet className="shrink-0 mb-0.5" />
-                      <div className="max-w-[85%] rounded-xl rounded-bl-sm border border-brand/40 bg-brand/10 p-3">
-                        <p className="text-ink-soft text-sm leading-relaxed mb-3">{m.text}</p>
+                      <div className="max-w-[85%] rounded-2xl rounded-bl-md border border-[#176B5B]/30 bg-[#176B5B]/[0.06] p-3.5">
+                        <p className="text-ink text-sm leading-relaxed mb-3">{m.text}</p>
                         <Link
                           href="/settings"
                           onClick={() => setOpen(false)}
-                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-brand hover:bg-brand-hover text-white text-xs font-semibold transition-colors"
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#176B5B] hover:bg-[#125848] text-white text-xs font-semibold transition-colors"
                         >
                           <Sparkles size={13} /> {t("assistant.capUpgrade")} <ArrowRight size={13} />
                         </Link>
@@ -284,7 +290,11 @@ export default function GlobalAssistant() {
                   ) : (
                   <div className={`flex items-end gap-2 ${m.role === "user" ? "justify-end" : "justify-start"}`}>
                     {m.role === "assistant" && <Mim mood="calm" size={22} quiet className="shrink-0 mb-0.5" />}
-                    <div className={`max-w-[80%] px-3 py-2 rounded-xl text-sm leading-relaxed ${m.role === "user" ? "bg-brand text-white" : "bg-[#242019] text-ink-soft rounded-bl-sm"}`}>
+                    <div className={`max-w-[82%] px-3.5 py-2.5 rounded-2xl text-sm leading-relaxed ${
+                      m.role === "user"
+                        ? "bg-[#176B5B] text-white rounded-br-md"
+                        : "bg-surface-2 text-ink border border-line rounded-bl-md"
+                    }`}>
                       {m.text}
                     </div>
                   </div>
@@ -292,11 +302,11 @@ export default function GlobalAssistant() {
 
                   {/* Proposal card */}
                   {m.proposal && m.actionState !== "rejected" && (
-                    <div className="bg-canvas border border-brand/40 rounded-xl p-3">
-                      <p className="text-ink-mute text-xs mb-1">{t("assistant.proposalIntro")}</p>
-                      <p className="text-ink text-sm mb-3">{m.proposal.description}</p>
+                    <div className="ml-7 bg-[#176B5B]/[0.06] border border-[#176B5B]/30 rounded-xl p-3.5">
+                      <p className="text-[#176B5B] text-[11px] font-semibold uppercase tracking-wide mb-1.5">{t("assistant.proposalIntro")}</p>
+                      <p className="text-ink text-sm mb-3 leading-relaxed">{m.proposal.description}</p>
                       {m.actionState === "done" ? (
-                        <div className="flex items-center gap-2 text-emerald-400 text-sm">
+                        <div className="flex items-center gap-2 text-pos text-sm font-medium">
                           <CheckCircle size={15} /> {m.resultMsg}
                         </div>
                       ) : m.actionState === "failed" ? (
@@ -306,14 +316,14 @@ export default function GlobalAssistant() {
                           <button
                             onClick={() => confirm(i, m.proposal!)}
                             disabled={m.actionState === "working"}
-                            className="flex-1 px-3 py-1.5 rounded-lg bg-brand hover:bg-brand-hover disabled:opacity-50 text-white text-xs font-medium transition-colors"
+                            className="flex-1 px-3 py-2 rounded-lg bg-[#176B5B] hover:bg-[#125848] disabled:opacity-50 text-white text-xs font-semibold transition-colors"
                           >
                             {m.actionState === "working" ? t("assistant.working") : t("assistant.confirm")}
                           </button>
                           <button
                             onClick={() => reject(i, m.proposal!)}
                             disabled={m.actionState === "working"}
-                            className="flex-1 px-3 py-1.5 rounded-lg border border-line text-ink-mute hover:text-ink-soft disabled:opacity-50 text-xs font-medium transition-colors"
+                            className="flex-1 px-3 py-2 rounded-lg border border-ink/30 text-ink-soft hover:border-ink/50 disabled:opacity-50 text-xs font-semibold transition-colors"
                           >
                             {t("assistant.reject")}
                           </button>
@@ -326,10 +336,10 @@ export default function GlobalAssistant() {
               {pending && (
                 <div className="flex items-end gap-2 justify-start">
                   <Mim mood="thinking" size={22} quiet className="shrink-0 mb-0.5" />
-                  <div className="bg-[#242019] px-3 py-2 rounded-xl rounded-bl-sm">
-                    <div className="flex gap-1 items-center h-4">
+                  <div className="bg-surface-2 border border-line px-3.5 py-3 rounded-2xl rounded-bl-md">
+                    <div className="flex gap-1 items-center h-3">
                       {[0, 1, 2].map((i) => (
-                        <span key={i} className="w-1.5 h-1.5 rounded-full bg-gray-500 animate-bounce" style={{ animationDelay: `${i * 0.15}s` }} />
+                        <span key={i} className="w-1.5 h-1.5 rounded-full bg-ink-mute animate-bounce" style={{ animationDelay: `${i * 0.15}s` }} />
                       ))}
                     </div>
                   </div>
@@ -346,12 +356,12 @@ export default function GlobalAssistant() {
                 onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); void send(); } }}
                 placeholder={t("assistant.placeholder")}
                 disabled={pending}
-                className="flex-1 bg-canvas border border-line rounded-lg px-3 py-2 text-sm text-ink placeholder-gray-600 focus:outline-none focus:border-brand"
+                className="flex-1 bg-canvas border border-line rounded-xl px-3.5 py-2.5 text-sm text-ink placeholder:text-ink-mute focus:outline-none focus:border-[#176B5B] focus:ring-2 focus:ring-[#176B5B]/20 transition-shadow"
               />
               <button
                 onClick={() => void send()}
                 disabled={pending || !input.trim()}
-                className="px-3 py-2 rounded-lg bg-brand hover:bg-brand-hover disabled:opacity-40 text-white transition-colors"
+                className="px-3.5 rounded-xl bg-[#176B5B] hover:bg-[#125848] disabled:opacity-40 disabled:cursor-not-allowed text-white transition-colors"
                 title={t("assistant.send")}
               >
                 <Send size={16} />

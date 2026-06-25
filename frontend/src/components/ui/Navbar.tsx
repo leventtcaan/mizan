@@ -120,7 +120,7 @@ export default function Navbar() {
                   href={link.href}
                   className={`relative flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm transition-colors ${
                     isActive
-                      ? "text-ink bg-surface-2"
+                      ? "text-[#176B5B] bg-[#176B5B]/10 font-semibold"
                       : "text-ink-mute hover:text-ink-soft hover:bg-surface"
                   }`}
                 >
@@ -211,7 +211,7 @@ export default function Navbar() {
                   href={link.href}
                   className={`flex items-center gap-3 px-3 py-3 rounded-lg text-sm transition-colors ${
                     isActive
-                      ? "text-ink bg-surface-2"
+                      ? "text-[#176B5B] bg-[#176B5B]/10 font-semibold"
                       : "text-ink-soft hover:text-ink hover:bg-surface"
                   }`}
                 >
@@ -222,14 +222,14 @@ export default function Navbar() {
             })}
             <Link
               href="/simulator"
-              className={`flex items-center gap-3 px-3 py-3 rounded-lg text-sm transition-colors ${pathname === "/simulator" ? "text-ink bg-surface-2" : "text-ink-soft hover:text-ink hover:bg-surface"}`}
+              className={`flex items-center gap-3 px-3 py-3 rounded-lg text-sm transition-colors ${pathname === "/simulator" ? "text-[#176B5B] bg-[#176B5B]/10 font-semibold" : "text-ink-soft hover:text-ink hover:bg-surface"}`}
             >
               <Sparkles size={16} />
               {t("nav.simulator")}
             </Link>
             <Link
               href="/settings"
-              className={`flex items-center gap-3 px-3 py-3 rounded-lg text-sm transition-colors ${pathname === "/settings" ? "text-ink bg-surface-2" : "text-ink-soft hover:text-ink hover:bg-surface"}`}
+              className={`flex items-center gap-3 px-3 py-3 rounded-lg text-sm transition-colors ${pathname === "/settings" ? "text-[#176B5B] bg-[#176B5B]/10 font-semibold" : "text-ink-soft hover:text-ink hover:bg-surface"}`}
             >
               <Settings size={16} />
               {t("settings.title")}
@@ -237,7 +237,7 @@ export default function Navbar() {
             {isAdmin && (
               <Link
                 href="/admin"
-                className={`flex items-center gap-3 px-3 py-3 rounded-lg text-sm transition-colors ${pathname === "/admin" ? "text-ink bg-surface-2" : "text-amber-300 hover:text-ink hover:bg-surface"}`}
+                className={`flex items-center gap-3 px-3 py-3 rounded-lg text-sm transition-colors ${pathname === "/admin" ? "text-[#176B5B] bg-[#176B5B]/10 font-semibold" : "text-amber-300 hover:text-ink hover:bg-surface"}`}
               >
                 <ShieldCheck size={16} />
                 Admin
