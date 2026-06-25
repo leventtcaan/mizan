@@ -125,6 +125,8 @@ export const en = {
     done: "Done",
     failed: "Action failed",
     error: "I can't respond right now. Please try again.",
+    capMessage: "You've reached today's limit of 10 messages. Continue tomorrow, or upgrade to Plus.",
+    capUpgrade: "Upgrade to Plus",
     scopedTo: "Talking about:",
     scopedStatement: "statement",
     scopedGreeting: "Ask me anything about this statement — what's behind a number, where your money went, or what to do next.",

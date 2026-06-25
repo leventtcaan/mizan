@@ -2,13 +2,14 @@
 
 import { useEffect, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
-import { Send, X as XIcon, CheckCircle, FileText } from "@/components/ui/Icons";
+import Link from "next/link";
+import { Send, X as XIcon, CheckCircle, FileText, Sparkles, ArrowRight } from "@/components/ui/Icons";
 import Mim from "@/components/companion/Mim";
 import { observe, checkEscalation, contextFromPath, type Observation } from "@/components/companion/voice";
 import { useLanguage } from "@/lib/i18n";
 import {
   getToken, getStoredUser, getNetWorthSummary, getDefaultCurrency,
-  assistantChat, confirmAssistantAction, rejectAssistantAction,
+  assistantChat, confirmAssistantAction, rejectAssistantAction, AssistantCapError,
   type AssistantPageContext, type ActionProposal,
 } from "@/lib/api";
 
@@ -22,6 +23,8 @@ interface Msg {
   proposal?: ActionProposal | null;
   actionState?: ActionState;
   resultMsg?: string;
+  // Free-tier daily message cap reached → render the friendly upgrade card, not a bubble.
+  cap?: boolean;
 }
 
 function detectContext(pathname: string): AssistantPageContext {
@@ -150,8 +153,15 @@ export default function GlobalAssistant() {
         ...prev,
         { role: "assistant", text: res.reply, proposal: res.proposal, actionState: "idle" },
       ]);
-    } catch {
-      setMessages((prev) => [...prev, { role: "assistant", text: t("assistant.error") }]);
+    } catch (err) {
+      if (err instanceof AssistantCapError) {
+        setMessages((prev) => [
+          ...prev,
+          { role: "assistant", text: t("assistant.capMessage"), cap: true },
+        ]);
+      } else {
+        setMessages((prev) => [...prev, { role: "assistant", text: t("assistant.error") }]);
+      }
     } finally {
       setPending(false);
     }
@@ -256,12 +266,29 @@ export default function GlobalAssistant() {
               )}
               {messages.map((m, i) => (
                 <div key={i} className="space-y-2">
+                  {m.cap ? (
+                    /* Free-tier daily message cap → friendly upgrade card */
+                    <div className="flex items-start gap-2 justify-start">
+                      <Mim mood="calm" size={22} quiet className="shrink-0 mb-0.5" />
+                      <div className="max-w-[85%] rounded-xl rounded-bl-sm border border-brand/40 bg-brand/10 p-3">
+                        <p className="text-ink-soft text-sm leading-relaxed mb-3">{m.text}</p>
+                        <Link
+                          href="/settings"
+                          onClick={() => setOpen(false)}
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-brand hover:bg-brand-hover text-white text-xs font-semibold transition-colors"
+                        >
+                          <Sparkles size={13} /> {t("assistant.capUpgrade")} <ArrowRight size={13} />
+                        </Link>
+                      </div>
+                    </div>
+                  ) : (
                   <div className={`flex items-end gap-2 ${m.role === "user" ? "justify-end" : "justify-start"}`}>
                     {m.role === "assistant" && <Mim mood="calm" size={22} quiet className="shrink-0 mb-0.5" />}
                     <div className={`max-w-[80%] px-3 py-2 rounded-xl text-sm leading-relaxed ${m.role === "user" ? "bg-brand text-white" : "bg-[#242019] text-ink-soft rounded-bl-sm"}`}>
                       {m.text}
                     </div>
                   </div>
+                  )}
 
                   {/* Proposal card */}
                   {m.proposal && m.actionState !== "rejected" && (

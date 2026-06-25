@@ -22,7 +22,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
 from app.core.database import get_session
-from app.core.dependencies import get_verified_user
+from app.core.dependencies import get_current_user, get_verified_user
 from app.core.plans import FREE_MONTHLY_UPLOAD_CAP, effective_plan, vision_enabled
 from app.core.rate_limiter import upload_ip_limiter, upload_user_limiter
 from app.models.progress_insight import ProgressInsight
@@ -432,7 +432,7 @@ async def _brief_cache_set(
 async def upload_brief(
     job_id: str,
     lang: str = "tr",
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_verified_user),
     session: AsyncSession = Depends(get_session),
 ) -> BriefResponse:
     """

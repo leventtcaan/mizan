@@ -125,6 +125,8 @@ export const tr = {
     done: "Tamamlandı",
     failed: "İşlem başarısız oldu",
     error: "Şu anda yanıt veremiyorum. Lütfen tekrar deneyin.",
+    capMessage: "Bugünlük 10 mesaj limitine ulaştın. Yarın devam edebilir veya Plus'a geçebilirsin.",
+    capUpgrade: "Plus'a geç",
     scopedTo: "Şununla ilgili:",
     scopedStatement: "ekstresi",
     scopedGreeting: "Bu ekstre hakkında ne istersen sor — bir rakamın arkasında ne var, paran nereye gitti ya da sırada ne yapmalısın.",

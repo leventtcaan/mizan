@@ -25,6 +25,9 @@ PAID_PLANS = {PLUS, PRO}
 # Free-tier statement uploads allowed per calendar month.
 FREE_MONTHLY_UPLOAD_CAP = 1
 
+# Free-tier AI assistant messages allowed per day (rolling 24h). Paid = unlimited.
+FREE_DAILY_ASSISTANT_CAP = 10
+
 
 def effective_plan(user: "User") -> str:
     """
@@ -48,3 +51,8 @@ def is_paid(user: "User") -> bool:
 def vision_enabled(user: "User") -> bool:
     """Vision PDF extraction is a paid feature (free tier falls back to OCR)."""
     return is_paid(user)
+
+
+def assistant_daily_cap(user: "User") -> int | None:
+    """Max AI assistant messages per rolling 24h. None = unlimited (paid plans)."""
+    return None if is_paid(user) else FREE_DAILY_ASSISTANT_CAP

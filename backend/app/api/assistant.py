@@ -7,12 +7,14 @@ POST /assistant/action/reject — log rejection.
 
 import logging
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, field_validator
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_session
-from app.core.dependencies import get_current_user
+from app.core.dependencies import get_verified_user
+from app.core.plans import assistant_daily_cap
+from app.core.rate_limiter import assistant_limiter
 from app.models.user import User
 from app.services.assistant import ActionError, confirm_action, reject_action, run_chat
 
@@ -74,9 +76,21 @@ class ConfirmResponse(BaseModel):
 @router.post("/chat", response_model=AssistantChatResponse)
 async def assistant_chat(
     body: AssistantChatRequest,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_verified_user),
     session: AsyncSession = Depends(get_session),
 ) -> AssistantChatResponse:
+    # Free tier: 10 assistant messages per rolling 24h. Paid plans are unlimited
+    # (cap is None → skip the check). Redis-backed so it survives restarts and is
+    # shared across instances. The window only advances on allowed messages.
+    cap = assistant_daily_cap(current_user)
+    if cap is not None and not assistant_limiter.is_allowed(
+        str(current_user.id), max_calls=cap, window_seconds=86400
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="assistant_daily_cap_reached",
+        )
+
     result = await run_chat(
         current_user,
         body.message,
@@ -95,7 +109,7 @@ async def assistant_chat(
 @router.post("/action/confirm", response_model=ConfirmResponse)
 async def assistant_confirm(
     body: ConfirmRequest,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_verified_user),
     session: AsyncSession = Depends(get_session),
 ) -> ConfirmResponse:
     try:
@@ -108,7 +122,7 @@ async def assistant_confirm(
 @router.post("/action/reject", response_model=ConfirmResponse)
 async def assistant_reject(
     body: ConfirmRequest,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_verified_user),
     session: AsyncSession = Depends(get_session),
 ) -> ConfirmResponse:
     try:

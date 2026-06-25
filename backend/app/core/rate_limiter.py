@@ -149,3 +149,5 @@ upload_user_limiter = _make_limiter("upload_user")  # max 3 uploads per user per
 upload_ip_limiter = _make_limiter("upload_ip")    # max 3 uploads per IP per 10 minutes
 # WHY: Each correction busts the insight cache and can trigger an LLM regeneration.
 correction_limiter = _make_limiter("correction")  # max 20 corrections per user per hour
+# WHY: Free-tier AI assistant cap — 10 messages per rolling 24h per user.
+assistant_limiter = _make_limiter("assistant")

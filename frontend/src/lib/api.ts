@@ -465,6 +465,14 @@ export class EmailNotVerifiedError extends Error {
   }
 }
 
+/** Thrown when a free user hits the daily assistant message cap (HTTP 429) → show upgrade prompt. */
+export class AssistantCapError extends Error {
+  constructor() {
+    super("assistant_daily_cap_reached");
+    this.name = "AssistantCapError";
+  }
+}
+
 export async function uploadStatement(file: File): Promise<UploadResponse> {
   const form = new FormData();
   form.append("file", file);
@@ -1769,6 +1777,10 @@ export async function assistantChat(
   });
   if (!response.ok) {
     const err = await response.json().catch(() => null);
+    const detail = (err as { detail?: string } | null)?.detail;
+    if (response.status === 429 && detail === "assistant_daily_cap_reached") {
+      throw new AssistantCapError();
+    }
     throw new Error(extractErrorMessage(err, "Assistant unavailable"));
   }
   return response.json() as Promise<AssistantChatResponse>;

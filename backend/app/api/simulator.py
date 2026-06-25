@@ -14,7 +14,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_session
-from app.core.dependencies import get_current_user
+from app.core.dependencies import get_verified_user
 from app.models.user import User
 from app.services.simulator import (
     ACTION_TYPES,
@@ -64,7 +64,7 @@ def _clean_actions(actions: list[SimAction]) -> list[dict]:
 @router.get("/levers")
 async def levers(
     display_currency: str = Query(default="TRY"),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_verified_user),
     session: AsyncSession = Depends(get_session),
 ) -> dict:
     """Personalized lever options (their subscriptions, debts, cash, surplus)."""
@@ -76,7 +76,7 @@ async def run(
     body: RunRequest,
     display_currency: str = Query(default="TRY"),
     lang: str = Query(default="tr"),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_verified_user),
     session: AsyncSession = Depends(get_session),
 ) -> dict:
     """Project baseline vs scenario for the given structured levers."""
@@ -91,7 +91,7 @@ async def ask(
     body: AskRequest,
     display_currency: str = Query(default="TRY"),
     lang: str = Query(default="tr"),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_verified_user),
     session: AsyncSession = Depends(get_session),
 ) -> dict:
     """Natural-language question → parsed levers → projection. parsed=False if unmapped."""
