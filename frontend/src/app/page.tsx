@@ -67,25 +67,27 @@ export default function LandingPage() {
 
   type Tier = {
     id: string; name: string; tagline: string;
-    monthly: string; yearly: string; yearlyMo: string | null; usd: string | null;
+    // TRY (shown when lang === "tr") and USD (shown when lang === "en"). Never both.
+    monthly: string; yearly: string; yearlyMo: string | null;
+    usdMonthly: string; usdYearly: string; usdMo: string | null;
     features: string[]; cta: string; href: string; highlight: boolean;
   };
   const TIERS: Tier[] = [
     {
       id: "free", name: t("pricing.freeName"), tagline: t("pricing.freeTagline"),
-      monthly: "₺0", yearly: "₺0", yearlyMo: null, usd: null,
+      monthly: "₺0", yearly: "₺0", yearlyMo: null, usdMonthly: "$0", usdYearly: "$0", usdMo: null,
       features: tList("pricing.freeFeatures"), cta: t("pricing.freeCta"),
       href: startHref, highlight: false,
     },
     {
       id: "plus", name: "Plus", tagline: t("pricing.plusTagline"),
-      monthly: "₺149", yearly: "₺1.290", yearlyMo: "₺108", usd: "$49",
+      monthly: "₺199", yearly: "₺1.690", yearlyMo: "₺141", usdMonthly: "$7", usdYearly: "$59", usdMo: "$5",
       features: tList("pricing.plusFeatures"), cta: t("pricing.plusCta"),
       href: upgradeHref, highlight: true,
     },
     {
       id: "pro", name: "Pro", tagline: t("pricing.proTagline"),
-      monthly: "₺249", yearly: "₺2.190", yearlyMo: "₺183", usd: "$89",
+      monthly: "₺349", yearly: "₺2.990", yearlyMo: "₺249", usdMonthly: "$12", usdYearly: "$99", usdMo: "$8",
       features: tList("pricing.proFeatures"), cta: t("pricing.proCta"),
       href: upgradeHref, highlight: false,
     },
@@ -437,20 +439,20 @@ export default function LandingPage() {
                   {/* Price */}
                   <div className="mb-6">
                     {free ? (
-                      <div className="text-4xl font-bold tabular-nums">₺0</div>
+                      <div className="text-4xl font-bold tabular-nums">{lang === "tr" ? "₺0" : "$0"}</div>
                     ) : annual ? (
                       <>
                         <div className="flex items-baseline gap-1">
-                          <span className={`text-4xl font-bold tabular-nums ${tier.highlight ? "text-brand" : ""}`}>{tier.yearly}</span>
+                          <span className={`text-4xl font-bold tabular-nums ${tier.highlight ? "text-brand" : ""}`}>{lang === "tr" ? tier.yearly : tier.usdYearly}</span>
                           <span className="text-ink-mute text-sm">/{perYr}</span>
                         </div>
                         <p className="text-ink-mute text-xs mt-1.5 tabular-nums">
-                          ≈ {tier.yearlyMo}/{perMo} · {tier.usd}/yr
+                          {lang === "tr" ? `≈ ${tier.yearlyMo}/${perMo}` : `≈ ${tier.usdMo}/${perMo}`}
                         </p>
                       </>
                     ) : (
                       <div className="flex items-baseline gap-1">
-                        <span className={`text-4xl font-bold tabular-nums ${tier.highlight ? "text-brand" : ""}`}>{tier.monthly}</span>
+                        <span className={`text-4xl font-bold tabular-nums ${tier.highlight ? "text-brand" : ""}`}>{lang === "tr" ? tier.monthly : tier.usdMonthly}</span>
                         <span className="text-ink-mute text-sm">/{perMo}</span>
                       </div>
                     )}
@@ -515,13 +517,29 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* Final CTA */}
+      {/* Final CTA — strong close: dark teal card, social proof, one bold line */}
       {!isLoggedIn && (
         <section className="py-24 px-6 border-t border-line">
-          <div className="max-w-3xl mx-auto text-center bg-[#176B5B]/5 border border-[#176B5B]/30 rounded-2xl px-6 py-14">
-            <h2 className="text-4xl font-bold mb-4">{t("landing.ctaTitle")}</h2>
-            <p className="text-ink-mute mb-8 text-lg">{t("landing.ctaSubtitle")}</p>
-            <Link href={startHref} className="inline-flex items-center gap-2 px-10 py-4 rounded-xl bg-[#176B5B] hover:bg-[#125848] text-white font-semibold text-base shadow-sm transition-colors">
+          <div className="max-w-4xl mx-auto rounded-3xl bg-[#0C2723] px-8 py-16 sm:py-20 text-center">
+            {/* Trust statement (no data required) */}
+            <span className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-white/10 text-[#6FE0CE] text-xs font-semibold mb-7">
+              <ShieldCheck size={13} />
+              {lang === "tr"
+                ? "Banka girişi yok. Kart yok. İstediğinde iptal et."
+                : "No bank login. No credit card. Cancel anytime."}
+            </span>
+            <h2 className="text-4xl sm:text-5xl font-bold text-white tracking-tight leading-[1.05] mb-4">
+              {lang === "tr" ? "Paranı tahmin etmeyi bırak." : "Stop guessing where your money goes."}
+            </h2>
+            <p className="text-white/55 text-lg mb-9 max-w-xl mx-auto">
+              {lang === "tr"
+                ? "İlk ekstreni yükle, 60 saniyede ilk brifingini al."
+                : "Upload your first statement and get your first brief in 60 seconds."}
+            </p>
+            <Link
+              href={startHref}
+              className="inline-flex items-center gap-2 px-10 py-4 rounded-xl bg-white hover:bg-white/90 text-[#0C2723] font-bold text-lg shadow-lg shadow-black/20 transition-colors"
+            >
               {t("landing.ctaBtn")} <ArrowRight size={20} />
             </Link>
           </div>
