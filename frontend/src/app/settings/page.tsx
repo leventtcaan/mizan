@@ -2,9 +2,10 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import PageLayout from "@/components/ui/PageLayout";
 import CurrencySelect from "@/components/CurrencySelect";
-import { LogOut } from "@/components/ui/Icons";
+import { LogOut, Sparkles, ArrowRight } from "@/components/ui/Icons";
 import { card, sectionHeading } from "@/lib/design";
 import { useLanguage, type Lang } from "@/lib/i18n";
 import {
@@ -19,17 +20,20 @@ export default function SettingsPage() {
   const [email, setEmail] = useState<string>("");
   const [currency, setCurrency] = useState<string>("TRY");
   const [emailWeekly, setEmailWeekly] = useState<boolean | null>(null);
+  const [plan, setPlan] = useState<string>("free");
   const [savedFlash, setSavedFlash] = useState(false);
 
   useEffect(() => {
     if (!getToken() || !getStoredUser()) { router.replace("/login"); return; }
     setEmail(getStoredUser()?.email ?? "");
     setCurrency(getDefaultCurrency());
+    setPlan(getStoredUser()?.plan ?? "free");
     getMe()
       .then((me) => {
         setEmail(me.email);
         setCurrency(me.display_currency || "TRY");
         setEmailWeekly(me.email_weekly_enabled);
+        setPlan(me.plan || "free");
         // keep localStorage in sync with server truth
         const u = getStoredUser();
         if (u) setStoredUser({ ...u, display_currency: me.display_currency, language: me.language });
@@ -75,6 +79,32 @@ export default function SettingsPage() {
       )}
 
       <div className="space-y-4">
+        {/* Plan — current tier + upgrade entry point */}
+        <section className={card}>
+          <p className={`${sectionHeading} mb-4`}>{t("settings.plan")}</p>
+          <div className="flex items-center justify-between gap-4 flex-wrap">
+            <div className="min-w-0">
+              <p className="text-ink text-sm font-semibold">
+                {plan === "free" ? t("pricing.freeName") : plan.charAt(0).toUpperCase() + plan.slice(1)}
+                {plan === "free"
+                  ? ""
+                  : <span className="ml-2 text-[10px] uppercase tracking-wider text-[#176B5B] bg-[#176B5B]/10 px-2 py-0.5 rounded-full">{t("settings.planCurrent")}</span>}
+              </p>
+              <p className="text-ink-mute text-xs mt-0.5">
+                {plan === "free" ? t("settings.planFreeHint") : t("settings.planPaidHint")}
+              </p>
+            </div>
+            <Link
+              href="/upgrade"
+              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-[#176B5B] hover:bg-[#125848] text-white text-sm font-semibold transition-colors shrink-0"
+            >
+              <Sparkles size={15} />
+              {plan === "free" ? t("settings.upgradeCta") : t("settings.managePlan")}
+              <ArrowRight size={15} />
+            </Link>
+          </div>
+        </section>
+
         {/* Preferences */}
         <section className={card}>
           <p className={`${sectionHeading} mb-4`}>{t("settings.preferences")}</p>

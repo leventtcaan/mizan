@@ -5,11 +5,14 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { login, register, setToken, setStoredUser, detectBrowserCurrency } from "@/lib/api";
 import { useLanguage, setLanguage, detectBrowserLang, type Lang } from "@/lib/i18n";
+import ThemeToggle from "@/components/ui/ThemeToggle";
 
 type Mode = "login" | "register";
 type FormState = "idle" | "loading" | "error";
 
-const inputClass = "w-full px-4 py-3 rounded-xl bg-surface border border-line text-ink placeholder-gray-700 focus:outline-none focus:border-brand transition-colors text-sm";
+const inputClass =
+  "w-full px-4 py-3 rounded-xl bg-canvas border border-line text-ink placeholder:text-ink-mute " +
+  "focus:outline-none focus:border-[#176B5B] focus:ring-2 focus:ring-[#176B5B]/20 transition-shadow text-sm";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -28,6 +31,13 @@ export default function LoginPage() {
       setMode("register");
     }
   }, []);
+
+  const switchMode = (next: Mode) => {
+    if (next === mode) return;
+    setMode(next);
+    setErrorMsg("");
+    setState("idle");
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -60,79 +70,125 @@ export default function LoginPage() {
     }
   };
 
+  const isRegister = mode === "register";
+
   return (
-    <main className="min-h-screen bg-canvas text-ink flex flex-col items-center justify-center px-4">
-      <div className="w-full max-w-sm">
-        {/* Language toggle */}
-        <div className="flex justify-end mb-4">
-          <div className="flex rounded-lg overflow-hidden border border-line text-xs font-medium">
-            <button onClick={() => setLanguage("tr")} className={`px-2 py-1 transition-colors ${lang === "tr" ? "bg-brand text-white" : "text-ink-mute"}`}>TR</button>
-            <button onClick={() => setLanguage("en")} className={`px-2 py-1 transition-colors ${lang === "en" ? "bg-brand text-white" : "text-ink-mute"}`}>EN</button>
+    <main className="min-h-screen bg-canvas text-ink flex flex-col">
+      {/* Top bar — logo + language + theme, matching the landing chrome */}
+      <header className="flex items-center justify-between px-6 py-5 max-w-6xl mx-auto w-full">
+        <Link href="/" className="text-lg font-bold tracking-tight text-ink hover:text-[#176B5B] transition-colors">
+          Mizan
+        </Link>
+        <div className="flex items-center gap-2.5">
+          <div className="flex items-center gap-1.5">
+            {(["tr", "en"] as const).map((l) => (
+              <button
+                key={l}
+                onClick={() => setLanguage(l)}
+                aria-pressed={lang === l}
+                className={`inline-flex items-center h-9 px-3 rounded-lg text-xs font-semibold transition-colors ${
+                  lang === l
+                    ? "bg-[#176B5B] text-white border border-[#176B5B]"
+                    : "bg-transparent text-ink-soft border border-ink/30 hover:border-[#176B5B] hover:text-ink"
+                }`}
+              >
+                {l.toUpperCase()}
+              </button>
+            ))}
           </div>
+          <ThemeToggle size="sm" />
         </div>
+      </header>
 
-        <div className="mb-8">
-          <Link href="/" className="text-ink-mute text-sm hover:text-ink-mute transition-colors">
-            ← Mizan
-          </Link>
-          <h1 className="text-3xl font-bold mt-6">
-            {mode === "login" ? t("auth.loginTitle") : t("auth.registerTitle")}
-          </h1>
-        </div>
-
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="block text-xs text-ink-mute mb-1.5 uppercase tracking-wide">{t("auth.email")}</label>
-            <input
-              type="email"
-              required
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className={inputClass}
-              placeholder="example@email.com"
-            />
-          </div>
-
-          <div>
-            <label className="block text-xs text-ink-mute mb-1.5 uppercase tracking-wide">{t("auth.password")}</label>
-            <input
-              type="password"
-              required
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className={inputClass}
-              placeholder="••••••••"
-            />
-          </div>
-
-          {state === "error" && (
-            <div className="p-3.5 rounded-xl bg-red-950/40 border border-red-800/60">
-              <p className="text-neg text-sm">{errorMsg}</p>
+      {/* Centered auth card */}
+      <div className="flex-1 flex items-center justify-center px-4 pb-20">
+        <div className="w-full max-w-md">
+          <div className="rounded-2xl border border-line bg-surface shadow-xl shadow-ink/5 p-7 sm:p-8">
+            {/* Header */}
+            <div className="mb-6">
+              <h1 className="text-2xl font-bold tracking-tight">
+                {isRegister ? t("auth.registerTitle") : t("auth.loginTitle")}
+              </h1>
+              <p className="text-ink-mute text-sm mt-1.5">
+                {isRegister ? t("auth.registerSubtitle") : t("auth.loginSubtitle")}
+              </p>
             </div>
-          )}
 
-          <button
-            type="submit"
-            disabled={state === "loading"}
-            className="w-full py-3.5 px-4 rounded-xl font-semibold bg-brand hover:bg-brand-hover disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-          >
-            {state === "loading" ? (
-              <span className="flex items-center justify-center gap-2">
-                <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                {t("common.loading")}
-              </span>
-            ) : mode === "login" ? t("auth.loginBtn") : t("auth.registerBtn")}
-          </button>
-        </form>
+            {/* Mode tabs */}
+            <div className="flex p-1 rounded-xl bg-surface-2 border border-line mb-6">
+              {([["login", t("auth.loginBtn")], ["register", t("auth.registerBtn")]] as [Mode, string][]).map(
+                ([m, label]) => (
+                  <button
+                    key={m}
+                    type="button"
+                    onClick={() => switchMode(m)}
+                    aria-pressed={mode === m}
+                    className={`flex-1 py-2 rounded-lg text-sm font-semibold transition-colors ${
+                      mode === m ? "bg-surface text-ink shadow-sm" : "text-ink-mute hover:text-ink-soft"
+                    }`}
+                  >
+                    {label}
+                  </button>
+                ),
+              )}
+            </div>
 
-        <p className="mt-6 text-center text-sm text-ink-mute">
-          <button
-            onClick={() => { setMode(mode === "login" ? "register" : "login"); setErrorMsg(""); setState("idle"); }}
-            className="text-brand hover:text-brand transition-colors"
-          >
-            {mode === "login" ? t("auth.registerSwitch") : t("auth.loginSwitch")}
-          </button>
-        </p>
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div>
+                <label className="block text-xs text-ink-mute mb-1.5 uppercase tracking-wide">{t("auth.email")}</label>
+                <input
+                  type="email"
+                  required
+                  autoComplete="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className={inputClass}
+                  placeholder="example@email.com"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs text-ink-mute mb-1.5 uppercase tracking-wide">{t("auth.password")}</label>
+                <input
+                  type="password"
+                  required
+                  autoComplete={isRegister ? "new-password" : "current-password"}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className={inputClass}
+                  placeholder="••••••••"
+                />
+                {isRegister && <p className="text-ink-mute text-xs mt-1.5">{t("auth.passwordHint")}</p>}
+              </div>
+
+              {state === "error" && (
+                <div className="p-3.5 rounded-xl bg-neg/10 border border-neg/30">
+                  <p className="text-neg text-sm">{errorMsg}</p>
+                </div>
+              )}
+
+              <button
+                type="submit"
+                disabled={state === "loading"}
+                className="w-full py-3.5 px-4 rounded-xl font-semibold bg-[#176B5B] hover:bg-[#125848] text-white disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                {state === "loading" ? (
+                  <span className="flex items-center justify-center gap-2">
+                    <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    {t("common.loading")}
+                  </span>
+                ) : isRegister ? t("auth.registerBtn") : t("auth.loginBtn")}
+              </button>
+            </form>
+          </div>
+
+          {/* Reassurance line under the card */}
+          <p className="text-center text-ink-mute text-xs mt-5">
+            {lang === "tr"
+              ? "Banka girişi yok. Kart yok. İstediğinde iptal et."
+              : "No bank login. No credit card. Cancel anytime."}
+          </p>
+        </div>
       </div>
     </main>
   );
