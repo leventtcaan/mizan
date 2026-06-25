@@ -5,13 +5,14 @@ import Link from "next/link";
 import { getToken, getStoredUser } from "@/lib/api";
 import {
   Brain, Scale, Sparkles, Mail, ShieldCheck, FileText, MessageCircle,
-  ArrowRight, TrendingUp, CheckCircle, CreditCard,
+  ArrowRight, TrendingUp, CheckCircle, CreditCard, Sun, Moon, Monitor,
 } from "@/components/ui/Icons";
 import { useLanguage } from "@/lib/i18n";
-import ThemeToggle from "@/components/ui/ThemeToggle";
+import { useTheme, type ThemePref } from "@/lib/theme";
 
 export default function LandingPage() {
   const { t, tList, lang, setLanguage } = useLanguage();
+  const { pref: themePref, setTheme } = useTheme();
   const [userEmail, setUserEmail] = useState<string | null>(null);
   const [annual, setAnnual] = useState(true);
   const howRef = useRef<HTMLElement>(null);
@@ -22,7 +23,10 @@ export default function LandingPage() {
   }, []);
 
   const isLoggedIn = userEmail !== null;
-  const primaryHref = isLoggedIn ? "/home" : "/login";
+  // "Ücretsiz başla" sends new visitors to the register form; logged-in users continue to /home.
+  const startHref = isLoggedIn ? "/home" : "/login?mode=register";
+  // Logo: landing for logged-out visitors, the app home for logged-in users.
+  const logoHref = isLoggedIn ? "/home" : "/";
   // A logged-in visitor upgrading goes to settings; a visitor starts by signing up.
   const upgradeHref = isLoggedIn ? "/settings" : "/login";
 
@@ -58,7 +62,7 @@ export default function LandingPage() {
       id: "free", name: t("pricing.freeName"), tagline: t("pricing.freeTagline"),
       monthly: "₺0", yearly: "₺0", yearlyMo: null, usd: null,
       features: tList("pricing.freeFeatures"), cta: t("pricing.freeCta"),
-      href: primaryHref, highlight: false,
+      href: startHref, highlight: false,
     },
     {
       id: "plus", name: "Plus", tagline: t("pricing.plusTagline"),
@@ -82,44 +86,88 @@ export default function LandingPage() {
 
   return (
     <main className="min-h-screen bg-canvas text-ink overflow-x-hidden">
-      {/* Nav */}
-      <nav className="flex items-center justify-between px-6 py-5 max-w-6xl mx-auto">
-        <span className="text-lg font-bold tracking-tight">Mizan</span>
-        <div className="flex items-center gap-2.5">
+      {/* Nav — everything on one baseline (items-center), consistent h-9 controls.
+          Teal accents are the literal brand teal #176B5B in BOTH themes (the
+          theme `action` token lightens in dark mode; the spec wants it fixed). */}
+      <nav className="flex items-center justify-between gap-4 px-6 py-4 max-w-6xl mx-auto">
+        {/* Logo — clean wordmark, clickable (→ / when logged out, /home when in) */}
+        <Link href={logoHref} className="text-lg font-bold tracking-tight text-ink hover:text-[#176B5B] transition-colors">
+          Mizan
+        </Link>
+
+        <div className="flex items-center gap-2 sm:gap-3">
+          {/* Pricing — reads as a nav link (hover color + teal underline) */}
           <button
             onClick={() => pricingRef.current?.scrollIntoView({ behavior: "smooth" })}
-            className="hidden sm:block px-3 py-2 text-sm text-ink-soft hover:text-ink transition-colors"
+            className="hidden sm:inline-flex items-center h-9 px-2 text-sm font-medium text-ink-soft hover:text-[#176B5B] hover:underline underline-offset-[6px] decoration-2 decoration-[#176B5B] transition-colors"
           >
             {t("pricing.navLink")}
           </button>
-          {/* Language toggle — re-renders all copy live on this page */}
-          <div className="flex rounded-lg overflow-hidden border border-line text-xs font-medium">
-            <button
-              onClick={() => setLanguage("tr")}
-              className={`px-2.5 py-1.5 transition-colors ${lang === "tr" ? "bg-brand text-white" : "text-ink-mute hover:text-ink-soft"}`}
-            >
-              TR
-            </button>
-            <button
-              onClick={() => setLanguage("en")}
-              className={`px-2.5 py-1.5 transition-colors ${lang === "en" ? "bg-brand text-white" : "text-ink-mute hover:text-ink-soft"}`}
-            >
-              EN
-            </button>
+
+          {/* Language toggle — two buttons; active filled teal, inactive outline */}
+          <div className="flex items-center gap-1.5">
+            {(["tr", "en"] as const).map((l) => (
+              <button
+                key={l}
+                onClick={() => setLanguage(l)}
+                aria-pressed={lang === l}
+                className={`inline-flex items-center h-9 px-3 rounded-lg text-xs font-semibold transition-colors ${
+                  lang === l
+                    ? "bg-[#176B5B] text-white border border-[#176B5B]"
+                    : "bg-transparent text-ink-soft border border-ink/35 hover:border-[#176B5B] hover:text-ink"
+                }`}
+              >
+                {l.toUpperCase()}
+              </button>
+            ))}
           </div>
-          <ThemeToggle size="sm" />
+
+          {/* Theme toggle — segmented sun/moon/monitor; click switches instantly */}
+          <div className="inline-flex items-center h-9 gap-0.5 rounded-lg border border-ink/35 bg-surface px-0.5">
+            {([
+              { value: "light", Icon: Sun },
+              { value: "dark", Icon: Moon },
+              { value: "system", Icon: Monitor },
+            ] as { value: ThemePref; Icon: typeof Sun }[]).map(({ value, Icon }) => (
+              <button
+                key={value}
+                onClick={() => setTheme(value)}
+                aria-label={value}
+                aria-pressed={themePref === value}
+                className={`inline-flex items-center justify-center w-7 h-7 rounded-md transition-colors ${
+                  themePref === value
+                    ? "bg-[#176B5B] text-white"
+                    : "text-ink-soft hover:text-[#176B5B] hover:bg-surface-2"
+                }`}
+              >
+                <Icon size={16} />
+              </button>
+            ))}
+          </div>
+
+          {/* Secondary — visible border that flips with the theme (dark-on-light, light-on-dark) */}
+          {!isLoggedIn && (
+            <Link
+              href="/login"
+              className="inline-flex items-center h-9 px-4 rounded-lg border border-ink/30 hover:border-ink/55 text-sm font-medium text-ink transition-colors"
+            >
+              {t("landing.signIn")}
+            </Link>
+          )}
+
+          {/* Primary CTA — solid teal #176B5B, white text, never transparent */}
           <Link
-            href={primaryHref}
-            className="px-4 py-2 rounded-lg bg-surface hover:bg-surface-2 border border-line text-sm text-ink-soft transition-colors"
+            href={startHref}
+            className="inline-flex items-center h-9 px-4 rounded-lg bg-[#176B5B] hover:bg-[#125848] text-white text-sm font-semibold shadow-sm transition-colors"
           >
-            {isLoggedIn ? t("landing.continue") : t("landing.signIn")}
+            {isLoggedIn ? t("landing.continue") : t("landing.ctaPrimary")}
           </Link>
         </div>
       </nav>
 
       {/* Hero */}
-      <section className="relative px-6 pt-12 pb-20 max-w-6xl mx-auto">
-        <div className="relative grid lg:grid-cols-2 gap-12 items-center">
+      <section className="relative px-6 pt-12 pb-24 max-w-6xl mx-auto">
+        <div className="relative grid lg:grid-cols-[1fr_1.2fr] gap-10 lg:gap-14 items-center">
           {/* Copy */}
           <div>
             <h1 className="text-5xl sm:text-6xl font-bold tracking-tight leading-[1.04] mb-6">
@@ -132,14 +180,14 @@ export default function LandingPage() {
             </p>
             <div className="flex flex-col sm:flex-row gap-3">
               <Link
-                href={primaryHref}
-                className="inline-flex items-center justify-center gap-2 px-7 py-3.5 rounded-xl bg-brand hover:bg-brand-hover text-white font-semibold transition-colors"
+                href={startHref}
+                className="inline-flex items-center justify-center gap-2 px-7 py-3.5 rounded-xl bg-[#176B5B] hover:bg-[#125848] text-white font-semibold shadow-sm transition-colors"
               >
                 {isLoggedIn ? t("landing.continue") : t("landing.ctaPrimary")} <ArrowRight size={18} />
               </Link>
               <button
                 onClick={() => howRef.current?.scrollIntoView({ behavior: "smooth" })}
-                className="inline-flex items-center justify-center px-7 py-3.5 rounded-xl bg-surface hover:bg-surface-2 border border-line font-semibold text-ink-soft transition-colors"
+                className="inline-flex items-center justify-center px-7 py-3.5 rounded-xl bg-transparent hover:bg-surface-2 border border-ink/30 hover:border-ink/55 font-semibold text-ink transition-colors"
               >
                 {t("landing.ctaSecondary")}
               </button>
@@ -147,60 +195,61 @@ export default function LandingPage() {
             <p className="text-ink-mute text-xs mt-4">{t("landing.ctaNote")}</p>
           </div>
 
-          {/* Product preview — a clean browser/app window frame, soft shadow, no glow. */}
-          <div className="relative">
-            <div className="rounded-2xl border border-line bg-surface shadow-xl shadow-ink/10 overflow-hidden">
+          {/* Product preview — a clean browser/app window frame, soft shadow, no glow.
+              Sized up so it reads as a real product showcase, not a thumbnail. */}
+          <div className="relative lg:-mr-6">
+            <div className="rounded-2xl border border-line bg-surface shadow-2xl shadow-ink/10 overflow-hidden">
               {/* window chrome */}
-              <div className="flex items-center gap-2 px-4 py-3 border-b border-line bg-surface-2">
-                <span className="w-2.5 h-2.5 rounded-full bg-line-strong" />
-                <span className="w-2.5 h-2.5 rounded-full bg-line-strong" />
-                <span className="w-2.5 h-2.5 rounded-full bg-line-strong" />
-                <div className="ml-2 flex-1 max-w-[220px]">
-                  <div className="h-5 rounded-md bg-surface border border-line flex items-center px-2 text-[10px] text-ink-mute">
+              <div className="flex items-center gap-2 px-5 py-4 border-b border-line bg-surface-2">
+                <span className="w-3 h-3 rounded-full bg-line-strong" />
+                <span className="w-3 h-3 rounded-full bg-line-strong" />
+                <span className="w-3 h-3 rounded-full bg-line-strong" />
+                <div className="ml-3 flex-1 max-w-[300px]">
+                  <div className="h-6 rounded-md bg-surface border border-line flex items-center px-2.5 text-[11px] text-ink-mute">
                     mizan.app/home
                   </div>
                 </div>
               </div>
               {/* screen */}
-              <div className="p-5">
+              <div className="p-6 sm:p-8">
                 <div className="flex items-start justify-between">
                   <div>
-                    <p className="text-ink-mute text-[11px] uppercase tracking-wider">{t("landing.mockNetWorth")}</p>
-                    <p className="text-3xl font-bold tabular-nums mt-1">{t("landing.mockNetWorthValue")}</p>
+                    <p className="text-ink-mute text-xs uppercase tracking-wider">{t("landing.mockNetWorth")}</p>
+                    <p className="text-4xl sm:text-5xl font-bold tabular-nums mt-1.5">{t("landing.mockNetWorthValue")}</p>
                   </div>
-                  <span className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-pos/10 text-pos text-xs font-semibold">
-                    <TrendingUp size={12} /> {t("landing.mockDelta")}
+                  <span className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-pos/10 text-pos text-sm font-semibold">
+                    <TrendingUp size={14} /> {t("landing.mockDelta")}
                   </span>
                 </div>
-                <svg viewBox="0 0 320 60" className="w-full h-12 mt-3" preserveAspectRatio="none">
+                <svg viewBox="0 0 320 70" className="w-full h-20 mt-4" preserveAspectRatio="none">
                   <defs>
                     <linearGradient id="spark" x1="0" y1="0" x2="0" y2="1">
                       <stop offset="0%" stopColor="rgb(var(--c-brand))" stopOpacity="0.35" />
                       <stop offset="100%" stopColor="rgb(var(--c-brand))" stopOpacity="0" />
                     </linearGradient>
                   </defs>
-                  <path d="M0 48 L40 44 L80 46 L120 38 L160 34 L200 30 L240 24 L280 16 L320 10 L320 60 L0 60 Z" fill="url(#spark)" />
-                  <path d="M0 48 L40 44 L80 46 L120 38 L160 34 L200 30 L240 24 L280 16 L320 10" fill="none" stroke="rgb(var(--c-brand))" strokeWidth="2" />
+                  <path d="M0 56 L40 51 L80 54 L120 44 L160 40 L200 35 L240 28 L280 19 L320 12 L320 70 L0 70 Z" fill="url(#spark)" />
+                  <path d="M0 56 L40 51 L80 54 L120 44 L160 40 L200 35 L240 28 L280 19 L320 12" fill="none" stroke="rgb(var(--c-brand))" strokeWidth="2.5" />
                 </svg>
-                <div className="mt-3 space-y-2">
+                <div className="mt-5 space-y-3">
                   {[
                     { dot: "#16a34a", label: t("landing.mockCash"), val: t("landing.mockCashValue") },
                     { dot: "#d97706", label: t("landing.mockCrypto"), val: "0.42 BTC" },
                     { dot: "rgb(var(--c-brand))", label: t("landing.mockProperty"), val: t("landing.mockPropertyValue") },
                   ].map((r) => (
-                    <div key={r.label} className="flex items-center justify-between text-sm">
-                      <span className="flex items-center gap-2 text-ink-soft">
-                        <span className="w-2 h-2 rounded-full" style={{ backgroundColor: r.dot }} />{r.label}
+                    <div key={r.label} className="flex items-center justify-between text-base">
+                      <span className="flex items-center gap-2.5 text-ink-soft">
+                        <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: r.dot }} />{r.label}
                       </span>
-                      <span className="text-ink-soft tabular-nums">{r.val}</span>
+                      <span className="text-ink font-medium tabular-nums">{r.val}</span>
                     </div>
                   ))}
                 </div>
-                <div className="mt-4 pt-4 border-t border-line">
-                  <p className="text-[10px] uppercase tracking-wider text-brand mb-1 flex items-center gap-1">
-                    <Sparkles size={11} /> {t("landing.mockBriefLabel")}
+                <div className="mt-6 pt-5 border-t border-line">
+                  <p className="text-[11px] uppercase tracking-wider text-brand mb-1.5 flex items-center gap-1">
+                    <Sparkles size={12} /> {t("landing.mockBriefLabel")}
                   </p>
-                  <p className="text-ink-soft text-sm leading-relaxed">{t("landing.mockBrief")}</p>
+                  <p className="text-ink-soft text-[15px] leading-relaxed">{t("landing.mockBrief")}</p>
                 </div>
               </div>
             </div>
@@ -208,21 +257,22 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* Loop */}
-      <section ref={howRef} className="border-t border-line py-24 px-6">
+      {/* Loop — tinted band so it reads as a distinct section */}
+      <section ref={howRef} className="border-t border-line bg-surface-2 py-24 px-6">
         <div className="max-w-5xl mx-auto">
           <p className="text-center text-ink-mute text-xs uppercase tracking-widest mb-3">{t("landing.loopEyebrow")}</p>
           <h2 className="text-3xl font-bold text-center mb-16">{t("landing.loopTitle")}</h2>
           <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-5">
             {STEPS.map((s, i) => (
-              <div key={s.title} className="relative bg-surface border border-line rounded-xl p-5">
-                <div className="flex items-center justify-between mb-4">
-                  <div className="w-11 h-11 rounded-xl bg-brand/10 border border-brand/30 flex items-center justify-center">
-                    <s.icon size={20} className="text-brand" />
-                  </div>
-                  <span className="text-line-strong font-bold text-3xl leading-none">{i + 1}</span>
+              <div key={s.title} className="relative bg-surface border border-line rounded-xl p-6">
+                {/* Prominent icon on its own row; step number is small and secondary. */}
+                <div className="w-12 h-12 rounded-xl bg-brand/10 border border-brand/30 flex items-center justify-center mb-5">
+                  <s.icon size={22} className="text-brand" />
                 </div>
-                <h3 className="font-semibold text-ink mb-1.5">{s.title}</h3>
+                <div className="flex items-center gap-2 mb-1.5">
+                  <span className="text-ink-mute text-xs font-semibold tabular-nums">{`0${i + 1}`}</span>
+                  <h3 className="font-semibold text-ink">{s.title}</h3>
+                </div>
                 <p className="text-ink-mute text-sm leading-relaxed">{s.desc}</p>
               </div>
             ))}
@@ -249,8 +299,8 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* Simulator spotlight */}
-      <section className="py-24 px-6 border-t border-line">
+      {/* Simulator spotlight — tinted band */}
+      <section className="py-24 px-6 border-t border-line bg-surface-2">
         <div className="max-w-5xl mx-auto grid lg:grid-cols-2 gap-12 items-center">
           <div>
             <p className="text-brand text-xs uppercase tracking-widest mb-3 flex items-center gap-2">
@@ -320,19 +370,23 @@ export default function LandingPage() {
               return (
                 <div
                   key={tier.id}
-                  className={`relative bg-surface rounded-2xl p-6 flex flex-col ${
+                  className={`relative rounded-2xl p-6 flex flex-col overflow-hidden ${
                     tier.highlight
-                      ? "border-2 border-brand shadow-lg shadow-brand/10 md:-mt-3 md:mb-3"
-                      : "border border-line"
+                      ? "bg-brand/5 border-2 border-brand shadow-lg shadow-brand/15 md:-mt-3 md:mb-3"
+                      : "bg-surface border border-line"
                   }`}
                 >
+                  {/* Teal accent strip + popular badge on the highlighted tier */}
                   {tier.highlight && (
-                    <span className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-1 rounded-full bg-brand text-white text-xs font-semibold shadow-sm">
-                      {t("pricing.popular")}
-                    </span>
+                    <>
+                      <span className="absolute inset-x-0 top-0 h-1.5 bg-action" />
+                      <span className="absolute top-4 right-4 px-2.5 py-1 rounded-full bg-action text-white text-[11px] font-semibold shadow-sm">
+                        {t("pricing.popular")}
+                      </span>
+                    </>
                   )}
 
-                  <h3 className="text-lg font-bold">{tier.name}</h3>
+                  <h3 className={`text-lg font-bold ${tier.highlight ? "text-brand" : ""}`}>{tier.name}</h3>
                   <p className="text-ink-mute text-sm mt-1 mb-5 min-h-[2.5rem]">{tier.tagline}</p>
 
                   {/* Price */}
@@ -342,7 +396,7 @@ export default function LandingPage() {
                     ) : annual ? (
                       <>
                         <div className="flex items-baseline gap-1">
-                          <span className="text-4xl font-bold tabular-nums">{tier.yearly}</span>
+                          <span className={`text-4xl font-bold tabular-nums ${tier.highlight ? "text-brand" : ""}`}>{tier.yearly}</span>
                           <span className="text-ink-mute text-sm">/{perYr}</span>
                         </div>
                         <p className="text-ink-mute text-xs mt-1.5 tabular-nums">
@@ -351,18 +405,18 @@ export default function LandingPage() {
                       </>
                     ) : (
                       <div className="flex items-baseline gap-1">
-                        <span className="text-4xl font-bold tabular-nums">{tier.monthly}</span>
+                        <span className={`text-4xl font-bold tabular-nums ${tier.highlight ? "text-brand" : ""}`}>{tier.monthly}</span>
                         <span className="text-ink-mute text-sm">/{perMo}</span>
                       </div>
                     )}
                   </div>
 
-                  {/* CTA */}
+                  {/* CTA — highlighted tier gets the solid action-teal button */}
                   <Link
                     href={tier.href}
                     className={`block text-center px-4 py-2.5 rounded-xl text-sm font-semibold transition-colors mb-6 ${
                       tier.highlight
-                        ? "bg-brand hover:bg-brand-hover text-white"
+                        ? "bg-action hover:bg-action-hover text-white shadow-sm shadow-action/20"
                         : "bg-surface border border-line hover:border-brand/60 text-ink hover:text-brand"
                     }`}
                   >
@@ -395,8 +449,8 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* Global / sources */}
-      <section className="py-20 px-6 bg-canvas border-t border-line">
+      {/* Global / sources — tinted band */}
+      <section className="py-20 px-6 bg-surface-2 border-t border-line">
         <div className="max-w-4xl mx-auto text-center">
           <p className="text-ink-mute text-xs uppercase tracking-widest mb-3">{t("landing.globalEyebrow")}</p>
           <h2 className="text-3xl font-bold mb-3">{t("landing.globalTitle")}</h2>
@@ -422,7 +476,7 @@ export default function LandingPage() {
           <div className="max-w-3xl mx-auto text-center bg-surface border border-line rounded-2xl px-6 py-14">
             <h2 className="text-4xl font-bold mb-4">{t("landing.ctaTitle")}</h2>
             <p className="text-ink-mute mb-8 text-lg">{t("landing.ctaSubtitle")}</p>
-            <Link href="/login" className="inline-flex items-center gap-2 px-10 py-4 rounded-xl bg-brand hover:bg-brand-hover text-white font-semibold text-base transition-colors">
+            <Link href={startHref} className="inline-flex items-center gap-2 px-10 py-4 rounded-xl bg-[#176B5B] hover:bg-[#125848] text-white font-semibold text-base shadow-sm transition-colors">
               {t("landing.ctaBtn")} <ArrowRight size={20} />
             </Link>
           </div>

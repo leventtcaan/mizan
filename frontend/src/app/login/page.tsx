@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { login, register, setToken, setStoredUser, detectBrowserCurrency } from "@/lib/api";
@@ -19,6 +19,15 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [state, setState] = useState<FormState>("idle");
   const [errorMsg, setErrorMsg] = useState("");
+
+  // Open directly on the register form when arriving via /login?mode=register
+  // (the landing "Ücretsiz başla" CTAs). Read on mount from the URL — no
+  // useSearchParams, so the page keeps prerendering without a Suspense boundary.
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).get("mode") === "register") {
+      setMode("register");
+    }
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

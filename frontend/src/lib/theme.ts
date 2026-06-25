@@ -7,11 +7,15 @@ export type ThemePref = "light" | "dark" | "system";
 const STORAGE_KEY = "mizan_theme";
 const CHANGE_EVENT = "mizan-theme-change";
 
-/** The stored preference (defaults to "system" on first load). */
+/**
+ * The stored preference. Defaults to "light" on first visit (no stored value) —
+ * light is the product's intended default look; "system" only applies if the user
+ * explicitly picks it in the toggle.
+ */
 export function getThemePref(): ThemePref {
-  if (typeof window === "undefined") return "system";
+  if (typeof window === "undefined") return "light";
   const v = localStorage.getItem(STORAGE_KEY);
-  return v === "light" || v === "dark" || v === "system" ? v : "system";
+  return v === "light" || v === "dark" || v === "system" ? v : "light";
 }
 
 /** Resolve a preference to the concrete theme actually applied. */
@@ -38,13 +42,14 @@ export function setThemePref(pref: ThemePref): void {
 
 /**
  * The no-FOUC bootstrap, stringified for an inline <script> in <head>.
- * Runs before first paint: reads the stored preference (default "system"),
- * resolves it against the OS, and sets data-theme so there is no flash.
+ * Runs before first paint: reads the stored preference and sets data-theme so
+ * there is no flash. First visit (no stored value) defaults to LIGHT; dark only
+ * shows when explicitly chosen, or when the user picked "system" on a dark OS.
  */
-export const THEME_BOOTSTRAP = `(function(){try{var p=localStorage.getItem("${STORAGE_KEY}");if(p!=="light"&&p!=="dark"&&p!=="system"){p="system";}var d=p==="dark"||(p==="system"&&window.matchMedia("(prefers-color-scheme: dark)").matches);document.documentElement.setAttribute("data-theme",d?"dark":"light");}catch(e){document.documentElement.setAttribute("data-theme","light");}})();`;
+export const THEME_BOOTSTRAP = `(function(){try{var p=localStorage.getItem("${STORAGE_KEY}");var d=p==="dark"||(p==="system"&&window.matchMedia("(prefers-color-scheme: dark)").matches);document.documentElement.setAttribute("data-theme",d?"dark":"light");}catch(e){document.documentElement.setAttribute("data-theme","light");}})();`;
 
 export function useTheme(): { pref: ThemePref; resolved: "light" | "dark"; setTheme: (p: ThemePref) => void } {
-  const [pref, setPref] = useState<ThemePref>("system");
+  const [pref, setPref] = useState<ThemePref>("light");
   const [resolved, setResolved] = useState<"light" | "dark">("light");
 
   useEffect(() => {

@@ -11,6 +11,8 @@ const inter = Inter({ subsets: ["latin"] });
 export const metadata: Metadata = {
   title: "Mizan",
   description: "Harcama davranışını anla.",
+  // Explicit so the tab/favicon resolves to the app's "M" monogram (src/app/icon.svg).
+  icons: { icon: "/icon.svg" },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
