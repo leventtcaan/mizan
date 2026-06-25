@@ -44,6 +44,11 @@ class NetworthSuggestion(Base):
     # Which upload batch triggered this
     source_batch_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
 
+    # Optional structured payload (JSON) for richer suggestions — e.g. the statement→
+    # net-worth bridge stores {institution, statement_kind, proposed_name, matched_asset_name}
+    # so accept can create a well-named asset/liability deterministically.
+    source_detail: Mapped[str | None] = mapped_column(Text, nullable=True)
+
     # "pending" | "accepted" | "dismissed"
     status: Mapped[str] = mapped_column(String(20), nullable=False, default="pending", index=True)
 

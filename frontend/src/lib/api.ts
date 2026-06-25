@@ -235,6 +235,7 @@ export interface SuggestionItem {
   source_batch_id: string | null;
   status: string;
   created_at: string;
+  source_detail?: string | null;
 }
 
 export interface UploadResponse {

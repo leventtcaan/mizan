@@ -234,6 +234,7 @@ class SuggestionResponse(BaseModel):
     source_batch_id: str | None
     status: str
     created_at: datetime
+    source_detail: str | None = None
 
 
 # ---------- Helpers ----------
@@ -298,6 +299,7 @@ def _suggestion_resp(s: NetworthSuggestion) -> SuggestionResponse:
         source_batch_id=s.source_batch_id,
         status=s.status,
         created_at=s.created_at,
+        source_detail=s.source_detail,
     )
 
 
@@ -1090,33 +1092,86 @@ async def accept_suggestion(
     if suggestion.status != "pending":
         raise HTTPException(status_code=400, detail="Suggestion already processed")
 
-    if suggestion.asset_id:
-        # Apply suggested_change to existing asset
-        asset_result = await session.execute(
+    now = datetime.now(timezone.utc)
+    value = abs(suggestion.suggested_change)
+    detail: dict = {}
+    if suggestion.source_detail:
+        try:
+            detail = json.loads(suggestion.source_detail)
+        except Exception:
+            detail = {}
+    proposed_name = (detail.get("proposed_name") or suggestion.reason[:80])
+    stype = suggestion.suggestion_type
+
+    if stype == "asset_balance_update" and suggestion.asset_id:
+        # Cash-flow ↔ net-worth bridge: SET the matched asset to the statement's closing
+        # balance (replace, not add) — propose→confirm, never a silent overwrite.
+        asset = (await session.execute(
             select(Asset).where(Asset.id == suggestion.asset_id, Asset.user_id == current_user.id)
-        )
-        asset = asset_result.scalar_one_or_none()
+        )).scalar_one_or_none()
+        if asset:
+            asset.current_value = value
+            asset.as_of_date = date.today()
+            asset.updated_at = now
+            logger.info("Bridge accepted — asset %s balance set to %s", asset.id, value)
+
+    elif stype == "statement_liability":
+        # Credit-card statement → a liability (balance owed).
+        session.add(Liability(
+            id=uuid.uuid4(),
+            user_id=current_user.id,
+            name=proposed_name,
+            liability_type="credit_card",
+            currency=suggestion.currency,
+            total_amount=value,
+            remaining_amount=value,
+            notes=None,
+            created_at=now,
+        ))
+        logger.info("Bridge accepted — created credit-card liability for user %s", current_user.id)
+
+    elif stype == "statement_asset":
+        # Deposit/bank statement → a bank-account asset at the detected balance.
+        session.add(Asset(
+            id=uuid.uuid4(),
+            user_id=current_user.id,
+            name=proposed_name,
+            asset_type="bank_account",
+            currency=suggestion.currency,
+            current_value=value,
+            source="auto_detected",
+            source_detail=suggestion.source_detail,
+            as_of_date=date.today(),
+            created_at=now,
+            updated_at=now,
+        ))
+        logger.info("Bridge accepted — created bank-account asset for user %s", current_user.id)
+
+    elif suggestion.asset_id:
+        # Legacy "balance_change": apply the delta to the existing asset.
+        asset = (await session.execute(
+            select(Asset).where(Asset.id == suggestion.asset_id, Asset.user_id == current_user.id)
+        )).scalar_one_or_none()
         if asset:
             asset.current_value = asset.current_value + suggestion.suggested_change
-            asset.updated_at = datetime.now(timezone.utc)
+            asset.updated_at = now
             logger.info("Suggestion accepted — updated asset %s by %s", asset.id, suggestion.suggested_change)
+
     else:
-        # Create new asset
-        now = datetime.now(timezone.utc)
-        new_asset = Asset(
+        # Legacy create.
+        session.add(Asset(
             id=uuid.uuid4(),
             user_id=current_user.id,
             name=f"Öneri: {suggestion.reason[:80]}",
             asset_type="bank_account",
             currency=suggestion.currency,
-            current_value=abs(suggestion.suggested_change),
+            current_value=value,
             source="auto_detected",
             source_detail=suggestion.reason,
             as_of_date=date.today(),
             created_at=now,
             updated_at=now,
-        )
-        session.add(new_asset)
+        ))
         logger.info("Suggestion accepted — created new asset for user %s", current_user.id)
 
     suggestion.status = "accepted"

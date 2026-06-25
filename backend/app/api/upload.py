@@ -299,6 +299,19 @@ async def upload_statement(
     # The one conflict that matters: did the user upload this same statement twice?
     await _flag_duplicate_batch(current_user.id, job_id, persisted, session)
 
+    # Cash-flow ↔ net-worth bridge: deterministically read the statement's closing balance
+    # and propose adding it as an asset / liability (or updating a matching asset). Fully
+    # best-effort — a detection failure must never break the upload.
+    try:
+        from app.services.statement_bridge import detect_statement_metadata, propose_statement_bridge
+        meta = detect_statement_metadata(contents, file.content_type, filename)
+        if meta:
+            await propose_statement_bridge(
+                current_user.id, job_id, meta, default_ccy, current_user.language, session,
+            )
+    except Exception as exc:
+        logger.warning("Statement bridge skipped — job_id=%s: %s", job_id, exc)
+
     # Parsed totals (real money) for the statement period — drives the onboarding
     # "we saw X income, Y expenses" line and downstream conflict checks.
     parsed_income = sum(

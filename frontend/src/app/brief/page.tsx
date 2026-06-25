@@ -2,10 +2,13 @@
 
 import { Suspense, useCallback, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { getToken, getBrief, type Brief } from "@/lib/api";
+import {
+  getToken, getBrief, getNetWorthSuggestions, acceptSuggestion, dismissSuggestion,
+  type Brief, type SuggestionItem,
+} from "@/lib/api";
 import { useLanguage } from "@/lib/i18n";
 import { CATEGORY_LABELS, CATEGORY_COLORS, DEFAULT_CATEGORY_COLOR } from "@/lib/categories";
-import { ArrowRight } from "@/components/ui/Icons";
+import { ArrowRight, Scale, TrendingDown, CheckCircle } from "@/components/ui/Icons";
 import AskMim from "@/components/companion/AskMim";
 import Mim from "@/components/companion/Mim";
 
@@ -28,6 +31,11 @@ function BriefContent() {
   const jobId = params.get("job_id");
   const [brief, setBrief] = useState<Brief | null>(null);
   const [revealed, setRevealed] = useState(false);
+  // Cash-flow ↔ net-worth bridge: a pending suggestion to add/update net worth from
+  // this statement's detected balance. Resolved inline (accept / skip).
+  const [bridge, setBridge] = useState<SuggestionItem | null>(null);
+  const [bridgeDone, setBridgeDone] = useState<"" | "added" | "skipped">("");
+  const [bridgeBusy, setBridgeBusy] = useState(false);
 
   // Silent fallback: any failure (missing/expired job, network) → the dashboard.
   const fallback = useCallback(() => router.replace("/transactions"), [router]);
@@ -50,8 +58,36 @@ function BriefContent() {
         setTimeout(() => setRevealed(true), 60);
       })
       .catch(() => { if (active) fallback(); });
+    // Pull the bridge suggestion for THIS batch (created deterministically at upload).
+    getNetWorthSuggestions()
+      .then((all) => {
+        if (!active) return;
+        const m = all.find((s) => s.source_batch_id === jobId && s.status === "pending");
+        if (m) setBridge(m);
+      })
+      .catch(() => { /* non-blocking — the brief still shows */ });
     return () => { active = false; };
   }, [jobId, lang, router, fallback]);
+
+  const acceptBridge = useCallback(async () => {
+    if (!bridge || bridgeBusy) return;
+    setBridgeBusy(true);
+    try {
+      await acceptSuggestion(bridge.id);
+      setBridgeDone("added");
+      // Net worth changed — let any open net-worth/home view refresh.
+      window.dispatchEvent(new CustomEvent("mizan-data-changed"));
+    } catch { /* leave the card so the user can retry */ }
+    finally { setBridgeBusy(false); }
+  }, [bridge, bridgeBusy]);
+
+  const skipBridge = useCallback(async () => {
+    if (!bridge || bridgeBusy) return;
+    setBridgeBusy(true);
+    try { await dismissSuggestion(bridge.id); setBridgeDone("skipped"); }
+    catch { /* ignore */ }
+    finally { setBridgeBusy(false); }
+  }, [bridge, bridgeBusy]);
 
   const money = useCallback((n: number, ccy: string) => {
     try {
@@ -201,8 +237,48 @@ function BriefContent() {
             <AskLink prefill={t("brief.askRecurring")} />
           </div>
 
+          {/* BEAT — cash-flow ↔ net-worth bridge (only when a balance was detected) */}
+          {bridge && bridgeDone !== "skipped" && (() => {
+            const bt = bridge.suggestion_type;
+            const isLiab = bt === "statement_liability";
+            const isUpdate = bt === "asset_balance_update";
+            const desc = isUpdate ? t("bridge.descUpdate") : isLiab ? t("bridge.descLiability") : t("bridge.descAsset");
+            const acceptLabel = isUpdate ? t("bridge.updateBalance") : isLiab ? t("bridge.addLiability") : t("bridge.addAsset");
+            const successLabel = isUpdate ? t("bridge.updated") : isLiab ? t("bridge.addedLiability") : t("bridge.addedAsset");
+            const amt = parseFloat(bridge.suggested_change) || 0;
+            return (
+              <div className={`bg-surface border border-line rounded-2xl p-6 ${beatCls}`} style={beatStyle(5)}>
+                <div className="flex items-center gap-2 mb-3">
+                  <span className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 ${isLiab ? "bg-neg/10" : "bg-[#176B5B]/10"}`}>
+                    {isLiab ? <TrendingDown size={15} className="text-neg" /> : <Scale size={15} className="text-[#176B5B]" />}
+                  </span>
+                  <p className="text-ink-mute text-xs font-medium uppercase tracking-wide">{t("bridge.title")}</p>
+                </div>
+                {bridgeDone === "added" ? (
+                  <p className="text-pos text-sm font-medium flex items-center gap-1.5"><CheckCircle size={16} /> {successLabel}</p>
+                ) : (
+                  <>
+                    <p className="text-ink-soft text-sm mb-2">{desc}</p>
+                    <p className="text-2xl font-bold tabular-nums text-ink">{money(amt, bridge.currency)}</p>
+                    <p className="text-ink-mute text-xs mt-1 mb-4">{bridge.reason}</p>
+                    <div className="flex gap-3">
+                      <button onClick={acceptBridge} disabled={bridgeBusy}
+                        className="flex-1 py-3 rounded-xl bg-[#176B5B] hover:bg-[#125848] text-white text-sm font-semibold transition-colors disabled:opacity-50 flex items-center justify-center gap-2">
+                        {bridgeBusy ? <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : acceptLabel}
+                      </button>
+                      <button onClick={skipBridge} disabled={bridgeBusy}
+                        className="px-5 py-3 rounded-xl border border-line text-ink-soft text-sm font-medium hover:bg-surface-2 transition-colors disabled:opacity-50">
+                        {t("bridge.skip")}
+                      </button>
+                    </div>
+                  </>
+                )}
+              </div>
+            );
+          })()}
+
           {/* BEAT — the one move */}
-          <div className={`bg-[#176B5B]/[0.06] border border-[#176B5B]/30 rounded-2xl p-6 ${beatCls}`} style={beatStyle(5)}>
+          <div className={`bg-[#176B5B]/[0.06] border border-[#176B5B]/30 rounded-2xl p-6 ${beatCls}`} style={beatStyle(6)}>
             <p className="text-[#176B5B] text-xs font-semibold uppercase tracking-wide mb-3">{t("brief.b5Title")}</p>
             <button
               onClick={() => router.push(suggested_action.href)}
