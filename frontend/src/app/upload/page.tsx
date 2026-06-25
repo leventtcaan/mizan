@@ -7,7 +7,7 @@ import {
   uploadStatement, getStoredUser, UploadCapError, EmailNotVerifiedError, type UploadResponse,
 } from "@/lib/api";
 import PageLayout from "@/components/ui/PageLayout";
-import { FileText, ArrowRight, CheckCircle, ShieldCheck, Sparkles, Mail } from "@/components/ui/Icons";
+import { FileText, ArrowRight, CheckCircle, ShieldCheck, Sparkles, Mail, Upload } from "@/components/ui/Icons";
 import { useLanguage } from "@/lib/i18n";
 
 type FileState = "queued" | "uploading" | "done" | "error";
@@ -105,8 +105,10 @@ export default function UploadPage() {
         onDrop={(e) => { e.preventDefault(); setDragOver(false); if (e.dataTransfer.files.length) addFiles(e.dataTransfer.files); }}
         onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
         onDragLeave={() => setDragOver(false)}
-        className={`relative border-2 border-dashed rounded-xl p-12 text-center transition-all cursor-pointer mb-4 ${
-          dragOver ? "border-brand bg-brand/20" : "border-line bg-surface hover:border-[#3C3832]"
+        className={`relative border-2 border-dashed rounded-2xl p-10 sm:p-12 text-center transition-all cursor-pointer mb-4 ${
+          dragOver
+            ? "border-[#176B5B] bg-[#176B5B]/[0.07] scale-[1.01]"
+            : "border-line bg-surface hover:border-[#176B5B]/60 hover:bg-[#176B5B]/[0.03]"
         }`}
         onClick={() => document.getElementById("file-input")?.click()}
       >
@@ -118,12 +120,15 @@ export default function UploadPage() {
           className="hidden"
           onChange={(e) => { if (e.target.files) addFiles(e.target.files); e.target.value = ""; }}
         />
-        <div className="w-12 h-12 rounded-xl bg-surface-2 flex items-center justify-center mx-auto mb-3">
-          <FileText size={22} className="text-ink-mute" />
+        <div className="w-14 h-14 rounded-2xl bg-[#176B5B]/10 flex items-center justify-center mx-auto mb-4">
+          <Upload size={24} className="text-[#176B5B]" />
         </div>
-        <p className="text-ink-soft font-medium">{t("upload.dropHintMulti")}</p>
-        <p className="text-ink-mute text-sm mt-1">{t("upload.or")} {t("upload.browse")}</p>
-        <p className="text-gray-700 text-xs mt-3">{t("upload.formats")} · {t("upload.maxSize")}</p>
+        <p className="text-ink font-semibold">{t("upload.dropHintMulti")}</p>
+        <p className="text-ink-mute text-sm mt-1">{t("upload.or")}</p>
+        <span className="inline-flex items-center gap-1.5 mt-3 px-4 py-2 rounded-lg bg-surface border border-line text-sm font-medium text-ink-soft">
+          <FileText size={15} /> {t("upload.browse")}
+        </span>
+        <p className="text-ink-mute text-xs mt-4">{t("upload.formats")} · {t("upload.maxSize")}</p>
       </div>
 
       {/* Queued / processed file list */}
@@ -133,11 +138,11 @@ export default function UploadPage() {
             <div key={`${e.file.name}-${i}`} className="flex items-center gap-3 p-3 rounded-lg bg-surface border border-line">
               <span className="shrink-0">
                 {e.state === "uploading" ? (
-                  <span className="block w-4 h-4 border-2 border-white/30 border-t-brand rounded-full animate-spin" />
+                  <span className="block w-4 h-4 border-2 border-line border-t-[#176B5B] rounded-full animate-spin" />
                 ) : e.state === "done" && e.result?.status === "success" ? (
-                  <CheckCircle size={16} className="text-emerald-400" />
+                  <CheckCircle size={16} className="text-pos" />
                 ) : e.state === "error" || (e.state === "done" && e.result?.status !== "success") ? (
-                  <span className="text-amber-400 text-sm font-bold">!</span>
+                  <span className="text-warn text-sm font-bold">!</span>
                 ) : (
                   <FileText size={16} className="text-ink-mute" />
                 )}
@@ -163,7 +168,7 @@ export default function UploadPage() {
       <button
         onClick={handleProcess}
         disabled={entries.length === 0 || processing}
-        className="w-full py-3 px-4 rounded-xl font-semibold transition-colors disabled:opacity-40 disabled:cursor-not-allowed bg-brand hover:bg-brand-hover text-white flex items-center justify-center gap-2"
+        className="w-full py-3 px-4 rounded-xl font-semibold transition-colors disabled:opacity-40 disabled:cursor-not-allowed bg-[#176B5B] hover:bg-[#125848] text-white flex items-center justify-center gap-2"
       >
         {processing ? (
           <>
@@ -176,22 +181,22 @@ export default function UploadPage() {
       </button>
 
       {noneSucceeded && !gate && (
-        <div className="mt-4 bg-amber-950/30 border border-amber-800/40 rounded-xl p-4 text-amber-300 text-sm text-center">
+        <div className="mt-4 bg-warn/10 border border-warn/30 rounded-xl p-4 text-warn text-sm text-center">
           {t("upload.noneSucceeded")}
         </div>
       )}
 
       {/* Free-tier monthly upload cap reached → upgrade prompt */}
       {gate === "cap" && (
-        <div className="mt-4 rounded-xl border border-brand/40 bg-brand/10 p-5 text-center">
-          <div className="w-11 h-11 rounded-xl bg-brand/15 flex items-center justify-center mx-auto mb-3">
-            <Sparkles size={20} className="text-brand" />
+        <div className="mt-4 rounded-xl border border-[#176B5B]/30 bg-[#176B5B]/[0.06] p-5 text-center">
+          <div className="w-11 h-11 rounded-xl bg-[#176B5B]/15 flex items-center justify-center mx-auto mb-3">
+            <Sparkles size={20} className="text-[#176B5B]" />
           </div>
           <p className="font-semibold text-ink mb-1">{t("upload.capTitle")}</p>
           <p className="text-ink-mute text-sm mb-4">{t("upload.capBody")}</p>
           <Link
             href="/settings"
-            className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-lg bg-brand hover:bg-brand-hover text-white text-sm font-semibold transition-colors"
+            className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-lg bg-[#176B5B] hover:bg-[#125848] text-white text-sm font-semibold transition-colors"
           >
             {t("upload.capCta")} <ArrowRight size={16} />
           </Link>
@@ -200,15 +205,15 @@ export default function UploadPage() {
 
       {/* Email not verified → must confirm before uploading */}
       {gate === "verify" && (
-        <div className="mt-4 rounded-xl border border-amber-800/40 bg-amber-950/30 p-5 text-center">
-          <div className="w-11 h-11 rounded-xl bg-amber-500/15 flex items-center justify-center mx-auto mb-3">
-            <Mail size={20} className="text-amber-400" />
+        <div className="mt-4 rounded-xl border border-warn/30 bg-warn/10 p-5 text-center">
+          <div className="w-11 h-11 rounded-xl bg-warn/15 flex items-center justify-center mx-auto mb-3">
+            <Mail size={20} className="text-warn" />
           </div>
           <p className="font-semibold text-ink mb-1">{t("verify.noticeTitle")}</p>
           <p className="text-ink-mute text-sm mb-4">{t("verify.checkEmail")}</p>
           <Link
             href={`/verify?email=${encodeURIComponent(getStoredUser()?.email ?? "")}`}
-            className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-lg bg-brand hover:bg-brand-hover text-white text-sm font-semibold transition-colors"
+            className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-lg bg-[#176B5B] hover:bg-[#125848] text-white text-sm font-semibold transition-colors"
           >
             {t("verify.resend")} <ArrowRight size={16} />
           </Link>
@@ -218,7 +223,7 @@ export default function UploadPage() {
       {/* Privacy reassurance — honest, plain account of what happens to the file */}
       <div className="mt-6 rounded-xl bg-surface border border-line p-4">
         <div className="flex items-center gap-2 mb-3">
-          <ShieldCheck size={16} className="text-emerald-400 shrink-0" />
+          <ShieldCheck size={16} className="text-pos shrink-0" />
           <p className="text-sm font-medium text-ink-soft">{t("upload.privacyTitle")}</p>
         </div>
         <ul className="space-y-2">
