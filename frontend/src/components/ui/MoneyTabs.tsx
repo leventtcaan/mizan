@@ -20,7 +20,7 @@ export default function MoneyTabs() {
   return (
     <>
       <MoneyOverview />
-      <div className="flex items-center gap-1 mb-6 overflow-x-auto -mx-1 px-1 pb-1">
+      <div className="flex items-center gap-2 mb-6 overflow-x-auto -mx-1 px-1 pb-1">
       {TABS.map((tab) => {
         const active = pathname === tab.href || pathname.startsWith(tab.href + "/");
         const Icon = tab.icon;
@@ -28,13 +28,14 @@ export default function MoneyTabs() {
           <Link
             key={tab.href}
             href={tab.href}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm whitespace-nowrap transition-colors ${
+            aria-current={active ? "page" : undefined}
+            className={`flex items-center gap-2 px-4 py-2 rounded-full text-sm font-semibold whitespace-nowrap transition-colors ${
               active
-                ? "bg-brand text-white"
-                : "bg-surface border border-line text-ink-mute hover:text-ink-soft hover:border-[#3C3832]"
+                ? "bg-[#176B5B] text-white shadow-sm"
+                : "bg-surface border border-line text-ink-soft hover:border-[#176B5B] hover:text-[#176B5B]"
             }`}
           >
-            <Icon size={14} />
+            <Icon size={15} />
             {t(tab.labelKey)}
           </Link>
         );

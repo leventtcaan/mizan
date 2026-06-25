@@ -77,7 +77,7 @@ export default function TransactionTable({ transactions, onCategoryCorrection }:
     return (
       <div className="text-center py-16 bg-surface border border-line rounded-xl">
         <p className="text-ink-mute text-sm">{t("tx.empty")}</p>
-        <p className="text-gray-700 text-xs mt-1">{t("tx.emptyHint")}</p>
+        <p className="text-ink-mute text-xs mt-1">{t("tx.emptyHint")}</p>
       </div>
     );
   }
@@ -115,10 +115,15 @@ export default function TransactionTable({ transactions, onCategoryCorrection }:
   };
 
   return (
-    <div className="rounded-xl border border-line overflow-hidden">
+    <div>
+      <p className="text-[11px] text-ink-mute mb-2 flex items-center gap-1.5">
+        <span className="w-1.5 h-1.5 rounded-full bg-[#176B5B]" />
+        {t("tx.tapHint")}
+      </p>
+      <div className="rounded-xl border border-line overflow-hidden">
       <table className="w-full text-sm">
         <thead>
-          <tr className="bg-surface border-b border-line">
+          <tr className="bg-surface-2 border-b border-line">
             <th className="px-4 py-3 text-left text-xs font-medium text-ink-mute uppercase tracking-wide w-28">{t("tx.date")}</th>
             <th className="px-4 py-3 text-left text-xs font-medium text-ink-mute uppercase tracking-wide">{t("tx.description")}</th>
             <th className="px-4 py-3 text-right text-xs font-medium text-ink-mute uppercase tracking-wide w-36">{t("common.amount")}</th>
@@ -127,17 +132,14 @@ export default function TransactionTable({ transactions, onCategoryCorrection }:
           </tr>
         </thead>
         <tbody>
-          {transactions.map((tx, i) => {
+          {transactions.map((tx) => {
             const row = rows[tx.id] ?? {
               category: tx.category, notes: [], notesLoaded: false, expanded: false, saving: false, error: null,
             };
-            const isOdd = i % 2 !== 0;
-            const rowBg = isOdd ? "bg-[#13110D]" : "bg-canvas";
-
             return (
               <Fragment key={tx.id}>
                 <tr
-                  className={`${rowBg} hover:bg-surface transition-colors duration-100 cursor-pointer group border-b border-line last:border-0`}
+                  className="bg-surface hover:bg-[#176B5B]/[0.05] transition-colors duration-100 cursor-pointer group border-b border-line last:border-0"
                   onClick={() => void toggleExpand(tx.id)}
                 >
                   <td className="px-4 py-3.5 whitespace-nowrap">
@@ -147,30 +149,30 @@ export default function TransactionTable({ transactions, onCategoryCorrection }:
                     <p className="text-ink-soft text-sm truncate" title={tx.description}>{tx.description}</p>
                   </td>
                   <td className="px-4 py-3.5 text-right whitespace-nowrap">
-                    <span className={`text-sm font-semibold tabular-nums ${tx.transaction_type === "credit" ? "text-emerald-400" : "text-neg"}`}>
+                    <span className={`text-sm font-semibold tabular-nums ${tx.transaction_type === "credit" ? "text-pos" : "text-neg"}`}>
                       {formatAmount(tx.amount, tx.transaction_type, tx.currency)}
                     </span>
                   </td>
-                  <td className="px-4 py-3.5" onClick={(e) => e.stopPropagation()}>
+                  <td className="px-4 py-3.5">
                     <CategoryBadge category={row.category} />
                   </td>
                   <td className="px-3 py-3.5">
-                    <span className={`flex items-center justify-center transition-colors ${row.expanded ? "text-brand" : "text-ink-mute group-hover:text-ink-mute"}`}>
+                    <span className={`flex items-center justify-center transition-colors ${row.expanded ? "text-[#176B5B]" : "text-ink-mute group-hover:text-[#176B5B]"}`}>
                       <ChevronIcon open={row.expanded} />
                     </span>
                   </td>
                 </tr>
 
                 {row.expanded && (
-                  <tr key={`${tx.id}-detail`} className="bg-surface border-b border-line">
-                    <td colSpan={5} className="px-5 py-4">
-                      <div className="flex items-start justify-between mb-4 pb-3 border-b border-line">
-                        <div>
-                          <p className="text-xs font-semibold text-ink-mute uppercase tracking-wider mb-0.5">{t("tx.detail")}</p>
-                          <p className="text-sm text-ink-soft leading-relaxed">{tx.description}</p>
+                  <tr key={`${tx.id}-detail`} className="bg-surface-2 border-b border-line">
+                    <td colSpan={5} className="px-5 py-5">
+                      <div className="flex items-start justify-between mb-5 pb-4 border-b border-line">
+                        <div className="min-w-0">
+                          <p className="text-xs font-semibold text-ink-mute uppercase tracking-wider mb-1">{t("tx.detail")}</p>
+                          <p className="text-sm text-ink leading-relaxed">{tx.description}</p>
                         </div>
                         <div className="text-right shrink-0 ml-4">
-                          <p className={`text-base font-bold tabular-nums ${tx.transaction_type === "credit" ? "text-emerald-400" : "text-neg"}`}>
+                          <p className={`text-base font-bold tabular-nums ${tx.transaction_type === "credit" ? "text-pos" : "text-neg"}`}>
                             {formatAmount(tx.amount, tx.transaction_type, tx.currency)}
                           </p>
                           <p className="text-xs text-ink-mute mt-0.5">{formatDate(tx.transaction_date)}</p>
@@ -178,11 +180,11 @@ export default function TransactionTable({ transactions, onCategoryCorrection }:
                       </div>
 
                       <div className="mb-5">
-                        <p className="text-xs font-semibold text-ink-mute uppercase tracking-wider mb-2">
+                        <p className="text-xs font-semibold text-ink-mute uppercase tracking-wider mb-2.5">
                           {t("tx.fixCategory")}
-                          {row.saving && <span className="ml-2 text-brand normal-case font-normal">{t("common.saving")}</span>}
+                          {row.saving && <span className="ml-2 text-[#176B5B] normal-case font-normal">{t("common.saving")}</span>}
                         </p>
-                        <div className="flex gap-1.5 overflow-x-auto pb-1 -mx-1 px-1">
+                        <div className="flex flex-wrap gap-2">
                           {CATEGORIES.map((cat) => {
                             const isActive = row.category === cat;
                             const key = `category.${cat}`;
@@ -192,8 +194,10 @@ export default function TransactionTable({ transactions, onCategoryCorrection }:
                                 key={cat}
                                 disabled={row.saving}
                                 onClick={() => void handleCategoryChange(tx.id, cat)}
-                                className={`shrink-0 px-3 py-1 rounded-full text-xs font-medium transition-colors disabled:opacity-40 ${
-                                  isActive ? "bg-brand text-white" : "bg-surface-2 text-ink-mute hover:bg-surface-3 hover:text-ink-soft"
+                                className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors disabled:opacity-40 ${
+                                  isActive
+                                    ? "bg-[#176B5B] text-white shadow-sm"
+                                    : "bg-surface border border-line text-ink-soft hover:border-[#176B5B] hover:text-[#176B5B]"
                                 }`}
                               >
                                 {label}
@@ -220,6 +224,7 @@ export default function TransactionTable({ transactions, onCategoryCorrection }:
           })}
         </tbody>
       </table>
+      </div>
     </div>
   );
 }

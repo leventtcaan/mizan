@@ -446,6 +446,7 @@ export const en = {
     date: "Date",
     description: "Description",
     detail: "Transaction Detail",
+    tapHint: "Tap a transaction to edit its category and notes",
     fixCategory: "Fix Category",
     searchPlaceholder: "Search transactions…",
     noMatches: "No transactions match the filter.",

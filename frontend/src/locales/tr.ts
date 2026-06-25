@@ -446,6 +446,7 @@ export const tr = {
     date: "Tarih",
     description: "Açıklama",
     detail: "İşlem Detayı",
+    tapHint: "Kategori ve not düzenlemek için bir işleme dokun",
     fixCategory: "Kategoriyi Düzelt",
     searchPlaceholder: "İşlem ara…",
     noMatches: "Filtreyle eşleşen işlem yok.",

@@ -68,16 +68,16 @@ export default function NoteInput({ transactionId, existingNotes, onNoteAdded }:
             }
           }}
           placeholder={t("common.notes") + "..."}
-          className="w-full resize-none rounded-lg bg-canvas border border-line text-xs text-ink-soft placeholder-gray-700 px-3 py-2 focus:outline-none focus:border-brand transition-colors leading-relaxed"
+          className="w-full resize-none rounded-lg bg-surface border border-line text-xs text-ink-soft placeholder:text-ink-mute px-3 py-2 focus:outline-none focus:border-[#176B5B] focus:ring-2 focus:ring-[#176B5B]/20 transition-shadow leading-relaxed"
         />
         <div className="flex items-center justify-between">
-          <span className={`text-xs ${remaining < 50 ? "text-amber-500" : "text-gray-700"}`}>
+          <span className={`text-xs ${remaining < 50 ? "text-amber-500" : "text-ink-mute"}`}>
             {remaining}
           </span>
           <button
             onClick={() => void handleSave()}
             disabled={saving || !text.trim()}
-            className="px-3 py-1 rounded-lg bg-brand hover:bg-brand-hover disabled:opacity-40 text-xs font-medium text-white transition-colors"
+            className="px-3 py-1.5 rounded-lg bg-[#176B5B] hover:bg-[#125848] disabled:opacity-40 text-xs font-medium text-white transition-colors"
           >
             {saving ? t("common.loading") : t("common.save")}
           </button>

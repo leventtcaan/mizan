@@ -1,40 +1,39 @@
 "use client";
 
 import { useLanguage } from "@/lib/i18n";
+import { CATEGORY_COLORS, DEFAULT_CATEGORY_COLOR } from "@/lib/categories";
 
 interface CategoryBadgeProps {
   category: string | null;
 }
 
-const CATEGORY_STYLES: Record<string, { bg: string; text: string; dot: string }> = {
-  market:    { bg: "bg-emerald-950", text: "text-emerald-300", dot: "bg-emerald-400" },
-  restoran:  { bg: "bg-orange-950",  text: "text-orange-300",  dot: "bg-orange-400"  },
-  ulasim:    { bg: "bg-sky-950",     text: "text-sky-300",     dot: "bg-sky-400"     },
-  fatura:    { bg: "bg-brand/15",  text: "text-brand",  dot: "bg-brand"  },
-  saglik:    { bg: "bg-rose-950",    text: "text-rose-300",    dot: "bg-rose-400"    },
-  giyim:     { bg: "bg-pink-950",    text: "text-pink-300",    dot: "bg-pink-400"    },
-  eglence:   { bg: "bg-yellow-950",  text: "text-yellow-300",  dot: "bg-yellow-400"  },
-  nakit_atm: { bg: "bg-zinc-900",    text: "text-zinc-300",    dot: "bg-zinc-400"    },
-  transfer:  { bg: "bg-brand/15",  text: "text-brand",  dot: "bg-brand"  },
-  iade:      { bg: "bg-teal-950",    text: "text-teal-300",    dot: "bg-teal-400"    },
-  vergi:     { bg: "bg-red-950",     text: "text-red-300",     dot: "bg-red-400"     },
-  teknoloji: { bg: "bg-blue-950",    text: "text-blue-300",    dot: "bg-blue-400"    },
-  diger:     { bg: "bg-surface-2",   text: "text-ink-mute",   dot: "bg-gray-500"    },
-  egitim:    { bg: "bg-lime-950",    text: "text-lime-300",    dot: "bg-lime-400"    },
-};
-
-const FALLBACK = { bg: "bg-surface-2", text: "text-ink-mute", dot: "bg-gray-600" };
-
+/**
+ * A soft, theme-safe category pill: the category's own color at low opacity for the
+ * fill, the solid color for text + dot. Works in light and dark (the tint is
+ * translucent over whatever surface it sits on) — no hardcoded dark `*-950` boxes.
+ */
 export default function CategoryBadge({ category }: CategoryBadgeProps) {
   const { t } = useLanguage();
-  const style = category ? (CATEGORY_STYLES[category] ?? FALLBACK) : FALLBACK;
   const localeKey = `category.${category}`;
   const translated = category ? t(localeKey) : "—";
-  const label = translated === localeKey ? (category ?? "—") : translated;
+  const label = !category ? "—" : translated === localeKey ? category : translated;
 
+  if (!category) {
+    return (
+      <span className="inline-flex items-center gap-1.5 pl-1.5 pr-2.5 py-1 rounded-full text-xs font-medium whitespace-nowrap bg-surface-2 text-ink-mute">
+        <span className="w-1.5 h-1.5 rounded-full shrink-0 bg-line-strong" />
+        {label}
+      </span>
+    );
+  }
+
+  const color = CATEGORY_COLORS[category] ?? DEFAULT_CATEGORY_COLOR;
   return (
-    <span className={`inline-flex items-center gap-1.5 pl-1.5 pr-2.5 py-0.5 rounded-full text-xs font-medium whitespace-nowrap ${style.bg} ${style.text}`}>
-      <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${style.dot}`} />
+    <span
+      className="inline-flex items-center gap-1.5 pl-1.5 pr-2.5 py-1 rounded-full text-xs font-semibold whitespace-nowrap"
+      style={{ backgroundColor: `${color}1F`, color }}
+    >
+      <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: color }} />
       {label}
     </span>
   );
