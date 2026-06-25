@@ -164,7 +164,7 @@ export default function HomePage() {
   const reveal = (d: number) => `transition-all duration-700 ease-out ${mounted ? "opacity-100 translate-y-0" : "opacity-0 translate-y-2"}`;
 
   if (loading) {
-    return <PageLayout maxWidth="md"><div className="h-[40vh] flex items-center justify-center"><span className="w-6 h-6 border-2 border-[#2C2922] border-t-indigo-400 rounded-full animate-spin" /></div></PageLayout>;
+    return <PageLayout maxWidth="md"><div className="h-[40vh] flex items-center justify-center"><span className="w-6 h-6 border-2 border-line border-t-brand rounded-full animate-spin" /></div></PageLayout>;
   }
 
   // ── cold start — one warm prompt, nothing else ──
@@ -174,12 +174,12 @@ export default function HomePage() {
         <div className={`min-h-[60vh] flex flex-col items-center justify-center text-center ${reveal(0)}`}>
           <Mim mood="calm" size={72} speaking className="mb-6" />
           <h1 className="text-3xl font-bold mb-3 max-w-md">{t("home.daily.coldTitle")}</h1>
-          <p className="text-gray-500 mb-8 max-w-sm">{t("home.daily.coldSub")}</p>
+          <p className="text-ink-mute mb-8 max-w-sm">{t("home.daily.coldSub")}</p>
           <div className="flex flex-col sm:flex-row gap-3">
-            <Link href="/upload" className="inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 font-semibold transition-colors">
+            <Link href="/upload" className="inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-xl bg-brand hover:bg-brand-hover font-semibold transition-colors">
               <Upload size={18} /> {t("home.daily.coldUpload")}
             </Link>
-            <button onClick={() => setTxModalOpen(true)} className="inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-xl bg-[#1C1915] border border-[#2C2922] hover:bg-[#2C2922] font-semibold text-gray-300 transition-colors">
+            <button onClick={() => setTxModalOpen(true)} className="inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-xl bg-surface border border-line hover:bg-surface-2 font-semibold text-ink-soft transition-colors">
               <Plus size={18} /> {t("home.daily.add")}
             </button>
           </div>
@@ -197,9 +197,9 @@ export default function HomePage() {
         <div className={`flex items-start gap-3.5 sm:gap-4 ${reveal(0)}`}>
           <Mim mood={mimMood} size={56} speaking className="shrink-0 mt-0.5" />
           <div className="flex-1 min-w-0">
-            <p className="text-gray-500 text-sm mb-1.5">{greeting}{name ? `, ${name}` : ""}</p>
+            <p className="text-ink-mute text-sm mb-1.5">{greeting}{name ? `, ${name}` : ""}</p>
             {hasFigures && (
-              <p className="text-[11px] font-semibold tracking-wide text-gray-600 uppercase mb-2">
+              <p className="text-[11px] font-semibold tracking-wide text-ink-mute uppercase mb-2">
                 {monthLabel} · {t("home.daily.calendarMonth")} · {t("home.daily.fromTransactions")}
               </p>
             )}
@@ -212,23 +212,23 @@ export default function HomePage() {
 
         {/* What needs you — 0, 1 or 2 things */}
         <div className={`${reveal(100)}`} style={{ transitionDelay: "100ms" }}>
-          <p className="text-[11px] font-bold tracking-widest text-gray-600 uppercase mb-3">{t("home.daily.needsYou")}</p>
+          <p className="text-[11px] font-bold tracking-widest text-ink-mute uppercase mb-3">{t("home.daily.needsYou")}</p>
           {needs.length === 0 ? (
-            <div className="flex items-center gap-3 px-4 py-4 rounded-2xl bg-[#1C1915] border border-[#2C2922]">
+            <div className="flex items-center gap-3 px-4 py-4 rounded-2xl bg-surface border border-line">
               <CheckCircle size={20} className="text-emerald-400 shrink-0" />
-              <p className="text-gray-300 text-sm">{t("home.daily.allClear")}</p>
+              <p className="text-ink-soft text-sm">{t("home.daily.allClear")}</p>
             </div>
           ) : (
             <div className="space-y-2.5">
               {needs.map((n) => (
                 <Link key={n.key} href={n.href}
-                  className="flex items-center gap-3 px-4 py-4 rounded-2xl bg-[#1C1915] border border-[#2C2922] hover:border-indigo-700/60 transition-colors group">
+                  className="flex items-center gap-3 px-4 py-4 rounded-2xl bg-surface border border-line hover:border-brand/60 transition-colors group">
                   <span className={`w-1.5 h-10 rounded-full shrink-0 ${n.severity >= 4 ? "bg-red-500" : n.severity >= 3 ? "bg-amber-500" : "bg-gray-600"}`} />
                   <div className="flex-1 min-w-0">
-                    <p className="text-white text-sm font-medium truncate group-hover:text-indigo-200 transition-colors">{n.title}</p>
-                    <p className="text-gray-500 text-xs truncate">{n.detail}</p>
+                    <p className="text-ink text-sm font-medium truncate group-hover:text-brand transition-colors">{n.title}</p>
+                    <p className="text-ink-mute text-xs truncate">{n.detail}</p>
                   </div>
-                  <ArrowRight size={15} className="text-gray-700 group-hover:text-indigo-400 transition-colors shrink-0" />
+                  <ArrowRight size={15} className="text-gray-700 group-hover:text-brand transition-colors shrink-0" />
                 </Link>
               ))}
             </div>
@@ -237,32 +237,32 @@ export default function HomePage() {
 
         {/* Three quiet taps to the soul — one number each */}
         <div className={`grid grid-cols-3 gap-3 ${reveal(200)}`} style={{ transitionDelay: "200ms" }}>
-          <Link href="/transactions" className="rounded-2xl bg-[#1C1915] border border-[#2C2922] hover:border-indigo-700/60 p-4 transition-colors group">
+          <Link href="/transactions" className="rounded-2xl bg-surface border border-line hover:border-brand/60 p-4 transition-colors group">
             <Wallet size={17} className="text-emerald-400 mb-3" />
-            <p className="text-gray-500 text-[11px] truncate">{monthLabel}</p>
-            <p className={`font-bold tabular-nums text-sm sm:text-base mt-0.5 ${net >= 0 ? "text-white" : "text-orange-400"}`}>{net >= 0 ? "+" : "−"}{fmt(Math.abs(net))}</p>
-            <p className="text-[10px] text-gray-600 mt-1 truncate">{t("home.daily.fromTransactions")}</p>
+            <p className="text-ink-mute text-[11px] truncate">{monthLabel}</p>
+            <p className={`font-bold tabular-nums text-sm sm:text-base mt-0.5 ${net >= 0 ? "text-ink" : "text-orange-400"}`}>{net >= 0 ? "+" : "−"}{fmt(Math.abs(net))}</p>
+            <p className="text-[10px] text-ink-mute mt-1 truncate">{t("home.daily.fromTransactions")}</p>
           </Link>
-          <Link href="/networth" className="rounded-2xl bg-[#1C1915] border border-[#2C2922] hover:border-indigo-700/60 p-4 transition-colors">
-            <Scale size={17} className="text-indigo-400 mb-3" />
-            <p className="text-gray-500 text-[11px]">{t("home.daily.netWorth")}</p>
-            <p className={`font-bold tabular-nums text-sm sm:text-base mt-0.5 ${netWorth >= 0 ? "text-white" : "text-red-400"}`}>{fmt(netWorth)}</p>
-            <p className="text-[10px] text-gray-600 mt-1 truncate">{t("home.daily.fromAssets")} · {t("home.daily.asOfToday")}</p>
+          <Link href="/networth" className="rounded-2xl bg-surface border border-line hover:border-brand/60 p-4 transition-colors">
+            <Scale size={17} className="text-brand mb-3" />
+            <p className="text-ink-mute text-[11px]">{t("home.daily.netWorth")}</p>
+            <p className={`font-bold tabular-nums text-sm sm:text-base mt-0.5 ${netWorth >= 0 ? "text-ink" : "text-neg"}`}>{fmt(netWorth)}</p>
+            <p className="text-[10px] text-ink-mute mt-1 truncate">{t("home.daily.fromAssets")} · {t("home.daily.asOfToday")}</p>
           </Link>
-          <Link href="/simulator" className="rounded-2xl bg-[#1C1915] border border-[#2C2922] hover:border-indigo-700/60 p-4 transition-colors">
-            <Sparkles size={17} className="text-violet-400 mb-3" />
-            <p className="text-gray-500 text-[11px]">{t("home.daily.simulate")}</p>
-            <p className="text-gray-300 text-sm mt-0.5">{t("home.daily.simulateHint")}</p>
+          <Link href="/simulator" className="rounded-2xl bg-surface border border-line hover:border-brand/60 p-4 transition-colors">
+            <Sparkles size={17} className="text-brand mb-3" />
+            <p className="text-ink-mute text-[11px]">{t("home.daily.simulate")}</p>
+            <p className="text-ink-soft text-sm mt-0.5">{t("home.daily.simulateHint")}</p>
           </Link>
         </div>
 
         {/* Quiet capture actions */}
         <div className={`flex items-center gap-3 ${reveal(300)}`} style={{ transitionDelay: "300ms" }}>
-          <Link href="/upload" className="inline-flex items-center gap-1.5 text-gray-500 hover:text-gray-300 text-sm transition-colors">
+          <Link href="/upload" className="inline-flex items-center gap-1.5 text-ink-mute hover:text-ink-soft text-sm transition-colors">
             <Upload size={14} /> {t("home.daily.upload")}
           </Link>
           <span className="text-gray-700">·</span>
-          <button onClick={() => setTxModalOpen(true)} className="inline-flex items-center gap-1.5 text-gray-500 hover:text-gray-300 text-sm transition-colors">
+          <button onClick={() => setTxModalOpen(true)} className="inline-flex items-center gap-1.5 text-ink-mute hover:text-ink-soft text-sm transition-colors">
             <Plus size={14} /> {t("home.daily.add")}
           </button>
         </div>

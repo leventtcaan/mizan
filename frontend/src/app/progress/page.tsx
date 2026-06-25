@@ -44,13 +44,13 @@ const BAND_STYLE: Record<string, { ring: string; text: string; bar: string; glow
   strong:  { ring: "border-emerald-600/40", text: "text-emerald-400", bar: "bg-emerald-500", glow: "shadow-[0_0_60px_-20px_rgba(16,185,129,0.6)]" },
   steady:  { ring: "border-sky-600/40",     text: "text-sky-400",     bar: "bg-sky-500",     glow: "shadow-[0_0_60px_-20px_rgba(14,165,233,0.5)]" },
   fragile: { ring: "border-amber-600/40",   text: "text-amber-400",   bar: "bg-amber-500",   glow: "shadow-[0_0_60px_-20px_rgba(245,158,11,0.5)]" },
-  at_risk: { ring: "border-red-700/40",     text: "text-red-400",     bar: "bg-red-500",     glow: "shadow-[0_0_60px_-20px_rgba(239,68,68,0.5)]" },
+  at_risk: { ring: "border-red-700/40",     text: "text-neg",     bar: "bg-red-500",     glow: "shadow-[0_0_60px_-20px_rgba(239,68,68,0.5)]" },
 };
 
 function trendMark(trend: string): { icon: string; cls: string } {
   if (trend === "up") return { icon: "↑", cls: "text-emerald-400" };
-  if (trend === "down") return { icon: "↓", cls: "text-red-400" };
-  if (trend === "flat") return { icon: "→", cls: "text-gray-500" };
+  if (trend === "down") return { icon: "↓", cls: "text-neg" };
+  if (trend === "flat") return { icon: "→", cls: "text-ink-mute" };
   return { icon: "", cls: "" };
 }
 
@@ -116,26 +116,26 @@ export default function ProgressPage() {
     <PageLayout title={t("scorecard.title")} subtitle={t("scorecard.subtitle")}>
       {state === "loading" && (
         <div className="space-y-6">
-          <div className="h-48 rounded-2xl bg-[#1C1915] animate-pulse" />
-          <div className="h-32 rounded-2xl bg-[#1C1915] animate-pulse" />
+          <div className="h-48 rounded-2xl bg-surface animate-pulse" />
+          <div className="h-32 rounded-2xl bg-surface animate-pulse" />
         </div>
       )}
 
       {state === "error" && (
-        <div className="bg-[#1C1915] border border-[#2C2922] rounded-2xl p-10 text-center text-red-400 text-sm">
+        <div className="bg-surface border border-line rounded-2xl p-10 text-center text-neg text-sm">
           {t("common.error")}
         </div>
       )}
 
       {state === "ready" && data && !data.has_data && (
-        <div className="bg-[#1C1915] border border-[#2C2922] border-dashed rounded-2xl p-12 text-center">
-          <h3 className="text-white text-lg font-semibold mb-2">{t("scorecard.empty.title")}</h3>
-          <p className="text-gray-500 text-sm max-w-md mx-auto mb-6">{t("scorecard.empty.desc")}</p>
+        <div className="bg-surface border border-line border-dashed rounded-2xl p-12 text-center">
+          <h3 className="text-ink text-lg font-semibold mb-2">{t("scorecard.empty.title")}</h3>
+          <p className="text-ink-mute text-sm max-w-md mx-auto mb-6">{t("scorecard.empty.desc")}</p>
           <div className="flex items-center justify-center gap-3">
-            <Link href="/upload" className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-indigo-600 text-white text-sm font-medium hover:bg-indigo-500 transition-colors">
+            <Link href="/upload" className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-brand text-white text-sm font-medium hover:bg-brand-hover transition-colors">
               <Upload size={15} /> {t("scorecard.empty.cta")}
             </Link>
-            <Link href="/transactions" className="flex items-center gap-1.5 px-4 py-2 rounded-lg border border-[#2C2922] text-gray-300 text-sm hover:border-indigo-700 transition-colors">
+            <Link href="/transactions" className="flex items-center gap-1.5 px-4 py-2 rounded-lg border border-line text-ink-soft text-sm hover:border-brand transition-colors">
               <Plus size={15} /> {t("scorecard.empty.addManual")}
             </Link>
           </div>
@@ -188,10 +188,10 @@ export default function ProgressPage() {
           <AlertsPanel />
 
           {/* Demoted: financial personality as an opt-in footnote */}
-          <div className="bg-[#1C1915] border border-[#2C2922] rounded-xl">
+          <div className="bg-surface border border-line rounded-xl">
             <button
               onClick={() => setShowBehavior((v) => !v)}
-              className="w-full flex items-center justify-between px-5 py-4 text-sm text-gray-400 hover:text-gray-200 transition-colors"
+              className="w-full flex items-center justify-between px-5 py-4 text-sm text-ink-mute hover:text-ink-soft transition-colors"
             >
               <span>{t("progress.personality")}</span>
               {showBehavior ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
@@ -209,20 +209,20 @@ function ProvisionalHero({
   pillars, realPillars, t,
 }: { pillars: ScorecardPillar[]; realPillars: number; t: (k: string) => string }) {
   return (
-    <div className="bg-[#1C1915] border border-[#2C2922] rounded-2xl p-6">
-      <p className="text-xs uppercase tracking-wider text-gray-500 mb-2">{t("scorecard.healthLabel")}</p>
-      <h2 className="text-2xl sm:text-3xl font-bold text-gray-100 mb-4">{t("scorecard.building.title")}</h2>
+    <div className="bg-surface border border-line rounded-2xl p-6">
+      <p className="text-xs uppercase tracking-wider text-ink-mute mb-2">{t("scorecard.healthLabel")}</p>
+      <h2 className="text-2xl sm:text-3xl font-bold text-ink-soft mb-4">{t("scorecard.building.title")}</h2>
       {/* Four-signal indicator — filled for each pillar that has real data */}
       <div className="flex items-center gap-2 mb-2.5">
         {pillars.map((p) => (
-          <div key={p.key} className={`h-1.5 flex-1 rounded-full ${p.status === "ok" ? "bg-indigo-500" : "bg-[#2C2922]"}`} />
+          <div key={p.key} className={`h-1.5 flex-1 rounded-full ${p.status === "ok" ? "bg-brand" : "bg-surface-2"}`} />
         ))}
       </div>
-      <p className="text-sm text-indigo-300 font-medium mb-3">
+      <p className="text-sm text-brand font-medium mb-3">
         {t("scorecard.building.signals").replace("{n}", String(realPillars))}
       </p>
-      <p className="text-sm text-gray-400 leading-relaxed mb-2">{t("scorecard.building.desc")}</p>
-      <p className="text-xs text-gray-500">{t("scorecard.building.hint")}</p>
+      <p className="text-sm text-ink-mute leading-relaxed mb-2">{t("scorecard.building.desc")}</p>
+      <p className="text-xs text-ink-mute">{t("scorecard.building.hint")}</p>
     </div>
   );
 }
@@ -237,21 +237,21 @@ function HeroScore({ data, t }: { data: Scorecard; t: (k: string) => string }) {
   const delta = data.score_delta;
 
   return (
-    <div className={`bg-[#1C1915] border ${style.ring} rounded-2xl p-6 ${style.glow}`}>
+    <div className={`bg-surface border ${style.ring} rounded-2xl p-6 ${style.glow}`}>
       <div className="flex items-start justify-between gap-6 flex-wrap">
         <div className="min-w-0 flex-1">
-          <p className="text-xs uppercase tracking-wider text-gray-500 mb-1">{t("scorecard.healthLabel")}</p>
+          <p className="text-xs uppercase tracking-wider text-ink-mute mb-1">{t("scorecard.healthLabel")}</p>
           <div className="flex items-end gap-3">
             <span className={`text-6xl font-bold tabular-nums ${style.text}`}>{data.score}</span>
-            <span className="text-gray-600 text-sm mb-2">{t("scorecard.outOf")}</span>
+            <span className="text-ink-mute text-sm mb-2">{t("scorecard.outOf")}</span>
             {delta !== null && delta !== 0 && (
-              <span className={`mb-2 text-sm font-semibold ${delta > 0 ? "text-emerald-400" : "text-red-400"}`}>
-                {delta > 0 ? "▲ +" : "▼ "}{delta} <span className="text-gray-600 font-normal">{t("scorecard.vsLastMonth")}</span>
+              <span className={`mb-2 text-sm font-semibold ${delta > 0 ? "text-emerald-400" : "text-neg"}`}>
+                {delta > 0 ? "▲ +" : "▼ "}{delta} <span className="text-ink-mute font-normal">{t("scorecard.vsLastMonth")}</span>
               </span>
             )}
           </div>
           <p className={`mt-3 text-lg font-semibold ${style.text}`}>{t(`scorecard.verdict.${data.band}`)}</p>
-          {moverPhrase && <p className="text-gray-400 text-sm mt-0.5">{moverPhrase}.</p>}
+          {moverPhrase && <p className="text-ink-mute text-sm mt-0.5">{moverPhrase}.</p>}
         </div>
         <div className={`shrink-0 px-3 py-1.5 rounded-full border ${style.ring} ${style.text} text-xs font-semibold uppercase tracking-wide`}>
           {t(`scorecard.band.${data.band}`)}
@@ -259,7 +259,7 @@ function HeroScore({ data, t }: { data: Scorecard; t: (k: string) => string }) {
       </div>
 
       {/* score meter */}
-      <div className="mt-5 h-2 rounded-full bg-[#11100E] overflow-hidden">
+      <div className="mt-5 h-2 rounded-full bg-canvas overflow-hidden">
         <div className={`h-full rounded-full ${style.bar} transition-all`} style={{ width: `${data.score}%` }} />
       </div>
     </div>
@@ -285,22 +285,22 @@ function Pillars({ pillars, t }: { pillars: ScorecardPillar[]; t: (k: string) =>
         const mark = trendMark(p.trend);
         const pct = Math.round((p.score / p.max) * 100);
         return (
-          <div key={p.key} className="bg-[#1C1915] border border-[#2C2922] rounded-xl p-4">
+          <div key={p.key} className="bg-surface border border-line rounded-xl p-4">
             <div className="flex items-center justify-between mb-1.5">
-              <span className="text-sm text-gray-300 font-medium">{t(`scorecard.pillar.${p.key}`)}</span>
+              <span className="text-sm text-ink-soft font-medium">{t(`scorecard.pillar.${p.key}`)}</span>
               <span className="text-sm tabular-nums">
-                <span className="text-white font-semibold">{p.score}</span>
-                <span className="text-gray-600">/{p.max}</span>
+                <span className="text-ink font-semibold">{p.score}</span>
+                <span className="text-ink-mute">/{p.max}</span>
                 {mark.icon && <span className={`ml-1.5 ${mark.cls}`}>{mark.icon}</span>}
               </span>
             </div>
-            <div className="h-1.5 rounded-full bg-[#11100E] overflow-hidden mb-2">
+            <div className="h-1.5 rounded-full bg-canvas overflow-hidden mb-2">
               <div
                 className={`h-full rounded-full ${pct >= 80 ? "bg-emerald-500" : pct >= 50 ? "bg-sky-500" : pct >= 30 ? "bg-amber-500" : "bg-red-500"}`}
                 style={{ width: `${pct}%` }}
               />
             </div>
-            <p className={`text-xs ${p.status === "ok" ? "text-gray-500" : "text-gray-600 italic"}`}>{valueLine(p)}</p>
+            <p className={`text-xs ${p.status === "ok" ? "text-ink-mute" : "text-ink-mute italic"}`}>{valueLine(p)}</p>
           </div>
         );
       })}
@@ -325,23 +325,23 @@ function Trajectory({
   const hasChart = chartData.length >= 2;
 
   return (
-    <div className="bg-[#1C1915] border border-[#2C2922] rounded-xl p-5">
+    <div className="bg-surface border border-line rounded-xl p-5">
       <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
         <div className="flex items-center gap-2">
-          <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">{t("scorecard.trajectory.title")}</p>
+          <p className="text-xs font-semibold text-ink-mute uppercase tracking-wider">{t("scorecard.trajectory.title")}</p>
           {estimated && hasChart && (
             <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-950/40 border border-amber-900/40 text-amber-400/90">
               {t("scorecard.trajectory.estimated")}
             </span>
           )}
         </div>
-        <div className="flex items-center gap-1 bg-[#11100E] border border-[#2C2922] rounded-full p-0.5">
+        <div className="flex items-center gap-1 bg-canvas border border-line rounded-full p-0.5">
           {ranges.map((r) => (
             <button
               key={r}
               onClick={() => setRange(r)}
               className={`px-2.5 py-0.5 rounded-full text-[11px] font-medium transition-colors ${
-                range === r ? "bg-indigo-600 text-white" : "text-gray-500 hover:text-gray-300"
+                range === r ? "bg-brand text-white" : "text-ink-mute hover:text-ink-soft"
               }`}
             >
               {t(`scorecard.trajectory.range${r === "all" ? "All" : r}`)}
@@ -352,7 +352,7 @@ function Trajectory({
 
       {!hasChart ? (
         <div className="h-44 flex items-center justify-center">
-          <p className="text-gray-600 text-sm text-center max-w-xs">{t("scorecard.trajectory.empty")}</p>
+          <p className="text-ink-mute text-sm text-center max-w-xs">{t("scorecard.trajectory.empty")}</p>
         </div>
       ) : (
         <>
@@ -360,23 +360,23 @@ function Trajectory({
             <AreaChart data={chartData} margin={{ top: 4, right: 12, left: 4, bottom: 0 }}>
               <defs>
                 <linearGradient id="nwFill" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="#6366f1" stopOpacity={0.35} />
-                  <stop offset="100%" stopColor="#6366f1" stopOpacity={0} />
+                  <stop offset="0%" stopColor="rgb(var(--c-brand))" stopOpacity={0.35} />
+                  <stop offset="100%" stopColor="rgb(var(--c-brand))" stopOpacity={0} />
                 </linearGradient>
               </defs>
-              <CartesianGrid strokeDasharray="3 3" stroke="#2C2922" vertical={false} />
+              <CartesianGrid strokeDasharray="3 3" stroke="rgb(var(--c-line))" vertical={false} />
               <XAxis dataKey="label" tick={{ fill: "#6b7280", fontSize: 10 }} axisLine={false} tickLine={false} minTickGap={28} />
               <YAxis
                 tick={{ fill: "#4b5563", fontSize: 10 }} axisLine={false} tickLine={false} width={44}
                 tickFormatter={(v: number) => Math.abs(v) >= 1000 ? `${(v / 1000).toFixed(0)}k` : String(v)}
               />
               <Tooltip
-                contentStyle={{ backgroundColor: "#1C1915", border: "1px solid #2C2922", borderRadius: 8 }}
+                contentStyle={{ backgroundColor: "rgb(var(--c-surface))", border: "1px solid rgb(var(--c-line))", borderRadius: 8 }}
                 labelStyle={{ color: "#e5e7eb", fontSize: 12 }}
                 itemStyle={{ fontSize: 12, color: "#a5b4fc" }}
                 formatter={(v: number) => [fmt(v, ccy), undefined]}
               />
-              <Area type="monotone" dataKey="value" stroke="#818cf8" strokeWidth={2} fill="url(#nwFill)" />
+              <Area type="monotone" dataKey="value" stroke="rgb(var(--c-brand))" strokeWidth={2} fill="url(#nwFill)" />
             </AreaChart>
           </ResponsiveContainer>
 
@@ -391,9 +391,9 @@ function Trajectory({
                       : "bg-red-950/30 border-red-900/40 text-red-300"
                   }`}
                 >
-                  <span className="text-gray-500">{fmtDate(a.date, true)}</span>
+                  <span className="text-ink-mute">{fmtDate(a.date, true)}</span>
                   {a.direction === "up" ? "▲" : "▼"} {fmt(a.amount, ccy)}
-                  {a.mover && <span className="text-gray-400">· {catLabel(a.mover)}</span>}
+                  {a.mover && <span className="text-ink-mute">· {catLabel(a.mover)}</span>}
                 </span>
               ))}
             </div>
@@ -417,31 +417,31 @@ function Drivers({
 
   return (
     <div>
-      <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">{t("scorecard.drivers.title")}</p>
+      <p className="text-xs font-semibold text-ink-mute uppercase tracking-wider mb-3">{t("scorecard.drivers.title")}</p>
       {!best && !worst ? (
-        <div className="bg-[#1C1915] border border-[#2C2922] rounded-xl p-5 text-center text-gray-600 text-sm">
+        <div className="bg-surface border border-line rounded-xl p-5 text-center text-ink-mute text-sm">
           {t("scorecard.drivers.none")}
         </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           {best && (
-            <div className="bg-[#1C1915] border border-emerald-900/30 rounded-xl p-4">
+            <div className="bg-surface border border-emerald-900/30 rounded-xl p-4">
               <div className="flex items-center gap-2 text-emerald-400 text-xs font-semibold mb-2">
                 <TrendingUp size={14} /> {t("scorecard.drivers.best")}
               </div>
-              <p className="text-white font-semibold">{label(best)}</p>
+              <p className="text-ink font-semibold">{label(best)}</p>
               <p className="text-emerald-400/80 text-sm mt-0.5">
                 {fmt(best.amount, ccy)} {best.kind === "debt" ? "" : t("scorecard.drivers.spentLess")}
               </p>
             </div>
           )}
           {worst && (
-            <div className="bg-[#1C1915] border border-red-900/30 rounded-xl p-4">
-              <div className="flex items-center gap-2 text-red-400 text-xs font-semibold mb-2">
+            <div className="bg-surface border border-red-900/30 rounded-xl p-4">
+              <div className="flex items-center gap-2 text-neg text-xs font-semibold mb-2">
                 <TrendingDown size={14} /> {t("scorecard.drivers.worst")}
               </div>
-              <p className="text-white font-semibold">{label(worst)}</p>
-              <p className="text-red-400/80 text-sm mt-0.5">
+              <p className="text-ink font-semibold">{label(worst)}</p>
+              <p className="text-neg/80 text-sm mt-0.5">
                 {fmt(worst.amount, ccy)} {t("scorecard.drivers.spentMore")}
               </p>
             </div>
@@ -459,8 +459,8 @@ function Milestones({
   if (milestones.length === 0) {
     return (
       <div>
-        <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">{t("scorecard.milestones.title")}</p>
-        <div className="bg-[#1C1915] border border-[#2C2922] rounded-xl p-5 text-center text-gray-600 text-sm">
+        <p className="text-xs font-semibold text-ink-mute uppercase tracking-wider mb-3">{t("scorecard.milestones.title")}</p>
+        <div className="bg-surface border border-line rounded-xl p-5 text-center text-ink-mute text-sm">
           {t("scorecard.milestones.empty")}
         </div>
       </div>
@@ -475,22 +475,22 @@ function Milestones({
   const detail = (m: ScorecardMilestone): { text: string; cls: string } => {
     if (m.status === "on_track" && m.date) {
       const approx = m.months != null ? ` · ${t("scorecard.milestones.approx")}${m.months} ${t("scorecard.milestones.mo")}` : "";
-      return { text: `${fmtDate(m.date)}${approx}`, cls: "text-indigo-300" };
+      return { text: `${fmtDate(m.date)}${approx}`, cls: "text-brand" };
     }
-    if (m.status === "no_plan") return { text: t("scorecard.milestones.noPlan"), cls: "text-gray-500" };
+    if (m.status === "no_plan") return { text: t("scorecard.milestones.noPlan"), cls: "text-ink-mute" };
     if (m.status === "stalled") return { text: t("scorecard.milestones.stalled"), cls: "text-amber-400" };
-    return { text: "—", cls: "text-gray-600" };
+    return { text: "—", cls: "text-ink-mute" };
   };
 
   return (
     <div>
-      <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">{t("scorecard.milestones.title")}</p>
+      <p className="text-xs font-semibold text-ink-mute uppercase tracking-wider mb-3">{t("scorecard.milestones.title")}</p>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         {milestones.map((m) => {
           const d = detail(m);
           return (
-            <div key={m.key} className="bg-[#1C1915] border border-[#2C2922] rounded-xl p-4">
-              <p className="text-xs text-gray-500 mb-1">{headline(m)}</p>
+            <div key={m.key} className="bg-surface border border-line rounded-xl p-4">
+              <p className="text-xs text-ink-mute mb-1">{headline(m)}</p>
               <p className={`text-lg font-semibold tabular-nums ${d.cls}`}>{d.text}</p>
             </div>
           );
@@ -514,17 +514,17 @@ function Streaks({
   return (
     <div>
       <div className="flex items-center justify-between mb-3">
-        <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">{t("scorecard.streaks.title")}</p>
+        <p className="text-xs font-semibold text-ink-mute uppercase tracking-wider">{t("scorecard.streaks.title")}</p>
         <button
           onClick={() => setManageGoals(!manageGoals)}
-          className="flex items-center gap-1 text-xs text-indigo-400 hover:text-indigo-300 transition-colors"
+          className="flex items-center gap-1 text-xs text-brand hover:text-brand transition-colors"
         >
           {t("scorecard.streaks.manage")} {manageGoals ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
         </button>
       </div>
 
       {streaks.length === 0 ? (
-        <div className="bg-[#1C1915] border border-[#2C2922] rounded-xl p-5 text-center text-gray-600 text-sm">
+        <div className="bg-surface border border-line rounded-xl p-5 text-center text-ink-mute text-sm">
           {t("scorecard.streaks.empty")}
         </div>
       ) : (
@@ -533,23 +533,23 @@ function Streaks({
             const over = s.current_pct > 100;
             const pct = Math.min(100, s.current_pct);
             return (
-              <div key={s.category} className="bg-[#1C1915] border border-[#2C2922] rounded-xl p-4">
+              <div key={s.category} className="bg-surface border border-line rounded-xl p-4">
                 <div className="flex items-center justify-between mb-2 gap-2">
-                  <span className="text-sm text-gray-200 font-medium truncate">{catLabel(s.category)}</span>
+                  <span className="text-sm text-ink-soft font-medium truncate">{catLabel(s.category)}</span>
                   {s.months > 0 ? (
                     <span className="flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-orange-950/40 border border-orange-900/40 text-orange-300 shrink-0">
                       <Flame size={11} /> {s.months} {t("scorecard.streaks.monthsUnder")}
                     </span>
                   ) : (
-                    <span className="text-xs text-gray-600 shrink-0">{t("scorecard.streaks.newGoal")}</span>
+                    <span className="text-xs text-ink-mute shrink-0">{t("scorecard.streaks.newGoal")}</span>
                   )}
                 </div>
-                <div className="h-1.5 rounded-full bg-[#11100E] overflow-hidden mb-1.5">
+                <div className="h-1.5 rounded-full bg-canvas overflow-hidden mb-1.5">
                   <div className={`h-full rounded-full ${over ? "bg-red-500" : pct > 85 ? "bg-amber-500" : "bg-emerald-500"}`} style={{ width: `${pct}%` }} />
                 </div>
                 <div className="flex items-center justify-between text-[11px]">
-                  <span className="text-gray-500">{fmt(s.spent, ccy)} / {fmt(s.limit, ccy)}</span>
-                  <span className={over ? "text-red-400 font-medium" : "text-gray-500"}>
+                  <span className="text-ink-mute">{fmt(s.spent, ccy)} / {fmt(s.limit, ccy)}</span>
+                  <span className={over ? "text-neg font-medium" : "text-ink-mute"}>
                     {s.current_pct}% {over ? t("scorecard.streaks.over") : t("scorecard.streaks.thisMonth")}
                   </span>
                 </div>

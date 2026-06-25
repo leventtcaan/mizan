@@ -62,9 +62,9 @@ function BriefContent() {
 
   if (!brief) {
     return (
-      <div className="min-h-screen bg-[#11100E] text-white flex flex-col items-center justify-center px-4">
-        <div className="flex items-center gap-3 text-gray-400">
-          <span className="w-5 h-5 border-2 border-gray-600 border-t-indigo-400 rounded-full animate-spin" />
+      <div className="min-h-screen bg-canvas text-ink flex flex-col items-center justify-center px-4">
+        <div className="flex items-center gap-3 text-ink-mute">
+          <span className="w-5 h-5 border-2 border-gray-600 border-t-brand rounded-full animate-spin" />
           <span className="text-sm">{t("brief.loading")}</span>
         </div>
       </div>
@@ -92,17 +92,17 @@ function BriefContent() {
   // Every number says where it comes from. Flow/categories are this one statement;
   // recurring is computed across all the user's activity, so it's labelled differently.
   const Source = ({ text }: { text: string }) => (
-    <p className="text-[11px] text-gray-600 mt-3 pt-3 border-t border-[#2C2922]/60">{text}</p>
+    <p className="text-[11px] text-ink-mute mt-3 pt-3 border-t border-line/60">{text}</p>
   );
   const statementSource = `${t("brief.fromStatement")} · ${periodRange}`;
 
   return (
-    <div className="min-h-screen bg-[#11100E] text-white px-4 py-12">
+    <div className="min-h-screen bg-canvas text-ink px-4 py-12">
       <div className="w-full max-w-lg mx-auto">
         {/* Eyebrow + explicit data source */}
         <div className={beatCls} style={beatStyle(0)}>
-          <p className="text-center text-gray-600 text-xs font-medium tracking-widest uppercase mb-2">{t("brief.eyebrow")}</p>
-          <p className="text-center text-gray-500 text-sm mb-8">
+          <p className="text-center text-ink-mute text-xs font-medium tracking-widest uppercase mb-2">{t("brief.eyebrow")}</p>
+          <p className="text-center text-ink-mute text-sm mb-8">
             {t("brief.sourceStatement")} · {periodRange} · {period.transaction_count} {t("brief.transactions")}
           </p>
         </div>
@@ -110,30 +110,30 @@ function BriefContent() {
         {/* Narrative hero */}
         {narrative && (
           <div className={`mb-8 ${beatCls}`} style={beatStyle(1)}>
-            <p className="text-lg leading-relaxed text-gray-100">{narrative}</p>
+            <p className="text-lg leading-relaxed text-ink-soft">{narrative}</p>
           </div>
         )}
 
         <div className="space-y-4">
           {/* BEAT — flow */}
-          <div className={`bg-[#1C1915] border border-[#2C2922] rounded-2xl p-6 ${beatCls}`} style={beatStyle(2)}>
-            <p className="text-gray-500 text-xs font-medium uppercase tracking-wide mb-3">{t("brief.b2Title")}</p>
-            <p className={`text-4xl font-bold tabular-nums ${positive ? "text-emerald-400" : "text-red-400"}`}>
+          <div className={`bg-surface border border-line rounded-2xl p-6 ${beatCls}`} style={beatStyle(2)}>
+            <p className="text-ink-mute text-xs font-medium uppercase tracking-wide mb-3">{t("brief.b2Title")}</p>
+            <p className={`text-4xl font-bold tabular-nums ${positive ? "text-emerald-400" : "text-neg"}`}>
               {positive ? "+" : "−"}{money(Math.abs(flow.net), ccy)}
             </p>
-            <p className="text-gray-300 text-sm mt-2">
+            <p className="text-ink-soft text-sm mt-2">
               {positive ? t("brief.aheadPre") : t("brief.behindPre")}{" "}
-              <span className="font-semibold text-white">{money(Math.abs(flow.net), ccy)}</span>{" "}
+              <span className="font-semibold text-ink">{money(Math.abs(flow.net), ccy)}</span>{" "}
               {positive ? t("brief.aheadPost") : t("brief.behindPost")}
             </p>
-            <div className="flex gap-6 mt-4 pt-4 border-t border-[#2C2922] text-sm">
+            <div className="flex gap-6 mt-4 pt-4 border-t border-line text-sm">
               <div>
-                <p className="text-gray-500 text-xs">{t("brief.income")}</p>
+                <p className="text-ink-mute text-xs">{t("brief.income")}</p>
                 <p className="text-emerald-400 font-semibold tabular-nums">{money(flow.income, ccy)}</p>
               </div>
               <div>
-                <p className="text-gray-500 text-xs">{t("brief.expenses")}</p>
-                <p className="text-red-400 font-semibold tabular-nums">{money(flow.expenses, ccy)}</p>
+                <p className="text-ink-mute text-xs">{t("brief.expenses")}</p>
+                <p className="text-neg font-semibold tabular-nums">{money(flow.expenses, ccy)}</p>
               </div>
             </div>
             <Source text={statementSource} />
@@ -142,8 +142,8 @@ function BriefContent() {
 
           {/* BEAT — where it went */}
           {top_categories.length > 0 && (
-            <div className={`bg-[#1C1915] border border-[#2C2922] rounded-2xl p-6 ${beatCls}`} style={beatStyle(3)}>
-              <p className="text-gray-500 text-xs font-medium uppercase tracking-wide mb-4">{t("brief.b3Title")}</p>
+            <div className={`bg-surface border border-line rounded-2xl p-6 ${beatCls}`} style={beatStyle(3)}>
+              <p className="text-ink-mute text-xs font-medium uppercase tracking-wide mb-4">{t("brief.b3Title")}</p>
               <div className="space-y-3">
                 {top_categories.map((c) => {
                   const color = CATEGORY_COLORS[c.name] || DEFAULT_CATEGORY_COLOR;
@@ -151,15 +151,15 @@ function BriefContent() {
                   return (
                     <div key={c.name}>
                       <div className="flex items-center justify-between text-sm mb-1">
-                        <span className="flex items-center gap-2 text-gray-200">
+                        <span className="flex items-center gap-2 text-ink-soft">
                           <span className="w-2 h-2 rounded-full" style={{ backgroundColor: color }} />
                           {label}
                         </span>
-                        <span className="tabular-nums text-gray-300">
-                          {money(c.amount, ccy)} <span className="text-gray-600 text-xs">· {c.share.toFixed(0)}%</span>
+                        <span className="tabular-nums text-ink-soft">
+                          {money(c.amount, ccy)} <span className="text-ink-mute text-xs">· {c.share.toFixed(0)}%</span>
                         </span>
                       </div>
-                      <div className="h-1.5 rounded-full bg-[#2C2922] overflow-hidden">
+                      <div className="h-1.5 rounded-full bg-surface-2 overflow-hidden">
                         <div className="h-full rounded-full" style={{ width: `${Math.min(c.share, 100)}%`, backgroundColor: color }} />
                       </div>
                     </div>
@@ -167,9 +167,9 @@ function BriefContent() {
                 })}
               </div>
               {largest_transaction && (
-                <p className="text-gray-500 text-xs mt-4 pt-4 border-t border-[#2C2922]">
-                  {t("brief.largest")}: <span className="text-gray-300">{largest_transaction.description}</span>{" "}
-                  <span className="text-red-400 font-medium tabular-nums">{money(largest_transaction.amount, ccy)}</span>
+                <p className="text-ink-mute text-xs mt-4 pt-4 border-t border-line">
+                  {t("brief.largest")}: <span className="text-ink-soft">{largest_transaction.description}</span>{" "}
+                  <span className="text-neg font-medium tabular-nums">{money(largest_transaction.amount, ccy)}</span>
                 </p>
               )}
               <Source text={statementSource} />
@@ -178,37 +178,37 @@ function BriefContent() {
           )}
 
           {/* BEAT — recurring commitments */}
-          <div className={`bg-[#1C1915] border border-[#2C2922] rounded-2xl p-6 ${beatCls}`} style={beatStyle(4)}>
-            <p className="text-gray-500 text-xs font-medium uppercase tracking-wide mb-3">{t("brief.b4Title")}</p>
+          <div className={`bg-surface border border-line rounded-2xl p-6 ${beatCls}`} style={beatStyle(4)}>
+            <p className="text-ink-mute text-xs font-medium uppercase tracking-wide mb-3">{t("brief.b4Title")}</p>
             {recurring_signal.monthly_total > 0 ? (
               <>
-                <p className="text-2xl font-bold tabular-nums text-white">
+                <p className="text-2xl font-bold tabular-nums text-ink">
                   {money(recurring_signal.monthly_total, ccy)}
-                  <span className="text-gray-500 text-sm font-normal"> {t("brief.perMonthCommit")}</span>
+                  <span className="text-ink-mute text-sm font-normal"> {t("brief.perMonthCommit")}</span>
                 </p>
                 {recurring_signal.highlight && (
-                  <p className="text-gray-400 text-sm mt-2">{recurring_signal.highlight}</p>
+                  <p className="text-ink-mute text-sm mt-2">{recurring_signal.highlight}</p>
                 )}
               </>
             ) : (
-              <p className="text-gray-400 text-sm">{t("brief.noRecurring")}</p>
+              <p className="text-ink-mute text-sm">{t("brief.noRecurring")}</p>
             )}
             <Source text={t("brief.fromAllActivity")} />
             <AskLink prefill={t("brief.askRecurring")} />
           </div>
 
           {/* BEAT — the one move */}
-          <div className={`bg-indigo-950/30 border border-indigo-800/40 rounded-2xl p-6 ${beatCls}`} style={beatStyle(5)}>
-            <p className="text-indigo-300/70 text-xs font-medium uppercase tracking-wide mb-3">{t("brief.b5Title")}</p>
+          <div className={`bg-brand/30 border border-brand/40 rounded-2xl p-6 ${beatCls}`} style={beatStyle(5)}>
+            <p className="text-brand/70 text-xs font-medium uppercase tracking-wide mb-3">{t("brief.b5Title")}</p>
             <button
               onClick={() => router.push(suggested_action.href)}
-              className="w-full py-3.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 font-semibold transition-colors flex items-center justify-center gap-2"
+              className="w-full py-3.5 rounded-xl bg-brand hover:bg-brand-hover font-semibold transition-colors flex items-center justify-center gap-2"
             >
               {suggested_action.label} <ArrowRight size={18} />
             </button>
             <button
               onClick={() => router.push("/transactions")}
-              className="w-full mt-3 text-center text-gray-500 hover:text-gray-300 text-sm transition-colors"
+              className="w-full mt-3 text-center text-ink-mute hover:text-ink-soft text-sm transition-colors"
             >
               {periodRange} {t("brief.viewAllPeriod")}
             </button>
@@ -221,7 +221,7 @@ function BriefContent() {
 
 export default function BriefPage() {
   return (
-    <Suspense fallback={<div className="min-h-screen bg-[#11100E]" />}>
+    <Suspense fallback={<div className="min-h-screen bg-canvas" />}>
       <BriefContent />
     </Suspense>
   );

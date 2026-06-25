@@ -34,7 +34,7 @@ export default function AskMim({
   return (
     <button
       onClick={() => openMim(prefill, jobId ? { jobId, scopeLabel } : undefined)}
-      className={`inline-flex items-center gap-1.5 text-indigo-400 hover:text-indigo-300 text-sm transition-colors ${className}`}
+      className={`inline-flex items-center gap-1.5 text-brand hover:text-brand text-sm transition-colors ${className}`}
     >
       <Mim mood={mood} size={size} quiet />
       {label}

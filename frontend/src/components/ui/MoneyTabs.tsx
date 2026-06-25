@@ -30,8 +30,8 @@ export default function MoneyTabs() {
             href={tab.href}
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm whitespace-nowrap transition-colors ${
               active
-                ? "bg-indigo-600 text-white"
-                : "bg-[#1C1915] border border-[#2C2922] text-gray-400 hover:text-gray-200 hover:border-[#3C3832]"
+                ? "bg-brand text-white"
+                : "bg-surface border border-line text-ink-mute hover:text-ink-soft hover:border-[#3C3832]"
             }`}
           >
             <Icon size={14} />

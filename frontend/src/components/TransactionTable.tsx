@@ -75,8 +75,8 @@ export default function TransactionTable({ transactions, onCategoryCorrection }:
 
   if (transactions.length === 0) {
     return (
-      <div className="text-center py-16 bg-[#1C1915] border border-[#2C2922] rounded-xl">
-        <p className="text-gray-500 text-sm">{t("tx.empty")}</p>
+      <div className="text-center py-16 bg-surface border border-line rounded-xl">
+        <p className="text-ink-mute text-sm">{t("tx.empty")}</p>
         <p className="text-gray-700 text-xs mt-1">{t("tx.emptyHint")}</p>
       </div>
     );
@@ -115,14 +115,14 @@ export default function TransactionTable({ transactions, onCategoryCorrection }:
   };
 
   return (
-    <div className="rounded-xl border border-[#2C2922] overflow-hidden">
+    <div className="rounded-xl border border-line overflow-hidden">
       <table className="w-full text-sm">
         <thead>
-          <tr className="bg-[#1C1915] border-b border-[#2C2922]">
-            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wide w-28">{t("tx.date")}</th>
-            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wide">{t("tx.description")}</th>
-            <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wide w-36">{t("common.amount")}</th>
-            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wide w-36">{t("goals.category")}</th>
+          <tr className="bg-surface border-b border-line">
+            <th className="px-4 py-3 text-left text-xs font-medium text-ink-mute uppercase tracking-wide w-28">{t("tx.date")}</th>
+            <th className="px-4 py-3 text-left text-xs font-medium text-ink-mute uppercase tracking-wide">{t("tx.description")}</th>
+            <th className="px-4 py-3 text-right text-xs font-medium text-ink-mute uppercase tracking-wide w-36">{t("common.amount")}</th>
+            <th className="px-4 py-3 text-left text-xs font-medium text-ink-mute uppercase tracking-wide w-36">{t("goals.category")}</th>
             <th className="px-4 py-3 w-8" />
           </tr>
         </thead>
@@ -132,22 +132,22 @@ export default function TransactionTable({ transactions, onCategoryCorrection }:
               category: tx.category, notes: [], notesLoaded: false, expanded: false, saving: false, error: null,
             };
             const isOdd = i % 2 !== 0;
-            const rowBg = isOdd ? "bg-[#13110D]" : "bg-[#11100E]";
+            const rowBg = isOdd ? "bg-[#13110D]" : "bg-canvas";
 
             return (
               <Fragment key={tx.id}>
                 <tr
-                  className={`${rowBg} hover:bg-[#1C1915] transition-colors duration-100 cursor-pointer group border-b border-[#2C2922] last:border-0`}
+                  className={`${rowBg} hover:bg-surface transition-colors duration-100 cursor-pointer group border-b border-line last:border-0`}
                   onClick={() => void toggleExpand(tx.id)}
                 >
                   <td className="px-4 py-3.5 whitespace-nowrap">
-                    <span className="text-xs text-gray-500">{formatDate(tx.transaction_date)}</span>
+                    <span className="text-xs text-ink-mute">{formatDate(tx.transaction_date)}</span>
                   </td>
                   <td className="px-4 py-3.5 max-w-0">
-                    <p className="text-gray-200 text-sm truncate" title={tx.description}>{tx.description}</p>
+                    <p className="text-ink-soft text-sm truncate" title={tx.description}>{tx.description}</p>
                   </td>
                   <td className="px-4 py-3.5 text-right whitespace-nowrap">
-                    <span className={`text-sm font-semibold tabular-nums ${tx.transaction_type === "credit" ? "text-emerald-400" : "text-red-400"}`}>
+                    <span className={`text-sm font-semibold tabular-nums ${tx.transaction_type === "credit" ? "text-emerald-400" : "text-neg"}`}>
                       {formatAmount(tx.amount, tx.transaction_type, tx.currency)}
                     </span>
                   </td>
@@ -155,32 +155,32 @@ export default function TransactionTable({ transactions, onCategoryCorrection }:
                     <CategoryBadge category={row.category} />
                   </td>
                   <td className="px-3 py-3.5">
-                    <span className={`flex items-center justify-center transition-colors ${row.expanded ? "text-indigo-400" : "text-gray-600 group-hover:text-gray-400"}`}>
+                    <span className={`flex items-center justify-center transition-colors ${row.expanded ? "text-brand" : "text-ink-mute group-hover:text-ink-mute"}`}>
                       <ChevronIcon open={row.expanded} />
                     </span>
                   </td>
                 </tr>
 
                 {row.expanded && (
-                  <tr key={`${tx.id}-detail`} className="bg-[#1C1915] border-b border-[#2C2922]">
+                  <tr key={`${tx.id}-detail`} className="bg-surface border-b border-line">
                     <td colSpan={5} className="px-5 py-4">
-                      <div className="flex items-start justify-between mb-4 pb-3 border-b border-[#2C2922]">
+                      <div className="flex items-start justify-between mb-4 pb-3 border-b border-line">
                         <div>
-                          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-0.5">{t("tx.detail")}</p>
-                          <p className="text-sm text-gray-300 leading-relaxed">{tx.description}</p>
+                          <p className="text-xs font-semibold text-ink-mute uppercase tracking-wider mb-0.5">{t("tx.detail")}</p>
+                          <p className="text-sm text-ink-soft leading-relaxed">{tx.description}</p>
                         </div>
                         <div className="text-right shrink-0 ml-4">
-                          <p className={`text-base font-bold tabular-nums ${tx.transaction_type === "credit" ? "text-emerald-400" : "text-red-400"}`}>
+                          <p className={`text-base font-bold tabular-nums ${tx.transaction_type === "credit" ? "text-emerald-400" : "text-neg"}`}>
                             {formatAmount(tx.amount, tx.transaction_type, tx.currency)}
                           </p>
-                          <p className="text-xs text-gray-600 mt-0.5">{formatDate(tx.transaction_date)}</p>
+                          <p className="text-xs text-ink-mute mt-0.5">{formatDate(tx.transaction_date)}</p>
                         </div>
                       </div>
 
                       <div className="mb-5">
-                        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
+                        <p className="text-xs font-semibold text-ink-mute uppercase tracking-wider mb-2">
                           {t("tx.fixCategory")}
-                          {row.saving && <span className="ml-2 text-indigo-400 normal-case font-normal">{t("common.saving")}</span>}
+                          {row.saving && <span className="ml-2 text-brand normal-case font-normal">{t("common.saving")}</span>}
                         </p>
                         <div className="flex gap-1.5 overflow-x-auto pb-1 -mx-1 px-1">
                           {CATEGORIES.map((cat) => {
@@ -193,7 +193,7 @@ export default function TransactionTable({ transactions, onCategoryCorrection }:
                                 disabled={row.saving}
                                 onClick={() => void handleCategoryChange(tx.id, cat)}
                                 className={`shrink-0 px-3 py-1 rounded-full text-xs font-medium transition-colors disabled:opacity-40 ${
-                                  isActive ? "bg-indigo-600 text-white" : "bg-[#2C2922] text-gray-400 hover:bg-[#36322B] hover:text-gray-200"
+                                  isActive ? "bg-brand text-white" : "bg-surface-2 text-ink-mute hover:bg-surface-3 hover:text-ink-soft"
                                 }`}
                               >
                                 {label}
@@ -201,11 +201,11 @@ export default function TransactionTable({ transactions, onCategoryCorrection }:
                             );
                           })}
                         </div>
-                        {row.error && <p className="text-xs text-red-400 mt-2">{row.error}</p>}
+                        {row.error && <p className="text-xs text-neg mt-2">{row.error}</p>}
                       </div>
 
                       <div>
-                        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">{t("common.notes")}</p>
+                        <p className="text-xs font-semibold text-ink-mute uppercase tracking-wider mb-2">{t("common.notes")}</p>
                         <NoteInput
                           transactionId={tx.id}
                           existingNotes={row.notes}

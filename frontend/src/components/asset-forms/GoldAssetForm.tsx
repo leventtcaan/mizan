@@ -40,7 +40,7 @@ export default function GoldAssetForm({ onDraftChange, displayCurrency }: AssetF
   return (
     <div className="space-y-4">
       <div>
-        <label className="block text-xs text-gray-400 mb-1.5">{t("assetForm.goldTypeLabel")}</label>
+        <label className="block text-xs text-ink-mute mb-1.5">{t("assetForm.goldTypeLabel")}</label>
         <select value={unitCode} onChange={(e) => setUnitCode(e.target.value)} className={sharedInputClass}>
           {GOLD_UNITS.map((u) => (
             <option key={u.code} value={u.code}>{t(`assetForm.goldUnits.${u.labelKey}`)}</option>
@@ -49,15 +49,15 @@ export default function GoldAssetForm({ onDraftChange, displayCurrency }: AssetF
       </div>
 
       <div>
-        <label className="block text-xs text-gray-400 mb-1.5">
-          {t("assetForm.goldQty")} <span className="text-gray-600">({t(`assetForm.units.${unit.unitKey}`)})</span>
+        <label className="block text-xs text-ink-mute mb-1.5">
+          {t("assetForm.goldQty")} <span className="text-ink-mute">({t(`assetForm.units.${unit.unitKey}`)})</span>
         </label>
         <input type="number" min="0" step="any" value={qty} onChange={(e) => setQty(e.target.value)}
           placeholder="0" className={sharedInputClass} />
         {preview && <p className="text-emerald-400/80 text-xs mt-1.5">{preview}</p>}
       </div>
 
-      <p className="text-[11px] text-gray-600 leading-relaxed">{t("assetForm.goldPurityNote")}</p>
+      <p className="text-[11px] text-ink-mute leading-relaxed">{t("assetForm.goldPurityNote")}</p>
     </div>
   );
 }

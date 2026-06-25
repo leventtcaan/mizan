@@ -65,27 +65,27 @@ export default function AddLiabilityModal({ onClose, onAdded, onUpdated, editDat
     }
   };
 
-  const inputClass = "w-full bg-[#11100E] border border-[#2C2922] rounded-lg px-3 py-2 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-indigo-600";
+  const inputClass = "w-full bg-canvas border border-line rounded-lg px-3 py-2 text-sm text-ink placeholder-gray-600 focus:outline-none focus:border-brand";
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm" onClick={onClose}>
-      <div className="bg-[#1C1915] border border-[#2C2922] rounded-2xl w-full max-w-md mx-4 p-6 max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+      <div className="bg-surface border border-line rounded-2xl w-full max-w-md mx-4 p-6 max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between mb-5">
-          <h2 className="text-white font-semibold text-lg">
+          <h2 className="text-ink font-semibold text-lg">
             {isEdit ? `${t("common.edit")}: ${editData!.name}` : t("nw.addLiability")}
           </h2>
-          <button onClick={onClose} className="text-gray-500 hover:text-gray-300 transition-colors"><X size={20} /></button>
+          <button onClick={onClose} className="text-ink-mute hover:text-ink-soft transition-colors"><X size={20} /></button>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-xs text-gray-400 mb-1">{t("common.name")}</label>
+            <label className="block text-xs text-ink-mute mb-1">{t("common.name")}</label>
             <input value={name} onChange={(e) => setName(e.target.value)} required className={inputClass} />
           </div>
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs text-gray-400 mb-1">{t("common.type")}</label>
+              <label className="block text-xs text-ink-mute mb-1">{t("common.type")}</label>
               <select value={liabilityType} onChange={(e) => setLiabilityType(e.target.value)} className={inputClass}>
                 {LIABILITY_TYPE_KEYS.map((k) => {
                   const key = `liabilityType.${k}`;
@@ -95,47 +95,47 @@ export default function AddLiabilityModal({ onClose, onAdded, onUpdated, editDat
               </select>
             </div>
             <div>
-              <label className="block text-xs text-gray-400 mb-1">{t("common.currency")}</label>
+              <label className="block text-xs text-ink-mute mb-1">{t("common.currency")}</label>
               <CurrencySelect value={currency} onChange={setCurrency} />
             </div>
           </div>
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs text-gray-400 mb-1">{t("nw.total")}</label>
+              <label className="block text-xs text-ink-mute mb-1">{t("nw.total")}</label>
               <input type="number" min="0" step="0.01" value={totalAmount} onChange={(e) => setTotalAmount(e.target.value)} placeholder="0.00" required className={inputClass} />
             </div>
             <div>
-              <label className="block text-xs text-gray-400 mb-1">{t("nw.remaining")}</label>
+              <label className="block text-xs text-ink-mute mb-1">{t("nw.remaining")}</label>
               <input type="number" min="0" step="0.01" value={remainingAmount} onChange={(e) => setRemainingAmount(e.target.value)} className={inputClass} />
             </div>
           </div>
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs text-gray-400 mb-1">{t("nw.monthly")} ({t("common.optional")})</label>
+              <label className="block text-xs text-ink-mute mb-1">{t("nw.monthly")} ({t("common.optional")})</label>
               <input type="number" min="0" step="0.01" value={monthlyPayment} onChange={(e) => setMonthlyPayment(e.target.value)} placeholder="0.00" className={inputClass} />
             </div>
             <div>
-              <label className="block text-xs text-gray-400 mb-1">% ({t("common.optional")})</label>
+              <label className="block text-xs text-ink-mute mb-1">% ({t("common.optional")})</label>
               <input type="number" min="0" step="0.01" value={interestRate} onChange={(e) => setInterestRate(e.target.value)} className={inputClass} />
             </div>
           </div>
 
           <div>
-            <label className="block text-xs text-gray-400 mb-1">{t("nw.due")} ({t("common.optional")})</label>
+            <label className="block text-xs text-ink-mute mb-1">{t("nw.due")} ({t("common.optional")})</label>
             <input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} className={inputClass} />
           </div>
 
           <div>
-            <label className="block text-xs text-gray-400 mb-1">{t("common.notes")} ({t("common.optional")})</label>
+            <label className="block text-xs text-ink-mute mb-1">{t("common.notes")} ({t("common.optional")})</label>
             <input value={notes} onChange={(e) => setNotes(e.target.value)} className={inputClass} />
           </div>
 
-          {error && <p className="text-red-400 text-xs">{error}</p>}
+          {error && <p className="text-neg text-xs">{error}</p>}
 
           <div className="flex gap-3 pt-1">
-            <button type="button" onClick={onClose} className="flex-1 px-4 py-2 rounded-lg border border-[#2C2922] text-sm text-gray-400 hover:text-gray-200 transition-colors">
+            <button type="button" onClick={onClose} className="flex-1 px-4 py-2 rounded-lg border border-line text-sm text-ink-mute hover:text-ink-soft transition-colors">
               {t("common.cancel")}
             </button>
             <button type="submit" disabled={loading || !name || !totalAmount} className="flex-1 px-4 py-2 rounded-lg bg-red-600 hover:bg-red-500 disabled:opacity-50 disabled:cursor-not-allowed text-sm font-medium text-white transition-colors">

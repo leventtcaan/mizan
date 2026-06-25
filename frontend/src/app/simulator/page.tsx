@@ -174,23 +174,23 @@ export default function SimulatorPage() {
   const noData = levers && levers.net_worth === 0 && levers.subscriptions.length === 0
     && levers.debts.length === 0 && levers.monthly_surplus === 0;
 
-  const inputCls = "bg-[#11100E] border border-[#2C2922] rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-600 w-full";
+  const inputCls = "bg-canvas border border-line rounded-lg px-3 py-2 text-sm text-ink focus:outline-none focus:border-brand w-full";
 
   return (
     <PageLayout
       title={t("sim.title")}
-      titleBadge={<Sparkles size={18} className="text-indigo-400" />}
+      titleBadge={<Sparkles size={18} className="text-brand" />}
       subtitle={t("sim.subtitle")}
       maxWidth="lg"
     >
       {noData ? (
         <div className={`${card} text-center py-10`}>
-          <Sparkles size={28} className="text-indigo-400 mx-auto mb-3" />
-          <p className="text-white font-medium mb-1">{t("sim.emptyTitle")}</p>
-          <p className="text-gray-500 text-sm mb-4">{t("sim.emptyBody")}</p>
+          <Sparkles size={28} className="text-brand mx-auto mb-3" />
+          <p className="text-ink font-medium mb-1">{t("sim.emptyTitle")}</p>
+          <p className="text-ink-mute text-sm mb-4">{t("sim.emptyBody")}</p>
           <div className="flex justify-center gap-3">
-            <Link href="/upload" className="px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-medium">{t("sim.emptyUpload")}</Link>
-            <Link href="/networth" className="px-4 py-2 rounded-lg border border-[#2C2922] text-gray-300 hover:text-white text-sm font-medium">{t("sim.emptyNetworth")}</Link>
+            <Link href="/upload" className="px-4 py-2 rounded-lg bg-brand hover:bg-brand-hover text-white text-sm font-medium">{t("sim.emptyUpload")}</Link>
+            <Link href="/networth" className="px-4 py-2 rounded-lg border border-line text-ink-soft hover:text-ink text-sm font-medium">{t("sim.emptyNetworth")}</Link>
           </div>
         </div>
       ) : (
@@ -198,8 +198,8 @@ export default function SimulatorPage() {
           {/* Ask in your own words */}
           <section className={card}>
             <div className="flex items-center gap-2 mb-2">
-              <Brain size={15} className="text-indigo-400" />
-              <p className="text-sm font-semibold text-white">{t("sim.askTitle")}</p>
+              <Brain size={15} className="text-brand" />
+              <p className="text-sm font-semibold text-ink">{t("sim.askTitle")}</p>
             </div>
             <div className="flex gap-2">
               <input
@@ -210,7 +210,7 @@ export default function SimulatorPage() {
                 className={inputCls}
               />
               <button onClick={() => void ask()} disabled={asking || !question.trim()}
-                className="px-3 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 text-white shrink-0">
+                className="px-3 py-2 rounded-lg bg-brand hover:bg-brand-hover disabled:opacity-40 text-white shrink-0">
                 {asking ? <span className="block w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <Send size={16} />}
               </button>
             </div>
@@ -220,9 +220,9 @@ export default function SimulatorPage() {
           {/* Lever builder */}
           <section className={card}>
             <div className="flex items-center justify-between mb-3">
-              <p className="text-sm font-semibold text-white">{t("sim.buildTitle")}</p>
+              <p className="text-sm font-semibold text-ink">{t("sim.buildTitle")}</p>
               {actions.length > 0 && (
-                <button onClick={clearAll} className="text-gray-500 hover:text-gray-300 text-xs flex items-center gap-1">
+                <button onClick={clearAll} className="text-ink-mute hover:text-ink-soft text-xs flex items-center gap-1">
                   <XIcon size={12} /> {t("sim.clear")}
                 </button>
               )}
@@ -231,19 +231,19 @@ export default function SimulatorPage() {
             <div className="grid sm:grid-cols-2 gap-4">
               {/* Save more */}
               <div>
-                <label className="text-gray-400 text-xs block mb-1">{t("sim.saveMonthly")}</label>
+                <label className="text-ink-mute text-xs block mb-1">{t("sim.saveMonthly")}</label>
                 <input inputMode="decimal" value={amountOf("save_monthly")} onChange={(e) => setSingle("save_monthly", e.target.value)} placeholder="0" className={inputCls} />
               </div>
               {/* Income change — direction toggle + magnitude (no bare-minus typing) */}
               <div>
-                <label className="text-gray-400 text-xs block mb-1">{t("sim.incomeChange")}</label>
+                <label className="text-ink-mute text-xs block mb-1">{t("sim.incomeChange")}</label>
                 <div className="flex gap-2">
-                  <div className="flex rounded-lg overflow-hidden border border-[#2C2922] shrink-0">
+                  <div className="flex rounded-lg overflow-hidden border border-line shrink-0">
                     {(["raise", "cut"] as const).map((d) => (
                       <button key={d} onClick={() => applyIncome(d, incomeMag)}
                         className={`px-2.5 text-xs font-medium transition-colors ${effIncomeDir === d
                           ? (d === "raise" ? "bg-emerald-800/40 text-emerald-200" : "bg-red-800/40 text-red-200")
-                          : "text-gray-400 hover:text-gray-200"}`}>
+                          : "text-ink-mute hover:text-ink-soft"}`}>
                         {d === "raise" ? t("sim.incomeRaise") : t("sim.incomeCut")}
                       </button>
                     ))}
@@ -253,16 +253,16 @@ export default function SimulatorPage() {
               </div>
               {/* One-time purchase */}
               <div>
-                <label className="text-gray-400 text-xs block mb-1">{t("sim.oneTime")}</label>
+                <label className="text-ink-mute text-xs block mb-1">{t("sim.oneTime")}</label>
                 <input inputMode="decimal" value={amountOf("one_time_expense")} onChange={(e) => setSingle("one_time_expense", e.target.value)} placeholder="0" className={inputCls} />
               </div>
               {/* Horizon */}
               <div>
-                <label className="text-gray-400 text-xs block mb-1">{t("sim.horizon")}</label>
-                <div className="flex rounded-lg overflow-hidden border border-[#2C2922]">
+                <label className="text-ink-mute text-xs block mb-1">{t("sim.horizon")}</label>
+                <div className="flex rounded-lg overflow-hidden border border-line">
                   {HORIZONS.map((h) => (
                     <button key={h} onClick={() => setHorizon(h)}
-                      className={`flex-1 py-2 text-xs font-medium transition-colors ${horizon === h ? "bg-indigo-600 text-white" : "text-gray-400 hover:text-gray-200"}`}>
+                      className={`flex-1 py-2 text-xs font-medium transition-colors ${horizon === h ? "bg-brand text-white" : "text-ink-mute hover:text-ink-soft"}`}>
                       {h}{lang === "tr" ? "a" : "mo"}
                     </button>
                   ))}
@@ -273,20 +273,20 @@ export default function SimulatorPage() {
             {/* Cancel subscriptions — always visible so the feature explains itself */}
             {levers && (
               <div className="mt-4">
-                <label className="text-gray-400 text-xs block mb-2">{t("sim.cancelSubs")}</label>
+                <label className="text-ink-mute text-xs block mb-2">{t("sim.cancelSubs")}</label>
                 {levers.subscriptions.length > 0 ? (
                   <div className="flex flex-wrap gap-2">
                     {levers.subscriptions.slice(0, 12).map((s) => (
                       <button key={s.key} onClick={() => toggleCancel(s.label, s.monthly_amount)}
                         className={`px-2.5 py-1.5 rounded-lg text-xs border transition-colors ${isCancelled(s.label)
                           ? "bg-emerald-950/40 border-emerald-700/50 text-emerald-300"
-                          : "bg-[#11100E] border-[#2C2922] text-gray-300 hover:border-[#3C3832]"}`}>
+                          : "bg-canvas border-line text-ink-soft hover:border-[#3C3832]"}`}>
                         {isCancelled(s.label) ? "✓ " : ""}{s.label} · {money(s.monthly_amount)}/{lang === "tr" ? "ay" : "mo"}
                       </button>
                     ))}
                   </div>
                 ) : (
-                  <p className="text-gray-600 text-xs">{t("sim.subsEmpty")}</p>
+                  <p className="text-ink-mute text-xs">{t("sim.subsEmpty")}</p>
                 )}
               </div>
             )}
@@ -294,11 +294,11 @@ export default function SimulatorPage() {
             {/* Prepay debts */}
             {levers && levers.debts.length > 0 && (
               <div className="mt-4">
-                <label className="text-gray-400 text-xs block mb-2">{t("sim.prepay")}</label>
+                <label className="text-ink-mute text-xs block mb-2">{t("sim.prepay")}</label>
                 <div className="space-y-2">
                   {levers.debts.map((d) => (
                     <div key={d.id} className="flex items-center gap-3">
-                      <span className="text-gray-300 text-sm flex-1 min-w-0 truncate">{d.label} <span className="text-gray-600 text-xs">· {money(d.remaining)}</span></span>
+                      <span className="text-ink-soft text-sm flex-1 min-w-0 truncate">{d.label} <span className="text-ink-mute text-xs">· {money(d.remaining)}</span></span>
                       <input inputMode="decimal" value={prepayOf(d.id)} onChange={(e) => setPrepay(d.id, d.label, e.target.value)} placeholder={t("sim.lumpSum")} className={`${inputCls} w-32`} />
                     </div>
                   ))}
@@ -311,15 +311,15 @@ export default function SimulatorPage() {
               (e.g. NL mode) is visible and correctable instead of silently wrong. */}
           {actions.length > 0 && (
             <div className="flex flex-wrap items-center gap-2">
-              <span className="text-gray-500 text-xs">{t("sim.appliedTitle")}:</span>
+              <span className="text-ink-mute text-xs">{t("sim.appliedTitle")}:</span>
               {/* Horizon chip — shows the understood time window (e.g. parsed from "for a year") */}
-              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[#1C1915] border border-[#2C2922] text-gray-300 text-xs">
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-surface border border-line text-ink-soft text-xs">
                 {t("sim.horizonChip")}: {horizon} {lang === "tr" ? "ay" : "mo"}
               </span>
               {actions.map((a, i) => (
-                <span key={i} className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-indigo-950/40 border border-indigo-800/40 text-indigo-200 text-xs">
+                <span key={i} className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-brand/40 border border-brand/40 text-brand text-xs">
                   {renderAction(a)}
-                  <button onClick={() => removeAction(i)} className="text-indigo-400/70 hover:text-indigo-200"><XIcon size={11} /></button>
+                  <button onClick={() => removeAction(i)} className="text-brand/70 hover:text-brand"><XIcon size={11} /></button>
                 </span>
               ))}
             </div>
@@ -327,7 +327,7 @@ export default function SimulatorPage() {
 
           {/* Results */}
           {actions.length === 0 ? (
-            <p className="text-gray-600 text-sm text-center py-6">{t("sim.hint")}</p>
+            <p className="text-ink-mute text-sm text-center py-6">{t("sim.hint")}</p>
           ) : result ? (
             <>
               {/* Delta cards */}
@@ -349,22 +349,22 @@ export default function SimulatorPage() {
 
               {/* Chart */}
               <section className={card}>
-                <p className="text-gray-500 text-xs mb-3">{t("sim.chartTitle")} · {result.horizon_months} {lang === "tr" ? "ay" : "mo"}</p>
+                <p className="text-ink-mute text-xs mb-3">{t("sim.chartTitle")} · {result.horizon_months} {lang === "tr" ? "ay" : "mo"}</p>
                 <ResponsiveContainer width="100%" height={240}>
                   <AreaChart data={chartData} margin={{ top: 4, right: 8, left: 4, bottom: 0 }}>
                     <defs>
                       <linearGradient id="bandFill" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor="#6366f1" stopOpacity={0.18} />
-                        <stop offset="100%" stopColor="#6366f1" stopOpacity={0.04} />
+                        <stop offset="0%" stopColor="rgb(var(--c-brand))" stopOpacity={0.18} />
+                        <stop offset="100%" stopColor="rgb(var(--c-brand))" stopOpacity={0.04} />
                       </linearGradient>
                     </defs>
-                    <CartesianGrid stroke="#2C2922" vertical={false} />
+                    <CartesianGrid stroke="rgb(var(--c-line))" vertical={false} />
                     <XAxis dataKey="month" stroke="#6b7280" fontSize={11} tickLine={false} axisLine={false}
                       tickFormatter={(m) => `${m}${lang === "tr" ? "a" : "mo"}`} />
                     <YAxis stroke="#6b7280" fontSize={11} tickLine={false} axisLine={false} width={48}
                       tickFormatter={(v) => Intl.NumberFormat(undefined, { notation: "compact" }).format(v)} />
                     <Tooltip
-                      contentStyle={{ backgroundColor: "#1C1915", border: "1px solid #2C2922", borderRadius: 8 }}
+                      contentStyle={{ backgroundColor: "rgb(var(--c-surface))", border: "1px solid rgb(var(--c-line))", borderRadius: 8 }}
                       labelStyle={{ color: "#9ca3af" }}
                       formatter={(v: number | number[], name: string) => {
                         if (name === "range") {
@@ -379,32 +379,32 @@ export default function SimulatorPage() {
                     {/* uncertainty cone behind the lines */}
                     <Area type="monotone" dataKey="range" stroke="none" fill="url(#bandFill)" legendType="none" tooltipType="none" />
                     <Area type="monotone" dataKey="baseline" stroke="#6b7280" strokeDasharray="4 4" strokeWidth={2} fill="none" />
-                    <Area type="monotone" dataKey="scenario" stroke="#818cf8" strokeWidth={2.5} fill="none" />
+                    <Area type="monotone" dataKey="scenario" stroke="rgb(var(--c-brand))" strokeWidth={2.5} fill="none" />
                   </AreaChart>
                 </ResponsiveContainer>
-                <p className="text-gray-600 text-[11px] mt-2">{t("sim.rangeNote")}</p>
+                <p className="text-ink-mute text-[11px] mt-2">{t("sim.rangeNote")}</p>
               </section>
 
               {/* Narrative */}
               {result.narrative && (
-                <section className="bg-indigo-950/30 border border-indigo-800/40 rounded-xl p-4">
-                  <p className="text-gray-100 text-sm leading-relaxed">{result.narrative}</p>
+                <section className="bg-brand/30 border border-brand/40 rounded-xl p-4">
+                  <p className="text-ink-soft text-sm leading-relaxed">{result.narrative}</p>
                 </section>
               )}
 
               {/* Assumptions */}
-              <button onClick={() => setShowAssumptions((s) => !s)} className="text-gray-500 hover:text-gray-300 text-xs text-left">
+              <button onClick={() => setShowAssumptions((s) => !s)} className="text-ink-mute hover:text-ink-soft text-xs text-left">
                 {showAssumptions ? "▾" : "▸"} {t("sim.assumptions")}
               </button>
               {showAssumptions && (
-                <ul className="text-gray-600 text-xs space-y-1 pl-4">
+                <ul className="text-ink-mute text-xs space-y-1 pl-4">
                   {result.assumptions.map((a, i) => <li key={i}>• {a}</li>)}
                 </ul>
               )}
             </>
           ) : running ? (
-            <div className="flex items-center justify-center gap-2 text-gray-500 text-sm py-6">
-              <span className="w-4 h-4 border-2 border-gray-600 border-t-indigo-400 rounded-full animate-spin" /> {t("sim.running")}
+            <div className="flex items-center justify-center gap-2 text-ink-mute text-sm py-6">
+              <span className="w-4 h-4 border-2 border-gray-600 border-t-brand rounded-full animate-spin" /> {t("sim.running")}
             </div>
           ) : null}
         </div>
@@ -415,9 +415,9 @@ export default function SimulatorPage() {
 
 function DeltaCard({ label, value, positive }: { label: string; value: string; positive: boolean }) {
   return (
-    <div className="bg-[#1C1915] border border-[#2C2922] rounded-xl p-3">
-      <p className="text-gray-500 text-[11px] mb-1">{label}</p>
-      <p className={`text-base font-semibold tabular-nums flex items-center gap-1 ${positive ? "text-emerald-400" : "text-red-400"}`}>
+    <div className="bg-surface border border-line rounded-xl p-3">
+      <p className="text-ink-mute text-[11px] mb-1">{label}</p>
+      <p className={`text-base font-semibold tabular-nums flex items-center gap-1 ${positive ? "text-emerald-400" : "text-neg"}`}>
         {positive ? <TrendingUp size={13} /> : <TrendingDown size={13} />}{value}
       </p>
     </div>

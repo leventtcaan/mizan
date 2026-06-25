@@ -106,7 +106,7 @@ export default function MarketAssetForm({ assetType, onDraftChange, displayCurre
     <div className="space-y-4">
       {/* Exchange selector */}
       <div>
-        <label className="block text-xs text-gray-400 mb-1.5">{t("assetForm.exchangeLabel")}</label>
+        <label className="block text-xs text-ink-mute mb-1.5">{t("assetForm.exchangeLabel")}</label>
         <div className="flex flex-wrap gap-1.5">
           {EXCHANGES.map((ex) => {
             const label = t(ex.labelKey) !== ex.labelKey ? t(ex.labelKey) : ex.value;
@@ -115,21 +115,21 @@ export default function MarketAssetForm({ assetType, onDraftChange, displayCurre
                 onClick={() => { setExchange(ex.value); resetQuote(); }}
                 className={`px-2.5 py-1 rounded-full text-xs border transition-colors ${
                   exchange === ex.value
-                    ? "bg-indigo-600/20 border-indigo-600/50 text-indigo-300"
-                    : "bg-[#11100E] border-[#2C2922] text-gray-400 hover:border-indigo-700"
+                    ? "bg-brand/20 border-brand/50 text-brand"
+                    : "bg-canvas border-line text-ink-mute hover:border-brand"
                 }`}>
                 {label}
               </button>
             );
           })}
         </div>
-        {exchange === "BIST" && <p className="text-[11px] text-gray-600 mt-1.5">{t("assetForm.bistHint")}</p>}
-        {exchange === "AUTO" && <p className="text-[11px] text-gray-600 mt-1.5">{t("assetForm.otherExchangeHint")}</p>}
+        {exchange === "BIST" && <p className="text-[11px] text-ink-mute mt-1.5">{t("assetForm.bistHint")}</p>}
+        {exchange === "AUTO" && <p className="text-[11px] text-ink-mute mt-1.5">{t("assetForm.otherExchangeHint")}</p>}
       </div>
 
       {/* Ticker + lookup */}
       <div>
-        <label className="block text-xs text-gray-400 mb-1.5">
+        <label className="block text-xs text-ink-mute mb-1.5">
           {isFund ? t("assetForm.fundCodeLabel") : t("assetForm.tickerLabel")}
         </label>
         <div className="flex gap-2">
@@ -139,7 +139,7 @@ export default function MarketAssetForm({ assetType, onDraftChange, displayCurre
             placeholder={exchange === "BIST" ? t("assetForm.bistTickerHint") : isFund ? t("assetForm.fundCodeHint") : t("assetForm.tickerHint")}
             className={sharedInputClass + " uppercase"} />
           <button type="button" onClick={() => void lookup()} disabled={!symbol.trim() || quoting}
-            className="shrink-0 px-3 py-2 rounded-lg bg-indigo-600/20 text-indigo-300 border border-indigo-800/40 hover:bg-indigo-600/30 disabled:opacity-40 text-xs font-medium transition-colors">
+            className="shrink-0 px-3 py-2 rounded-lg bg-brand/20 text-brand border border-brand/40 hover:bg-brand-hover/30 disabled:opacity-40 text-xs font-medium transition-colors">
             {quoting ? t("assetForm.fetching") : t("assetForm.lookup")}
           </button>
         </div>
@@ -150,16 +150,16 @@ export default function MarketAssetForm({ assetType, onDraftChange, displayCurre
         <>
           <div className="rounded-lg bg-emerald-950/20 border border-emerald-900/30 px-3 py-2 space-y-0.5">
             <div className="flex items-center justify-between">
-              <span className="text-xs text-gray-400">{t("assetForm.livePrice")}</span>
+              <span className="text-xs text-ink-mute">{t("assetForm.livePrice")}</span>
               <span className="text-sm text-emerald-300 font-semibold tabular-nums">{nativePriceStr}</span>
             </div>
-            {quoteName && <p className="text-xs text-gray-500 truncate">{quoteName}</p>}
+            {quoteName && <p className="text-xs text-ink-mute truncate">{quoteName}</p>}
             {yahooSymbol && yahooSymbol !== symbol.toUpperCase() && (
-              <p className="text-[10px] text-gray-600">Yahoo: {yahooSymbol}</p>
+              <p className="text-[10px] text-ink-mute">Yahoo: {yahooSymbol}</p>
             )}
           </div>
           <div>
-            <label className="block text-xs text-gray-400 mb-1.5">{t("assetForm.shares")}</label>
+            <label className="block text-xs text-ink-mute mb-1.5">{t("assetForm.shares")}</label>
             <input type="number" min="0" step="any" value={shares} onChange={(e) => setShares(e.target.value)}
               placeholder={t("assetForm.sharesHint")} className={sharedInputClass} />
             {preview && <p className="text-emerald-400/80 text-xs mt-1.5">{preview}</p>}
@@ -171,7 +171,7 @@ export default function MarketAssetForm({ assetType, onDraftChange, displayCurre
       {quoteFailed && (
         <div>
           <p className="text-amber-400/80 text-xs mb-2">{t("assetForm.marketManualNote")}</p>
-          <label className="block text-xs text-gray-400 mb-1.5">{t("assetForm.totalValueUsd")}</label>
+          <label className="block text-xs text-ink-mute mb-1.5">{t("assetForm.totalValueUsd")}</label>
           <input type="number" min="0" step="0.01" value={manualValue} onChange={(e) => setManualValue(e.target.value)}
             placeholder="0.00" className={sharedInputClass} />
         </div>

@@ -43,7 +43,7 @@ export default function CurrencyMenu() {
     <div ref={ref} className="relative">
       <button
         onClick={() => setOpen((v) => !v)}
-        className="flex items-center gap-1 px-2 py-1.5 rounded-lg border border-[#2C2922] text-gray-300 hover:text-white hover:border-[#3C3832] text-xs font-medium transition-colors"
+        className="flex items-center gap-1 px-2 py-1.5 rounded-lg border border-line text-ink-soft hover:text-ink hover:border-[#3C3832] text-xs font-medium transition-colors"
         title={t("settings.currency")}
       >
         {current}
@@ -51,13 +51,13 @@ export default function CurrencyMenu() {
       </button>
 
       {open && (
-        <div className="absolute right-0 top-full mt-2 w-36 bg-[#1C1915] border border-[#2C2922] rounded-xl shadow-2xl z-50 overflow-hidden py-1">
+        <div className="absolute right-0 top-full mt-2 w-36 bg-surface border border-line rounded-xl shadow-2xl z-50 overflow-hidden py-1">
           {TOP.map((c) => (
             <button
               key={c}
               onClick={() => choose(c)}
               className={`w-full text-left px-3 py-1.5 text-sm transition-colors ${
-                c === current ? "text-white bg-[#2C2922]" : "text-gray-400 hover:text-gray-200 hover:bg-[#2C2922]/50"
+                c === current ? "text-ink bg-surface-2" : "text-ink-mute hover:text-ink-soft hover:bg-surface-2/50"
               }`}
             >
               {c}
@@ -66,7 +66,7 @@ export default function CurrencyMenu() {
           <Link
             href="/settings"
             onClick={() => setOpen(false)}
-            className="block px-3 py-1.5 text-xs text-indigo-400 hover:text-indigo-300 border-t border-[#2C2922] mt-1"
+            className="block px-3 py-1.5 text-xs text-brand hover:text-brand border-t border-line mt-1"
           >
             {t("settings.currencyMore")}
           </Link>

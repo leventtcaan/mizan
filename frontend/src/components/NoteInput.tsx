@@ -45,10 +45,10 @@ export default function NoteInput({ transactionId, existingNotes, onNoteAdded }:
       {existingNotes.length > 0 && (
         <ul className="space-y-1.5">
           {existingNotes.map((n) => (
-            <li key={n.id} className="flex items-start gap-2 text-xs bg-[#11100E] border border-[#2C2922] rounded-lg px-3 py-2">
-              <span className="text-gray-300 flex-1 leading-relaxed">{n.note_text}</span>
+            <li key={n.id} className="flex items-start gap-2 text-xs bg-canvas border border-line rounded-lg px-3 py-2">
+              <span className="text-ink-soft flex-1 leading-relaxed">{n.note_text}</span>
               {"created_at" in n && typeof (n as { created_at?: string }).created_at === "string" && (
-                <span className="text-gray-600 shrink-0 mt-0.5">{timeAgo((n as { created_at: string }).created_at)}</span>
+                <span className="text-ink-mute shrink-0 mt-0.5">{timeAgo((n as { created_at: string }).created_at)}</span>
               )}
             </li>
           ))}
@@ -68,7 +68,7 @@ export default function NoteInput({ transactionId, existingNotes, onNoteAdded }:
             }
           }}
           placeholder={t("common.notes") + "..."}
-          className="w-full resize-none rounded-lg bg-[#11100E] border border-[#2C2922] text-xs text-gray-200 placeholder-gray-700 px-3 py-2 focus:outline-none focus:border-indigo-600 transition-colors leading-relaxed"
+          className="w-full resize-none rounded-lg bg-canvas border border-line text-xs text-ink-soft placeholder-gray-700 px-3 py-2 focus:outline-none focus:border-brand transition-colors leading-relaxed"
         />
         <div className="flex items-center justify-between">
           <span className={`text-xs ${remaining < 50 ? "text-amber-500" : "text-gray-700"}`}>
@@ -77,14 +77,14 @@ export default function NoteInput({ transactionId, existingNotes, onNoteAdded }:
           <button
             onClick={() => void handleSave()}
             disabled={saving || !text.trim()}
-            className="px-3 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 text-xs font-medium text-white transition-colors"
+            className="px-3 py-1 rounded-lg bg-brand hover:bg-brand-hover disabled:opacity-40 text-xs font-medium text-white transition-colors"
           >
             {saving ? t("common.loading") : t("common.save")}
           </button>
         </div>
       </div>
 
-      {error && <p className="text-xs text-red-400">{error}</p>}
+      {error && <p className="text-xs text-neg">{error}</p>}
     </div>
   );
 }

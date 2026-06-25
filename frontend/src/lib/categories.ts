@@ -17,7 +17,7 @@ export const CATEGORY_LABELS: Record<string, string> = {
 };
 
 export const CATEGORY_COLORS: Record<string, string> = {
-  market:    "#6366f1",
+  market:    "rgb(var(--c-brand))",
   restoran:  "#f59e0b",
   ulasim:    "#10b981",
   eglence:   "#ec4899",
@@ -25,7 +25,7 @@ export const CATEGORY_COLORS: Record<string, string> = {
   giyim:     "#a855f7",
   fatura:    "#f97316",
   nakit_atm: "#71717a",
-  transfer:  "#818cf8",
+  transfer:  "rgb(var(--c-brand))",
   faiz:      "#0d9488",
   iade:      "#2dd4bf",
   vergi:     "#ef4444",

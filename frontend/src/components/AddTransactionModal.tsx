@@ -11,7 +11,7 @@ const CATEGORIES = [
   "vergi", "teknoloji", "diger",
 ] as const;
 
-const inputClass = "w-full bg-[#11100E] border border-[#2C2922] rounded-lg px-3 py-2.5 text-white text-sm placeholder-gray-700 focus:outline-none focus:border-indigo-600 transition-colors";
+const inputClass = "w-full bg-canvas border border-line rounded-lg px-3 py-2.5 text-ink text-sm placeholder-gray-700 focus:outline-none focus:border-brand transition-colors";
 
 interface InitialValues {
   amount?: string;
@@ -64,12 +64,12 @@ export default function AddTransactionModal({ onClose, onSuccess, initialValues 
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm"
       onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
     >
-      <div className="w-full max-w-md mx-4 bg-[#1C1915] rounded-2xl border border-[#2C2922] p-6 shadow-2xl">
+      <div className="w-full max-w-md mx-4 bg-surface rounded-2xl border border-line p-6 shadow-2xl">
         <div className="flex items-center justify-between mb-6">
-          <h2 className="text-lg font-semibold text-white">{t("tx.addManual")}</h2>
+          <h2 className="text-lg font-semibold text-ink">{t("tx.addManual")}</h2>
           <button
             onClick={onClose}
-            className="p-1.5 rounded-lg text-gray-500 hover:text-gray-300 hover:bg-[#2C2922] transition-colors"
+            className="p-1.5 rounded-lg text-ink-mute hover:text-ink-soft hover:bg-surface-2 transition-colors"
           >
             <X size={16} />
           </button>
@@ -77,19 +77,19 @@ export default function AddTransactionModal({ onClose, onSuccess, initialValues 
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-xs text-gray-500 mb-2 uppercase tracking-wide">{t("common.type")}</label>
-            <div className="flex rounded-lg overflow-hidden border border-[#2C2922] text-sm">
+            <label className="block text-xs text-ink-mute mb-2 uppercase tracking-wide">{t("common.type")}</label>
+            <div className="flex rounded-lg overflow-hidden border border-line text-sm">
               <button
                 type="button"
                 onClick={() => setType("debit")}
-                className={`flex-1 py-2.5 font-medium transition-colors ${type === "debit" ? "bg-red-950 text-red-300 border-r border-[#2C2922]" : "bg-[#11100E] text-gray-500 hover:text-gray-300 border-r border-[#2C2922]"}`}
+                className={`flex-1 py-2.5 font-medium transition-colors ${type === "debit" ? "bg-red-950 text-red-300 border-r border-line" : "bg-canvas text-ink-mute hover:text-ink-soft border-r border-line"}`}
               >
                 {t("progress.spending")}
               </button>
               <button
                 type="button"
                 onClick={() => setType("credit")}
-                className={`flex-1 py-2.5 font-medium transition-colors ${type === "credit" ? "bg-emerald-950 text-emerald-300" : "bg-[#11100E] text-gray-500 hover:text-gray-300"}`}
+                className={`flex-1 py-2.5 font-medium transition-colors ${type === "credit" ? "bg-emerald-950 text-emerald-300" : "bg-canvas text-ink-mute hover:text-ink-soft"}`}
               >
                 {t("progress.income")}
               </button>
@@ -98,7 +98,7 @@ export default function AddTransactionModal({ onClose, onSuccess, initialValues 
 
           <div className="flex gap-3">
             <div className="flex-1">
-              <label className="block text-xs text-gray-500 mb-1.5 uppercase tracking-wide">{t("common.amount")}</label>
+              <label className="block text-xs text-ink-mute mb-1.5 uppercase tracking-wide">{t("common.amount")}</label>
               <input
                 type="number" min="0.01" step="0.01"
                 value={amount} onChange={(e) => setAmount(e.target.value)}
@@ -106,7 +106,7 @@ export default function AddTransactionModal({ onClose, onSuccess, initialValues 
               />
             </div>
             <div className="w-24">
-              <label className="block text-xs text-gray-500 mb-1.5 uppercase tracking-wide">{t("common.currency")}</label>
+              <label className="block text-xs text-ink-mute mb-1.5 uppercase tracking-wide">{t("common.currency")}</label>
               <input
                 type="text" value={currency}
                 onChange={(e) => setCurrency(e.target.value.toUpperCase().slice(0, 10))}
@@ -116,7 +116,7 @@ export default function AddTransactionModal({ onClose, onSuccess, initialValues 
           </div>
 
           <div>
-            <label className="block text-xs text-gray-500 mb-1.5 uppercase tracking-wide">{t("common.description")}</label>
+            <label className="block text-xs text-ink-mute mb-1.5 uppercase tracking-wide">{t("common.description")}</label>
             <input
               type="text" value={description} onChange={(e) => setDescription(e.target.value)}
               required maxLength={200} className={inputClass}
@@ -124,7 +124,7 @@ export default function AddTransactionModal({ onClose, onSuccess, initialValues 
           </div>
 
           <div>
-            <label className="block text-xs text-gray-500 mb-1.5 uppercase tracking-wide">{t("common.date")}</label>
+            <label className="block text-xs text-ink-mute mb-1.5 uppercase tracking-wide">{t("common.date")}</label>
             <input
               type="date" value={date} onChange={(e) => setDate(e.target.value)}
               required className={inputClass}
@@ -132,7 +132,7 @@ export default function AddTransactionModal({ onClose, onSuccess, initialValues 
           </div>
 
           <div>
-            <label className="block text-xs text-gray-500 mb-1.5 uppercase tracking-wide">
+            <label className="block text-xs text-ink-mute mb-1.5 uppercase tracking-wide">
               {t("goals.category")} <span className="text-gray-700 normal-case">({t("common.optional")})</span>
             </label>
             <select
@@ -148,18 +148,18 @@ export default function AddTransactionModal({ onClose, onSuccess, initialValues 
             </select>
           </div>
 
-          {error && <p className="text-red-400 text-sm">{error}</p>}
+          {error && <p className="text-neg text-sm">{error}</p>}
 
           <div className="flex gap-3 pt-2">
             <button
               type="button" onClick={onClose}
-              className="flex-1 py-2.5 rounded-lg bg-[#2C2922] hover:bg-[#36322B] text-sm text-gray-300 transition-colors"
+              className="flex-1 py-2.5 rounded-lg bg-surface-2 hover:bg-surface-3 text-sm text-ink-soft transition-colors"
             >
               {t("common.cancel")}
             </button>
             <button
               type="submit" disabled={loading}
-              className="flex-1 py-2.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-sm font-medium text-white transition-colors"
+              className="flex-1 py-2.5 rounded-lg bg-brand hover:bg-brand-hover disabled:opacity-50 text-sm font-medium text-white transition-colors"
             >
               {loading ? t("common.loading") : t("common.add")}
             </button>

@@ -14,7 +14,7 @@ export interface CurrencyExposure {
 }
 
 // Refined, finance-app palette (Monarch/Copilot style — saturated but not garish).
-const PALETTE = ["#6366F1", "#10B981", "#F59E0B", "#F43F5E", "#0EA5E9", "#8B5CF6", "#14B8A6", "#94A3B8"];
+const PALETTE = ["rgb(var(--c-brand))", "#10B981", "#F59E0B", "#F43F5E", "#0EA5E9", "#8B5CF6", "#14B8A6", "#94A3B8"];
 
 function fmt(value: number, currency: string): string {
   try {
@@ -57,8 +57,8 @@ export default function AllocationChart({
   const ccyTotal = currencyBars.reduce((s, x) => s + x.value, 0);
 
   return (
-    <div className="mb-6 bg-[#1C1915] border border-[#2C2922] rounded-2xl p-5">
-      <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-4">{t("nw.allocation.title")}</h3>
+    <div className="mb-6 bg-surface border border-line rounded-2xl p-5">
+      <h3 className="text-xs font-semibold text-ink-mute uppercase tracking-wider mb-4">{t("nw.allocation.title")}</h3>
 
       <div className="flex flex-col sm:flex-row items-center gap-6">
         {/* Donut */}
@@ -90,14 +90,14 @@ export default function AllocationChart({
           <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
             {shown ? (
               <>
-                <span className="text-[11px] text-gray-500 max-w-[100px] truncate text-center">{shown.label}</span>
-                <span className="text-sm font-bold text-white tabular-nums">{Math.round((shown.value / total) * 100)}%</span>
-                <span className="text-[10px] text-gray-500 tabular-nums">{fmt(shown.value, displayCurrency)}</span>
+                <span className="text-[11px] text-ink-mute max-w-[100px] truncate text-center">{shown.label}</span>
+                <span className="text-sm font-bold text-ink tabular-nums">{Math.round((shown.value / total) * 100)}%</span>
+                <span className="text-[10px] text-ink-mute tabular-nums">{fmt(shown.value, displayCurrency)}</span>
               </>
             ) : (
               <>
-                <span className="text-[10px] text-gray-500 uppercase tracking-wide">{t("nw.allocation.total")}</span>
-                <span className="text-base font-bold text-white tabular-nums">{fmt(total, displayCurrency)}</span>
+                <span className="text-[10px] text-ink-mute uppercase tracking-wide">{t("nw.allocation.total")}</span>
+                <span className="text-base font-bold text-ink tabular-nums">{fmt(total, displayCurrency)}</span>
               </>
             )}
           </div>
@@ -118,9 +118,9 @@ export default function AllocationChart({
                 }`}
               >
                 <span className="w-2.5 h-2.5 rounded-sm shrink-0" style={{ backgroundColor: PALETTE[i % PALETTE.length] }} />
-                <span className="text-sm text-gray-300 flex-1 truncate">{s.label}</span>
-                <span className="text-xs text-gray-500 tabular-nums">{pct}%</span>
-                <span className="text-sm text-gray-200 font-medium tabular-nums w-24 text-right">{fmt(s.value, displayCurrency)}</span>
+                <span className="text-sm text-ink-soft flex-1 truncate">{s.label}</span>
+                <span className="text-xs text-ink-mute tabular-nums">{pct}%</span>
+                <span className="text-sm text-ink-soft font-medium tabular-nums w-24 text-right">{fmt(s.value, displayCurrency)}</span>
               </button>
             );
           })}
@@ -129,8 +129,8 @@ export default function AllocationChart({
 
       {/* Per-currency exposure bars */}
       {currencyBars.length > 1 && ccyTotal > 0 && (
-        <div className="mt-5 pt-4 border-t border-[#2C2922]">
-          <p className="text-[11px] text-gray-500 uppercase tracking-wide mb-3">{t("nw.allocation.currencyExposure")}</p>
+        <div className="mt-5 pt-4 border-t border-line">
+          <p className="text-[11px] text-ink-mute uppercase tracking-wide mb-3">{t("nw.allocation.currencyExposure")}</p>
           {/* Stacked bar */}
           <div className="flex h-2.5 rounded-full overflow-hidden mb-3">
             {currencyBars.map((c, i) => (
@@ -145,8 +145,8 @@ export default function AllocationChart({
             {currencyBars.map((c, i) => (
               <div key={c.code} className="flex items-center gap-1.5">
                 <span className="w-2 h-2 rounded-sm" style={{ backgroundColor: PALETTE[i % PALETTE.length] }} />
-                <span className="text-xs text-gray-400">{c.code}</span>
-                <span className="text-xs text-gray-600 tabular-nums">{Math.round((c.value / ccyTotal) * 100)}%</span>
+                <span className="text-xs text-ink-mute">{c.code}</span>
+                <span className="text-xs text-ink-mute tabular-nums">{Math.round((c.value / ccyTotal) * 100)}%</span>
               </div>
             ))}
           </div>

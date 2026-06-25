@@ -19,7 +19,7 @@ export interface MoodPalette {
 }
 
 export const MOOD_PALETTE: Record<MimMood, MoodPalette> = {
-  calm: { core: "#c7d2fe", body: "#6366f1", glow: "#4338ca" },
+  calm: { core: "#c7d2fe", body: "rgb(var(--c-brand))", glow: "#4338ca" },
   happy: { core: "#a7f3d0", body: "#10b981", glow: "#047857" },
   concerned: { core: "#fde68a", body: "#f59e0b", glow: "#b45309" },
   alert: { core: "#fecaca", body: "#ef4444", glow: "#b91c1c" },

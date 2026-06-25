@@ -17,7 +17,7 @@ const FLAGS = ["essential", "review", "cancelled"] as const;
 const FLAG_ACTIVE: Record<string, string> = {
   essential: "bg-emerald-900 border-emerald-700 text-emerald-300",
   review: "bg-amber-900 border-amber-700 text-amber-300",
-  cancelled: "bg-red-950 border-red-800 text-red-400",
+  cancelled: "bg-red-950 border-red-800 text-neg",
 };
 
 export default function RecurringPage() {
@@ -85,17 +85,17 @@ export default function RecurringPage() {
       <MoneyTabs />
 
       {loading && (
-        <div className="space-y-3">{[1, 2, 3].map((i) => <div key={i} className="h-28 rounded-xl bg-[#1C1915] animate-pulse" />)}</div>
+        <div className="space-y-3">{[1, 2, 3].map((i) => <div key={i} className="h-28 rounded-xl bg-surface animate-pulse" />)}</div>
       )}
 
       {isEmpty && (
-        <div className="text-center py-16 bg-[#1C1915] border border-[#2C2922] rounded-2xl">
-          <div className="w-12 h-12 rounded-2xl bg-[#11100E] border border-[#2C2922] flex items-center justify-center mx-auto mb-4">
-            <RefreshCw size={22} className="text-indigo-400" />
+        <div className="text-center py-16 bg-surface border border-line rounded-2xl">
+          <div className="w-12 h-12 rounded-2xl bg-canvas border border-line flex items-center justify-center mx-auto mb-4">
+            <RefreshCw size={22} className="text-brand" />
           </div>
-          <p className="text-base text-gray-200 font-medium">{t("money.noRecurring")}</p>
-          <p className="text-sm text-gray-500 mt-2 max-w-sm mx-auto">{t("money.noRecurringHint")}</p>
-          <Link href="/upload" className="inline-flex items-center gap-1.5 mt-5 px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-medium transition-colors">
+          <p className="text-base text-ink-soft font-medium">{t("money.noRecurring")}</p>
+          <p className="text-sm text-ink-mute mt-2 max-w-sm mx-auto">{t("money.noRecurringHint")}</p>
+          <Link href="/upload" className="inline-flex items-center gap-1.5 mt-5 px-4 py-2 rounded-lg bg-brand hover:bg-brand-hover text-white text-sm font-medium transition-colors">
             <Upload size={15} /> {t("nav.upload")}
           </Link>
         </div>
@@ -108,18 +108,18 @@ export default function RecurringPage() {
             <div className={`${card} mb-6`}>
               <div className="flex flex-wrap gap-y-4 gap-x-8">
                 <div>
-                  <p className="text-gray-500 text-xs mb-1">{t("money.fixedMonthly")}</p>
-                  <p className="text-3xl font-bold text-white tabular-nums">{fmt(parseFloat(summary.monthly_total))}</p>
+                  <p className="text-ink-mute text-xs mb-1">{t("money.fixedMonthly")}</p>
+                  <p className="text-3xl font-bold text-ink tabular-nums">{fmt(parseFloat(summary.monthly_total))}</p>
                 </div>
                 <div>
-                  <p className="text-gray-500 text-xs mb-1">{t("money.subscriptions")}</p>
-                  <p className="text-lg font-semibold text-gray-200 tabular-nums">{fmt(parseFloat(summary.subscription_monthly))}</p>
-                  <p className="text-gray-600 text-xs">{summary.subscription_count}</p>
+                  <p className="text-ink-mute text-xs mb-1">{t("money.subscriptions")}</p>
+                  <p className="text-lg font-semibold text-ink-soft tabular-nums">{fmt(parseFloat(summary.subscription_monthly))}</p>
+                  <p className="text-ink-mute text-xs">{summary.subscription_count}</p>
                 </div>
                 <div>
-                  <p className="text-gray-500 text-xs mb-1">{t("money.installments")}</p>
-                  <p className="text-lg font-semibold text-gray-200 tabular-nums">{fmt(parseFloat(summary.installment_monthly))}</p>
-                  <p className="text-gray-600 text-xs">{summary.installment_count}</p>
+                  <p className="text-ink-mute text-xs mb-1">{t("money.installments")}</p>
+                  <p className="text-lg font-semibold text-ink-soft tabular-nums">{fmt(parseFloat(summary.installment_monthly))}</p>
+                  <p className="text-ink-mute text-xs">{summary.installment_count}</p>
                 </div>
                 {parseFloat(summary.potential_savings) > 0 && (
                   <div>
@@ -134,24 +134,24 @@ export default function RecurringPage() {
           {/* Subscriptions */}
           {activeSubs.length > 0 && (
             <>
-              <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">{t("money.subscriptions")}</h2>
+              <h2 className="text-xs font-semibold text-ink-mute uppercase tracking-wider mb-3">{t("money.subscriptions")}</h2>
               <div className="space-y-3 mb-8">
                 {activeSubs.map((s) => (
                   <div key={s.merchant_key} className={`${card}`}>
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
                         <div className="flex items-center gap-2 flex-wrap mb-1">
-                          <h3 className="font-semibold text-white truncate">{s.merchant}</h3>
-                          <span className="text-xs px-2 py-0.5 rounded-full bg-[#2C2922] text-gray-400">{catLabel(s.category)}</span>
+                          <h3 className="font-semibold text-ink truncate">{s.merchant}</h3>
+                          <span className="text-xs px-2 py-0.5 rounded-full bg-surface-2 text-ink-mute">{catLabel(s.category)}</span>
                           {s.frequency === "weekly" && (
                             <span className="text-xs px-2 py-0.5 rounded-full bg-blue-950 border border-blue-900 text-blue-400">{t("subscriptions.weekly")}</span>
                           )}
                         </div>
-                        <p className="text-xs text-gray-500">{s.months_active} {t("subscriptions.monthsActive")}</p>
+                        <p className="text-xs text-ink-mute">{s.months_active} {t("subscriptions.monthsActive")}</p>
                       </div>
                       <div className="text-right shrink-0">
-                        <p className="text-xl font-bold text-white tabular-nums">{fmt(parseFloat(s.avg_amount))}</p>
-                        <p className="text-xs text-gray-500">{s.frequency === "weekly" ? t("subscriptions.perWeek") : t("subscriptions.perMonth")}</p>
+                        <p className="text-xl font-bold text-ink tabular-nums">{fmt(parseFloat(s.avg_amount))}</p>
+                        <p className="text-xs text-ink-mute">{s.frequency === "weekly" ? t("subscriptions.perWeek") : t("subscriptions.perMonth")}</p>
                       </div>
                     </div>
                     <div className="flex gap-2 mt-3">
@@ -161,7 +161,7 @@ export default function RecurringPage() {
                           disabled={flagging === s.merchant_key}
                           onClick={() => handleFlag(s.merchant_key, f)}
                           className={`px-2.5 py-1 rounded-full text-xs font-medium border transition-colors disabled:opacity-50 ${
-                            s.flag === f ? FLAG_ACTIVE[f] : "border-[#2C2922] text-gray-500 hover:text-gray-300"
+                            s.flag === f ? FLAG_ACTIVE[f] : "border-line text-ink-mute hover:text-ink-soft"
                           }`}
                         >
                           {t(`subscriptions.flag${f.charAt(0).toUpperCase()}${f.slice(1)}`)}
@@ -177,7 +177,7 @@ export default function RecurringPage() {
           {/* Installments */}
           {installments.length > 0 && (
             <>
-              <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">{t("money.installments")}</h2>
+              <h2 className="text-xs font-semibold text-ink-mute uppercase tracking-wider mb-3">{t("money.installments")}</h2>
               <div className="space-y-4">
                 {installments.map((p) => {
                   const open = earlyOpen[p.merchant_key] ?? false;
@@ -187,49 +187,49 @@ export default function RecurringPage() {
                       <div className="flex items-start justify-between gap-3 mb-3">
                         <div className="min-w-0">
                           <div className="flex items-center gap-2 flex-wrap mb-1">
-                            <h3 className="font-semibold text-white truncate">{p.merchant}</h3>
-                            <span className="text-xs px-2 py-0.5 rounded-full bg-[#2C2922] text-gray-400">{catLabel(p.category)}</span>
+                            <h3 className="font-semibold text-ink truncate">{p.merchant}</h3>
+                            <span className="text-xs px-2 py-0.5 rounded-full bg-surface-2 text-ink-mute">{catLabel(p.category)}</span>
                             {p.source === "explicit" && p.confidence !== "possible" && (
-                              <span className="text-xs px-2 py-0.5 rounded-full bg-indigo-950 border border-indigo-900 text-indigo-400">{t("installments.explicit")}</span>
+                              <span className="text-xs px-2 py-0.5 rounded-full bg-brand/15 border border-brand/15 text-brand">{t("installments.explicit")}</span>
                             )}
                             {p.confidence === "possible" && (
                               <span className="text-xs px-2 py-0.5 rounded-full bg-amber-950/50 border border-amber-800/40 text-amber-400">{t("installments.possible")}</span>
                             )}
                           </div>
-                          <p className="text-xs text-gray-500">{p.months_detected}/{p.total_plan_months} {t("installments.paid")}</p>
+                          <p className="text-xs text-ink-mute">{p.months_detected}/{p.total_plan_months} {t("installments.paid")}</p>
                           {p.confidence === "possible" && (
                             <p className="text-xs text-amber-500/80 mt-1">{t("installments.possibleHint")}</p>
                           )}
                         </div>
                         <div className="text-right shrink-0">
-                          <p className="text-xl font-bold text-white tabular-nums">{fmt(p.monthly_amount)}</p>
-                          <p className="text-xs text-gray-500">/{t("cashflow.legend.payment")}</p>
+                          <p className="text-xl font-bold text-ink tabular-nums">{fmt(p.monthly_amount)}</p>
+                          <p className="text-xs text-ink-mute">/{t("cashflow.legend.payment")}</p>
                         </div>
                       </div>
-                      <div className="h-2 rounded-full bg-[#11100E] overflow-hidden mb-3">
-                        <div className="h-full rounded-full bg-indigo-500" style={{ width: `${pctPaid}%` }} />
+                      <div className="h-2 rounded-full bg-canvas overflow-hidden mb-3">
+                        <div className="h-full rounded-full bg-brand" style={{ width: `${pctPaid}%` }} />
                       </div>
                       {p.estimated_remaining > 0 ? (
                         <>
                           <button
                             onClick={() => setEarlyOpen((prev) => ({ ...prev, [p.merchant_key]: !prev[p.merchant_key] }))}
-                            className="flex items-center gap-1.5 text-xs text-indigo-400 hover:text-indigo-300 transition-colors"
+                            className="flex items-center gap-1.5 text-xs text-brand hover:text-brand transition-colors"
                           >
                             {open ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
                             {t("installments.earlyPayoffQ")}
                           </button>
                           {open && (
                             <div className="mt-3 grid grid-cols-3 gap-3">
-                              <div className="bg-[#11100E] rounded-lg p-3">
-                                <p className="text-gray-500 text-xs mb-0.5">{t("installments.remaining")}</p>
-                                <p className="text-white font-semibold text-sm">{p.estimated_remaining}</p>
+                              <div className="bg-canvas rounded-lg p-3">
+                                <p className="text-ink-mute text-xs mb-0.5">{t("installments.remaining")}</p>
+                                <p className="text-ink font-semibold text-sm">{p.estimated_remaining}</p>
                               </div>
                               <div className="bg-amber-950/30 border border-amber-900/20 rounded-lg p-3">
                                 <p className="text-amber-600 text-xs mb-0.5">{t("installments.realCost")}</p>
                                 <p className="text-amber-400 font-semibold text-sm">{fmt(p.real_cost_with_opportunity)}</p>
                               </div>
-                              <div className="bg-[#11100E] rounded-lg p-3">
-                                <p className="text-gray-500 text-xs mb-0.5">{t("installments.opportunityLoss")}</p>
+                              <div className="bg-canvas rounded-lg p-3">
+                                <p className="text-ink-mute text-xs mb-0.5">{t("installments.opportunityLoss")}</p>
                                 <p className="text-amber-400 font-semibold text-sm">{fmt(p.opportunity_loss)}</p>
                               </div>
                             </div>

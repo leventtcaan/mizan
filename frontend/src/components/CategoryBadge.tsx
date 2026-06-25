@@ -10,20 +10,20 @@ const CATEGORY_STYLES: Record<string, { bg: string; text: string; dot: string }>
   market:    { bg: "bg-emerald-950", text: "text-emerald-300", dot: "bg-emerald-400" },
   restoran:  { bg: "bg-orange-950",  text: "text-orange-300",  dot: "bg-orange-400"  },
   ulasim:    { bg: "bg-sky-950",     text: "text-sky-300",     dot: "bg-sky-400"     },
-  fatura:    { bg: "bg-violet-950",  text: "text-violet-300",  dot: "bg-violet-400"  },
+  fatura:    { bg: "bg-brand/15",  text: "text-brand",  dot: "bg-brand"  },
   saglik:    { bg: "bg-rose-950",    text: "text-rose-300",    dot: "bg-rose-400"    },
   giyim:     { bg: "bg-pink-950",    text: "text-pink-300",    dot: "bg-pink-400"    },
   eglence:   { bg: "bg-yellow-950",  text: "text-yellow-300",  dot: "bg-yellow-400"  },
   nakit_atm: { bg: "bg-zinc-900",    text: "text-zinc-300",    dot: "bg-zinc-400"    },
-  transfer:  { bg: "bg-indigo-950",  text: "text-indigo-300",  dot: "bg-indigo-400"  },
+  transfer:  { bg: "bg-brand/15",  text: "text-brand",  dot: "bg-brand"  },
   iade:      { bg: "bg-teal-950",    text: "text-teal-300",    dot: "bg-teal-400"    },
   vergi:     { bg: "bg-red-950",     text: "text-red-300",     dot: "bg-red-400"     },
   teknoloji: { bg: "bg-blue-950",    text: "text-blue-300",    dot: "bg-blue-400"    },
-  diger:     { bg: "bg-[#2C2922]",   text: "text-gray-400",   dot: "bg-gray-500"    },
+  diger:     { bg: "bg-surface-2",   text: "text-ink-mute",   dot: "bg-gray-500"    },
   egitim:    { bg: "bg-lime-950",    text: "text-lime-300",    dot: "bg-lime-400"    },
 };
 
-const FALLBACK = { bg: "bg-[#2C2922]", text: "text-gray-500", dot: "bg-gray-600" };
+const FALLBACK = { bg: "bg-surface-2", text: "text-ink-mute", dot: "bg-gray-600" };
 
 export default function CategoryBadge({ category }: CategoryBadgeProps) {
   const { t } = useLanguage();

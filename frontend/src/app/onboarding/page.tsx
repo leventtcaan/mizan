@@ -170,13 +170,13 @@ export default function OnboardingPage() {
   const progressPct = (step / STEP_COUNT) * 100;
 
   return (
-    <div className="min-h-screen bg-[#11100E] text-white flex flex-col items-center justify-center px-4 py-12">
+    <div className="min-h-screen bg-canvas text-ink flex flex-col items-center justify-center px-4 py-12">
       <div className="w-full max-w-md">
         {/* Logo + progress */}
         <div className="mb-10">
-          <p className="text-center text-gray-600 text-sm mb-5 font-medium tracking-widest uppercase">Mizan</p>
-          <div className="w-full h-0.5 bg-[#2C2922] rounded-full overflow-hidden">
-            <div className="h-full bg-indigo-500 rounded-full transition-all duration-500" style={{ width: `${progressPct}%` }} />
+          <p className="text-center text-ink-mute text-sm mb-5 font-medium tracking-widest uppercase">Mizan</p>
+          <div className="w-full h-0.5 bg-surface-2 rounded-full overflow-hidden">
+            <div className="h-full bg-brand rounded-full transition-all duration-500" style={{ width: `${progressPct}%` }} />
           </div>
           <p className="text-right text-[11px] text-gray-700 mt-2">{step} / {STEP_COUNT}</p>
         </div>
@@ -185,24 +185,24 @@ export default function OnboardingPage() {
         {step === 1 && (
           <div>
             <h1 className="text-3xl font-bold mb-2">{t("onboarding.flow.s1Title")}</h1>
-            <p className="text-gray-500 text-sm mb-3">{userEmail ? `${userEmail} · ` : ""}{t("onboarding.flow.s1Sub")}</p>
-            <p className="text-indigo-300/80 text-xs mb-5">{t("onboarding.flow.s1Motivate")}</p>
+            <p className="text-ink-mute text-sm mb-3">{userEmail ? `${userEmail} · ` : ""}{t("onboarding.flow.s1Sub")}</p>
+            <p className="text-brand/80 text-xs mb-5">{t("onboarding.flow.s1Motivate")}</p>
 
             <div
               onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
               onDragLeave={() => setDragging(false)}
               onDrop={(e) => { e.preventDefault(); setDragging(false); const f = e.dataTransfer.files[0]; if (f) handleUpload(f); }}
               onClick={() => fileInputRef.current?.click()}
-              className={`border border-dashed rounded-xl p-6 text-center cursor-pointer transition-all mb-3 ${dragging ? "border-indigo-500 bg-indigo-950/20" : "border-[#2C2922] hover:border-[#3C3832]"}`}
+              className={`border border-dashed rounded-xl p-6 text-center cursor-pointer transition-all mb-3 ${dragging ? "border-brand bg-brand/20" : "border-line hover:border-[#3C3832]"}`}
             >
               <input ref={fileInputRef} type="file" accept=".pdf,.csv,.xlsx" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) handleUpload(f); }} />
-              <FileText size={22} className="text-indigo-400 mx-auto mb-2" />
+              <FileText size={22} className="text-brand mx-auto mb-2" />
               {uploading ? (
-                <span className="text-gray-400 text-sm">{t("onboarding.uploading")}</span>
+                <span className="text-ink-mute text-sm">{t("onboarding.uploading")}</span>
               ) : (
                 <>
-                  <p className="text-gray-300 text-sm">{uploads.length > 0 ? t("onboarding.flow.addAnother") : t("onboarding.dropHere")}</p>
-                  <p className="text-gray-600 text-xs mt-1">{t("onboarding.pdfCsvMax")}</p>
+                  <p className="text-ink-soft text-sm">{uploads.length > 0 ? t("onboarding.flow.addAnother") : t("onboarding.dropHere")}</p>
+                  <p className="text-ink-mute text-xs mt-1">{t("onboarding.pdfCsvMax")}</p>
                 </>
               )}
             </div>
@@ -210,7 +210,7 @@ export default function OnboardingPage() {
             {/* Manual entry — makes the "enter everything by hand" promise real */}
             <button
               onClick={() => setManualOpen(true)}
-              className="w-full mb-3 flex items-center justify-center gap-1.5 text-gray-400 hover:text-gray-200 text-sm transition-colors py-2"
+              className="w-full mb-3 flex items-center justify-center gap-1.5 text-ink-mute hover:text-ink-soft text-sm transition-colors py-2"
             >
               <Plus size={15} /> {t("onboarding.flow.addManual")}
             </button>
@@ -232,7 +232,7 @@ export default function OnboardingPage() {
                   {uploads.map((u, i) => (
                     <div key={i} className="flex items-center gap-2 text-xs">
                       {u.result.status === "success" ? (
-                        <><CheckCircle size={13} className="text-emerald-400 shrink-0" /><span className="text-gray-400 truncate">{u.filename}</span><span className="text-gray-600">· {u.result.transaction_count}</span></>
+                        <><CheckCircle size={13} className="text-emerald-400 shrink-0" /><span className="text-ink-mute truncate">{u.filename}</span><span className="text-ink-mute">· {u.result.transaction_count}</span></>
                       ) : (
                         <><span className="text-amber-400 shrink-0">!</span><span className="text-amber-300/80 truncate">{u.filename}</span></>
                       )}
@@ -240,8 +240,8 @@ export default function OnboardingPage() {
                   ))}
                 </div>
                 <div className="flex gap-4 text-xs mt-2 pt-2 border-t border-emerald-800/30">
-                  <span className="text-gray-400">{t("onboarding.flow.incomeSeen")}: <span className="text-emerald-400 font-semibold">{money(parsedIncome)}</span></span>
-                  <span className="text-gray-400">{t("onboarding.flow.expensesSeen")}: <span className="text-red-400 font-semibold">{money(parsedExpenses)}</span></span>
+                  <span className="text-ink-mute">{t("onboarding.flow.incomeSeen")}: <span className="text-emerald-400 font-semibold">{money(parsedIncome)}</span></span>
+                  <span className="text-ink-mute">{t("onboarding.flow.expensesSeen")}: <span className="text-neg font-semibold">{money(parsedExpenses)}</span></span>
                 </div>
               </div>
             )}
@@ -253,12 +253,12 @@ export default function OnboardingPage() {
               </div>
             )}
 
-            {error && <p className="text-red-400 text-sm mb-3">{error}</p>}
+            {error && <p className="text-neg text-sm mb-3">{error}</p>}
 
-            <button onClick={next} className="w-full py-3.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 font-semibold transition-colors flex items-center justify-center gap-2">
+            <button onClick={next} className="w-full py-3.5 rounded-xl bg-brand hover:bg-brand-hover font-semibold transition-colors flex items-center justify-center gap-2">
               {t("onboarding.continue")} <ArrowRight size={18} />
             </button>
-            <button onClick={goHome} className="w-full mt-3 text-center text-gray-600 hover:text-gray-400 text-sm transition-colors">
+            <button onClick={goHome} className="w-full mt-3 text-center text-ink-mute hover:text-ink-mute text-sm transition-colors">
               {t("onboarding.flow.skipForNow")}
             </button>
           </div>
@@ -268,19 +268,19 @@ export default function OnboardingPage() {
         {step === 2 && (
           <div>
             <div className="flex items-center gap-2 mb-4">
-              <Brain size={18} className="text-indigo-400" />
+              <Brain size={18} className="text-brand" />
               <h2 className="text-2xl font-bold">{hasStatement ? t("onboarding.flow.impressionTitle") : t("onboarding.flow.welcomeTitle")}</h2>
             </div>
 
             {analyzing ? (
               <div className="space-y-3 mb-6">
-                <div className="h-3 w-full bg-[#2C2922] rounded animate-pulse" />
-                <div className="h-3 w-2/3 bg-[#2C2922] rounded animate-pulse" />
-                <p className="text-gray-500 text-sm">{t("onboarding.flow.analyzing")}</p>
+                <div className="h-3 w-full bg-surface-2 rounded animate-pulse" />
+                <div className="h-3 w-2/3 bg-surface-2 rounded animate-pulse" />
+                <p className="text-ink-mute text-sm">{t("onboarding.flow.analyzing")}</p>
               </div>
             ) : (
-              <div className="mb-6 p-4 rounded-xl bg-indigo-950/30 border border-indigo-800/40">
-                <p className="text-gray-100 text-sm leading-relaxed">
+              <div className="mb-6 p-4 rounded-xl bg-brand/30 border border-brand/40">
+                <p className="text-ink-soft text-sm leading-relaxed">
                   {hasStatement
                     ? (summary || t("onboarding.flow.impressionFallback"))
                     : t("onboarding.flow.welcomeBody")}
@@ -288,13 +288,13 @@ export default function OnboardingPage() {
               </div>
             )}
 
-            {error && <p className="text-red-400 text-sm mb-4">{error}</p>}
+            {error && <p className="text-neg text-sm mb-4">{error}</p>}
 
             <div className="flex gap-3">
-              <button onClick={back} disabled={finishing} className="flex-1 py-3.5 rounded-xl bg-[#1C1915] border border-[#2C2922] hover:bg-[#2C2922] font-semibold transition-colors text-gray-300 disabled:opacity-50">
+              <button onClick={back} disabled={finishing} className="flex-1 py-3.5 rounded-xl bg-surface border border-line hover:bg-surface-2 font-semibold transition-colors text-ink-soft disabled:opacity-50">
                 ← {t("common.back")}
               </button>
-              <button onClick={goHome} disabled={finishing || analyzing} className="flex-[2] py-3.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 font-semibold transition-colors flex items-center justify-center gap-2">
+              <button onClick={goHome} disabled={finishing || analyzing} className="flex-[2] py-3.5 rounded-xl bg-brand hover:bg-brand-hover disabled:opacity-50 font-semibold transition-colors flex items-center justify-center gap-2">
                 {finishing ? t("onboarding.flow.creating") : <>{t("onboarding.flow.seeDashboard")} <ArrowRight size={18} /></>}
               </button>
             </div>

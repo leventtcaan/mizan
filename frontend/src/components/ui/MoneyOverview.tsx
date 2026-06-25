@@ -54,7 +54,7 @@ export default function MoneyOverview() {
   }, [ccy]);
 
   if (loading) {
-    return <div className="mb-6 h-[88px] rounded-2xl bg-[#1C1915] border border-[#2C2922] animate-pulse" />;
+    return <div className="mb-6 h-[88px] rounded-2xl bg-surface border border-line animate-pulse" />;
   }
   if (!cashflow) return null;
 
@@ -66,15 +66,15 @@ export default function MoneyOverview() {
 
   const Stat = ({ label, value, color, icon }: { label: string; value: string; color: string; icon?: React.ReactNode }) => (
     <div className="flex-1 min-w-[120px]">
-      <div className="flex items-center gap-1.5 text-gray-500 text-[11px] mb-1">{icon}{label}</div>
+      <div className="flex items-center gap-1.5 text-ink-mute text-[11px] mb-1">{icon}{label}</div>
       <p className={`text-base font-semibold tabular-nums ${color}`}>{value}</p>
     </div>
   );
 
   return (
-    <div className="mb-6 bg-[#1C1915] border border-[#2C2922] rounded-2xl p-5">
+    <div className="mb-6 bg-surface border border-line rounded-2xl p-5">
       {/* Explicit window — income/expenses/net below are this calendar month, never an ambiguous "this month". */}
-      <p className="text-[11px] font-semibold tracking-wide text-gray-500 uppercase mb-3">
+      <p className="text-[11px] font-semibold tracking-wide text-ink-mute uppercase mb-3">
         {currentMonthLabel(lang)} · {t("money.periodTag")}
       </p>
       <div className="flex flex-wrap gap-y-4 gap-x-6">
@@ -87,25 +87,25 @@ export default function MoneyOverview() {
         <Stat
           label={t("money.expenses")}
           value={`−${fmt(expenses, ccy)}`}
-          color="text-red-400"
-          icon={<TrendingDown size={12} className="text-red-400" />}
+          color="text-neg"
+          icon={<TrendingDown size={12} className="text-neg" />}
         />
         <Stat
           label={t("money.net")}
           value={`${net >= 0 ? "" : "−"}${fmt(Math.abs(net), ccy)}`}
-          color={net >= 0 ? "text-white" : "text-orange-400"}
+          color={net >= 0 ? "text-ink" : "text-orange-400"}
         />
         <Stat
           label={t("money.commitments")}
           value={fmt(commitments, ccy)}
-          color="text-gray-200"
-          icon={<RefreshCw size={12} className="text-gray-500" />}
+          color="text-ink-soft"
+          icon={<RefreshCw size={12} className="text-ink-mute" />}
         />
         <Stat
           label={t("money.projectedMonthEnd")}
           value={fmt(projected, ccy)}
-          color={projected >= 0 ? "text-indigo-300" : "text-red-400"}
-          icon={<Wallet size={12} className="text-gray-500" />}
+          color={projected >= 0 ? "text-brand" : "text-neg"}
+          icon={<Wallet size={12} className="text-ink-mute" />}
         />
       </div>
     </div>

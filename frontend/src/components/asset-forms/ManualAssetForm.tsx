@@ -61,32 +61,32 @@ function VehicleForm({ onDraftChange, displayCurrency, usdPriceOf, rates, t }: {
     <div className="space-y-4">
       <div className="grid grid-cols-3 gap-2">
         <div>
-          <label className="block text-xs text-gray-400 mb-1.5">{t("assetForm.vehicle.brand")}</label>
+          <label className="block text-xs text-ink-mute mb-1.5">{t("assetForm.vehicle.brand")}</label>
           <input value={brand} onChange={(e) => setBrand(e.target.value)}
             placeholder="e.g. Toyota" className={sharedInputClass} />
         </div>
         <div>
-          <label className="block text-xs text-gray-400 mb-1.5">{t("assetForm.vehicle.model")}</label>
+          <label className="block text-xs text-ink-mute mb-1.5">{t("assetForm.vehicle.model")}</label>
           <input value={model} onChange={(e) => setModel(e.target.value)}
             placeholder="e.g. Corolla" className={sharedInputClass} />
         </div>
         <div>
-          <label className="block text-xs text-gray-400 mb-1.5">{t("assetForm.vehicle.year")}</label>
+          <label className="block text-xs text-ink-mute mb-1.5">{t("assetForm.vehicle.year")}</label>
           <input type="number" min="1900" max="2030" value={year} onChange={(e) => setYear(e.target.value)}
             placeholder="2020" className={sharedInputClass} />
         </div>
       </div>
 
       <div>
-        <label className="block text-xs text-gray-400 mb-1.5">{t("common.currency")}</label>
+        <label className="block text-xs text-ink-mute mb-1.5">{t("common.currency")}</label>
         <CurrencySelect value={currency} onChange={setCurrency} />
       </div>
 
       <div>
-        <label className="block text-xs text-gray-400 mb-1.5">{t("assetForm.estimatedValue")}</label>
+        <label className="block text-xs text-ink-mute mb-1.5">{t("assetForm.estimatedValue")}</label>
         <input type="number" min="0" step="0.01" value={value} onChange={(e) => setValue(e.target.value)}
           placeholder="0.00" className={sharedInputClass} />
-        <p className="text-[11px] text-gray-600 mt-1.5">{t("assetForm.vehicle.depreciationNote")}</p>
+        <p className="text-[11px] text-ink-mute mt-1.5">{t("assetForm.vehicle.depreciationNote")}</p>
         {preview && <p className="text-emerald-400/80 text-xs mt-1.5">{preview}</p>}
       </div>
     </div>
@@ -133,19 +133,19 @@ function BesForm({ isPension, currency, fmtCcy, t, onDraftChange, displayCurrenc
   return (
     <div className="space-y-4">
       <div>
-        <label className="block text-xs text-gray-400 mb-1.5">{t("assetForm.bes.provider")}</label>
+        <label className="block text-xs text-ink-mute mb-1.5">{t("assetForm.bes.provider")}</label>
         <input value={provider} onChange={(e) => setProvider(e.target.value)}
           placeholder={t("assetForm.bes.providerHint")} className={sharedInputClass} />
       </div>
 
       <div className="grid grid-cols-2 gap-3">
         <div>
-          <label className="block text-xs text-gray-400 mb-1.5">{t("assetForm.bes.monthly")}</label>
+          <label className="block text-xs text-ink-mute mb-1.5">{t("assetForm.bes.monthly")}</label>
           <input type="number" min="0" step="0.01" value={monthlyContrib}
             onChange={(e) => setMonthlyContrib(e.target.value)} placeholder="0.00" className={sharedInputClass} />
         </div>
         <div>
-          <label className="block text-xs text-gray-400 mb-1.5">{t("assetForm.bes.total")}</label>
+          <label className="block text-xs text-ink-mute mb-1.5">{t("assetForm.bes.total")}</label>
           <input type="number" min="0" step="0.01" value={totalContrib}
             onChange={(e) => setTotalContrib(e.target.value)} placeholder="0.00" className={sharedInputClass} />
         </div>
@@ -154,22 +154,22 @@ function BesForm({ isPension, currency, fmtCcy, t, onDraftChange, displayCurrenc
       {!isPension && totalN > 0 && (
         <div className="rounded-lg bg-emerald-950/20 border border-emerald-900/30 px-3 py-2.5">
           <div className="flex items-center justify-between text-xs">
-            <span className="text-gray-400">{t("assetForm.bes.stateMatch")} <span className="text-gray-600">(30%)</span></span>
+            <span className="text-ink-mute">{t("assetForm.bes.stateMatch")} <span className="text-ink-mute">(30%)</span></span>
             <span className="text-emerald-300 font-semibold tabular-nums">+ {fmtCcy(stateMatch)}</span>
           </div>
         </div>
       )}
 
       <div>
-        <label className="block text-xs text-gray-400 mb-1.5">{t("assetForm.bes.actualValue")}</label>
+        <label className="block text-xs text-ink-mute mb-1.5">{t("assetForm.bes.actualValue")}</label>
         <input type="number" min="0" step="0.01" value={actualValue}
           onChange={(e) => setActualValue(e.target.value)} placeholder="0.00" className={sharedInputClass} />
-        <p className="text-[11px] text-gray-600 mt-1.5">{t("assetForm.bes.actualValueHint")}</p>
+        <p className="text-[11px] text-ink-mute mt-1.5">{t("assetForm.bes.actualValueHint")}</p>
         {preview && <p className="text-emerald-400/80 text-xs mt-1.5">{preview}</p>}
       </div>
 
       <div>
-        <label className="block text-xs text-gray-400 mb-1.5">{t("assetForm.bes.retirementDate")} ({t("common.optional")})</label>
+        <label className="block text-xs text-ink-mute mb-1.5">{t("assetForm.bes.retirementDate")} ({t("common.optional")})</label>
         <input type="date" value={retirementDate} onChange={(e) => setRetirementDate(e.target.value)} className={sharedInputClass} />
       </div>
     </div>
@@ -211,41 +211,41 @@ function BondForm({ onDraftChange, displayCurrency, usdPriceOf, rates, t }: {
   return (
     <div className="space-y-4">
       <div>
-        <label className="block text-xs text-gray-400 mb-1.5">{t("assetForm.fields.bond.primary")}</label>
+        <label className="block text-xs text-ink-mute mb-1.5">{t("assetForm.fields.bond.primary")}</label>
         <input value={issuer} onChange={(e) => setIssuer(e.target.value)}
           placeholder="e.g. US Treasury, Apple Inc." className={sharedInputClass} />
       </div>
 
       <div className="grid grid-cols-2 gap-3">
         <div>
-          <label className="block text-xs text-gray-400 mb-1.5">{t("assetForm.bond.couponRate")}</label>
+          <label className="block text-xs text-ink-mute mb-1.5">{t("assetForm.bond.couponRate")}</label>
           <div className="relative">
             <input type="number" min="0" step="0.01" value={couponRate}
               onChange={(e) => setCouponRate(e.target.value)} placeholder="0.00"
               className={sharedInputClass + " pr-6"} />
-            <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-500 text-xs">%</span>
+            <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-ink-mute text-xs">%</span>
           </div>
         </div>
         <div>
-          <label className="block text-xs text-gray-400 mb-1.5">{t("assetForm.bond.maturityDate")}</label>
+          <label className="block text-xs text-ink-mute mb-1.5">{t("assetForm.bond.maturityDate")}</label>
           <input type="date" value={maturityDate} onChange={(e) => setMaturityDate(e.target.value)} className={sharedInputClass} />
         </div>
       </div>
 
       <div>
-        <label className="block text-xs text-gray-400 mb-1.5">{t("common.currency")}</label>
+        <label className="block text-xs text-ink-mute mb-1.5">{t("common.currency")}</label>
         <CurrencySelect value={currency} onChange={setCurrency} />
       </div>
 
       <div>
-        <label className="block text-xs text-gray-400 mb-1.5">{t("assetForm.bond.faceValue")}</label>
+        <label className="block text-xs text-ink-mute mb-1.5">{t("assetForm.bond.faceValue")}</label>
         <input type="number" min="0" step="0.01" value={faceValue}
           onChange={(e) => setFaceValue(e.target.value)} placeholder="0.00" className={sharedInputClass} />
         {preview && <p className="text-emerald-400/80 text-xs mt-1.5">{preview}</p>}
       </div>
 
       <div>
-        <label className="block text-xs text-gray-400 mb-1.5">{t("assetForm.bond.note")}</label>
+        <label className="block text-xs text-ink-mute mb-1.5">{t("assetForm.bond.note")}</label>
         <input value={note} onChange={(e) => setNote(e.target.value)}
           placeholder="ISIN, series, custodian..." className={sharedInputClass} />
       </div>
@@ -286,25 +286,25 @@ function LifeInsuranceForm({ onDraftChange, displayCurrency, usdPriceOf, rates, 
   return (
     <div className="space-y-4">
       <div>
-        <label className="block text-xs text-gray-400 mb-1.5">{t("assetForm.fields.life_insurance.primary")}</label>
+        <label className="block text-xs text-ink-mute mb-1.5">{t("assetForm.fields.life_insurance.primary")}</label>
         <input value={provider} onChange={(e) => setProvider(e.target.value)}
           placeholder="e.g. Allianz, MetLife..." className={sharedInputClass} />
       </div>
 
       <div>
-        <label className="block text-xs text-gray-400 mb-1.5">{t("common.currency")}</label>
+        <label className="block text-xs text-ink-mute mb-1.5">{t("common.currency")}</label>
         <CurrencySelect value={currency} onChange={setCurrency} />
       </div>
 
       <div>
-        <label className="block text-xs text-gray-400 mb-1.5">{t("assetForm.life.coverageAmount")}</label>
+        <label className="block text-xs text-ink-mute mb-1.5">{t("assetForm.life.coverageAmount")}</label>
         <input type="number" min="0" step="0.01" value={coverage}
           onChange={(e) => setCoverage(e.target.value)} placeholder="0.00" className={sharedInputClass} />
         {preview && <p className="text-emerald-400/80 text-xs mt-1.5">{preview}</p>}
       </div>
 
       <div>
-        <label className="block text-xs text-gray-400 mb-1.5">{t("assetForm.life.monthlyPremium")}</label>
+        <label className="block text-xs text-ink-mute mb-1.5">{t("assetForm.life.monthlyPremium")}</label>
         <input type="number" min="0" step="0.01" value={monthlyPremium}
           onChange={(e) => setMonthlyPremium(e.target.value)} placeholder="0.00" className={sharedInputClass} />
       </div>
@@ -345,31 +345,31 @@ function BusinessOwnershipForm({ onDraftChange, displayCurrency, usdPriceOf, rat
   return (
     <div className="space-y-4">
       <div>
-        <label className="block text-xs text-gray-400 mb-1.5">{t("assetForm.fields.business_ownership.primary")}</label>
+        <label className="block text-xs text-ink-mute mb-1.5">{t("assetForm.fields.business_ownership.primary")}</label>
         <input value={company} onChange={(e) => setCompany(e.target.value)}
           placeholder="e.g. Acme Ltd." className={sharedInputClass} />
       </div>
 
       <div>
-        <label className="block text-xs text-gray-400 mb-1.5">{t("assetForm.business.ownershipPct")}</label>
+        <label className="block text-xs text-ink-mute mb-1.5">{t("assetForm.business.ownershipPct")}</label>
         <div className="relative">
           <input type="number" min="0" max="100" step="0.1" value={pct}
             onChange={(e) => setPct(e.target.value)} placeholder="e.g. 25"
             className={sharedInputClass + " pr-6"} />
-          <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-500 text-xs">%</span>
+          <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-ink-mute text-xs">%</span>
         </div>
       </div>
 
       <div>
-        <label className="block text-xs text-gray-400 mb-1.5">{t("common.currency")}</label>
+        <label className="block text-xs text-ink-mute mb-1.5">{t("common.currency")}</label>
         <CurrencySelect value={currency} onChange={setCurrency} />
       </div>
 
       <div>
-        <label className="block text-xs text-gray-400 mb-1.5">{t("assetForm.estimatedValue")}</label>
+        <label className="block text-xs text-ink-mute mb-1.5">{t("assetForm.estimatedValue")}</label>
         <input type="number" min="0" step="0.01" value={value}
           onChange={(e) => setValue(e.target.value)} placeholder="0.00" className={sharedInputClass} />
-        <p className="text-[11px] text-gray-600 mt-1.5">{t("assetForm.estimateHint")}</p>
+        <p className="text-[11px] text-ink-mute mt-1.5">{t("assetForm.estimateHint")}</p>
         {preview && <p className="text-emerald-400/80 text-xs mt-1.5">{preview}</p>}
       </div>
     </div>
@@ -412,27 +412,27 @@ function ArtJewelryForm({ assetType, onDraftChange, displayCurrency, usdPriceOf,
   return (
     <div className="space-y-4">
       <div>
-        <label className="block text-xs text-gray-400 mb-1.5">{t(primaryKey)}</label>
+        <label className="block text-xs text-ink-mute mb-1.5">{t(primaryKey)}</label>
         <input value={itemName} onChange={(e) => setItemName(e.target.value)}
           placeholder={isJewelry ? "e.g. Gold ring, Diamond necklace" : "e.g. Oil painting, Vintage watch"}
           className={sharedInputClass} />
       </div>
 
       <div>
-        <label className="block text-xs text-gray-400 mb-1.5">{t("common.currency")}</label>
+        <label className="block text-xs text-ink-mute mb-1.5">{t("common.currency")}</label>
         <CurrencySelect value={currency} onChange={setCurrency} />
       </div>
 
       <div>
-        <label className="block text-xs text-gray-400 mb-1.5">{t("assetForm.estimatedValue")}</label>
+        <label className="block text-xs text-ink-mute mb-1.5">{t("assetForm.estimatedValue")}</label>
         <input type="number" min="0" step="0.01" value={value}
           onChange={(e) => setValue(e.target.value)} placeholder="0.00" className={sharedInputClass} />
-        <p className="text-[11px] text-gray-600 mt-1.5">{t("assetForm.estimateHint")}</p>
+        <p className="text-[11px] text-ink-mute mt-1.5">{t("assetForm.estimateHint")}</p>
         {preview && <p className="text-emerald-400/80 text-xs mt-1.5">{preview}</p>}
       </div>
 
       <div>
-        <label className="block text-xs text-gray-400 mb-1.5">{t("assetForm.art.insuranceValue")}</label>
+        <label className="block text-xs text-ink-mute mb-1.5">{t("assetForm.art.insuranceValue")}</label>
         <input type="number" min="0" step="0.01" value={insuranceVal}
           onChange={(e) => setInsuranceVal(e.target.value)} placeholder="0.00" className={sharedInputClass} />
       </div>
@@ -520,9 +520,9 @@ export default function ManualAssetForm({ assetType, onDraftChange, displayCurre
   if (isBes || isPension) {
     return (
       <div className="space-y-4">
-        {isPension && <p className="text-[11px] text-gray-500">{t("assetForm.bes.pensionNote")}</p>}
+        {isPension && <p className="text-[11px] text-ink-mute">{t("assetForm.bes.pensionNote")}</p>}
         <div>
-          <label className="block text-xs text-gray-400 mb-1.5">{t("common.currency")}</label>
+          <label className="block text-xs text-ink-mute mb-1.5">{t("common.currency")}</label>
           <CurrencySelect value={currency} onChange={setCurrency} />
         </div>
         <BesForm isPension={isPension} currency={currency} fmtCcy={fmtCcy} t={t}
@@ -543,12 +543,12 @@ export default function ManualAssetForm({ assetType, onDraftChange, displayCurre
     return (
       <div className="space-y-4">
         <div>
-          <label className="block text-xs text-gray-400 mb-1.5">{t("assetForm.re.typeLabel")}</label>
+          <label className="block text-xs text-ink-mute mb-1.5">{t("assetForm.re.typeLabel")}</label>
           <div className="grid grid-cols-2 gap-2">
             {RE_TYPES.map((rt) => (
               <button key={rt.value} type="button" onClick={() => setReType(rt.value)}
                 className={`px-3 py-2 rounded-lg text-sm border transition-colors text-left ${
-                  reType === rt.value ? "bg-indigo-600/20 border-indigo-600/50 text-indigo-200" : "bg-[#11100E] border-[#2C2922] text-gray-300 hover:border-indigo-700"
+                  reType === rt.value ? "bg-brand/20 border-brand/50 text-brand" : "bg-canvas border-line text-ink-soft hover:border-brand"
                 }`}>
                 {rt.emoji} {t(rt.labelKey)}
               </button>
@@ -564,17 +564,17 @@ export default function ManualAssetForm({ assetType, onDraftChange, displayCurre
         </div>
 
         <div>
-          <label className="block text-xs text-gray-400 mb-1.5">{t("common.currency")}</label>
+          <label className="block text-xs text-ink-mute mb-1.5">{t("common.currency")}</label>
           <CurrencySelect value={currency} onChange={setCurrency} />
         </div>
 
         <div>
-          <label className="block text-xs text-gray-400 mb-1.5">{t("assetForm.estimatedValue")}</label>
+          <label className="block text-xs text-ink-mute mb-1.5">{t("assetForm.estimatedValue")}</label>
           <input type="number" min="0" step="0.01" value={value} onChange={(e) => setValue(e.target.value)}
             placeholder="0.00" className={sharedInputClass} />
-          <p className="text-[11px] text-gray-600 mt-1.5">{t("assetForm.re.hint")}</p>
+          <p className="text-[11px] text-ink-mute mt-1.5">{t("assetForm.re.hint")}</p>
           {pricePerSqm !== null && (
-            <p className="text-xs text-gray-500 mt-1">
+            <p className="text-xs text-ink-mute mt-1">
               {t("assetForm.re.pricePerSqm")}: {fmtCcy(pricePerSqm)} / m²
             </p>
           )}
@@ -592,13 +592,13 @@ export default function ManualAssetForm({ assetType, onDraftChange, displayCurre
   return (
     <div className="space-y-4">
       <div>
-        <label className="block text-xs text-gray-400 mb-1.5">{t("common.name")}</label>
+        <label className="block text-xs text-ink-mute mb-1.5">{t("common.name")}</label>
         <input value={name} onChange={(e) => setName(e.target.value)}
           placeholder={t("assetForm.namePlaceholder")} className={sharedInputClass} />
       </div>
 
       <div>
-        <label className="block text-xs text-gray-400 mb-1.5">{t(k("primary"))}</label>
+        <label className="block text-xs text-ink-mute mb-1.5">{t(k("primary"))}</label>
         <input value={primary} onChange={(e) => setPrimary(e.target.value)}
           placeholder={t(k("primary"))} className={sharedInputClass} />
       </div>
@@ -606,14 +606,14 @@ export default function ManualAssetForm({ assetType, onDraftChange, displayCurre
       {isBankAccount && (
         <>
           <div>
-            <label className="block text-xs text-gray-400 mb-1.5">{t("assetForm.bank.accountType")}</label>
+            <label className="block text-xs text-ink-mute mb-1.5">{t("assetForm.bank.accountType")}</label>
             <div className="flex gap-1.5">
               {BANK_ACCOUNT_TYPES.map((bt) => {
                 const label = t(bt.labelKey) !== bt.labelKey ? t(bt.labelKey) : bt.value;
                 return (
                   <button key={bt.value} type="button" onClick={() => setBankAccountType(bt.value)}
                     className={`flex-1 px-2 py-1.5 rounded-lg text-xs border transition-colors ${
-                      bankAccountType === bt.value ? "bg-indigo-600/20 border-indigo-600/50 text-indigo-300" : "bg-[#11100E] border-[#2C2922] text-gray-400 hover:border-indigo-700"
+                      bankAccountType === bt.value ? "bg-brand/20 border-brand/50 text-brand" : "bg-canvas border-line text-ink-mute hover:border-brand"
                     }`}>{label}</button>
                 );
               })}
@@ -642,12 +642,12 @@ export default function ManualAssetForm({ assetType, onDraftChange, displayCurre
       )}
 
       <div>
-        <label className="block text-xs text-gray-400 mb-1.5">{t("common.currency")}</label>
+        <label className="block text-xs text-ink-mute mb-1.5">{t("common.currency")}</label>
         <CurrencySelect value={currency} onChange={setCurrency} />
       </div>
 
       <div>
-        <label className="block text-xs text-gray-400 mb-1.5">
+        <label className="block text-xs text-ink-mute mb-1.5">
           {isBankAccount ? t("assetForm.bank.balance") : t("assetForm.estimatedValue")}
         </label>
         <input type="number" min="0" step="0.01" value={value} onChange={(e) => setValue(e.target.value)}
@@ -659,29 +659,29 @@ export default function ManualAssetForm({ assetType, onDraftChange, displayCurre
         <div className="space-y-3 rounded-lg bg-amber-950/10 border border-amber-900/20 p-3">
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs text-gray-400 mb-1.5">
+              <label className="block text-xs text-ink-mute mb-1.5">
                 {bankAccountType === "participation" ? t("assetForm.bank.profitRate") : t("assetForm.bank.interestRate")}
               </label>
               <div className="relative">
                 <input type="number" min="0" step="0.01" value={interestRate}
                   onChange={(e) => setInterestRate(e.target.value)} placeholder="0.00"
                   className={sharedInputClass + " pr-6"} />
-                <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-500 text-xs">%</span>
+                <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-ink-mute text-xs">%</span>
               </div>
             </div>
             <div>
-              <label className="block text-xs text-gray-400 mb-1.5">{t("assetForm.bank.maturityDate")}</label>
+              <label className="block text-xs text-ink-mute mb-1.5">{t("assetForm.bank.maturityDate")}</label>
               <input type="date" value={maturityDate} onChange={(e) => setMaturityDate(e.target.value)} className={sharedInputClass} />
             </div>
           </div>
           {projectedValue !== null && (
             <div className="flex items-center justify-between text-xs">
-              <span className="text-gray-400">{t("assetForm.bank.projectedValue")}</span>
+              <span className="text-ink-mute">{t("assetForm.bank.projectedValue")}</span>
               <span className="text-amber-300 font-semibold tabular-nums">{fmtCcy(projectedValue)}</span>
             </div>
           )}
           {daysLeft !== null && daysLeft > 0 && (
-            <p className="text-[11px] text-gray-600">{t("assetForm.bank.daysLeft").replace("{n}", String(daysLeft))}</p>
+            <p className="text-[11px] text-ink-mute">{t("assetForm.bank.daysLeft").replace("{n}", String(daysLeft))}</p>
           )}
           {daysLeft !== null && daysLeft <= 0 && (
             <p className="text-[11px] text-amber-500">{t("assetForm.bank.matured")}</p>

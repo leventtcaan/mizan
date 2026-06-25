@@ -2,23 +2,85 @@
 @tailwind components;
 @tailwind utilities;
 
-@layer base {
-  /* Warm-neutral dark theme: a near-black with a faint warm tilt (R≥G≥B) reads as
-     calm and trustworthy for a finance product, rather than a cold pure black.
-     color-scheme keeps native controls / scrollbars in the same warm dark register. */
-  html {
-    color-scheme: dark;
-  }
+/* ──────────────────────────────────────────────────────────────────────────
+   Mizan design tokens (behavioral-science palette)
+   Values are stored as raw "R G B" channels so Tailwind can apply opacity
+   modifiers — e.g. bg-brand/10 → rgb(var(--c-brand) / 0.1).
 
+   LIGHT is the default (calm, trustworthy, low-arousal warm paper). DARK is a
+   warm graphite, opted into via [data-theme="dark"] on <html>. The no-FOUC
+   inline script in layout.tsx sets data-theme before first paint, resolving
+   "system" to the OS preference.
+   ────────────────────────────────────────────────────────────────────────── */
+:root {
+  /* Surfaces — warm off-white paper, soft elevation steps */
+  --c-canvas: 246 244 239;       /* page background */
+  --c-surface: 255 255 255;      /* cards */
+  --c-surface-2: 240 237 230;    /* inset / muted chips */
+  --c-surface-3: 231 227 218;    /* hover / pressed */
+  --c-line: 224 219 209;         /* hairline borders */
+  --c-line-strong: 203 196 184;  /* stronger dividers */
+
+  /* Text — warm near-black, two muted steps below */
+  --c-text: 28 26 23;
+  --c-text-secondary: 74 70 63;
+  --c-text-muted: 122 116 106;
+
+  /* Brand — deep, steady teal (trust, balance) */
+  --c-brand: 15 92 94;           /* #0F5C5E */
+  --c-brand-hover: 11 73 75;
+
+  /* Action — slightly greener teal for primary CTAs */
+  --c-action: 23 107 91;         /* #176B5B */
+  --c-action-hover: 17 84 71;
+
+  /* Semantic — gains calm green, losses muted terracotta (not alarm red) */
+  --c-pos: 31 122 92;            /* positive financial value */
+  --c-neg: 181 71 71;            /* #B54747 muted terracotta — negative value */
+  --c-warn: 176 116 30;          /* caution / pending */
+  --c-danger: 192 49 49;         /* strong red — destructive actions ONLY */
+
+  color-scheme: light;
+}
+
+[data-theme="dark"] {
+  --c-canvas: 17 16 14;          /* #11100E */
+  --c-surface: 28 25 21;         /* #1C1915 */
+  --c-surface-2: 44 41 34;       /* #2C2922 */
+  --c-surface-3: 54 50 43;       /* #36322B */
+  --c-line: 44 41 34;
+  --c-line-strong: 58 54 46;
+
+  --c-text: 244 242 238;         /* #F4F2EE */
+  --c-text-secondary: 201 196 187;
+  --c-text-muted: 154 148 139;
+
+  --c-brand: 42 157 143;         /* lifted teal for legibility on dark */
+  --c-brand-hover: 56 178 163;
+  --c-action: 42 157 143;
+  --c-action-hover: 56 178 163;
+
+  --c-pos: 64 178 130;
+  --c-neg: 209 116 116;          /* terracotta, lifted for dark */
+  --c-warn: 217 164 65;
+  --c-danger: 224 102 102;
+
+  color-scheme: dark;
+}
+
+@layer base {
   body {
-    background-color: #11100E;
-    /* Soft warm off-white instead of pure #FFF — gentler contrast, more premium. */
-    color: #F4F2EE;
+    background-color: rgb(var(--c-canvas));
+    color: rgb(var(--c-text));
+    /* Tabular figures app-wide: financial numbers align in columns and don't
+       jitter as values change. A finance product reads as more precise this way. */
+    font-variant-numeric: tabular-nums;
+    transition: background-color 0.2s ease, color 0.2s ease;
   }
 
   * {
     scrollbar-width: thin;
-    scrollbar-color: #2C2922 transparent;
+    scrollbar-color: rgb(var(--c-line-strong)) transparent;
   }
 
   *::-webkit-scrollbar {
@@ -30,7 +92,7 @@
   }
 
   *::-webkit-scrollbar-thumb {
-    background-color: #2C2922;
+    background-color: rgb(var(--c-line-strong));
     border-radius: 3px;
   }
 }

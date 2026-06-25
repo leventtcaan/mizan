@@ -81,20 +81,20 @@ export default function SettingsPage() {
 
           {/* Language */}
           <div className="flex items-center justify-between gap-4 mb-5">
-            <span className="text-white text-sm">{t("settings.language")}</span>
-            <div className="flex rounded-lg overflow-hidden border border-[#2C2922] text-xs font-medium">
-              <button onClick={() => handleLanguage("tr")} className={`px-3 py-1.5 transition-colors ${lang === "tr" ? "bg-indigo-600 text-white" : "text-gray-400 hover:text-gray-200"}`}>TR</button>
-              <button onClick={() => handleLanguage("en")} className={`px-3 py-1.5 transition-colors ${lang === "en" ? "bg-indigo-600 text-white" : "text-gray-400 hover:text-gray-200"}`}>EN</button>
+            <span className="text-ink text-sm">{t("settings.language")}</span>
+            <div className="flex rounded-lg overflow-hidden border border-line text-xs font-medium">
+              <button onClick={() => handleLanguage("tr")} className={`px-3 py-1.5 transition-colors ${lang === "tr" ? "bg-brand text-white" : "text-ink-mute hover:text-ink-soft"}`}>TR</button>
+              <button onClick={() => handleLanguage("en")} className={`px-3 py-1.5 transition-colors ${lang === "en" ? "bg-brand text-white" : "text-ink-mute hover:text-ink-soft"}`}>EN</button>
             </div>
           </div>
 
           {/* Default currency */}
           <div>
             <div className="flex items-center justify-between gap-4 mb-1.5">
-              <span className="text-white text-sm">{t("settings.currency")}</span>
+              <span className="text-ink text-sm">{t("settings.currency")}</span>
               <div className="w-44"><CurrencySelect value={currency} onChange={handleCurrency} /></div>
             </div>
-            <p className="text-gray-600 text-xs">{t("settings.currencyHint")}</p>
+            <p className="text-ink-mute text-xs">{t("settings.currencyHint")}</p>
           </div>
         </section>
 
@@ -103,13 +103,13 @@ export default function SettingsPage() {
           <p className={`${sectionHeading} mb-4`}>{t("settings.notifications")}</p>
           <div className="flex items-center justify-between gap-4">
             <div>
-              <p className="text-white text-sm">{t("settings.weeklyEmail")}</p>
-              <p className="text-gray-600 text-xs">{t("settings.weeklyEmailHint")}</p>
+              <p className="text-ink text-sm">{t("settings.weeklyEmail")}</p>
+              <p className="text-ink-mute text-xs">{t("settings.weeklyEmailHint")}</p>
             </div>
             <button
               onClick={handleEmailWeekly}
               disabled={emailWeekly === null}
-              className={`relative w-10 h-5 rounded-full transition-colors shrink-0 disabled:opacity-40 ${emailWeekly ? "bg-indigo-600" : "bg-[#2C2922]"}`}
+              className={`relative w-10 h-5 rounded-full transition-colors shrink-0 disabled:opacity-40 ${emailWeekly ? "bg-brand" : "bg-surface-2"}`}
             >
               <span className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white transition-transform ${emailWeekly ? "translate-x-5" : ""}`} />
             </button>
@@ -121,12 +121,12 @@ export default function SettingsPage() {
           <p className={`${sectionHeading} mb-4`}>{t("settings.account")}</p>
           <div className="flex items-center justify-between gap-4">
             <div className="min-w-0">
-              <p className="text-gray-500 text-xs">{t("settings.email")}</p>
-              <p className="text-white text-sm truncate">{email}</p>
+              <p className="text-ink-mute text-xs">{t("settings.email")}</p>
+              <p className="text-ink text-sm truncate">{email}</p>
             </div>
             <button
               onClick={handleLogout}
-              className="flex items-center gap-2 px-3 py-2 rounded-lg border border-[#2C2922] text-gray-400 hover:text-red-300 hover:border-red-900 text-sm transition-colors shrink-0"
+              className="flex items-center gap-2 px-3 py-2 rounded-lg border border-line text-ink-mute hover:text-red-300 hover:border-red-900 text-sm transition-colors shrink-0"
             >
               <LogOut size={15} /> {t("settings.logout")}
             </button>

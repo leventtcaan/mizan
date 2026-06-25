@@ -66,7 +66,7 @@ export default function AlertsPanel() {
     return (
       <div className="space-y-2 animate-pulse mb-6">
         {[1, 2].map((i) => (
-          <div key={i} className="h-16 bg-[#1C1915] rounded-xl" />
+          <div key={i} className="h-16 bg-surface rounded-xl" />
         ))}
       </div>
     );
@@ -76,7 +76,7 @@ export default function AlertsPanel() {
 
   return (
     <div className="mb-6">
-      <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">
+      <p className="text-xs font-semibold text-ink-mute uppercase tracking-wider mb-3">
         {t("alerts.title")}
       </p>
       <div className="space-y-2">
@@ -87,20 +87,20 @@ export default function AlertsPanel() {
           return (
             <div
               key={alert.dismiss_key}
-              className={`bg-[#1C1915] border border-[#2C2922] border-l-2 ${accent} rounded-xl p-4 flex items-start gap-3`}
+              className={`bg-surface border border-line border-l-2 ${accent} rounded-xl p-4 flex items-start gap-3`}
             >
               <span className="text-base mt-0.5 shrink-0">{TYPE_ICON[alert.type] ?? "⚠"}</span>
 
               <div className="flex-1 min-w-0">
-                <p className="text-xs font-medium text-gray-500 mb-0.5">{typeLabel}</p>
-                <p className="text-sm text-gray-200 leading-snug">{alert.message}</p>
+                <p className="text-xs font-medium text-ink-mute mb-0.5">{typeLabel}</p>
+                <p className="text-sm text-ink-soft leading-snug">{alert.message}</p>
               </div>
 
               <div className="flex flex-col gap-1.5 shrink-0 items-end">
                 {alert.actionable && (
                   <button
                     onClick={() => handleAskCoach(alert.message)}
-                    className="text-xs text-indigo-400 hover:text-indigo-300 whitespace-nowrap transition-colors"
+                    className="text-xs text-brand hover:text-brand whitespace-nowrap transition-colors"
                   >
                     {t("alerts.askCoach")}
                   </button>
@@ -108,7 +108,7 @@ export default function AlertsPanel() {
                 <button
                   onClick={() => void handleDismiss(alert.dismiss_key)}
                   disabled={dismissing.has(alert.dismiss_key)}
-                  className="text-xs text-gray-600 hover:text-gray-400 transition-colors disabled:opacity-50"
+                  className="text-xs text-ink-mute hover:text-ink-mute transition-colors disabled:opacity-50"
                 >
                   {dismissing.has(alert.dismiss_key) ? "…" : t("alerts.dismiss")}
                 </button>

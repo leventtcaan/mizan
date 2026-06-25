@@ -15,13 +15,13 @@ import { useLanguage } from "@/lib/i18n";
 const TYPE_COLORS: Record<string, string> = {
   alert: "bg-red-950/40 border-red-800/40 text-red-200",
   warning: "bg-amber-950/40 border-amber-800/40 text-amber-200",
-  info: "bg-[#1C1915] border-[#2C2922] text-gray-300",
+  info: "bg-surface border-line text-ink-soft",
 };
 
 const TYPE_DOT: Record<string, string> = {
   alert: "bg-red-500",
   warning: "bg-amber-500",
-  info: "bg-indigo-500",
+  info: "bg-brand",
 };
 
 function timeAgo(iso: string): string {
@@ -105,7 +105,7 @@ export default function NotificationDropdown({ onCountChange }: Props) {
     <div ref={ref} className="relative">
       <button
         onClick={handleOpen}
-        className="relative p-1.5 rounded-lg text-gray-500 hover:text-gray-300 hover:bg-[#2C2922] transition-colors"
+        className="relative p-1.5 rounded-lg text-ink-mute hover:text-ink-soft hover:bg-surface-2 transition-colors"
         title={t("notifications.title")}
       >
         <Bell size={18} />
@@ -117,11 +117,11 @@ export default function NotificationDropdown({ onCountChange }: Props) {
       </button>
 
       {open && (
-        <div className="absolute right-0 top-full mt-2 w-80 bg-[#1C1915] border border-[#2C2922] rounded-xl shadow-2xl z-50 overflow-hidden">
-          <div className="flex items-center justify-between px-4 py-3 border-b border-[#2C2922]">
-            <span className="text-white text-sm font-semibold">{t("notifications.title")}</span>
+        <div className="absolute right-0 top-full mt-2 w-80 bg-surface border border-line rounded-xl shadow-2xl z-50 overflow-hidden">
+          <div className="flex items-center justify-between px-4 py-3 border-b border-line">
+            <span className="text-ink text-sm font-semibold">{t("notifications.title")}</span>
             {unreadCount > 0 && (
-              <button onClick={handleMarkAllRead} className="text-indigo-400 text-xs hover:text-indigo-300 transition-colors">
+              <button onClick={handleMarkAllRead} className="text-brand text-xs hover:text-brand transition-colors">
                 {t("notifications.markAllRead")}
               </button>
             )}
@@ -130,28 +130,28 @@ export default function NotificationDropdown({ onCountChange }: Props) {
           <div className="max-h-80 overflow-y-auto">
             {loading && (
               <div className="p-4 space-y-2">
-                {[1, 2, 3].map((i) => <div key={i} className="h-12 bg-[#2C2922] rounded-lg animate-pulse" />)}
+                {[1, 2, 3].map((i) => <div key={i} className="h-12 bg-surface-2 rounded-lg animate-pulse" />)}
               </div>
             )}
 
             {!loading && notifications.length === 0 && (
-              <div className="p-6 text-center text-gray-600 text-sm">{t("notifications.empty")}</div>
+              <div className="p-6 text-center text-ink-mute text-sm">{t("notifications.empty")}</div>
             )}
 
             {!loading && notifications.map((n) => (
               <button
                 key={n.id}
                 onClick={() => handleMarkRead(n)}
-                className={`w-full text-left px-4 py-3 border-b border-[#2C2922] last:border-0 hover:bg-[#2C2922]/50 transition-colors ${n.is_read ? "opacity-50" : ""}`}
+                className={`w-full text-left px-4 py-3 border-b border-line last:border-0 hover:bg-surface-2/50 transition-colors ${n.is_read ? "opacity-50" : ""}`}
               >
                 <div className="flex items-start gap-2.5">
                   <span className={`w-2 h-2 rounded-full shrink-0 mt-1.5 ${TYPE_DOT[n.type] ?? "bg-gray-500"} ${n.is_read ? "opacity-0" : ""}`} />
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between gap-2">
-                      <p className="text-white text-xs font-medium truncate">{n.title}</p>
-                      <span className="text-gray-600 text-[10px] shrink-0">{timeAgo(n.created_at)}</span>
+                      <p className="text-ink text-xs font-medium truncate">{n.title}</p>
+                      <span className="text-ink-mute text-[10px] shrink-0">{timeAgo(n.created_at)}</span>
                     </div>
-                    <p className="text-gray-400 text-xs mt-0.5 line-clamp-2">{n.message}</p>
+                    <p className="text-ink-mute text-xs mt-0.5 line-clamp-2">{n.message}</p>
                   </div>
                 </div>
               </button>

@@ -93,7 +93,7 @@ export default function UploadPage() {
         onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
         onDragLeave={() => setDragOver(false)}
         className={`relative border-2 border-dashed rounded-xl p-12 text-center transition-all cursor-pointer mb-4 ${
-          dragOver ? "border-indigo-500 bg-indigo-950/20" : "border-[#2C2922] bg-[#1C1915] hover:border-[#3C3832]"
+          dragOver ? "border-brand bg-brand/20" : "border-line bg-surface hover:border-[#3C3832]"
         }`}
         onClick={() => document.getElementById("file-input")?.click()}
       >
@@ -105,11 +105,11 @@ export default function UploadPage() {
           className="hidden"
           onChange={(e) => { if (e.target.files) addFiles(e.target.files); e.target.value = ""; }}
         />
-        <div className="w-12 h-12 rounded-xl bg-[#2C2922] flex items-center justify-center mx-auto mb-3">
-          <FileText size={22} className="text-gray-400" />
+        <div className="w-12 h-12 rounded-xl bg-surface-2 flex items-center justify-center mx-auto mb-3">
+          <FileText size={22} className="text-ink-mute" />
         </div>
-        <p className="text-gray-300 font-medium">{t("upload.dropHintMulti")}</p>
-        <p className="text-gray-600 text-sm mt-1">{t("upload.or")} {t("upload.browse")}</p>
+        <p className="text-ink-soft font-medium">{t("upload.dropHintMulti")}</p>
+        <p className="text-ink-mute text-sm mt-1">{t("upload.or")} {t("upload.browse")}</p>
         <p className="text-gray-700 text-xs mt-3">{t("upload.formats")} · {t("upload.maxSize")}</p>
       </div>
 
@@ -117,21 +117,21 @@ export default function UploadPage() {
       {entries.length > 0 && (
         <div className="mb-4 space-y-2">
           {entries.map((e, i) => (
-            <div key={`${e.file.name}-${i}`} className="flex items-center gap-3 p-3 rounded-lg bg-[#1C1915] border border-[#2C2922]">
+            <div key={`${e.file.name}-${i}`} className="flex items-center gap-3 p-3 rounded-lg bg-surface border border-line">
               <span className="shrink-0">
                 {e.state === "uploading" ? (
-                  <span className="block w-4 h-4 border-2 border-white/30 border-t-indigo-400 rounded-full animate-spin" />
+                  <span className="block w-4 h-4 border-2 border-white/30 border-t-brand rounded-full animate-spin" />
                 ) : e.state === "done" && e.result?.status === "success" ? (
                   <CheckCircle size={16} className="text-emerald-400" />
                 ) : e.state === "error" || (e.state === "done" && e.result?.status !== "success") ? (
                   <span className="text-amber-400 text-sm font-bold">!</span>
                 ) : (
-                  <FileText size={16} className="text-gray-500" />
+                  <FileText size={16} className="text-ink-mute" />
                 )}
               </span>
               <div className="flex-1 min-w-0">
-                <p className="text-white text-sm truncate">{e.file.name}</p>
-                <p className="text-xs text-gray-500">
+                <p className="text-ink text-sm truncate">{e.file.name}</p>
+                <p className="text-xs text-ink-mute">
                   {e.state === "uploading" ? t("upload.uploading")
                     : e.state === "done" && e.result?.status === "success" ? `${e.result.transaction_count} ${t("upload.uploadResult.successTitle")}`
                     : e.state === "done" && e.result ? t(reasonKey(e.result))
@@ -140,7 +140,7 @@ export default function UploadPage() {
                 </p>
               </div>
               {!processing && e.state === "queued" && (
-                <button onClick={() => removeEntry(i)} className="shrink-0 text-gray-600 hover:text-gray-300 text-sm transition-colors px-1">×</button>
+                <button onClick={() => removeEntry(i)} className="shrink-0 text-ink-mute hover:text-ink-soft text-sm transition-colors px-1">×</button>
               )}
             </div>
           ))}
@@ -150,7 +150,7 @@ export default function UploadPage() {
       <button
         onClick={handleProcess}
         disabled={entries.length === 0 || processing}
-        className="w-full py-3 px-4 rounded-xl font-semibold transition-colors disabled:opacity-40 disabled:cursor-not-allowed bg-indigo-600 hover:bg-indigo-500 text-white flex items-center justify-center gap-2"
+        className="w-full py-3 px-4 rounded-xl font-semibold transition-colors disabled:opacity-40 disabled:cursor-not-allowed bg-brand hover:bg-brand-hover text-white flex items-center justify-center gap-2"
       >
         {processing ? (
           <>
@@ -169,15 +169,15 @@ export default function UploadPage() {
       )}
 
       {/* Privacy reassurance — honest, plain account of what happens to the file */}
-      <div className="mt-6 rounded-xl bg-[#1C1915] border border-[#2C2922] p-4">
+      <div className="mt-6 rounded-xl bg-surface border border-line p-4">
         <div className="flex items-center gap-2 mb-3">
           <ShieldCheck size={16} className="text-emerald-400 shrink-0" />
-          <p className="text-sm font-medium text-gray-200">{t("upload.privacyTitle")}</p>
+          <p className="text-sm font-medium text-ink-soft">{t("upload.privacyTitle")}</p>
         </div>
         <ul className="space-y-2">
           {["privacy1", "privacy2", "privacy3"].map((k) => (
-            <li key={k} className="flex gap-2 text-xs text-gray-500 leading-relaxed">
-              <span className="text-gray-600 shrink-0 mt-px">•</span>
+            <li key={k} className="flex gap-2 text-xs text-ink-mute leading-relaxed">
+              <span className="text-ink-mute shrink-0 mt-px">•</span>
               <span>{t(`upload.${k}`)}</span>
             </li>
           ))}

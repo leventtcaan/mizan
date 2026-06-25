@@ -67,13 +67,13 @@ export default function SpendingChart({ transactions, periodLabel }: Props) {
   const max = rows[0].amount;
 
   return (
-    <div className="mb-8 p-5 rounded-xl bg-[#1C1915] border border-[#2C2922]">
+    <div className="mb-8 p-5 rounded-xl bg-surface border border-line">
       <div className="flex items-baseline justify-between mb-4">
         <div className="min-w-0">
-          <p className="text-xs text-gray-500 uppercase tracking-wide font-semibold">{t("tx.spending")}</p>
-          {periodLabel && <p className="text-[11px] text-gray-600 mt-0.5">{periodLabel}</p>}
+          <p className="text-xs text-ink-mute uppercase tracking-wide font-semibold">{t("tx.spending")}</p>
+          {periodLabel && <p className="text-[11px] text-ink-mute mt-0.5">{periodLabel}</p>}
         </div>
-        <p className="text-sm text-white font-semibold tabular-nums">
+        <p className="text-sm text-ink font-semibold tabular-nums">
           {fmt(totalSpend)}
           {mixed && <span className="ml-1 text-[10px] text-amber-500 font-normal">≈</span>}
         </p>
@@ -86,17 +86,17 @@ export default function SpendingChart({ transactions, periodLabel }: Props) {
             <div key={r.slug} className="flex items-center gap-3">
               <div className="flex items-center gap-2 w-28 shrink-0 min-w-0">
                 <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: r.color }} />
-                <span className="text-xs text-gray-300 truncate">{r.label}</span>
+                <span className="text-xs text-ink-soft truncate">{r.label}</span>
               </div>
-              <div className="flex-1 h-2 rounded-full bg-[#11100E] overflow-hidden">
+              <div className="flex-1 h-2 rounded-full bg-canvas overflow-hidden">
                 <div
                   className="h-full rounded-full transition-all"
                   style={{ width: `${Math.max(3, (r.amount / max) * 100)}%`, backgroundColor: r.color }}
                 />
               </div>
               <div className="w-28 shrink-0 text-right">
-                <span className="text-xs text-gray-200 tabular-nums">{fmt(r.amount)}</span>
-                <span className="text-[10px] text-gray-600 ml-1.5 tabular-nums">{share.toFixed(0)}%</span>
+                <span className="text-xs text-ink-soft tabular-nums">{fmt(r.amount)}</span>
+                <span className="text-[10px] text-ink-mute ml-1.5 tabular-nums">{share.toFixed(0)}%</span>
               </div>
             </div>
           );

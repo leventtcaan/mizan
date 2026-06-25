@@ -11,7 +11,7 @@ import {
 } from "@/lib/api";
 
 const PERIODS = ["this_month", "last_month", "quarter", "ytd", "last_30", "all"];
-const PALETTE = ["#4f46e5", "#10b981", "#f59e0b", "#0ea5e9", "#a855f7", "#ef4444", "#14b8a6", "#f97316", "#6366f1", "#84cc16"];
+const PALETTE = ["#4f46e5", "#10b981", "#f59e0b", "#0ea5e9", "#a855f7", "#ef4444", "#14b8a6", "#f97316", "rgb(var(--c-brand))", "#84cc16"];
 
 export default function ReportsPage() {
   const router = useRouter();
@@ -71,54 +71,54 @@ export default function ReportsPage() {
       {/* Controls (not printed) */}
       <div className="no-print flex flex-wrap items-center gap-3 mb-5">
         <div className="flex items-center gap-2">
-          <FileText size={18} className="text-indigo-400" />
-          <h1 className="text-xl font-bold text-white">{t("report.title")}</h1>
+          <FileText size={18} className="text-brand" />
+          <h1 className="text-xl font-bold text-ink">{t("report.title")}</h1>
         </div>
         <div className="flex-1" />
         <select value={period} onChange={(e) => setPeriod(e.target.value)}
-          className="bg-[#1C1915] border border-[#2C2922] rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-600">
+          className="bg-surface border border-line rounded-lg px-3 py-2 text-sm text-ink focus:outline-none focus:border-brand">
           {PERIODS.map((p) => <option key={p} value={p}>{t(`report.period.${p}`)}</option>)}
         </select>
         <button onClick={exportCsv} disabled={csvBusy}
-          className="px-3 py-2 rounded-lg border border-[#2C2922] text-gray-300 hover:text-white text-sm font-medium disabled:opacity-50">
+          className="px-3 py-2 rounded-lg border border-line text-ink-soft hover:text-ink text-sm font-medium disabled:opacity-50">
           {t("report.csv")}
         </button>
         <button onClick={exportPdf} disabled={!report}
-          className="px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-semibold disabled:opacity-50 flex items-center gap-1.5">
+          className="px-4 py-2 rounded-lg bg-brand hover:bg-brand-hover text-white text-sm font-semibold disabled:opacity-50 flex items-center gap-1.5">
           {t("report.pdf")} <ArrowRight size={15} />
         </button>
       </div>
 
       {loading ? (
-        <div className="flex items-center justify-center gap-2 text-gray-500 py-24">
-          <span className="w-5 h-5 border-2 border-gray-600 border-t-indigo-400 rounded-full animate-spin" /> {t("report.building")}
+        <div className="flex items-center justify-center gap-2 text-ink-mute py-24">
+          <span className="w-5 h-5 border-2 border-gray-600 border-t-brand rounded-full animate-spin" /> {t("report.building")}
         </div>
       ) : !report ? (
-        <p className="text-gray-500 text-center py-24">{t("report.empty")}</p>
+        <p className="text-ink-mute text-center py-24">{t("report.empty")}</p>
       ) : (
         <div id="report" className="bg-white text-gray-900 rounded-2xl shadow-2xl shadow-black/40 overflow-hidden">
           {/* Accent bar */}
-          <div className="h-1.5 bg-gradient-to-r from-indigo-600 via-violet-500 to-indigo-600" />
+          <div className="h-1.5 bg-gradient-to-r from-brand via-brand to-brand" />
 
           <div className="px-8 sm:px-12 py-9">
             {/* Header */}
             <div className="flex items-start justify-between mb-8">
               <div>
                 <p className="text-2xl font-extrabold tracking-tight">Mizan</p>
-                <p className="text-gray-500 text-sm">{t("report.docTitle")}</p>
+                <p className="text-ink-mute text-sm">{t("report.docTitle")}</p>
               </div>
               <div className="text-right text-sm">
                 <p className="font-semibold text-gray-900">{report.meta.period_label}</p>
-                <p className="text-gray-500">{report.meta.currency}{email ? ` · ${email}` : ""}</p>
-                <p className="text-gray-400 text-xs mt-0.5">{new Date(report.meta.generated_at).toLocaleDateString()}</p>
+                <p className="text-ink-mute">{report.meta.currency}{email ? ` · ${email}` : ""}</p>
+                <p className="text-ink-mute text-xs mt-0.5">{new Date(report.meta.generated_at).toLocaleDateString()}</p>
               </div>
             </div>
 
             {/* Hero — net worth + verdict */}
-            <div className="rounded-xl bg-gradient-to-br from-indigo-50 to-white border border-indigo-100 p-6 mb-8">
+            <div className="rounded-xl bg-gradient-to-br from-brand to-white border border-brand p-6 mb-8">
               <div className="flex flex-wrap items-end justify-between gap-4">
                 <div>
-                  <p className="text-indigo-600/70 text-xs font-semibold uppercase tracking-wider">{t("report.netWorthValue")}</p>
+                  <p className="text-brand/70 text-xs font-semibold uppercase tracking-wider">{t("report.netWorthValue")}</p>
                   <p className="text-4xl font-extrabold tabular-nums mt-1">{money(nw!.net_worth)}</p>
                 </div>
                 {nw!.change !== null && (
@@ -147,13 +147,13 @@ export default function ReportsPage() {
                   <AreaChart points={report.trajectory.map((p) => p.net_worth)}
                     startLabel={report.trajectory[0].date} endLabel={report.trajectory[report.trajectory.length - 1].date}
                     money={money} />
-                ) : <p className="text-gray-400 text-sm">{t("report.estimated")}</p>}
+                ) : <p className="text-ink-mute text-sm">{t("report.estimated")}</p>}
               </div>
               <div className="lg:col-span-2">
                 <SectionTitle>{t("report.allocation")}</SectionTitle>
                 {report.allocation.length > 0
                   ? <Donut data={report.allocation.map((a) => ({ label: a.name, value: a.value, share: a.share }))} money={money} centerLabel={t("report.assets")} />
-                  : <p className="text-gray-400 text-sm">—</p>}
+                  : <p className="text-ink-mute text-sm">—</p>}
               </div>
             </div>
 
@@ -182,7 +182,7 @@ export default function ReportsPage() {
                     <div key={c.name}>
                       <div className="flex justify-between text-xs mb-1">
                         <span className="text-gray-700">{c.name}</span>
-                        <span className="tabular-nums text-gray-500">{money(c.amount)} · {c.share.toFixed(0)}%</span>
+                        <span className="tabular-nums text-ink-mute">{money(c.amount)} · {c.share.toFixed(0)}%</span>
                       </div>
                       <div className="h-2 rounded-full bg-gray-100 overflow-hidden">
                         <div className="h-full rounded-full" style={{ width: `${Math.min(c.share, 100)}%`, backgroundColor: PALETTE[i % PALETTE.length] }} />
@@ -219,10 +219,10 @@ export default function ReportsPage() {
                 <div className="space-y-3">
                   {report.recommendations.map((r, i) => (
                     <div key={i} className="flex gap-3 rounded-xl border border-gray-200 bg-gray-50 p-4">
-                      <span className="shrink-0 w-7 h-7 rounded-lg bg-indigo-600 text-white text-sm font-bold flex items-center justify-center">{i + 1}</span>
+                      <span className="shrink-0 w-7 h-7 rounded-lg bg-brand text-white text-sm font-bold flex items-center justify-center">{i + 1}</span>
                       <div>
                         <p className="font-semibold text-gray-900 text-sm">{r.title}</p>
-                        <p className="text-gray-600 text-sm mt-0.5">{r.detail}</p>
+                        <p className="text-ink-mute text-sm mt-0.5">{r.detail}</p>
                       </div>
                     </div>
                   ))}
@@ -232,11 +232,11 @@ export default function ReportsPage() {
 
             {/* Footer */}
             <div className="border-t border-gray-200 pt-5">
-              <p className="text-gray-400 text-[10px] uppercase tracking-wider mb-2">{t("report.assumptions")}</p>
-              <ul className="text-gray-500 text-xs space-y-1">
+              <p className="text-ink-mute text-[10px] uppercase tracking-wider mb-2">{t("report.assumptions")}</p>
+              <ul className="text-ink-mute text-xs space-y-1">
                 {report.assumptions.map((a, i) => <li key={i}>• {a}</li>)}
               </ul>
-              <p className="text-gray-400 text-xs mt-4">{t("report.footer")}</p>
+              <p className="text-ink-mute text-xs mt-4">{t("report.footer")}</p>
             </div>
           </div>
         </div>
@@ -250,8 +250,8 @@ export default function ReportsPage() {
 function SectionTitle({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex items-center gap-2 mb-4">
-      <span className="w-1 h-4 rounded-full bg-indigo-600" />
-      <h2 className="text-[13px] font-bold uppercase tracking-wider text-gray-500">{children}</h2>
+      <span className="w-1 h-4 rounded-full bg-brand" />
+      <h2 className="text-[13px] font-bold uppercase tracking-wider text-ink-mute">{children}</h2>
     </div>
   );
 }
@@ -260,7 +260,7 @@ function Kpi({ label, value, accent }: { label: string; value: string; accent: s
   return (
     <div className="rounded-xl border border-gray-200 bg-white p-4 relative overflow-hidden">
       <span className="absolute left-0 top-0 bottom-0 w-1" style={{ backgroundColor: accent }} />
-      <p className="text-gray-500 text-xs pl-1">{label}</p>
+      <p className="text-ink-mute text-xs pl-1">{label}</p>
       <p className="text-lg font-bold tabular-nums mt-1 pl-1">{value}</p>
     </div>
   );
@@ -270,7 +270,7 @@ function Pill({ label, value, tone }: { label: string; value: string; tone?: "up
   const color = tone === "up" ? "text-emerald-600" : tone === "down" ? "text-red-600" : "text-gray-900";
   return (
     <div className="rounded-xl border border-gray-200 bg-gray-50 p-4 text-center">
-      <p className="text-gray-500 text-xs">{label}</p>
+      <p className="text-ink-mute text-xs">{label}</p>
       <p className={`text-base font-bold tabular-nums mt-1 ${color}`}>{value}</p>
     </div>
   );
@@ -319,7 +319,7 @@ function Donut({ data, money, centerLabel }: { data: { label: string; value: num
               <span className="w-2.5 h-2.5 rounded-sm shrink-0" style={{ backgroundColor: PALETTE[i % PALETTE.length] }} />
               <span className="truncate">{d.label}</span>
             </span>
-            <span className="text-gray-500 tabular-nums shrink-0">{d.share.toFixed(0)}%</span>
+            <span className="text-ink-mute tabular-nums shrink-0">{d.share.toFixed(0)}%</span>
           </div>
         ))}
       </div>
@@ -361,7 +361,7 @@ function AreaChart({ points, startLabel, endLabel, money }: { points: number[]; 
 function Table({ head, rows, subtitles }: { head: string[]; rows: string[][]; subtitles?: string[] }) {
   return (
     <table className="w-full text-sm">
-      <thead><tr className="text-gray-400 text-[11px] uppercase tracking-wider border-b border-gray-200">
+      <thead><tr className="text-ink-mute text-[11px] uppercase tracking-wider border-b border-gray-200">
         <th className="text-left py-2 font-medium">{head[0]}</th>
         <th className="text-right py-2 font-medium">{head[1]}</th>
       </tr></thead>
@@ -370,7 +370,7 @@ function Table({ head, rows, subtitles }: { head: string[]; rows: string[][]; su
           <tr key={ri} className="border-b border-gray-100">
             <td className="py-2.5">
               <p className="text-gray-800">{r[0]}</p>
-              {subtitles?.[ri] ? <p className="text-gray-400 text-xs">{subtitles[ri]}</p> : null}
+              {subtitles?.[ri] ? <p className="text-ink-mute text-xs">{subtitles[ri]}</p> : null}
             </td>
             <td className="py-2.5 text-right tabular-nums text-gray-900 align-top">{r[1]}</td>
           </tr>

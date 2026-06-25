@@ -87,8 +87,8 @@ function FlowStepper({ labels }: { labels: [string, string, string] }) {
           <span
             className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full font-medium ${
               s.state === "done" ? "text-emerald-400"
-                : s.state === "active" ? "bg-indigo-600 text-white"
-                : "text-gray-600"
+                : s.state === "active" ? "bg-brand text-white"
+                : "text-ink-mute"
             }`}
           >
             {s.state === "done" && <CheckCircle size={13} />}
@@ -314,15 +314,15 @@ function ReviewContent() {
   if (loading) {
     return (
       <PageLayout maxWidth="xl">
-        <div className="flex items-center gap-3 text-gray-400 py-20 justify-center">
-          <span className="w-5 h-5 border-2 border-gray-600 border-t-indigo-400 rounded-full animate-spin" />
+        <div className="flex items-center gap-3 text-ink-mute py-20 justify-center">
+          <span className="w-5 h-5 border-2 border-gray-600 border-t-brand rounded-full animate-spin" />
           <span className="text-sm">{t("review.loading")}</span>
         </div>
       </PageLayout>
     );
   }
 
-  const inputCls = "bg-[#11100E] border border-[#2C2922] rounded-lg px-2 py-1.5 text-sm text-white focus:outline-none focus:border-indigo-600";
+  const inputCls = "bg-canvas border border-line rounded-lg px-2 py-1.5 text-sm text-ink focus:outline-none focus:border-brand";
 
   const flaggedCount = new Set([...highAmount, ...duplicates, ...garbled]).size;
 
@@ -331,8 +331,8 @@ function ReviewContent() {
       <FlowStepper labels={[t("review.stepUpload"), t("review.stepReview"), t("review.stepDone")]} />
 
       {/* Warm intro — frames this as Mizan showing its work, not a QA request */}
-      <p className="text-gray-400 text-sm leading-relaxed mb-5 max-w-2xl">
-        {t("review.introPre")} <span className="text-white font-semibold">{rows.length}</span> {t("review.introPost")}
+      <p className="text-ink-mute text-sm leading-relaxed mb-5 max-w-2xl">
+        {t("review.introPre")} <span className="text-ink font-semibold">{rows.length}</span> {t("review.introPost")}
       </p>
 
       {/* Currency confidence + confirmation — make it obvious what was detected vs assumed,
@@ -354,14 +354,14 @@ function ReviewContent() {
                   <p className="text-amber-200 text-sm font-semibold">{t("review.currencyConfirmTitle")}</p>
                 </div>
                 {stmtLabel && <p className="text-amber-300/70 text-xs mb-2.5 pl-3.5">{stmtLabel}</p>}
-                <p className="text-gray-400 text-sm mb-3 pl-3.5">{t("review.currencyConfirmPrompt")}</p>
+                <p className="text-ink-mute text-sm mb-3 pl-3.5">{t("review.currencyConfirmPrompt")}</p>
                 <div className="flex flex-wrap items-center gap-2 pl-3.5">
                   <div className="w-44">
                     <CurrencySelect value={b.currency} onChange={(code) => changeBatchCurrency(b.id, code)} />
                   </div>
                   <button
                     onClick={() => confirmBatchCurrency(b.id)}
-                    className="px-3.5 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-medium transition-colors"
+                    className="px-3.5 py-2 rounded-lg bg-brand hover:bg-brand-hover text-white text-sm font-medium transition-colors"
                   >
                     {t("review.currencyConfirmBtn")}
                   </button>
@@ -372,18 +372,18 @@ function ReviewContent() {
 
           // Settled → a compact confidence badge. Detected vs (inferred &) confirmed.
           return (
-            <div key={b.id} className="flex items-center gap-2 px-3.5 py-2 rounded-lg bg-[#1C1915] border border-[#2C2922] text-xs">
+            <div key={b.id} className="flex items-center gap-2 px-3.5 py-2 rounded-lg bg-surface border border-line text-xs">
               <CheckCircle size={14} className="text-emerald-400 shrink-0" />
-              <span className="text-gray-400">{t("review.currencyLabel")}:</span>
-              <span className="text-white font-semibold">{b.currency}</span>
-              <span className="text-gray-600">
+              <span className="text-ink-mute">{t("review.currencyLabel")}:</span>
+              <span className="text-ink font-semibold">{b.currency}</span>
+              <span className="text-ink-mute">
                 · {b.inferred ? t("review.currencyConfirmed") : t("review.currencyDetected")}
               </span>
-              {stmtLabel && <span className="text-gray-600 truncate">· {stmtLabel}</span>}
+              {stmtLabel && <span className="text-ink-mute truncate">· {stmtLabel}</span>}
               {b.inferred && settled && (
                 <button
                   onClick={() => reopenBatchCurrency(b.id)}
-                  className="ml-auto text-indigo-400 hover:text-indigo-300 transition-colors shrink-0"
+                  className="ml-auto text-brand hover:text-brand transition-colors shrink-0"
                 >
                   {t("review.currencyChange")}
                 </button>
@@ -394,22 +394,22 @@ function ReviewContent() {
       </div>
 
       {/* Summary bar — per currency, never mixed into one number */}
-      <div className="mb-4 p-4 rounded-xl bg-[#1C1915] border border-[#2C2922]">
-        <p className="text-[11px] font-semibold tracking-wide text-gray-500 uppercase mb-2.5">{t("review.addsUpTo")}</p>
+      <div className="mb-4 p-4 rounded-xl bg-surface border border-line">
+        <p className="text-[11px] font-semibold tracking-wide text-ink-mute uppercase mb-2.5">{t("review.addsUpTo")}</p>
         <div className="space-y-2.5">
           {byCurrency.map((c) => (
             <div key={c.currency} className="flex flex-wrap items-center gap-x-6 gap-y-2">
               {byCurrency.length > 1 && (
-                <span className="text-[11px] font-semibold text-gray-400 bg-[#11100E] border border-[#2C2922] rounded px-1.5 py-0.5">{c.currency}</span>
+                <span className="text-[11px] font-semibold text-ink-mute bg-canvas border border-line rounded px-1.5 py-0.5">{c.currency}</span>
               )}
               <span className="text-emerald-400 font-semibold tabular-nums text-sm flex items-center gap-1">
-                <TrendingUp size={14} /> {money(c.income, c.currency)} <span className="text-gray-500 font-normal text-xs">{t("review.income")}</span>
+                <TrendingUp size={14} /> {money(c.income, c.currency)} <span className="text-ink-mute font-normal text-xs">{t("review.income")}</span>
               </span>
-              <span className="text-red-400 font-semibold tabular-nums text-sm flex items-center gap-1">
-                <TrendingDown size={14} /> {money(c.expenses, c.currency)} <span className="text-gray-500 font-normal text-xs">{t("review.expenses")}</span>
+              <span className="text-neg font-semibold tabular-nums text-sm flex items-center gap-1">
+                <TrendingDown size={14} /> {money(c.expenses, c.currency)} <span className="text-ink-mute font-normal text-xs">{t("review.expenses")}</span>
               </span>
-              <span className={`font-semibold tabular-nums text-sm ${c.net >= 0 ? "text-white" : "text-orange-400"}`}>
-                {c.net >= 0 ? "" : "−"}{money(Math.abs(c.net), c.currency)} <span className="text-gray-500 font-normal text-xs">{t("review.net")}</span>
+              <span className={`font-semibold tabular-nums text-sm ${c.net >= 0 ? "text-ink" : "text-orange-400"}`}>
+                {c.net >= 0 ? "" : "−"}{money(Math.abs(c.net), c.currency)} <span className="text-ink-mute font-normal text-xs">{t("review.net")}</span>
               </span>
             </div>
           ))}
@@ -425,10 +425,10 @@ function ReviewContent() {
       )}
 
       {/* Editable table — desktop / tablet */}
-      <div className="hidden sm:block overflow-x-auto rounded-xl border border-[#2C2922]">
+      <div className="hidden sm:block overflow-x-auto rounded-xl border border-line">
         <table className="w-full text-sm min-w-[720px]">
           <thead>
-            <tr className="bg-[#1C1915] text-left text-gray-500 text-xs">
+            <tr className="bg-surface text-left text-ink-mute text-xs">
               <th className="px-3 py-2 font-medium">{t("review.colDate")}</th>
               <th className="px-3 py-2 font-medium">{t("review.colDescription")}</th>
               <th className="px-3 py-2 font-medium">{t("review.colAmount")}</th>
@@ -448,7 +448,7 @@ function ReviewContent() {
                 <tr
                   key={r.key}
                   title={tip || undefined}
-                  className={`border-t border-[#2C2922] ${flagged ? "bg-amber-950/20" : "bg-[#11100E]"}`}
+                  className={`border-t border-line ${flagged ? "bg-amber-950/20" : "bg-canvas"}`}
                 >
                   <td className="px-3 py-2">
                     <input type="date" value={r.transaction_date}
@@ -471,7 +471,7 @@ function ReviewContent() {
                       <input type="text" inputMode="decimal" value={r.amount}
                         onChange={(e) => update(r.key, { amount: e.target.value })}
                         className={`${inputCls} w-[100px] tabular-nums ${highAmount.has(r.key) ? "border-amber-700 text-amber-300" : ""}`} />
-                      <span className="text-gray-600 text-xs">{r.currency}</span>
+                      <span className="text-ink-mute text-xs">{r.currency}</span>
                     </div>
                   </td>
                   <td className="px-3 py-2">
@@ -498,7 +498,7 @@ function ReviewContent() {
                   </td>
                   <td className="px-3 py-2 text-center">
                     <button onClick={() => remove(r.key)} title={t("review.deleteRow")}
-                      className="text-gray-600 hover:text-red-400 transition-colors p-1">
+                      className="text-ink-mute hover:text-neg transition-colors p-1">
                       <XIcon size={15} />
                     </button>
                   </td>
@@ -519,20 +519,20 @@ function ReviewContent() {
             : isGarbled ? t("review.ocrGarbled") : "";
           return (
             <div key={r.key}
-              className={`rounded-xl border p-3 ${flagged ? "bg-amber-950/20 border-amber-800/40" : "bg-[#11100E] border-[#2C2922]"}`}>
+              className={`rounded-xl border p-3 ${flagged ? "bg-amber-950/20 border-amber-800/40" : "bg-canvas border-line"}`}>
               {/* Date + delete */}
               <div className="flex items-center gap-2 mb-2.5">
                 <input type="date" value={r.transaction_date}
                   onChange={(e) => update(r.key, { transaction_date: e.target.value })}
                   aria-label={t("review.colDate")} className={`${inputCls} flex-1`} />
                 <button onClick={() => remove(r.key)} aria-label={t("review.deleteRow")}
-                  className="shrink-0 text-gray-600 hover:text-red-400 transition-colors p-1.5">
+                  className="shrink-0 text-ink-mute hover:text-neg transition-colors p-1.5">
                   <XIcon size={16} />
                 </button>
               </div>
 
               {/* Description */}
-              <label className="block text-[11px] text-gray-500 mb-1">{t("review.colDescription")}</label>
+              <label className="block text-[11px] text-ink-mute mb-1">{t("review.colDescription")}</label>
               <input type="text" value={r.description}
                 onChange={(e) => update(r.key, { description: e.target.value })}
                 className={`${inputCls} w-full ${isGarbled ? "mb-1 border-amber-700 text-amber-300" : "mb-3"}`} />
@@ -546,16 +546,16 @@ function ReviewContent() {
               {/* Amount + type */}
               <div className="flex gap-3 mb-3">
                 <div className="flex-1 min-w-0">
-                  <label className="block text-[11px] text-gray-500 mb-1">{t("review.colAmount")}</label>
+                  <label className="block text-[11px] text-ink-mute mb-1">{t("review.colAmount")}</label>
                   <div className="flex items-center gap-1.5">
                     <input type="text" inputMode="decimal" value={r.amount}
                       onChange={(e) => update(r.key, { amount: e.target.value })}
                       className={`${inputCls} w-full tabular-nums ${highAmount.has(r.key) ? "border-amber-700 text-amber-300" : ""}`} />
-                    <span className="text-gray-600 text-xs shrink-0">{r.currency}</span>
+                    <span className="text-ink-mute text-xs shrink-0">{r.currency}</span>
                   </div>
                 </div>
                 <div>
-                  <label className="block text-[11px] text-gray-500 mb-1">{t("review.colType")}</label>
+                  <label className="block text-[11px] text-ink-mute mb-1">{t("review.colType")}</label>
                   <button
                     onClick={() => update(r.key, { transaction_type: r.transaction_type === "debit" ? "credit" : "debit" })}
                     className={`px-3 py-2 rounded-lg text-xs font-medium border transition-colors whitespace-nowrap ${
@@ -569,7 +569,7 @@ function ReviewContent() {
               </div>
 
               {/* Category */}
-              <label className="block text-[11px] text-gray-500 mb-1">{t("review.colCategory")}</label>
+              <label className="block text-[11px] text-ink-mute mb-1">{t("review.colCategory")}</label>
               <select value={r.category ?? ""}
                 onChange={(e) => update(r.key, { category: e.target.value || null })}
                 className={`${inputCls} w-full`}>
@@ -587,21 +587,21 @@ function ReviewContent() {
 
       {/* Add row */}
       <button onClick={addRow}
-        className="mt-3 inline-flex items-center gap-1.5 text-indigo-400 hover:text-indigo-300 text-sm transition-colors">
+        className="mt-3 inline-flex items-center gap-1.5 text-brand hover:text-brand text-sm transition-colors">
         <Plus size={15} /> {t("review.addRow")}
       </button>
 
-      {error && <p className="text-red-400 text-sm mt-4">{error}</p>}
+      {error && <p className="text-neg text-sm mt-4">{error}</p>}
 
       {/* CTAs */}
       <div className="flex gap-3 mt-6">
         <button onClick={cancel} disabled={saving}
-          className="px-5 py-3 rounded-xl bg-[#1C1915] border border-[#2C2922] hover:bg-[#2C2922] text-gray-300 font-semibold transition-colors disabled:opacity-50">
+          className="px-5 py-3 rounded-xl bg-surface border border-line hover:bg-surface-2 text-ink-soft font-semibold transition-colors disabled:opacity-50">
           {t("review.startOver")}
         </button>
         <button onClick={confirm} disabled={saving || rows.length === 0 || pendingCurrency}
           title={pendingCurrency ? t("review.currencyConfirmHint") : undefined}
-          className="flex-1 py-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed font-semibold transition-colors flex items-center justify-center gap-2">
+          className="flex-1 py-3 rounded-xl bg-brand hover:bg-brand-hover disabled:opacity-50 disabled:cursor-not-allowed font-semibold transition-colors flex items-center justify-center gap-2">
           {saving ? (
             <><span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> {t("review.saving")}</>
           ) : (
@@ -618,7 +618,7 @@ function ReviewContent() {
 
 export default function ReviewPage() {
   return (
-    <Suspense fallback={<div className="min-h-screen bg-[#11100E]" />}>
+    <Suspense fallback={<div className="min-h-screen bg-canvas" />}>
       <ReviewContent />
     </Suspense>
   );

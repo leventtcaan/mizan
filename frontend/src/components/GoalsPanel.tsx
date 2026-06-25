@@ -16,7 +16,7 @@ function formatAmount(value: string | number): string {
 }
 
 function statusColor(s: string): { bar: string; text: string; bg: string } {
-  if (s === "exceeded") return { bar: "bg-red-500", text: "text-red-400", bg: "bg-red-950/20" };
+  if (s === "exceeded") return { bar: "bg-red-500", text: "text-neg", bg: "bg-red-950/20" };
   if (s === "warning")  return { bar: "bg-amber-400", text: "text-amber-400", bg: "bg-amber-950/20" };
   return { bar: "bg-emerald-500", text: "text-emerald-400", bg: "" };
 }
@@ -75,13 +75,13 @@ export default function GoalsPanel() {
   const availableCategories = CATEGORIES.filter((c) => !goalCategories.has(c));
 
   return (
-    <div className="mb-6 bg-[#1C1915] border border-[#2C2922] rounded-xl p-6">
+    <div className="mb-6 bg-surface border border-line rounded-xl p-6">
       <div className="flex items-center justify-between mb-4">
-        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">{t("goals.title")}</p>
+        <p className="text-xs font-semibold text-ink-mute uppercase tracking-wider">{t("goals.title")}</p>
         {availableCategories.length > 0 && (
           <button
             onClick={() => { setShowForm((v) => !v); setFormCategory(availableCategories[0]); setFormError(null); }}
-            className="px-3 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-xs font-medium text-white transition-colors"
+            className="px-3 py-1 rounded-lg bg-brand hover:bg-brand-hover text-xs font-medium text-white transition-colors"
           >
             {showForm ? t("common.cancel") : t("goals.addGoal")}
           </button>
@@ -89,14 +89,14 @@ export default function GoalsPanel() {
       </div>
 
       {showForm && (
-        <form onSubmit={handleAddGoal} className="mb-4 p-4 rounded-lg bg-[#11100E] border border-[#2C2922] space-y-3">
+        <form onSubmit={handleAddGoal} className="mb-4 p-4 rounded-lg bg-canvas border border-line space-y-3">
           <div className="flex gap-3 flex-wrap">
             <div className="flex-1 min-w-[140px]">
-              <label className="block text-xs text-gray-500 mb-1">{t("goals.category")}</label>
+              <label className="block text-xs text-ink-mute mb-1">{t("goals.category")}</label>
               <select
                 value={formCategory}
                 onChange={(e) => setFormCategory(e.target.value)}
-                className="w-full bg-[#1C1915] border border-[#2C2922] rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-indigo-600"
+                className="w-full bg-surface border border-line rounded-lg px-3 py-2 text-ink text-sm focus:outline-none focus:border-brand"
               >
                 {availableCategories.map((c) => {
                   const key = `category.${c}`;
@@ -106,7 +106,7 @@ export default function GoalsPanel() {
               </select>
             </div>
             <div className="flex-1 min-w-[120px]">
-              <label className="block text-xs text-gray-500 mb-1">{t("goals.monthlyLimit")}</label>
+              <label className="block text-xs text-ink-mute mb-1">{t("goals.monthlyLimit")}</label>
               <input
                 type="number"
                 min="1"
@@ -115,25 +115,25 @@ export default function GoalsPanel() {
                 onChange={(e) => setFormLimit(e.target.value)}
                 required
                 placeholder="1500"
-                className="w-full bg-[#1C1915] border border-[#2C2922] rounded-lg px-3 py-2 text-white text-sm placeholder-gray-700 focus:outline-none focus:border-indigo-600"
+                className="w-full bg-surface border border-line rounded-lg px-3 py-2 text-ink text-sm placeholder-gray-700 focus:outline-none focus:border-brand"
               />
             </div>
           </div>
-          {formError && <p className="text-red-400 text-xs">{formError}</p>}
+          {formError && <p className="text-neg text-xs">{formError}</p>}
           <button
             type="submit"
             disabled={formSaving}
-            className="px-4 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-sm font-medium text-white transition-colors"
+            className="px-4 py-1.5 rounded-lg bg-brand hover:bg-brand-hover disabled:opacity-50 text-sm font-medium text-white transition-colors"
           >
             {formSaving ? t("common.loading") : t("goals.save")}
           </button>
         </form>
       )}
 
-      {loading && <p className="text-gray-600 text-sm animate-pulse py-4 text-center">{t("common.loading")}</p>}
-      {!loading && error && <p className="text-red-400 text-sm py-4 text-center">{error}</p>}
+      {loading && <p className="text-ink-mute text-sm animate-pulse py-4 text-center">{t("common.loading")}</p>}
+      {!loading && error && <p className="text-neg text-sm py-4 text-center">{error}</p>}
       {!loading && !error && items.length === 0 && (
-        <p className="text-gray-600 text-sm py-4 text-center">{t("goals.noGoals")}</p>
+        <p className="text-ink-mute text-sm py-4 text-center">{t("goals.noGoals")}</p>
       )}
 
       {!loading && items.length > 0 && (
@@ -146,35 +146,35 @@ export default function GoalsPanel() {
             const statusKey = `goals.status.${item.status}` as const;
             const statusText = t(statusKey) !== statusKey ? t(statusKey) : item.status;
             return (
-              <div key={item.category} className={`rounded-lg p-3.5 border border-[#2C2922] ${bg}`}>
+              <div key={item.category} className={`rounded-lg p-3.5 border border-line ${bg}`}>
                 <div className="flex items-center justify-between mb-2">
                   <div className="flex items-center gap-2">
-                    <span className="text-sm font-medium text-gray-200">{catLabel}</span>
+                    <span className="text-sm font-medium text-ink-soft">{catLabel}</span>
                     <span className={`text-xs font-semibold ${text}`}>{statusText}</span>
                   </div>
                   <div className="flex items-center gap-3">
-                    <span className="text-xs text-gray-400 font-mono">
+                    <span className="text-xs text-ink-mute font-mono">
                       {formatAmount(item.spent_this_month)}
-                      <span className="text-gray-600"> / {formatAmount(item.monthly_limit)}</span>
+                      <span className="text-ink-mute"> / {formatAmount(item.monthly_limit)}</span>
                     </span>
                     <button
                       onClick={() => void handleDelete(item.category)}
-                      className="text-gray-700 hover:text-red-500 text-sm leading-none transition-colors"
+                      className="text-gray-700 hover:text-neg text-sm leading-none transition-colors"
                       title={t("common.delete")}
                     >
                       ×
                     </button>
                   </div>
                 </div>
-                <div className="w-full h-1.5 bg-[#2C2922] rounded-full overflow-hidden">
+                <div className="w-full h-1.5 bg-surface-2 rounded-full overflow-hidden">
                   <div className={`h-full rounded-full transition-all ${bar}`} style={{ width: `${pct}%` }} />
                 </div>
                 <div className="flex justify-between mt-1.5">
                   <span className={`text-xs ${text}`}>{item.pct_used}%</span>
                   {parseFloat(item.remaining) >= 0 ? (
-                    <span className="text-xs text-gray-600">{formatAmount(item.remaining)} {t("goals.remaining")}</span>
+                    <span className="text-xs text-ink-mute">{formatAmount(item.remaining)} {t("goals.remaining")}</span>
                   ) : (
-                    <span className="text-xs text-red-500">{formatAmount(Math.abs(parseFloat(item.remaining)))} {t("goals.exceeded")}</span>
+                    <span className="text-xs text-neg">{formatAmount(Math.abs(parseFloat(item.remaining)))} {t("goals.exceeded")}</span>
                   )}
                 </div>
               </div>

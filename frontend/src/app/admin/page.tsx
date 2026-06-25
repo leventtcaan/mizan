@@ -64,7 +64,7 @@ const PAGE_SIZE = 25;
 const TX_PAGE = 25;
 
 const BAND_COLOR: Record<string, string> = {
-  strong: "text-emerald-400", steady: "text-indigo-300", fragile: "text-amber-400", at_risk: "text-red-400",
+  strong: "text-emerald-400", steady: "text-brand", fragile: "text-amber-400", at_risk: "text-neg",
 };
 
 const JOBS: { key: string; label: string; schedJobId: string }[] = [
@@ -75,14 +75,14 @@ const JOBS: { key: string; label: string; schedJobId: string }[] = [
 ];
 
 // ── small UI atoms ──────────────────────────────────────────────────────────────
-function Metric({ label, value, sub, icon, accent = "text-white" }: {
+function Metric({ label, value, sub, icon, accent = "text-ink" }: {
   label: string; value: string; sub?: string; icon?: React.ReactNode; accent?: string;
 }) {
   return (
-    <div className="rounded-xl bg-[#1C1915] border border-[#2C2922] p-4">
-      <div className="flex items-center gap-1.5 text-gray-500 text-[11px] uppercase tracking-wide mb-2">{icon}{label}</div>
+    <div className="rounded-xl bg-surface border border-line p-4">
+      <div className="flex items-center gap-1.5 text-ink-mute text-[11px] uppercase tracking-wide mb-2">{icon}{label}</div>
       <p className={`text-2xl font-bold tabular-nums ${accent}`}>{value}</p>
-      {sub && <p className="text-gray-600 text-xs mt-1">{sub}</p>}
+      {sub && <p className="text-ink-mute text-xs mt-1">{sub}</p>}
     </div>
   );
 }
@@ -98,9 +98,9 @@ function Chip({ ok, label }: { ok: boolean; label: string }) {
 function Badge({ tone, children }: { tone: "founder" | "admin" | "ok" | "muted"; children: React.ReactNode }) {
   const cls = {
     founder: "bg-amber-950/40 text-amber-300 border-amber-800/50",
-    admin: "bg-indigo-950/40 text-indigo-300 border-indigo-800/50",
+    admin: "bg-brand/40 text-brand border-brand/50",
     ok: "bg-emerald-950/30 text-emerald-300 border-emerald-800/40",
-    muted: "bg-[#1C1915] text-gray-500 border-[#2C2922]",
+    muted: "bg-surface text-ink-mute border-line",
   }[tone];
   return <span className={`px-2 py-0.5 rounded text-[10px] font-medium border ${cls}`}>{children}</span>;
 }
@@ -232,7 +232,7 @@ export default function AdminPage() {
     return (
       <PageLayout maxWidth="xl">
         <div className="h-[40vh] flex items-center justify-center">
-          <span className="w-6 h-6 border-2 border-[#2C2922] border-t-indigo-400 rounded-full animate-spin" />
+          <span className="w-6 h-6 border-2 border-line border-t-brand rounded-full animate-spin" />
         </div>
       </PageLayout>
     );
@@ -244,7 +244,7 @@ export default function AdminPage() {
 
   const refreshAction = (
     <button onClick={() => { loadOverview(); loadSystem(); loadUsers(search, offset); }}
-      className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-[#2C2922] hover:border-[#3C3832] hover:bg-[#1C1915] text-sm text-gray-400 hover:text-gray-200 transition-colors">
+      className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-line hover:border-[#3C3832] hover:bg-surface text-sm text-ink-mute hover:text-ink-soft transition-colors">
       <RefreshCw size={14} /> Refresh
     </button>
   );
@@ -254,7 +254,7 @@ export default function AdminPage() {
       title="Admin"
       titleBadge={
         <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold border ${
-          iAmFounder ? "bg-amber-950/40 border-amber-800/50 text-amber-300" : "bg-indigo-950/40 border-indigo-800/50 text-indigo-300"
+          iAmFounder ? "bg-amber-950/40 border-amber-800/50 text-amber-300" : "bg-brand/40 border-brand/50 text-brand"
         }`}>
           <ShieldCheck size={11} /> {iAmFounder ? "founder" : "admin"}
         </span>
@@ -268,7 +268,7 @@ export default function AdminPage() {
       {/* GROWTH */}
       {overview && (
         <>
-          <p className="text-[11px] font-bold tracking-widest text-gray-600 uppercase mb-3">Growth</p>
+          <p className="text-[11px] font-bold tracking-widest text-ink-mute uppercase mb-3">Growth</p>
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 mb-8">
             <Metric label="Total users" value={num(overview.users_total)} icon={<TrendingUp size={12} />}
               sub={`${num(overview.users_admins)} admin${overview.users_admins === 1 ? "" : "s"}`} />
@@ -280,13 +280,13 @@ export default function AdminPage() {
           </div>
 
           {/* ACTIVITY */}
-          <p className="text-[11px] font-bold tracking-widest text-gray-600 uppercase mb-3">Activity</p>
+          <p className="text-[11px] font-bold tracking-widest text-ink-mute uppercase mb-3">Activity</p>
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 mb-8">
             <Metric label="Transactions" value={num(overview.transactions_total)} icon={<Wallet size={12} />} sub={`+${num(overview.transactions_new_7d)} this week`} />
             <Metric label="Statements" value={num(overview.upload_batches)} sub="upload batches" />
             <Metric label="Assets" value={num(overview.assets_total)} icon={<Scale size={12} />} />
             <Metric label="Liabilities" value={num(overview.liabilities_total)} />
-            <Metric label="Open reconciliations" value={num(overview.reconciliation_open)} accent={overview.reconciliation_open > 0 ? "text-amber-400" : "text-white"} />
+            <Metric label="Open reconciliations" value={num(overview.reconciliation_open)} accent={overview.reconciliation_open > 0 ? "text-amber-400" : "text-ink"} />
             <Metric label="Notifications" value={num(overview.notifications_total)} sub={`${num(overview.notifications_unread)} unread`} />
           </div>
         </>
@@ -294,12 +294,12 @@ export default function AdminPage() {
 
       {/* SYSTEM + JOBS */}
       {system && (
-        <div className="mb-8 rounded-xl bg-[#1C1915] border border-[#2C2922] p-5">
+        <div className="mb-8 rounded-xl bg-surface border border-line p-5">
           <div className="flex items-center justify-between mb-4">
-            <p className="text-[11px] font-bold tracking-widest text-gray-600 uppercase">System</p>
-            <span className="text-xs text-gray-500">
-              env: <span className="text-gray-300 font-medium">{system.environment}</span> · scheduler:{" "}
-              <span className={system.scheduler.running ? "text-emerald-400" : "text-red-400"}>{system.scheduler.running ? "running" : "stopped"}</span>
+            <p className="text-[11px] font-bold tracking-widest text-ink-mute uppercase">System</p>
+            <span className="text-xs text-ink-mute">
+              env: <span className="text-ink-soft font-medium">{system.environment}</span> · scheduler:{" "}
+              <span className={system.scheduler.running ? "text-emerald-400" : "text-neg"}>{system.scheduler.running ? "running" : "stopped"}</span>
             </span>
           </div>
           <div className="flex flex-wrap gap-2 mb-5">
@@ -313,15 +313,15 @@ export default function AdminPage() {
               const next = system.scheduler.jobs[j.schedJobId]?.next_run ?? null;
               const last = system.scheduler.last_run[j.key] ?? null;
               return (
-                <div key={j.key} className="flex items-center gap-3 p-3 rounded-lg bg-[#11100E] border border-[#2C2922]">
-                  <Zap size={15} className="text-indigo-400 shrink-0" />
+                <div key={j.key} className="flex items-center gap-3 p-3 rounded-lg bg-canvas border border-line">
+                  <Zap size={15} className="text-brand shrink-0" />
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm text-gray-200">{j.label}</p>
-                    <p className="text-xs text-gray-600">last run: {fmtDateTimeUTC(last)} · next: {fmtDateTimeUTC(next)}</p>
+                    <p className="text-sm text-ink-soft">{j.label}</p>
+                    <p className="text-xs text-ink-mute">last run: {fmtDateTimeUTC(last)} · next: {fmtDateTimeUTC(next)}</p>
                   </div>
                   {jobMsg[j.key] && <span className="text-xs text-emerald-400 shrink-0">{jobMsg[j.key]}</span>}
                   <button onClick={() => triggerJob(j.key)} disabled={Boolean(jobMsg[j.key])}
-                    className="shrink-0 px-3 py-1.5 rounded-lg text-xs font-medium bg-[#2C2922] hover:bg-[#36322B] text-gray-200 transition-colors disabled:opacity-50">Run now</button>
+                    className="shrink-0 px-3 py-1.5 rounded-lg text-xs font-medium bg-surface-2 hover:bg-surface-3 text-ink-soft transition-colors disabled:opacity-50">Run now</button>
                 </div>
               );
             })}
@@ -331,16 +331,16 @@ export default function AdminPage() {
 
       {/* USERS */}
       <div className="flex items-center justify-between mb-3">
-        <p className="text-[11px] font-bold tracking-widest text-gray-600 uppercase">Users</p>
-        <span className="text-xs text-gray-600">{num(usersTotal)} total</span>
+        <p className="text-[11px] font-bold tracking-widest text-ink-mute uppercase">Users</p>
+        <span className="text-xs text-ink-mute">{num(usersTotal)} total</span>
       </div>
       <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search by email…"
-        className="w-full mb-3 bg-[#1C1915] border border-[#2C2922] rounded-lg px-3 py-2 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-indigo-600" />
+        className="w-full mb-3 bg-surface border border-line rounded-lg px-3 py-2 text-sm text-ink placeholder-gray-600 focus:outline-none focus:border-brand" />
 
-      <div className="overflow-x-auto rounded-xl border border-[#2C2922]">
+      <div className="overflow-x-auto rounded-xl border border-line">
         <table className="w-full text-sm min-w-[720px]">
           <thead>
-            <tr className="bg-[#1C1915] text-left text-gray-500 text-xs">
+            <tr className="bg-surface text-left text-ink-mute text-xs">
               <th className="px-3 py-2.5 font-medium">User</th>
               <th className="px-3 py-2.5 font-medium">Joined</th>
               <th className="px-3 py-2.5 font-medium text-right">Txns</th>
@@ -351,21 +351,21 @@ export default function AdminPage() {
             </tr>
           </thead>
           <tbody>
-            {usersLoading && users.length === 0 && <tr><td colSpan={7} className="px-3 py-8 text-center text-gray-600">Loading…</td></tr>}
-            {!usersLoading && users.length === 0 && <tr><td colSpan={7} className="px-3 py-8 text-center text-gray-600">No users found.</td></tr>}
+            {usersLoading && users.length === 0 && <tr><td colSpan={7} className="px-3 py-8 text-center text-ink-mute">Loading…</td></tr>}
+            {!usersLoading && users.length === 0 && <tr><td colSpan={7} className="px-3 py-8 text-center text-ink-mute">No users found.</td></tr>}
             {users.map((u) => (
-              <tr key={u.id} className="border-t border-[#2C2922] bg-[#11100E] hover:bg-[#16130F] transition-colors">
+              <tr key={u.id} className="border-t border-line bg-canvas hover:bg-[#16130F] transition-colors">
                 <td className="px-3 py-2.5">
                   <button onClick={() => openProfile(u.id)} className="text-left group inline-flex items-center gap-1.5">
-                    <span className="text-gray-200 group-hover:text-indigo-300 transition-colors truncate block max-w-[220px]">{u.email}</span>
-                    <ArrowRight size={12} className="text-gray-700 group-hover:text-indigo-400 transition-colors shrink-0" />
+                    <span className="text-ink-soft group-hover:text-brand transition-colors truncate block max-w-[220px]">{u.email}</span>
+                    <ArrowRight size={12} className="text-gray-700 group-hover:text-brand transition-colors shrink-0" />
                   </button>
-                  {u.id === meId && <span className="block text-[10px] text-gray-600">you</span>}
+                  {u.id === meId && <span className="block text-[10px] text-ink-mute">you</span>}
                 </td>
-                <td className="px-3 py-2.5 text-gray-500 text-xs whitespace-nowrap">{fmtDate(u.created_at)}</td>
-                <td className="px-3 py-2.5 text-right tabular-nums text-gray-300">{num(u.transaction_count)}</td>
-                <td className="px-3 py-2.5 text-right tabular-nums text-gray-300">{num(u.asset_count)}</td>
-                <td className="px-3 py-2.5 text-gray-500 text-xs whitespace-nowrap">{u.language.toUpperCase()} · {u.display_currency}</td>
+                <td className="px-3 py-2.5 text-ink-mute text-xs whitespace-nowrap">{fmtDate(u.created_at)}</td>
+                <td className="px-3 py-2.5 text-right tabular-nums text-ink-soft">{num(u.transaction_count)}</td>
+                <td className="px-3 py-2.5 text-right tabular-nums text-ink-soft">{num(u.asset_count)}</td>
+                <td className="px-3 py-2.5 text-ink-mute text-xs whitespace-nowrap">{u.language.toUpperCase()} · {u.display_currency}</td>
                 <td className="px-3 py-2.5">
                   <div className="flex flex-wrap gap-1">
                     {u.id === founderId ? <Badge tone="founder">founder</Badge> : u.is_admin ? <Badge tone="admin">admin</Badge> : null}
@@ -376,12 +376,12 @@ export default function AdminPage() {
                   <div className="flex items-center justify-end gap-1.5">
                     <button onClick={() => patchUser(u.id, { is_admin: !u.is_admin })}
                       disabled={busy || (u.id === meId && u.is_admin)} title={u.is_admin ? "Revoke admin" : "Make admin"}
-                      className="px-2 py-1 rounded-md text-[11px] font-medium border border-[#2C2922] hover:bg-[#2C2922] text-gray-300 transition-colors disabled:opacity-40 whitespace-nowrap">
+                      className="px-2 py-1 rounded-md text-[11px] font-medium border border-line hover:bg-surface-2 text-ink-soft transition-colors disabled:opacity-40 whitespace-nowrap">
                       {u.is_admin ? "Revoke" : "Make admin"}
                     </button>
                     <button onClick={() => setDeleteTarget({ id: u.id, email: u.email })}
                       disabled={u.id === meId} title="Delete user"
-                      className="px-2 py-1 rounded-md text-[11px] font-medium border border-red-900/50 text-red-400 hover:bg-red-950/30 transition-colors disabled:opacity-30">Delete</button>
+                      className="px-2 py-1 rounded-md text-[11px] font-medium border border-red-900/50 text-danger hover:bg-red-950/30 transition-colors disabled:opacity-30">Delete</button>
                   </div>
                 </td>
               </tr>
@@ -393,10 +393,10 @@ export default function AdminPage() {
       {usersTotal > PAGE_SIZE && (
         <div className="flex items-center justify-between mt-3 text-sm">
           <button disabled={offset === 0} onClick={() => { const o = Math.max(0, offset - PAGE_SIZE); setOffset(o); loadUsers(search, o); }}
-            className="px-3 py-1.5 rounded-lg border border-[#2C2922] text-gray-400 hover:bg-[#1C1915] disabled:opacity-40 transition-colors">Previous</button>
-          <span className="text-gray-600 text-xs">{offset + 1}–{Math.min(offset + PAGE_SIZE, usersTotal)} of {num(usersTotal)}</span>
+            className="px-3 py-1.5 rounded-lg border border-line text-ink-mute hover:bg-surface disabled:opacity-40 transition-colors">Previous</button>
+          <span className="text-ink-mute text-xs">{offset + 1}–{Math.min(offset + PAGE_SIZE, usersTotal)} of {num(usersTotal)}</span>
           <button disabled={offset + PAGE_SIZE >= usersTotal} onClick={() => { const o = offset + PAGE_SIZE; setOffset(o); loadUsers(search, o); }}
-            className="px-3 py-1.5 rounded-lg border border-[#2C2922] text-gray-400 hover:bg-[#1C1915] disabled:opacity-40 transition-colors">Next</button>
+            className="px-3 py-1.5 rounded-lg border border-line text-ink-mute hover:bg-surface disabled:opacity-40 transition-colors">Next</button>
         </div>
       )}
 
@@ -405,28 +405,28 @@ export default function AdminPage() {
         <div className="fixed inset-0 z-50 overflow-y-auto" onClick={closeProfile}>
           <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" />
           <div onClick={(e) => e.stopPropagation()}
-            className="relative max-w-4xl mx-auto my-6 bg-[#11100E] border border-[#2C2922] rounded-2xl shadow-2xl shadow-black/60">
+            className="relative max-w-4xl mx-auto my-6 bg-canvas border border-line rounded-2xl shadow-2xl shadow-black/60">
             {/* sticky header */}
-            <div className="sticky top-0 z-10 flex items-center justify-between gap-4 px-6 py-4 bg-[#11100E]/95 backdrop-blur border-b border-[#2C2922] rounded-t-2xl">
-              <p className="text-[11px] font-bold tracking-widest text-gray-600 uppercase">User profile</p>
-              <button onClick={closeProfile} className="text-gray-500 hover:text-gray-200 transition-colors"><XIcon size={18} /></button>
+            <div className="sticky top-0 z-10 flex items-center justify-between gap-4 px-6 py-4 bg-canvas/95 backdrop-blur border-b border-line rounded-t-2xl">
+              <p className="text-[11px] font-bold tracking-widest text-ink-mute uppercase">User profile</p>
+              <button onClick={closeProfile} className="text-ink-mute hover:text-ink-soft transition-colors"><XIcon size={18} /></button>
             </div>
 
             <div className="p-6">
-              {profileLoading && <p className="text-gray-500 text-sm py-10 text-center">Loading profile…</p>}
-              {!profileLoading && !profile && <p className="text-red-400 text-sm py-10 text-center">Couldn&apos;t load this user.</p>}
+              {profileLoading && <p className="text-ink-mute text-sm py-10 text-center">Loading profile…</p>}
+              {!profileLoading && !profile && <p className="text-neg text-sm py-10 text-center">Couldn&apos;t load this user.</p>}
 
               {profile && (
                 <div className="space-y-8">
                   {/* identity header */}
                   <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
                     <div className="flex items-start gap-3 min-w-0">
-                      <div className="w-12 h-12 rounded-full bg-indigo-600 text-white text-lg font-semibold flex items-center justify-center shrink-0">
+                      <div className="w-12 h-12 rounded-full bg-brand text-white text-lg font-semibold flex items-center justify-center shrink-0">
                         {profile.email[0]?.toUpperCase() ?? "?"}
                       </div>
                       <div className="min-w-0">
-                        <p className="text-white font-semibold text-lg break-all">{profile.email}</p>
-                        <p className="text-gray-600 text-xs mt-0.5 font-mono break-all">{profile.id}</p>
+                        <p className="text-ink font-semibold text-lg break-all">{profile.email}</p>
+                        <p className="text-ink-mute text-xs mt-0.5 font-mono break-all">{profile.id}</p>
                         <div className="flex flex-wrap gap-1.5 mt-2">
                           {profile.is_founder ? <Badge tone="founder">founder</Badge> : profile.is_admin ? <Badge tone="admin">admin</Badge> : null}
                           <Badge tone={profile.onboarding_completed ? "ok" : "muted"}>{profile.onboarding_completed ? "onboarded" : "not onboarded"}</Badge>
@@ -439,30 +439,30 @@ export default function AdminPage() {
                     <div className="flex flex-wrap gap-2 shrink-0">
                       <button onClick={() => patchUser(profile.id, { is_admin: !profile.is_admin })}
                         disabled={busy || (profile.id === meId && profile.is_admin)}
-                        className="px-3 py-1.5 rounded-lg text-xs font-medium border border-[#2C2922] hover:bg-[#1C1915] text-gray-300 transition-colors disabled:opacity-40">
+                        className="px-3 py-1.5 rounded-lg text-xs font-medium border border-line hover:bg-surface text-ink-soft transition-colors disabled:opacity-40">
                         {profile.is_admin ? "Revoke admin" : "Make admin"}
                       </button>
                       <button onClick={() => patchUser(profile.id, { onboarding_completed: !profile.onboarding_completed })} disabled={busy}
-                        className="px-3 py-1.5 rounded-lg text-xs font-medium border border-[#2C2922] hover:bg-[#1C1915] text-gray-300 transition-colors disabled:opacity-40">
+                        className="px-3 py-1.5 rounded-lg text-xs font-medium border border-line hover:bg-surface text-ink-soft transition-colors disabled:opacity-40">
                         {profile.onboarding_completed ? "Reset onboarding" : "Mark onboarded"}
                       </button>
                       <button onClick={() => setDeleteTarget({ id: profile.id, email: profile.email })} disabled={profile.id === meId}
-                        className="px-3 py-1.5 rounded-lg text-xs font-medium border border-red-900/50 text-red-400 hover:bg-red-950/30 transition-colors disabled:opacity-30">Delete</button>
+                        className="px-3 py-1.5 rounded-lg text-xs font-medium border border-red-900/50 text-danger hover:bg-red-950/30 transition-colors disabled:opacity-30">Delete</button>
                     </div>
                   </div>
 
                   {/* health + timeline strip */}
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                    <div className="rounded-xl bg-[#1C1915] border border-[#2C2922] p-4 col-span-2 sm:col-span-1">
-                      <div className="flex items-center gap-1.5 text-gray-500 text-[11px] uppercase tracking-wide mb-2"><Target size={12} /> Health</div>
+                    <div className="rounded-xl bg-surface border border-line p-4 col-span-2 sm:col-span-1">
+                      <div className="flex items-center gap-1.5 text-ink-mute text-[11px] uppercase tracking-wide mb-2"><Target size={12} /> Health</div>
                       {profile.health && profile.health.has_data && profile.health.score != null ? (
                         <>
-                          <p className={`text-2xl font-bold tabular-nums ${BAND_COLOR[profile.health.band ?? ""] ?? "text-white"}`}>
-                            {profile.health.score}<span className="text-gray-600 text-sm font-normal"> / 100</span>
+                          <p className={`text-2xl font-bold tabular-nums ${BAND_COLOR[profile.health.band ?? ""] ?? "text-ink"}`}>
+                            {profile.health.score}<span className="text-ink-mute text-sm font-normal"> / 100</span>
                           </p>
-                          <p className="text-gray-600 text-xs mt-1 capitalize">{slug(profile.health.band ?? "")}</p>
+                          <p className="text-ink-mute text-xs mt-1 capitalize">{slug(profile.health.band ?? "")}</p>
                         </>
-                      ) : <p className="text-gray-600 text-sm mt-1">Not enough data</p>}
+                      ) : <p className="text-ink-mute text-sm mt-1">Not enough data</p>}
                     </div>
                     <Metric label="Last activity" value={relativeTime(profile.last_activity)} sub={fmtDateTime(profile.last_activity)} icon={<Calendar size={12} />} />
                     <Metric label="Joined" value={fmtDate(profile.created_at)} sub={relativeTime(profile.created_at)} />
@@ -475,21 +475,21 @@ export default function AdminPage() {
                     <Metric label="Statements" value={num(profile.upload_batches)} />
                     <Metric label="Assets" value={num(profile.asset_count)} />
                     <Metric label="Liabilities" value={num(profile.liability_count)} />
-                    <Metric label="Open recon." value={num(profile.reconciliation_open)} accent={profile.reconciliation_open > 0 ? "text-amber-400" : "text-white"} />
+                    <Metric label="Open recon." value={num(profile.reconciliation_open)} accent={profile.reconciliation_open > 0 ? "text-amber-400" : "text-ink"} />
                   </div>
 
                   {/* statements */}
                   <section>
-                    <p className="flex items-center gap-1.5 text-[11px] font-bold tracking-widest text-gray-600 uppercase mb-3"><FileText size={12} /> Statements ({profile.statements.length})</p>
-                    {profile.statements.length === 0 ? <p className="text-gray-600 text-sm">No statements uploaded.</p> : (
+                    <p className="flex items-center gap-1.5 text-[11px] font-bold tracking-widest text-ink-mute uppercase mb-3"><FileText size={12} /> Statements ({profile.statements.length})</p>
+                    {profile.statements.length === 0 ? <p className="text-ink-mute text-sm">No statements uploaded.</p> : (
                       <div className="space-y-1.5">
                         {profile.statements.map((s) => (
-                          <div key={s.batch_id} className="flex items-center justify-between gap-3 p-3 rounded-lg bg-[#1C1915] border border-[#2C2922] text-sm">
+                          <div key={s.batch_id} className="flex items-center justify-between gap-3 p-3 rounded-lg bg-surface border border-line text-sm">
                             <div className="min-w-0">
-                              <p className="text-gray-200">{fmtDate(s.min_date)} – {fmtDate(s.max_date)}</p>
-                              <p className="text-gray-600 text-xs">uploaded {fmtDateTime(s.uploaded_at)}</p>
+                              <p className="text-ink-soft">{fmtDate(s.min_date)} – {fmtDate(s.max_date)}</p>
+                              <p className="text-ink-mute text-xs">uploaded {fmtDateTime(s.uploaded_at)}</p>
                             </div>
-                            <span className="text-gray-400 tabular-nums shrink-0">{num(s.transaction_count)} txns</span>
+                            <span className="text-ink-mute tabular-nums shrink-0">{num(s.transaction_count)} txns</span>
                           </div>
                         ))}
                       </div>
@@ -499,14 +499,14 @@ export default function AdminPage() {
                   {/* assets + liabilities side by side */}
                   <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                     <section>
-                      <p className="flex items-center gap-1.5 text-[11px] font-bold tracking-widest text-gray-600 uppercase mb-3"><Scale size={12} /> Assets ({profile.assets.length})</p>
-                      {profile.assets.length === 0 ? <p className="text-gray-600 text-sm">No assets.</p> : (
+                      <p className="flex items-center gap-1.5 text-[11px] font-bold tracking-widest text-ink-mute uppercase mb-3"><Scale size={12} /> Assets ({profile.assets.length})</p>
+                      {profile.assets.length === 0 ? <p className="text-ink-mute text-sm">No assets.</p> : (
                         <div className="space-y-1.5">
                           {profile.assets.map((a) => (
-                            <div key={a.id} className="flex items-center justify-between gap-3 p-3 rounded-lg bg-[#1C1915] border border-[#2C2922] text-sm">
+                            <div key={a.id} className="flex items-center justify-between gap-3 p-3 rounded-lg bg-surface border border-line text-sm">
                               <div className="min-w-0">
-                                <p className="text-gray-200 truncate">{a.name}</p>
-                                <p className="text-gray-600 text-xs capitalize">{slug(a.asset_type)}</p>
+                                <p className="text-ink-soft truncate">{a.name}</p>
+                                <p className="text-ink-mute text-xs capitalize">{slug(a.asset_type)}</p>
                               </div>
                               <span className="text-emerald-300 tabular-nums shrink-0">{money(a.current_value, a.currency)}</span>
                             </div>
@@ -515,14 +515,14 @@ export default function AdminPage() {
                       )}
                     </section>
                     <section>
-                      <p className="flex items-center gap-1.5 text-[11px] font-bold tracking-widest text-gray-600 uppercase mb-3"><TrendingDown size={12} /> Liabilities ({profile.liabilities.length})</p>
-                      {profile.liabilities.length === 0 ? <p className="text-gray-600 text-sm">No liabilities.</p> : (
+                      <p className="flex items-center gap-1.5 text-[11px] font-bold tracking-widest text-ink-mute uppercase mb-3"><TrendingDown size={12} /> Liabilities ({profile.liabilities.length})</p>
+                      {profile.liabilities.length === 0 ? <p className="text-ink-mute text-sm">No liabilities.</p> : (
                         <div className="space-y-1.5">
                           {profile.liabilities.map((li) => (
-                            <div key={li.id} className="flex items-center justify-between gap-3 p-3 rounded-lg bg-[#1C1915] border border-[#2C2922] text-sm">
+                            <div key={li.id} className="flex items-center justify-between gap-3 p-3 rounded-lg bg-surface border border-line text-sm">
                               <div className="min-w-0">
-                                <p className="text-gray-200 truncate">{li.name}</p>
-                                <p className="text-gray-600 text-xs capitalize">{slug(li.liability_type)}{li.interest_rate ? ` · ${li.interest_rate}%` : ""}</p>
+                                <p className="text-ink-soft truncate">{li.name}</p>
+                                <p className="text-ink-mute text-xs capitalize">{slug(li.liability_type)}{li.interest_rate ? ` · ${li.interest_rate}%` : ""}</p>
                               </div>
                               <span className="text-red-300 tabular-nums shrink-0">{money(li.remaining_amount, li.currency)}</span>
                             </div>
@@ -535,15 +535,15 @@ export default function AdminPage() {
                   {/* receivables (only if any) */}
                   {profile.receivables.length > 0 && (
                     <section>
-                      <p className="flex items-center gap-1.5 text-[11px] font-bold tracking-widest text-gray-600 uppercase mb-3"><Wallet size={12} /> Receivables ({profile.receivables.length})</p>
+                      <p className="flex items-center gap-1.5 text-[11px] font-bold tracking-widest text-ink-mute uppercase mb-3"><Wallet size={12} /> Receivables ({profile.receivables.length})</p>
                       <div className="space-y-1.5">
                         {profile.receivables.map((r) => (
-                          <div key={r.id} className="flex items-center justify-between gap-3 p-3 rounded-lg bg-[#1C1915] border border-[#2C2922] text-sm">
+                          <div key={r.id} className="flex items-center justify-between gap-3 p-3 rounded-lg bg-surface border border-line text-sm">
                             <div className="min-w-0">
-                              <p className="text-gray-200 truncate">{r.from_person}</p>
-                              <p className="text-gray-600 text-xs">{r.status}{r.expected_date ? ` · due ${fmtDate(r.expected_date)}` : ""}</p>
+                              <p className="text-ink-soft truncate">{r.from_person}</p>
+                              <p className="text-ink-mute text-xs">{r.status}{r.expected_date ? ` · due ${fmtDate(r.expected_date)}` : ""}</p>
                             </div>
-                            <span className="text-gray-300 tabular-nums shrink-0">{money(r.amount, r.currency)}</span>
+                            <span className="text-ink-soft tabular-nums shrink-0">{money(r.amount, r.currency)}</span>
                           </div>
                         ))}
                       </div>
@@ -552,13 +552,13 @@ export default function AdminPage() {
 
                   {/* transactions (paginated) */}
                   <section>
-                    <p className="flex items-center gap-1.5 text-[11px] font-bold tracking-widest text-gray-600 uppercase mb-3"><Wallet size={12} /> Transactions ({num(txTotal)})</p>
-                    {txTotal === 0 && !txLoading ? <p className="text-gray-600 text-sm">No transactions.</p> : (
+                    <p className="flex items-center gap-1.5 text-[11px] font-bold tracking-widest text-ink-mute uppercase mb-3"><Wallet size={12} /> Transactions ({num(txTotal)})</p>
+                    {txTotal === 0 && !txLoading ? <p className="text-ink-mute text-sm">No transactions.</p> : (
                       <>
-                        <div className="overflow-x-auto rounded-xl border border-[#2C2922]">
+                        <div className="overflow-x-auto rounded-xl border border-line">
                           <table className="w-full text-sm min-w-[560px]">
                             <thead>
-                              <tr className="bg-[#1C1915] text-left text-gray-500 text-xs">
+                              <tr className="bg-surface text-left text-ink-mute text-xs">
                                 <th className="px-3 py-2 font-medium">Date</th>
                                 <th className="px-3 py-2 font-medium">Description</th>
                                 <th className="px-3 py-2 font-medium">Category</th>
@@ -566,13 +566,13 @@ export default function AdminPage() {
                               </tr>
                             </thead>
                             <tbody>
-                              {txLoading && <tr><td colSpan={4} className="px-3 py-6 text-center text-gray-600">Loading…</td></tr>}
+                              {txLoading && <tr><td colSpan={4} className="px-3 py-6 text-center text-ink-mute">Loading…</td></tr>}
                               {!txLoading && txns.map((t) => (
-                                <tr key={t.id} className="border-t border-[#2C2922] bg-[#11100E]">
-                                  <td className="px-3 py-2 text-gray-500 text-xs whitespace-nowrap">{fmtDate(t.transaction_date)}</td>
-                                  <td className="px-3 py-2 text-gray-300 truncate max-w-[260px]" title={t.description}>{t.description}</td>
-                                  <td className="px-3 py-2 text-gray-500 text-xs">{t.category ? (CATEGORY_LABELS[t.category] || t.category) : "—"}</td>
-                                  <td className={`px-3 py-2 text-right tabular-nums whitespace-nowrap ${t.transaction_type === "credit" ? "text-emerald-300" : "text-gray-200"}`}>
+                                <tr key={t.id} className="border-t border-line bg-canvas">
+                                  <td className="px-3 py-2 text-ink-mute text-xs whitespace-nowrap">{fmtDate(t.transaction_date)}</td>
+                                  <td className="px-3 py-2 text-ink-soft truncate max-w-[260px]" title={t.description}>{t.description}</td>
+                                  <td className="px-3 py-2 text-ink-mute text-xs">{t.category ? (CATEGORY_LABELS[t.category] || t.category) : "—"}</td>
+                                  <td className={`px-3 py-2 text-right tabular-nums whitespace-nowrap ${t.transaction_type === "credit" ? "text-emerald-300" : "text-ink-soft"}`}>
                                     {t.transaction_type === "credit" ? "+" : "−"}{money(t.amount, t.currency)}
                                   </td>
                                 </tr>
@@ -584,11 +584,11 @@ export default function AdminPage() {
                           <div className="flex items-center justify-between mt-3 text-sm">
                             <button disabled={txOffset === 0 || txLoading}
                               onClick={() => { const o = Math.max(0, txOffset - TX_PAGE); setTxOffset(o); loadTxns(profile.id, o); }}
-                              className="px-3 py-1.5 rounded-lg border border-[#2C2922] text-gray-400 hover:bg-[#1C1915] disabled:opacity-40 transition-colors">Previous</button>
-                            <span className="text-gray-600 text-xs">{txOffset + 1}–{Math.min(txOffset + TX_PAGE, txTotal)} of {num(txTotal)}</span>
+                              className="px-3 py-1.5 rounded-lg border border-line text-ink-mute hover:bg-surface disabled:opacity-40 transition-colors">Previous</button>
+                            <span className="text-ink-mute text-xs">{txOffset + 1}–{Math.min(txOffset + TX_PAGE, txTotal)} of {num(txTotal)}</span>
                             <button disabled={txOffset + TX_PAGE >= txTotal || txLoading}
                               onClick={() => { const o = txOffset + TX_PAGE; setTxOffset(o); loadTxns(profile.id, o); }}
-                              className="px-3 py-1.5 rounded-lg border border-[#2C2922] text-gray-400 hover:bg-[#1C1915] disabled:opacity-40 transition-colors">Next</button>
+                              className="px-3 py-1.5 rounded-lg border border-line text-ink-mute hover:bg-surface disabled:opacity-40 transition-colors">Next</button>
                           </div>
                         )}
                       </>
@@ -605,24 +605,24 @@ export default function AdminPage() {
       {deleteTarget && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center p-4" onClick={() => { if (!deleting) { setDeleteTarget(null); setDeleteText(""); } }}>
           <div className="absolute inset-0 bg-black/75 backdrop-blur-sm" />
-          <div onClick={(e) => e.stopPropagation()} className="relative w-full max-w-md bg-[#181510] border border-red-900/50 rounded-2xl shadow-2xl shadow-black/60 p-6">
+          <div onClick={(e) => e.stopPropagation()} className="relative w-full max-w-md bg-surface border border-red-900/50 rounded-2xl shadow-2xl shadow-black/60 p-6">
             <div className="flex items-center gap-2 mb-3">
-              <span className="w-8 h-8 rounded-full bg-red-950/50 border border-red-800/50 flex items-center justify-center text-red-400 text-lg font-bold">!</span>
-              <h2 className="text-white font-semibold">Delete this user?</h2>
+              <span className="w-8 h-8 rounded-full bg-red-950/50 border border-red-800/50 flex items-center justify-center text-neg text-lg font-bold">!</span>
+              <h2 className="text-ink font-semibold">Delete this user?</h2>
             </div>
-            <p className="text-gray-400 text-sm leading-relaxed mb-4">
-              This permanently deletes <span className="text-gray-200 font-medium break-all">{deleteTarget.email}</span> and{" "}
+            <p className="text-ink-mute text-sm leading-relaxed mb-4">
+              This permanently deletes <span className="text-ink-soft font-medium break-all">{deleteTarget.email}</span> and{" "}
               <span className="text-red-300">all of their data</span> — transactions, statements, assets, liabilities. This cannot be undone.
             </p>
-            <label className="block text-xs text-gray-500 mb-1.5">Type the email to confirm</label>
+            <label className="block text-xs text-ink-mute mb-1.5">Type the email to confirm</label>
             <input autoFocus value={deleteText} onChange={(e) => setDeleteText(e.target.value)}
               placeholder={deleteTarget.email}
-              className="w-full mb-4 bg-[#11100E] border border-[#2C2922] rounded-lg px-3 py-2 text-sm text-white placeholder-gray-700 focus:outline-none focus:border-red-600" />
+              className="w-full mb-4 bg-canvas border border-line rounded-lg px-3 py-2 text-sm text-ink placeholder-gray-700 focus:outline-none focus:border-red-600" />
             <div className="flex gap-3">
               <button onClick={() => { setDeleteTarget(null); setDeleteText(""); }} disabled={deleting}
-                className="flex-1 py-2.5 rounded-xl bg-[#2C2922] hover:bg-[#36322B] text-gray-200 text-sm font-medium transition-colors disabled:opacity-50">Cancel</button>
+                className="flex-1 py-2.5 rounded-xl bg-surface-2 hover:bg-surface-3 text-ink-soft text-sm font-medium transition-colors disabled:opacity-50">Cancel</button>
               <button onClick={confirmDelete} disabled={deleting || deleteText !== deleteTarget.email}
-                className="flex-1 py-2.5 rounded-xl bg-red-600 hover:bg-red-500 text-white text-sm font-semibold transition-colors disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2">
+                className="flex-1 py-2.5 rounded-xl bg-red-600 hover:bg-red-500 text-ink text-sm font-semibold transition-colors disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2">
                 {deleting ? <><span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> Deleting…</> : "Delete permanently"}
               </button>
             </div>

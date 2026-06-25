@@ -111,28 +111,28 @@ function AddPaymentModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm px-4">
-      <div className="bg-[#1C1915] border border-[#2C2922] rounded-2xl p-6 w-full max-w-sm shadow-xl">
+      <div className="bg-surface border border-line rounded-2xl p-6 w-full max-w-sm shadow-xl">
         <div className="flex items-center justify-between mb-5">
-          <h3 className="text-white font-semibold">{t("cashflow.addPaymentTitle")}</h3>
-          <button onClick={onClose} className="text-gray-500 hover:text-gray-300 transition-colors">
+          <h3 className="text-ink font-semibold">{t("cashflow.addPaymentTitle")}</h3>
+          <button onClick={onClose} className="text-ink-mute hover:text-ink-soft transition-colors">
             <X size={18} />
           </button>
         </div>
 
         <div className="space-y-3">
           <div>
-            <label className="text-xs text-gray-400 mb-1 block">{t("cashflow.paymentName")}</label>
+            <label className="text-xs text-ink-mute mb-1 block">{t("cashflow.paymentName")}</label>
             <input
               type="text"
               placeholder={t("cashflow.paymentNamePlaceholder")}
               value={form.name}
               onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))}
-              className="w-full bg-[#11100E] border border-[#2C2922] rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-indigo-600"
+              className="w-full bg-canvas border border-line rounded-lg px-3 py-2 text-ink text-sm focus:outline-none focus:border-brand"
             />
           </div>
           <div className="flex gap-3">
             <div className="flex-1">
-              <label className="text-xs text-gray-400 mb-1 block">{t("common.amount")}</label>
+              <label className="text-xs text-ink-mute mb-1 block">{t("common.amount")}</label>
               <input
                 type="number"
                 min="0"
@@ -140,38 +140,38 @@ function AddPaymentModal({
                 placeholder="0.00"
                 value={form.amount}
                 onChange={(e) => setForm((p) => ({ ...p, amount: e.target.value }))}
-                className="w-full bg-[#11100E] border border-[#2C2922] rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-indigo-600"
+                className="w-full bg-canvas border border-line rounded-lg px-3 py-2 text-ink text-sm focus:outline-none focus:border-brand"
               />
             </div>
             <div className="w-28">
-              <label className="text-xs text-gray-400 mb-1 block">{t("common.currency")}</label>
+              <label className="text-xs text-ink-mute mb-1 block">{t("common.currency")}</label>
               <CurrencySelect value={form.currency} onChange={(v) => setForm((p) => ({ ...p, currency: v })) } />
             </div>
           </div>
           <div>
-            <label className="text-xs text-gray-400 mb-1 block">{t("common.date")}</label>
+            <label className="text-xs text-ink-mute mb-1 block">{t("common.date")}</label>
             <input
               type="date"
               value={form.due_date}
               onChange={(e) => setForm((p) => ({ ...p, due_date: e.target.value }))}
-              className="w-full bg-[#11100E] border border-[#2C2922] rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-indigo-600"
+              className="w-full bg-canvas border border-line rounded-lg px-3 py-2 text-ink text-sm focus:outline-none focus:border-brand"
             />
           </div>
         </div>
 
-        {error && <p className="text-red-400 text-xs mt-3">{error}</p>}
+        {error && <p className="text-neg text-xs mt-3">{error}</p>}
 
         <div className="flex gap-2 mt-5">
           <button
             onClick={onClose}
-            className="flex-1 px-4 py-2 rounded-lg border border-[#2C2922] text-gray-400 hover:text-gray-200 text-sm transition-colors"
+            className="flex-1 px-4 py-2 rounded-lg border border-line text-ink-mute hover:text-ink-soft text-sm transition-colors"
           >
             {t("common.cancel")}
           </button>
           <button
             onClick={handleSubmit}
             disabled={loading}
-            className="flex-1 px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white text-sm font-medium transition-colors"
+            className="flex-1 px-4 py-2 rounded-lg bg-brand hover:bg-brand-hover disabled:opacity-50 text-white text-sm font-medium transition-colors"
           >
             {loading ? t("cashflow.addingBtn") : t("common.add")}
           </button>
@@ -183,7 +183,7 @@ function AddPaymentModal({
 
 function ItemIcon({ type, urgent }: { type: string; urgent: boolean }) {
   const icon =
-    type === "liability_payment" ? <ArrowDown size={14} className="text-red-400" /> :
+    type === "liability_payment" ? <ArrowDown size={14} className="text-neg" /> :
     (type === "income" || type === "recurring_income") ? <ArrowUp size={14} className="text-emerald-400" /> :
     <RefreshCw size={14} className="text-orange-400" />;
 
@@ -213,7 +213,7 @@ export default function CashFlowPage() {
   const [showAddPayment, setShowAddPayment] = useState(false);
 
   const TYPE_CONFIG = {
-    liability_payment: { label: t("cashflow.types.liabilityPayment"), color: "text-red-400", sign: "−" },
+    liability_payment: { label: t("cashflow.types.liabilityPayment"), color: "text-neg", sign: "−" },
     subscription: { label: t("cashflow.types.subscription"), color: "text-orange-400", sign: "−" },
     income: { label: t("cashflow.types.income"), color: "text-emerald-400", sign: "+" },
     recurring_income: { label: t("cashflow.types.recurringIncome"), color: "text-emerald-400", sign: "+" },
@@ -287,7 +287,7 @@ export default function CashFlowPage() {
       action={
         <button
           onClick={() => setShowAddPayment(true)}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[#2C2922] text-indigo-400 hover:text-indigo-300 text-sm transition-colors"
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-line text-brand hover:text-brand text-sm transition-colors"
         >
           <Plus size={14} />
           {t("cashflow.addPayment")}
@@ -305,13 +305,13 @@ export default function CashFlowPage() {
 
       {/* Controls */}
       <div className="flex items-center gap-3 mb-6 flex-wrap">
-        <div className="flex items-center gap-1 bg-[#1C1915] border border-[#2C2922] rounded-full p-1">
+        <div className="flex items-center gap-1 bg-surface border border-line rounded-full p-1">
           {DAYS_OPTIONS.map((d) => (
             <button
               key={d}
               onClick={() => setDays(d)}
               className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${
-                days === d ? "bg-indigo-600 text-white" : "text-gray-400 hover:text-gray-200"
+                days === d ? "bg-brand text-white" : "text-ink-mute hover:text-ink-soft"
               }`}
             >
               {d}{t("cashflow.days")}
@@ -322,7 +322,7 @@ export default function CashFlowPage() {
           <CurrencySelect value={displayCurrency} onChange={setDisplayCurrency} />
         </div>
         {urgentCount > 0 && (
-          <span className="px-2.5 py-1 rounded-full bg-red-950/50 border border-red-800/40 text-red-400 text-xs font-medium animate-pulse">
+          <span className="px-2.5 py-1 rounded-full bg-red-950/50 border border-red-800/40 text-neg text-xs font-medium animate-pulse">
             {urgentCount} {t("cashflow.urgent")}
           </span>
         )}
@@ -331,32 +331,32 @@ export default function CashFlowPage() {
       {/* Summary Card — hidden for a truly-empty user (no upcoming items AND no liquid),
           so the page leads with the empty state instead of a card full of zeros. */}
       {loading ? (
-        <div className="h-32 bg-[#1C1915] border border-[#2C2922] rounded-2xl animate-pulse mb-6" />
+        <div className="h-32 bg-surface border border-line rounded-2xl animate-pulse mb-6" />
       ) : summary && (sortedDates.length > 0 || liquidAssets > 0) && (
-        <div className="bg-[#1C1915] border border-[#2C2922] rounded-2xl p-6 mb-6">
-          <p className="text-gray-500 text-xs mb-4">{t("cashflow.upcomingPrefix")} {days} {t("cashflow.days")}</p>
+        <div className="bg-surface border border-line rounded-2xl p-6 mb-6">
+          <p className="text-ink-mute text-xs mb-4">{t("cashflow.upcomingPrefix")} {days} {t("cashflow.days")}</p>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <div>
-              <p className="text-gray-500 text-xs mb-1">{t("cashflow.expectedIncome")}</p>
+              <p className="text-ink-mute text-xs mb-1">{t("cashflow.expectedIncome")}</p>
               <p className="text-emerald-400 font-semibold tabular-nums">{fmt(incomeTotal, displayCurrency)}</p>
             </div>
             <div>
-              <p className="text-gray-500 text-xs mb-1">{t("cashflow.expectedPayments")}</p>
-              <p className="text-red-400 font-semibold tabular-nums">{fmt(paymentsTotal, displayCurrency)}</p>
+              <p className="text-ink-mute text-xs mb-1">{t("cashflow.expectedPayments")}</p>
+              <p className="text-neg font-semibold tabular-nums">{fmt(paymentsTotal, displayCurrency)}</p>
             </div>
             <div>
-              <p className="text-gray-500 text-xs mb-1">{t("cashflow.projectedNet")}</p>
-              <p className={`font-semibold tabular-nums ${netTotal >= 0 ? "text-emerald-400" : "text-red-400"}`}>
+              <p className="text-ink-mute text-xs mb-1">{t("cashflow.projectedNet")}</p>
+              <p className={`font-semibold tabular-nums ${netTotal >= 0 ? "text-emerald-400" : "text-neg"}`}>
                 {netTotal >= 0 ? "+" : ""}{fmt(netTotal, displayCurrency)}
               </p>
             </div>
             <div>
-              <p className="text-gray-500 text-xs mb-1">{t("cashflow.liquidAssets")}</p>
-              <p className="text-gray-200 font-semibold tabular-nums">{fmt(liquidAssets, displayCurrency)}</p>
+              <p className="text-ink-mute text-xs mb-1">{t("cashflow.liquidAssets")}</p>
+              <p className="text-ink-soft font-semibold tabular-nums">{fmt(liquidAssets, displayCurrency)}</p>
               {summary.liquid_to_payments_ratio !== null && (
                 <p className={`text-xs mt-0.5 ${
-                  summary.liquid_to_payments_ratio < 1 ? "text-red-400" :
-                  summary.liquid_to_payments_ratio < 2 ? "text-amber-400" : "text-gray-500"
+                  summary.liquid_to_payments_ratio < 1 ? "text-neg" :
+                  summary.liquid_to_payments_ratio < 2 ? "text-amber-400" : "text-ink-mute"
                 }`}>
                   {(summary.liquid_to_payments_ratio * 100).toFixed(0)}{t("cashflow.coveragePct")}
                 </p>
@@ -366,7 +366,7 @@ export default function CashFlowPage() {
 
           {summary.warning && (
             <div className="mt-4 flex items-start gap-2 bg-red-950/30 border border-red-800/40 rounded-xl px-4 py-3">
-              <span className="text-red-400 text-sm shrink-0">⚠</span>
+              <span className="text-neg text-sm shrink-0">⚠</span>
               <p className="text-red-200 text-xs leading-relaxed">{summary.warning}</p>
             </div>
           )}
@@ -378,23 +378,23 @@ export default function CashFlowPage() {
         <div className="space-y-4">
           {[1, 2, 3].map((i) => (
             <div key={i} className="space-y-2">
-              <div className="h-4 w-32 bg-[#1C1915] rounded animate-pulse" />
-              <div className="h-14 bg-[#1C1915] border border-[#2C2922] rounded-xl animate-pulse" />
+              <div className="h-4 w-32 bg-surface rounded animate-pulse" />
+              <div className="h-14 bg-surface border border-line rounded-xl animate-pulse" />
             </div>
           ))}
         </div>
       ) : sortedDates.length === 0 ? (
-        <div className="bg-[#1C1915] border border-[#2C2922] border-dashed rounded-2xl p-12 text-center">
-          <div className="w-12 h-12 rounded-2xl bg-[#11100E] border border-[#2C2922] flex items-center justify-center mx-auto mb-4">
-            <Calendar size={22} className="text-indigo-400" />
+        <div className="bg-surface border border-line border-dashed rounded-2xl p-12 text-center">
+          <div className="w-12 h-12 rounded-2xl bg-canvas border border-line flex items-center justify-center mx-auto mb-4">
+            <Calendar size={22} className="text-brand" />
           </div>
-          <p className="text-gray-200 text-sm font-medium">{t("cashflow.noItems")}</p>
-          <p className="text-gray-500 text-xs mt-2 max-w-sm mx-auto">{t("cashflow.noItemsHint")}</p>
+          <p className="text-ink-soft text-sm font-medium">{t("cashflow.noItems")}</p>
+          <p className="text-ink-mute text-xs mt-2 max-w-sm mx-auto">{t("cashflow.noItemsHint")}</p>
           <div className="flex items-center justify-center gap-3 mt-5">
-            <button onClick={() => setShowAddPayment(true)} className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-medium transition-colors">
+            <button onClick={() => setShowAddPayment(true)} className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-brand hover:bg-brand-hover text-white text-sm font-medium transition-colors">
               <Plus size={15} /> {t("cashflow.addPayment")}
             </button>
-            <Link href="/upload" className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg border border-[#2C2922] text-gray-300 hover:border-indigo-700 text-sm transition-colors">
+            <Link href="/upload" className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg border border-line text-ink-soft hover:border-brand text-sm transition-colors">
               <Upload size={15} /> {t("nav.upload")}
             </Link>
           </div>
@@ -409,25 +409,25 @@ export default function CashFlowPage() {
             return (
               <div key={dateStr}>
                 <div className="flex items-center gap-2 mb-2">
-                  <span className="text-xs font-semibold text-gray-400">{formatDate(dateStr)}</span>
+                  <span className="text-xs font-semibold text-ink-mute">{formatDate(dateStr)}</span>
                   {badge && (
                     <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
                       badge === t("cashflow.today")
-                        ? "bg-indigo-900/50 text-indigo-300 border border-indigo-700/40"
-                        : "bg-[#2C2922] text-gray-400"
+                        ? "bg-brand/50 text-brand border border-brand/40"
+                        : "bg-surface-2 text-ink-mute"
                     }`}>
                       {badge}
                     </span>
                   )}
                   {hasUrgent && !badge && (
-                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-red-950/50 text-red-400 border border-red-800/30">
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-red-950/50 text-neg border border-red-800/30">
                       {t("cashflow.urgent")}
                     </span>
                   )}
                 </div>
 
-                <div className={`bg-[#1C1915] border rounded-xl overflow-hidden ${
-                  hasUrgent ? "border-red-800/30" : "border-[#2C2922]"
+                <div className={`bg-surface border rounded-xl overflow-hidden ${
+                  hasUrgent ? "border-red-800/30" : "border-line"
                 }`}>
                   {dayItems.map((item, idx) => {
                     const cfg = TYPE_CONFIG[item.type] ?? TYPE_CONFIG.subscription;
@@ -435,25 +435,25 @@ export default function CashFlowPage() {
                       <div
                         key={`${dateStr}-${idx}`}
                         className={`flex items-center gap-3 px-4 py-3 ${
-                          idx < dayItems.length - 1 ? "border-b border-[#2C2922]" : ""
+                          idx < dayItems.length - 1 ? "border-b border-line" : ""
                         } ${item.urgent ? "bg-red-950/10" : ""}`}
                       >
                         <ItemIcon type={item.type} urgent={item.urgent} />
                         <div className="flex-1 min-w-0">
-                          <p className="text-gray-100 text-sm truncate">{item.description}</p>
+                          <p className="text-ink-soft text-sm truncate">{item.description}</p>
                           <div className="flex items-center gap-2 mt-0.5">
                             <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded ${
-                              item.type === "liability_payment" ? "bg-red-950/30 text-red-400" :
+                              item.type === "liability_payment" ? "bg-red-950/30 text-neg" :
                               item.type === "subscription" ? "bg-orange-950/30 text-orange-400" :
                               "bg-emerald-950/30 text-emerald-400"
                             }`}>
                               {cfg.label}
                             </span>
                             {item.source === "subscription" && (
-                              <span className="text-[10px] text-gray-600">{t("cashflow.fromHistory")}</span>
+                              <span className="text-[10px] text-ink-mute">{t("cashflow.fromHistory")}</span>
                             )}
                             {item.source === "recurring_income" && (
-                              <span className="text-[10px] text-gray-600">{t("cashflow.types.recurringIncome")}</span>
+                              <span className="text-[10px] text-ink-mute">{t("cashflow.types.recurringIncome")}</span>
                             )}
                           </div>
                         </div>
@@ -472,7 +472,7 @@ export default function CashFlowPage() {
 
       {/* Legend */}
       {!loading && sortedDates.length > 0 && (
-        <div className="mt-8 flex flex-wrap gap-4 text-xs text-gray-600">
+        <div className="mt-8 flex flex-wrap gap-4 text-xs text-ink-mute">
           <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-red-500" />{t("cashflow.legend.creditPayment")}</span>
           <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-orange-500" />{t("cashflow.legend.subscriptionEstimate")}</span>
           <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-emerald-500" />{t("cashflow.legend.incomeReceivable")}</span>

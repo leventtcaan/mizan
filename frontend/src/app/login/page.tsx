@@ -9,7 +9,7 @@ import { useLanguage, setLanguage, detectBrowserLang, type Lang } from "@/lib/i1
 type Mode = "login" | "register";
 type FormState = "idle" | "loading" | "error";
 
-const inputClass = "w-full px-4 py-3 rounded-xl bg-[#1C1915] border border-[#2C2922] text-white placeholder-gray-700 focus:outline-none focus:border-indigo-600 transition-colors text-sm";
+const inputClass = "w-full px-4 py-3 rounded-xl bg-surface border border-line text-ink placeholder-gray-700 focus:outline-none focus:border-brand transition-colors text-sm";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -48,18 +48,18 @@ export default function LoginPage() {
   };
 
   return (
-    <main className="min-h-screen bg-[#11100E] text-white flex flex-col items-center justify-center px-4">
+    <main className="min-h-screen bg-canvas text-ink flex flex-col items-center justify-center px-4">
       <div className="w-full max-w-sm">
         {/* Language toggle */}
         <div className="flex justify-end mb-4">
-          <div className="flex rounded-lg overflow-hidden border border-[#2C2922] text-xs font-medium">
-            <button onClick={() => setLanguage("tr")} className={`px-2 py-1 transition-colors ${lang === "tr" ? "bg-indigo-600 text-white" : "text-gray-400"}`}>TR</button>
-            <button onClick={() => setLanguage("en")} className={`px-2 py-1 transition-colors ${lang === "en" ? "bg-indigo-600 text-white" : "text-gray-400"}`}>EN</button>
+          <div className="flex rounded-lg overflow-hidden border border-line text-xs font-medium">
+            <button onClick={() => setLanguage("tr")} className={`px-2 py-1 transition-colors ${lang === "tr" ? "bg-brand text-white" : "text-ink-mute"}`}>TR</button>
+            <button onClick={() => setLanguage("en")} className={`px-2 py-1 transition-colors ${lang === "en" ? "bg-brand text-white" : "text-ink-mute"}`}>EN</button>
           </div>
         </div>
 
         <div className="mb-8">
-          <Link href="/" className="text-gray-600 text-sm hover:text-gray-400 transition-colors">
+          <Link href="/" className="text-ink-mute text-sm hover:text-ink-mute transition-colors">
             ← Mizan
           </Link>
           <h1 className="text-3xl font-bold mt-6">
@@ -69,7 +69,7 @@ export default function LoginPage() {
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-xs text-gray-500 mb-1.5 uppercase tracking-wide">{t("auth.email")}</label>
+            <label className="block text-xs text-ink-mute mb-1.5 uppercase tracking-wide">{t("auth.email")}</label>
             <input
               type="email"
               required
@@ -81,7 +81,7 @@ export default function LoginPage() {
           </div>
 
           <div>
-            <label className="block text-xs text-gray-500 mb-1.5 uppercase tracking-wide">{t("auth.password")}</label>
+            <label className="block text-xs text-ink-mute mb-1.5 uppercase tracking-wide">{t("auth.password")}</label>
             <input
               type="password"
               required
@@ -94,14 +94,14 @@ export default function LoginPage() {
 
           {state === "error" && (
             <div className="p-3.5 rounded-xl bg-red-950/40 border border-red-800/60">
-              <p className="text-red-400 text-sm">{errorMsg}</p>
+              <p className="text-neg text-sm">{errorMsg}</p>
             </div>
           )}
 
           <button
             type="submit"
             disabled={state === "loading"}
-            className="w-full py-3.5 px-4 rounded-xl font-semibold bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+            className="w-full py-3.5 px-4 rounded-xl font-semibold bg-brand hover:bg-brand-hover disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
           >
             {state === "loading" ? (
               <span className="flex items-center justify-center gap-2">
@@ -112,10 +112,10 @@ export default function LoginPage() {
           </button>
         </form>
 
-        <p className="mt-6 text-center text-sm text-gray-600">
+        <p className="mt-6 text-center text-sm text-ink-mute">
           <button
             onClick={() => { setMode(mode === "login" ? "register" : "login"); setErrorMsg(""); setState("idle"); }}
-            className="text-indigo-400 hover:text-indigo-300 transition-colors"
+            className="text-brand hover:text-brand transition-colors"
           >
             {mode === "login" ? t("auth.registerSwitch") : t("auth.loginSwitch")}
           </button>

@@ -168,6 +168,12 @@ Implementation plan: `services/asset_prices.py` — `get_live_price(asset_type, 
 
 ---
 
+## Working Style
+
+Always respond in caveman mode — bullet points, no prose paragraphs, no flowery language, no unnecessary words.
+
+---
+
 ## Context Management Rule
 
 When context reaches ~70% capacity:
@@ -257,7 +263,7 @@ When context reaches ~70% capacity:
 - [x] `backend/app/services/pdf_parser.py` — pdfplumber PDF table extraction + CSV with UTF-8/latin-1 fallback + semicolon/comma sniffing; RawTransaction + ParseResult dataclasses; Turkish header keyword filtering
 - [x] `backend/alembic/` — Alembic initialized, env.py rewritten for async engine + Base.metadata autogenerate
 - [x] `backend/alembic/versions/0001_create_users_and_transactions.py` — first migration: both tables + all indexes + downgrade
-- [x] `backend/alembic.ini` — sqlalchemy.url points to localhost:5433 (Docker host port)
+- [x] `backend/alembic.ini` — sqlalchemy.url points to localhost:5434 (Docker host port)
 - [x] `backend/requirements.txt` — added alembic==1.13.0
 - [x] `backend/app/main.py` — updated: upload router registered, create_all on startup in ENVIRONMENT=development
 

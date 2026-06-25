@@ -22,10 +22,10 @@ export default function PageLayout({ children, title, titleBadge, subtitle, acti
           {title && (
             <div>
               <div className="flex items-center gap-2.5">
-                <h1 className="text-2xl font-bold text-white">{title}</h1>
+                <h1 className="text-2xl font-bold text-ink">{title}</h1>
                 {titleBadge}
               </div>
-              {subtitle && <p className="text-gray-500 text-sm mt-1">{subtitle}</p>}
+              {subtitle && <p className="text-ink-mute text-sm mt-1">{subtitle}</p>}
             </div>
           )}
           {action && <div className="shrink-0">{action}</div>}
