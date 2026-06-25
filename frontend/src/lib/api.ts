@@ -32,6 +32,8 @@ export interface StoredUser {
   language: string;
   display_currency?: string;
   is_admin?: boolean;
+  email_verified?: boolean;
+  plan?: string;
 }
 
 export function getStoredUser(): StoredUser | null {
@@ -128,6 +130,8 @@ export interface TokenResponse {
   language: string;
   display_currency: string;
   is_admin: boolean;
+  email_verified: boolean;
+  plan: string;
 }
 
 export interface UserResponse {
@@ -138,6 +142,8 @@ export interface UserResponse {
   display_currency: string;
   email_weekly_enabled: boolean;
   is_admin: boolean;
+  email_verified: boolean;
+  plan: string;
 }
 
 export async function getMe(): Promise<UserResponse> {
@@ -418,6 +424,47 @@ export async function completeOnboarding(): Promise<void> {
   if (!response.ok) throw new Error("Failed to complete onboarding");
 }
 
+// --- Email verification ---
+
+/** Confirm an account via the signed token from the verification email. */
+export async function verifyEmail(token: string): Promise<UserResponse> {
+  const response = await fetch(`${API_BASE_URL}/auth/verify-email`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ token }),
+  });
+  if (!response.ok) {
+    const body = await response.json().catch(() => null);
+    throw new Error(extractErrorMessage(body, "Verification failed"));
+  }
+  return response.json() as Promise<UserResponse>;
+}
+
+/** Re-send the verification email. Always resolves (generic, non-enumerating response). */
+export async function resendVerification(email: string): Promise<void> {
+  await fetch(`${API_BASE_URL}/auth/resend-verification`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email }),
+  }).catch(() => null);
+}
+
+/** Thrown when a free user hits the monthly upload cap (HTTP 402) → show upgrade prompt. */
+export class UploadCapError extends Error {
+  constructor() {
+    super("upload_cap_reached");
+    this.name = "UploadCapError";
+  }
+}
+
+/** Thrown when the account's email isn't verified yet (HTTP 403) → show verify prompt. */
+export class EmailNotVerifiedError extends Error {
+  constructor() {
+    super("email_not_verified");
+    this.name = "EmailNotVerifiedError";
+  }
+}
+
 export async function uploadStatement(file: File): Promise<UploadResponse> {
   const form = new FormData();
   form.append("file", file);
@@ -427,8 +474,11 @@ export async function uploadStatement(file: File): Promise<UploadResponse> {
     body: form,
   });
   if (!response.ok) {
+    if (response.status === 402) throw new UploadCapError();
     const error = await response.json().catch(() => ({ detail: "Upload failed" }));
-    throw new Error((error as { detail: string }).detail ?? "Upload failed");
+    const detail = (error as { detail?: string }).detail;
+    if (response.status === 403 && detail === "email_not_verified") throw new EmailNotVerifiedError();
+    throw new Error(detail ?? "Upload failed");
   }
   return response.json() as Promise<UploadResponse>;
 }
@@ -1776,6 +1826,7 @@ export interface AdminUserRow {
   onboarding_completed: boolean;
   language: string;
   display_currency: string;
+  plan: string;
   created_at: string;
   last_email_brief_sent: string | null;
   transaction_count: number;
@@ -1797,6 +1848,9 @@ export interface AdminUserDetail {
   language: string;
   display_currency: string;
   email_weekly_enabled: boolean;
+  email_verified: boolean;
+  plan: string;
+  plan_expires_at: string | null;
   created_at: string;
   last_email_brief_sent: string | null;
   transaction_count: number;
@@ -1852,7 +1906,7 @@ export function getAdminUser(id: string): Promise<AdminUserDetail> {
 
 export function updateAdminUser(
   id: string,
-  patch: { is_admin?: boolean; onboarding_completed?: boolean },
+  patch: { is_admin?: boolean; onboarding_completed?: boolean; plan?: string },
 ): Promise<AdminUserDetail> {
   return adminFetch<AdminUserDetail>(`/users/${id}`, { method: "PATCH", body: JSON.stringify(patch) });
 }
@@ -1925,6 +1979,9 @@ export interface AdminUserProfile {
   language: string;
   display_currency: string;
   email_weekly_enabled: boolean;
+  email_verified: boolean;
+  plan: string;
+  plan_expires_at: string | null;
   created_at: string;
   last_email_brief_sent: string | null;
   last_activity: string | null;

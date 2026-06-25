@@ -16,13 +16,14 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile, status
 from pydantic import BaseModel, field_validator
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
 from app.core.database import get_session
-from app.core.dependencies import get_current_user
+from app.core.dependencies import get_verified_user
+from app.core.plans import FREE_MONTHLY_UPLOAD_CAP, effective_plan, vision_enabled
 from app.core.rate_limiter import upload_ip_limiter, upload_user_limiter
 from app.models.progress_insight import ProgressInsight
 from app.models.reconciliation_item import ReconciliationItem
@@ -146,11 +147,26 @@ async def _flag_duplicate_batch(
     logger.info("Duplicate-statement flagged — user_id=%s job_id=%s", user_id, job_id)
 
 
+async def _uploads_this_month(user_id: uuid.UUID, session: AsyncSession) -> int:
+    """Distinct statement batches this calendar month — drives the free-tier cap.
+    Only successful uploads create a batch, so failed/empty parses don't count."""
+    month_start = datetime.now(timezone.utc).replace(
+        day=1, hour=0, minute=0, second=0, microsecond=0
+    )
+    result = await session.execute(
+        select(func.count(func.distinct(Transaction.upload_batch_id)))
+        .where(Transaction.user_id == user_id)
+        .where(Transaction.upload_batch_id.is_not(None))
+        .where(Transaction.created_at >= month_start)
+    )
+    return int(result.scalar() or 0)
+
+
 @router.post("", response_model=UploadResponse)
 async def upload_statement(
     request: Request,
     file: Annotated[UploadFile, File(description="PDF or CSV bank statement")],
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_verified_user),
     session: AsyncSession = Depends(get_session),
 ) -> UploadResponse:
     """
@@ -158,14 +174,20 @@ async def upload_statement(
     WHY: All steps run in one DB session so a categorization failure rolls back
          the insert (atomic: either all transactions land with categories or none do).
     BREAKS IF REMOVED: No way to submit bank statements; core app feature unavailable.
+
+    Gated by: email verification (get_verified_user), a 3-per-10-minute rate limit
+    per user AND per IP (Redis-backed), and the subscription plan (free tier = one
+    statement per calendar month; vision PDF extraction is paid-only).
     """
     user_id_str = str(current_user.id)
     client_ip = request.client.host if request.client else "unknown"
 
-    if not upload_user_limiter.is_allowed(user_id_str, max_calls=5, window_seconds=86400):
+    # 3 uploads per 10 minutes per user (Redis-backed → survives restarts, shared
+    # across instances). The same window is applied per IP to blunt shared-account abuse.
+    if not upload_user_limiter.is_allowed(user_id_str, max_calls=3, window_seconds=600):
         raise HTTPException(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-            detail="Günlük maksimum 5 yükleme hakkınızı kullandınız. Yarın tekrar deneyin.",
+            detail="10 dakikada en fazla 3 yükleme yapılabilir. Lütfen bekleyin.",
         )
 
     if not upload_ip_limiter.is_allowed(client_ip, max_calls=3, window_seconds=600):
@@ -173,6 +195,17 @@ async def upload_statement(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
             detail="10 dakikada en fazla 3 yükleme yapılabilir. Lütfen bekleyin.",
         )
+
+    # Free-tier upload cap: one statement per calendar month. Paid plans are unlimited.
+    # 402 Payment Required signals the frontend to show the upgrade prompt (not an error).
+    plan = effective_plan(current_user)
+    if plan == "free":
+        used = await _uploads_this_month(current_user.id, session)
+        if used >= FREE_MONTHLY_UPLOAD_CAP:
+            raise HTTPException(
+                status_code=status.HTTP_402_PAYMENT_REQUIRED,
+                detail="upload_cap_reached",
+            )
 
     fname_lower = (file.filename or "").lower()
     if (
@@ -209,7 +242,11 @@ async def upload_statement(
     # Never let a corrupt/encrypted/unsupported file surface as a raw 500 — parse
     # failures come back as a structured failed/empty response the user can act on.
     try:
-        parse_result = parse_statement(contents, file.content_type, filename)
+        # Vision PDF extraction is a paid feature; free users fall back to OCR.
+        parse_result = parse_statement(
+            contents, file.content_type, filename,
+            allow_vision=vision_enabled(current_user),
+        )
     except Exception as exc:
         logger.exception("Unexpected parse failure — job_id=%s: %s", job_id, exc)
         return UploadResponse(

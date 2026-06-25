@@ -23,7 +23,13 @@ class Settings(BaseSettings):
     ENVIRONMENT: str = "development"
 
     # WHY: Frontend URL is needed by CORS middleware to allow only our own origin.
+    # Also the base for email verification links (FRONTEND_URL/verify?token=...).
     FRONTEND_URL: str = "http://localhost:3000"
+
+    # WHY: Redis backs the rate limiter so limits survive restarts and are shared across
+    # multiple backend instances (in-memory limits reset per-process). Empty/unreachable
+    # → the limiter falls back to in-memory (single-process dev still works).
+    REDIS_URL: str = "redis://redis:6379/0"
 
     # WHY: Resend API key for outbound email. Empty disables email sending (dev default).
     RESEND_API_KEY: str = ""

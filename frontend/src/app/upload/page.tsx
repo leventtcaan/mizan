@@ -2,9 +2,12 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { uploadStatement, getStoredUser, type UploadResponse } from "@/lib/api";
+import Link from "next/link";
+import {
+  uploadStatement, getStoredUser, UploadCapError, EmailNotVerifiedError, type UploadResponse,
+} from "@/lib/api";
 import PageLayout from "@/components/ui/PageLayout";
-import { FileText, ArrowRight, CheckCircle, ShieldCheck } from "@/components/ui/Icons";
+import { FileText, ArrowRight, CheckCircle, ShieldCheck, Sparkles, Mail } from "@/components/ui/Icons";
 import { useLanguage } from "@/lib/i18n";
 
 type FileState = "queued" | "uploading" | "done" | "error";
@@ -33,6 +36,8 @@ export default function UploadPage() {
   const [dragOver, setDragOver] = useState(false);
   const [entries, setEntries] = useState<FileEntry[]>([]);
   const [processing, setProcessing] = useState(false);
+  // A blocking gate that interrupts the whole upload run, vs a per-file parse error.
+  const [gate, setGate] = useState<null | "cap" | "verify">(null);
 
   useEffect(() => {
     if (!getStoredUser()) router.replace("/login");
@@ -52,6 +57,7 @@ export default function UploadPage() {
   const handleProcess = useCallback(async () => {
     if (!entries.length || processing) return;
     setProcessing(true);
+    setGate(null);
 
     const batchIds: string[] = [];
     for (let i = 0; i < entries.length; i++) {
@@ -65,6 +71,13 @@ export default function UploadPage() {
         setEntries((prev) => prev.map((e, j) => (j === i ? { ...e, state: "done", result } : e)));
         if (result.status === "success") batchIds.push(result.job_id);
       } catch (err) {
+        // Account-level blocks (cap reached, email unverified) stop the whole run and
+        // show a dedicated prompt rather than a per-file parse error.
+        if (err instanceof UploadCapError || err instanceof EmailNotVerifiedError) {
+          setGate(err instanceof UploadCapError ? "cap" : "verify");
+          setEntries((prev) => prev.map((e, j) => (j === i ? { ...e, state: "queued" } : e)));
+          break;
+        }
         const msg = err instanceof Error ? err.message : t("upload.error");
         setEntries((prev) => prev.map((e, j) => (j === i ? { ...e, state: "error", error: msg } : e)));
       }
@@ -162,9 +175,43 @@ export default function UploadPage() {
         )}
       </button>
 
-      {noneSucceeded && (
+      {noneSucceeded && !gate && (
         <div className="mt-4 bg-amber-950/30 border border-amber-800/40 rounded-xl p-4 text-amber-300 text-sm text-center">
           {t("upload.noneSucceeded")}
+        </div>
+      )}
+
+      {/* Free-tier monthly upload cap reached → upgrade prompt */}
+      {gate === "cap" && (
+        <div className="mt-4 rounded-xl border border-brand/40 bg-brand/10 p-5 text-center">
+          <div className="w-11 h-11 rounded-xl bg-brand/15 flex items-center justify-center mx-auto mb-3">
+            <Sparkles size={20} className="text-brand" />
+          </div>
+          <p className="font-semibold text-ink mb-1">{t("upload.capTitle")}</p>
+          <p className="text-ink-mute text-sm mb-4">{t("upload.capBody")}</p>
+          <Link
+            href="/settings"
+            className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-lg bg-brand hover:bg-brand-hover text-white text-sm font-semibold transition-colors"
+          >
+            {t("upload.capCta")} <ArrowRight size={16} />
+          </Link>
+        </div>
+      )}
+
+      {/* Email not verified → must confirm before uploading */}
+      {gate === "verify" && (
+        <div className="mt-4 rounded-xl border border-amber-800/40 bg-amber-950/30 p-5 text-center">
+          <div className="w-11 h-11 rounded-xl bg-amber-500/15 flex items-center justify-center mx-auto mb-3">
+            <Mail size={20} className="text-amber-400" />
+          </div>
+          <p className="font-semibold text-ink mb-1">{t("verify.noticeTitle")}</p>
+          <p className="text-ink-mute text-sm mb-4">{t("verify.checkEmail")}</p>
+          <Link
+            href={`/verify?email=${encodeURIComponent(getStoredUser()?.email ?? "")}`}
+            className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-lg bg-brand hover:bg-brand-hover text-white text-sm font-semibold transition-colors"
+          >
+            {t("verify.resend")} <ArrowRight size={16} />
+          </Link>
         </div>
       )}
 

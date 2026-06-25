@@ -54,6 +54,26 @@ async def get_current_user(
     return user
 
 
+async def get_verified_user(
+    current_user: User = Depends(get_current_user),
+) -> User:
+    """
+    WHAT: Like get_current_user, but requires email_verified=True.
+    WHY: Upload + AI features are locked until the user confirms their email. A valid
+         token for an unverified account gets 403 (they're authenticated, not allowed) —
+         distinct from 401 so the frontend can show "verify your email" instead of
+         bouncing to login. Verification status is re-checked from the live row, so
+         verifying takes effect on the very next request without a re-login.
+    BREAKS IF REMOVED: Unverified accounts could upload/trigger AI before confirming ownership.
+    """
+    if not current_user.email_verified:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="email_not_verified",
+        )
+    return current_user
+
+
 async def get_admin_user(
     current_user: User = Depends(get_current_user),
 ) -> User:

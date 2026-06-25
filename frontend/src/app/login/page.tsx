@@ -34,9 +34,13 @@ export default function LoginPage() {
         ? result.language
         : detectBrowserLang();
       const resolvedCurrency = result.display_currency ?? detectBrowserCurrency();
-      setStoredUser({ id: result.user_id, email: result.email, onboarding_completed: result.onboarding_completed, language: resolvedLang, display_currency: resolvedCurrency, is_admin: result.is_admin ?? false });
+      setStoredUser({ id: result.user_id, email: result.email, onboarding_completed: result.onboarding_completed, language: resolvedLang, display_currency: resolvedCurrency, is_admin: result.is_admin ?? false, email_verified: result.email_verified, plan: result.plan });
       setLanguage(resolvedLang);
-      if (mode === "register" || !result.onboarding_completed) {
+      // Email must be verified before upload/AI features unlock. Send unverified
+      // accounts (new registrations included) to the verify screen first.
+      if (!result.email_verified) {
+        router.push(`/verify?email=${encodeURIComponent(result.email)}&sent=1`);
+      } else if (mode === "register" || !result.onboarding_completed) {
         router.push("/onboarding");
       } else {
         router.push("/home");

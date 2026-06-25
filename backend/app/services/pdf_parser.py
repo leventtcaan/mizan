@@ -1517,7 +1517,9 @@ def parse_xlsx(contents: bytes) -> ParseResult:
 
 # ─── Public entry point ───────────────────────────────────────────────────────
 
-def parse_statement(contents: bytes, content_type: str, filename: str) -> ParseResult:
+def parse_statement(
+    contents: bytes, content_type: str, filename: str, allow_vision: bool = True
+) -> ParseResult:
     """
     WHAT: 3-layer extraction pipeline for PDF; direct regex for CSV.
     WHY: Single entry point — callers never inspect file internals or key availability.
@@ -1527,6 +1529,9 @@ def parse_statement(contents: bytes, content_type: str, filename: str) -> ParseR
     Layer 3 — Vision LLM (image-only PDFs; reads the rendered page directly — preferred
               over OCR when an OpenAI vision key is available)
     Layer 2 — Tesseract OCR at 400 DPI (offline fallback when no vision key is set)
+
+    allow_vision=False (free tier) skips Layer 3 entirely and falls through to OCR —
+    vision is a paid feature.
     """
     logger.info(
         "Parsing statement — filename=%s content_type=%s size=%d llm_available=%s",
@@ -1570,7 +1575,7 @@ def parse_statement(contents: bytes, content_type: str, filename: str) -> ParseR
     # the rendered page directly and preserves the column layout, which is far more
     # accurate than Tesseract→text→LLM. Only available when an OpenAI key is set;
     # otherwise we fall through to Layer 2 OCR.
-    if _has_vision():
+    if allow_vision and _has_vision():
         logger.info(
             "Layer 1 returned %d chars (below %d threshold) — image PDF; trying Layer 3 vision",
             text_chars, _MIN_TEXT_CHARS,

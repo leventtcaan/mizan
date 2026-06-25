@@ -62,6 +62,34 @@ class User(Base):
         nullable=True,
     )
 
+    # WHY: Email ownership gate. New accounts start unverified — upload + AI features are
+    # locked (get_verified_user → 403) until the user clicks the signed link we email them.
+    # New ORM inserts default False; migration 0036 backfills existing rows to True so
+    # accounts created before this feature aren't retroactively locked out.
+    email_verified: Mapped[bool] = mapped_column(
+        Boolean,
+        nullable=False,
+        default=False,
+        server_default=text("false"),
+    )
+
+    # WHY: Subscription tier — "free" | "plus" | "pro". Drives the upload cap and whether
+    # vision PDF extraction is allowed. effective_plan() in core/plans.py resolves the
+    # *current* plan (a paid plan past plan_expires_at counts as free).
+    plan: Mapped[str] = mapped_column(
+        String(10),
+        nullable=False,
+        default="free",
+        server_default=text("'free'"),
+    )
+
+    # WHY: When the current paid plan lapses. Null = never expires (or free). Set by a
+    # future billing webhook; read by effective_plan() to downgrade lapsed subscriptions.
+    plan_expires_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
+
     # WHY: timezone=True stores UTC offset alongside the timestamp in PostgreSQL.
     # ALTERNATIVE: Store naive datetime. TRADEOFF: Naive datetimes silently break
     # when the server's timezone changes or data crosses regions.

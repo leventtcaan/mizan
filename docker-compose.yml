@@ -25,6 +25,27 @@ services:
       start_period: 10s
 
   # ─────────────────────────────────────────────────────────────────────────────
+  # REDIS — rate-limiter backing store
+  # WHY isolated: rate-limit windows must survive a backend restart and be shared
+  # across multiple backend instances; an in-memory limiter can't do either.
+  # ─────────────────────────────────────────────────────────────────────────────
+  redis:
+    image: redis:7-alpine
+    # WHY appendonly: persist the limiter state across container restarts so a
+    # restart doesn't reset everyone's window to zero.
+    command: ["redis-server", "--appendonly", "yes"]
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
+
+  # ─────────────────────────────────────────────────────────────────────────────
   # BACKEND — FastAPI on port 8000
   # WHY isolated: Python deps, hot reload, and DB migrations are backend concerns only.
   # ─────────────────────────────────────────────────────────────────────────────
@@ -34,10 +55,15 @@ services:
       - "8000:8000"
     env_file:
       - .env
+    environment:
+      # In-cluster Redis hostname. Overridable via .env if pointed at a managed Redis.
+      REDIS_URL: redis://redis:6379/0
     depends_on:
       postgres:
         # WHY condition service_healthy: without this, backend starts before Postgres
         # accepts connections and crashes with "connection refused".
+        condition: service_healthy
+      redis:
         condition: service_healthy
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
@@ -73,3 +99,4 @@ services:
 # Without this declaration, postgres_data would silently become an anonymous volume.
 volumes:
   postgres_data:
+  redis_data:

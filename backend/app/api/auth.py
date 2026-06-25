@@ -6,20 +6,46 @@ BREAKS IF REMOVED: No way to create accounts or obtain tokens; entire auth flow 
 """
 
 import logging
+import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from jose import JWTError
 from pydantic import BaseModel, EmailStr
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.config import settings
 from app.core.database import get_session
 from app.core.dependencies import get_current_user
-from app.core.security import create_access_token, hash_password, verify_password
+from app.core.security import (
+    create_access_token,
+    create_email_verification_token,
+    decode_email_verification_token,
+    hash_password,
+    verify_password,
+)
 from app.models.user import User
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/auth", tags=["auth"])
+
+
+def _verify_url(user_id: str) -> str:
+    """Frontend link that carries the signed 24h verification token."""
+    token = create_email_verification_token(user_id)
+    base = (settings.FRONTEND_URL or "").rstrip("/")
+    return f"{base}/verify?token={token}"
+
+
+async def _send_verification(user: User) -> None:
+    """Best-effort: never let a mail failure (or missing RESEND key in dev) break the
+    request that triggered it. The user can always resend from the verify screen."""
+    try:
+        from app.api.email import send_verification_email
+        await send_verification_email(user.email, _verify_url(str(user.id)), user.language)
+    except Exception as exc:
+        logger.warning("Verification email not sent to %s: %s", user.email, exc)
 
 
 class RegisterRequest(BaseModel):
@@ -45,6 +71,8 @@ class TokenResponse(BaseModel):
     language: str = "tr"
     display_currency: str = "TRY"
     is_admin: bool = False
+    email_verified: bool = False
+    plan: str = "free"
 
 
 class UserResponse(BaseModel):
@@ -55,12 +83,36 @@ class UserResponse(BaseModel):
     display_currency: str
     email_weekly_enabled: bool
     is_admin: bool
+    email_verified: bool = False
+    plan: str = "free"
 
 
 class PreferencesRequest(BaseModel):
     language: str | None = None
     email_weekly_enabled: bool | None = None
     display_currency: str | None = None
+
+
+class VerifyEmailRequest(BaseModel):
+    token: str
+
+
+class ResendVerificationRequest(BaseModel):
+    email: EmailStr
+
+
+def _user_response(user: User) -> UserResponse:
+    return UserResponse(
+        user_id=str(user.id),
+        email=user.email,
+        onboarding_completed=user.onboarding_completed,
+        language=user.language,
+        display_currency=user.display_currency,
+        email_weekly_enabled=user.email_weekly_enabled,
+        is_admin=user.is_admin,
+        email_verified=user.email_verified,
+        plan=user.plan,
+    )
 
 
 @router.post("/register", response_model=TokenResponse, status_code=status.HTTP_201_CREATED)
@@ -101,6 +153,9 @@ async def register(
 
     logger.info("New user registered — id=%s email=%s", user.id, user.email)
 
+    # Fire off the verification email (best-effort — registration succeeds regardless).
+    await _send_verification(user)
+
     token = create_access_token(str(user.id))
     return TokenResponse(
         access_token=token,
@@ -110,6 +165,8 @@ async def register(
         language=user.language,
         display_currency=user.display_currency,
         is_admin=user.is_admin,
+        email_verified=user.email_verified,
+        plan=user.plan,
     )
 
 
@@ -152,22 +209,69 @@ async def login(
         language=user.language,
         display_currency=user.display_currency,
         is_admin=user.is_admin,
+        email_verified=user.email_verified,
+        plan=user.plan,
     )
+
+
+@router.post("/verify-email", response_model=UserResponse)
+async def verify_email(
+    body: VerifyEmailRequest,
+    session: AsyncSession = Depends(get_session),
+) -> UserResponse:
+    """
+    WHAT: Consumes a signed verification token and marks the account verified.
+    WHY: No auth header required — the signed token IS the proof. Invalid/expired
+         tokens get 400 so the frontend can offer "resend". Idempotent: re-verifying
+         an already-verified account just returns success.
+    """
+    try:
+        user_id_str = decode_email_verification_token(body.token)
+        user_id = uuid.UUID(user_id_str)
+    except (JWTError, ValueError):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Verification link is invalid or has expired.",
+        )
+
+    user = (await session.execute(select(User).where(User.id == user_id))).scalar_one_or_none()
+    if user is None or user.is_deleted:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Verification link is invalid or has expired.",
+        )
+
+    if not user.email_verified:
+        user.email_verified = True
+        session.add(user)
+        await session.commit()
+        logger.info("Email verified — user=%s", user.id)
+
+    return _user_response(user)
+
+
+@router.post("/resend-verification", status_code=200)
+async def resend_verification(
+    body: ResendVerificationRequest,
+    session: AsyncSession = Depends(get_session),
+) -> dict:
+    """
+    WHAT: Re-sends the verification email for an unverified account.
+    WHY: Offered on login when the account isn't verified yet. Returns the SAME
+         generic response whether or not the email exists / is already verified, so
+         it can't be used to enumerate accounts.
+    """
+    user = (await session.execute(select(User).where(User.email == body.email))).scalar_one_or_none()
+    if user is not None and not user.is_deleted and not user.email_verified:
+        await _send_verification(user)
+    return {"message": "If that account exists and is unverified, a new link is on its way."}
 
 
 @router.get("/me", response_model=UserResponse)
 async def get_me(
     current_user: User = Depends(get_current_user),
 ) -> UserResponse:
-    return UserResponse(
-        user_id=str(current_user.id),
-        email=current_user.email,
-        onboarding_completed=current_user.onboarding_completed,
-        language=current_user.language,
-        display_currency=current_user.display_currency,
-        email_weekly_enabled=current_user.email_weekly_enabled,
-        is_admin=current_user.is_admin,
-    )
+    return _user_response(current_user)
 
 
 @router.post("/preferences", response_model=UserResponse)
@@ -195,15 +299,7 @@ async def update_preferences(
         "Preferences updated — user=%s language=%s currency=%s",
         current_user.id, current_user.language, current_user.display_currency,
     )
-    return UserResponse(
-        user_id=str(current_user.id),
-        email=current_user.email,
-        onboarding_completed=current_user.onboarding_completed,
-        language=current_user.language,
-        display_currency=current_user.display_currency,
-        email_weekly_enabled=current_user.email_weekly_enabled,
-        is_admin=current_user.is_admin,
-    )
+    return _user_response(current_user)
 
 
 @router.post("/complete-onboarding", status_code=200)

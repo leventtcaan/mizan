@@ -163,6 +163,77 @@ def _render_brief_text(brief: dict) -> str:
     return "\n".join(lines)
 
 
+def _render_verification_html(verify_url: str, lang: str) -> str:
+    tr = lang == "tr"
+    headline = "E-postanı doğrula" if tr else "Verify your email"
+    body = (
+        "Mizan hesabını etkinleştirmek için aşağıdaki butona tıkla. Bu bağlantı 24 saat geçerlidir."
+        if tr else
+        "Tap the button below to activate your Mizan account. This link is valid for 24 hours."
+    )
+    cta = "E-postamı doğrula" if tr else "Verify my email"
+    ignore = (
+        "Bu hesabı sen oluşturmadıysan bu e-postayı yok sayabilirsin."
+        if tr else
+        "If you didn't create this account, you can safely ignore this email."
+    )
+    return f"""<!DOCTYPE html>
+<html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0;padding:0;background:#0F0F0F;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#0F0F0F;">
+    <tr><td align="center" style="padding:40px 16px;">
+      <table width="560" cellpadding="0" cellspacing="0" style="max-width:560px;width:100%;">
+        <tr><td style="padding:0 0 20px;text-align:center;">
+          <span style="font-size:22px;font-weight:800;color:#ffffff;letter-spacing:-0.5px;">⚖ Mizan</span>
+        </td></tr>
+        <tr><td style="background:#1A1A1A;border:1px solid #2A2A2A;border-radius:16px;padding:28px;">
+          <p style="margin:0 0 12px;font-size:18px;font-weight:700;color:#f3f4f6;">{headline}</p>
+          <p style="margin:0 0 20px;font-size:15px;line-height:1.6;color:#d1d5db;">{body}</p>
+          <div style="text-align:center;margin-top:8px;">
+            <a href="{verify_url}" style="display:inline-block;background:#176B5B;color:#ffffff;text-decoration:none;padding:13px 28px;border-radius:10px;font-weight:700;font-size:15px;">{cta}</a>
+          </div>
+          <p style="margin:20px 0 0;font-size:12px;color:#6b7280;line-height:1.6;word-break:break-all;">{verify_url}</p>
+        </td></tr>
+        <tr><td style="padding:20px 8px 0;text-align:center;">
+          <p style="margin:0;font-size:12px;color:#6b7280;line-height:1.6;">{ignore}</p>
+        </td></tr>
+      </table>
+    </td></tr>
+  </table>
+</body></html>"""
+
+
+async def send_verification_email(to_email: str, verify_url: str, lang: str = "tr") -> str:
+    """
+    Render + send the account verification email. Returns the Resend email id.
+    Raises RuntimeError if RESEND_API_KEY is missing; re-raises Resend errors.
+    """
+    if not len(settings.RESEND_API_KEY) > 0:
+        raise RuntimeError("RESEND_API_KEY not configured")
+
+    html = _render_verification_html(verify_url, lang)
+    subject = "Mizan — E-postanı doğrula" if lang == "tr" else "Mizan — Verify your email"
+
+    def _send() -> str:
+        import resend  # local import — only when actually sending
+        resend.api_key = settings.RESEND_API_KEY
+        try:
+            response = resend.Emails.send({
+                "from": settings.RESEND_FROM_EMAIL,
+                "to": [to_email],
+                "subject": subject,
+                "html": html,
+            })
+        except Exception as e:
+            logger.error("Resend verification send failed: %s: %s", type(e).__name__, str(e))
+            raise
+        return response.get("id", "") if isinstance(response, dict) else str(response)
+
+    email_id = await asyncio.to_thread(_send)
+    logger.info("Verification email sent — to=%s email_id=%s lang=%s", to_email, email_id, lang)
+    return email_id
+
+
 async def send_email_brief(to_email: str, brief: dict, lang: str = "tr") -> str:
     """
     Render and send the weekly money-brief email. Returns the Resend email id.

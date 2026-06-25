@@ -69,6 +69,7 @@ class AdminUserRow(BaseModel):
     onboarding_completed: bool
     language: str
     display_currency: str
+    plan: str
     created_at: str
     last_email_brief_sent: str | None
     transaction_count: int
@@ -90,6 +91,9 @@ class AdminUserDetail(BaseModel):
     language: str
     display_currency: str
     email_weekly_enabled: bool
+    email_verified: bool
+    plan: str
+    plan_expires_at: str | None
     created_at: str
     last_email_brief_sent: str | None
     transaction_count: int
@@ -155,6 +159,9 @@ class AdminUserProfile(BaseModel):
     language: str
     display_currency: str
     email_weekly_enabled: bool
+    email_verified: bool
+    plan: str
+    plan_expires_at: str | None
     created_at: str
     last_email_brief_sent: str | None
     last_activity: str | None
@@ -195,6 +202,7 @@ class AdminTxnPage(BaseModel):
 class UpdateUserRequest(BaseModel):
     is_admin: bool | None = None
     onboarding_completed: bool | None = None
+    plan: str | None = None  # "free" | "plus" | "pro"
 
 
 class SystemResponse(BaseModel):
@@ -320,6 +328,7 @@ async def list_users(
             onboarding_completed=u.onboarding_completed,
             language=u.language,
             display_currency=u.display_currency,
+            plan=u.plan,
             created_at=u.created_at.isoformat(),
             last_email_brief_sent=_iso(u.last_email_brief_sent),
             transaction_count=tx_counts.get(u.id, 0),
@@ -358,6 +367,9 @@ async def user_detail(
         language=user.language,
         display_currency=user.display_currency,
         email_weekly_enabled=user.email_weekly_enabled,
+        email_verified=user.email_verified,
+        plan=user.plan,
+        plan_expires_at=_iso(user.plan_expires_at),
         created_at=user.created_at.isoformat(),
         last_email_brief_sent=_iso(user.last_email_brief_sent),
         transaction_count=await _scalar(session, select(func.count(Transaction.id)).where(Transaction.user_id == uid)),
@@ -490,6 +502,9 @@ async def user_profile(
         language=user.language,
         display_currency=user.display_currency,
         email_weekly_enabled=user.email_weekly_enabled,
+        email_verified=user.email_verified,
+        plan=user.plan,
+        plan_expires_at=_iso(user.plan_expires_at),
         created_at=user.created_at.isoformat(),
         last_email_brief_sent=_iso(user.last_email_brief_sent),
         last_activity=last_activity,
@@ -565,11 +580,20 @@ async def update_user(
         user.is_admin = body.is_admin
     if body.onboarding_completed is not None:
         user.onboarding_completed = body.onboarding_completed
+    if body.plan is not None:
+        from app.core.plans import VALID_PLANS
+        if body.plan not in VALID_PLANS:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="plan must be free, plus or pro.")
+        if body.plan != user.plan:
+            _audit(admin, "plan_changed", user, session, old_plan=user.plan, new_plan=body.plan)
+        user.plan = body.plan
+        # An admin-set plan has no expiry — it's a manual grant, not a billing event.
+        user.plan_expires_at = None
 
     session.add(user)
     await session.commit()
-    logger.info("Admin %s updated user %s (is_admin=%s, onboarding=%s)",
-                admin.id, user.id, body.is_admin, body.onboarding_completed)
+    logger.info("Admin %s updated user %s (is_admin=%s, onboarding=%s, plan=%s)",
+                admin.id, user.id, body.is_admin, body.onboarding_completed, body.plan)
     return await user_detail(user_id, admin, session)
 
 

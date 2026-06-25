@@ -193,7 +193,7 @@ export default function AdminPage() {
   const closeProfile = useCallback(() => { setProfileId(null); setProfile(null); }, []);
 
   // ── mutations ──
-  const patchUser = useCallback(async (id: string, patch: { is_admin?: boolean; onboarding_completed?: boolean }) => {
+  const patchUser = useCallback(async (id: string, patch: { is_admin?: boolean; onboarding_completed?: boolean; plan?: string }) => {
     setBusy(true);
     try {
       await updateAdminUser(id, patch);
@@ -370,6 +370,7 @@ export default function AdminPage() {
                   <div className="flex flex-wrap gap-1">
                     {u.id === founderId ? <Badge tone="founder">founder</Badge> : u.is_admin ? <Badge tone="admin">admin</Badge> : null}
                     <Badge tone={u.onboarding_completed ? "ok" : "muted"}>{u.onboarding_completed ? "onboarded" : "new"}</Badge>
+                    {u.plan !== "free" && <Badge tone="admin">{u.plan}</Badge>}
                   </div>
                 </td>
                 <td className="px-3 py-2.5">
@@ -432,6 +433,8 @@ export default function AdminPage() {
                           <Badge tone={profile.onboarding_completed ? "ok" : "muted"}>{profile.onboarding_completed ? "onboarded" : "not onboarded"}</Badge>
                           <Badge tone="muted">{profile.language.toUpperCase()} · {profile.display_currency}</Badge>
                           <Badge tone={profile.email_weekly_enabled ? "ok" : "muted"}>weekly email {profile.email_weekly_enabled ? "on" : "off"}</Badge>
+                          <Badge tone={profile.plan === "free" ? "muted" : "admin"}>{profile.plan}</Badge>
+                          <Badge tone={profile.email_verified ? "ok" : "muted"}>{profile.email_verified ? "verified" : "unverified"}</Badge>
                         </div>
                       </div>
                     </div>
@@ -446,6 +449,22 @@ export default function AdminPage() {
                         className="px-3 py-1.5 rounded-lg text-xs font-medium border border-line hover:bg-surface text-ink-soft transition-colors disabled:opacity-40">
                         {profile.onboarding_completed ? "Reset onboarding" : "Mark onboarded"}
                       </button>
+                      {/* Plan: free / plus / pro — active tier highlighted */}
+                      <div className="flex items-center rounded-lg border border-line overflow-hidden text-xs font-medium">
+                        <span className="px-2 py-1.5 text-ink-mute border-r border-line">plan</span>
+                        {(["free", "plus", "pro"] as const).map((p) => (
+                          <button
+                            key={p}
+                            onClick={() => patchUser(profile.id, { plan: p })}
+                            disabled={busy || profile.plan === p}
+                            className={`px-2.5 py-1.5 transition-colors ${
+                              profile.plan === p ? "bg-brand text-white" : "text-ink-soft hover:bg-surface"
+                            } disabled:opacity-60`}
+                          >
+                            {p}
+                          </button>
+                        ))}
+                      </div>
                       <button onClick={() => setDeleteTarget({ id: profile.id, email: profile.email })} disabled={profile.id === meId}
                         className="px-3 py-1.5 rounded-lg text-xs font-medium border border-red-900/50 text-danger hover:bg-red-950/30 transition-colors disabled:opacity-30">Delete</button>
                     </div>
