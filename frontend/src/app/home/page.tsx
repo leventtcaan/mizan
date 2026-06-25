@@ -113,6 +113,10 @@ export default function HomePage() {
   const expenses = cashflow ? parseFloat(cashflow.month_expenses_actual) || 0 : 0;
   const net = income - expenses;
   const netWorth = summary?.net_worth_try ?? 0;
+  // Dashboard emphasis: business leads with cash flow + receivables, personal with
+  // spending + net worth + the simulator.
+  const isBusiness = getStoredUser()?.account_type === "business";
+  const receivablesVal = summary?.pending_receivables_try ?? 0;
   const hasData = (summary != null && (summary.total_assets_try > 0 || summary.total_liabilities_try > 0)) || income > 0 || expenses > 0;
   const displayName = name ? name.charAt(0).toUpperCase() + name.slice(1) : "";
 
@@ -350,18 +354,31 @@ export default function HomePage() {
             <p className={`font-bold tabular-nums text-base sm:text-xl mt-0.5 ${net >= 0 ? "text-ink" : "text-neg"}`}>{net >= 0 ? "+" : "−"}{fmt(Math.abs(net))}</p>
             <p className="text-[10px] text-ink-mute mt-1.5 truncate">{t("home.daily.fromTransactions")}</p>
           </Link>
+          {/* Business: receivables (who owes you) is the second-most important number,
+              so it takes the middle slot ahead of the simulator. */}
+          {isBusiness && (
+            <Link href="/networth" className="rounded-2xl bg-surface border border-line hover:border-[#176B5B]/60 hover:-translate-y-0.5 hover:shadow-md p-4 sm:p-5 transition-all">
+              <span className="inline-flex items-center justify-center w-9 h-9 rounded-xl bg-warn/10 mb-3"><Wallet size={17} className="text-warn" /></span>
+              <p className="text-ink-mute text-[11px]">{t("nw.receivables")}</p>
+              <p className="font-bold tabular-nums text-base sm:text-xl mt-0.5 text-ink">{fmt(receivablesVal)}</p>
+              <p className="text-[10px] text-ink-mute mt-1.5 truncate">{t("home.daily.asOfToday")}</p>
+            </Link>
+          )}
           <Link href="/networth" className="rounded-2xl bg-surface border border-line hover:border-[#176B5B]/60 hover:-translate-y-0.5 hover:shadow-md p-4 sm:p-5 transition-all">
             <span className="inline-flex items-center justify-center w-9 h-9 rounded-xl bg-[#176B5B]/10 mb-3"><Scale size={17} className="text-[#176B5B]" /></span>
             <p className="text-ink-mute text-[11px]">{t("home.daily.netWorth")}</p>
             <p className={`font-bold tabular-nums text-base sm:text-xl mt-0.5 ${netWorth >= 0 ? "text-ink" : "text-neg"}`}>{fmt(netWorth)}</p>
             <p className="text-[10px] text-ink-mute mt-1.5 truncate">{t("home.daily.asOfToday")}</p>
           </Link>
-          <Link href="/simulator" className="rounded-2xl bg-surface border border-line hover:border-[#176B5B]/60 hover:-translate-y-0.5 hover:shadow-md p-4 sm:p-5 transition-all group">
-            <span className="inline-flex items-center justify-center w-9 h-9 rounded-xl bg-[#176B5B]/10 mb-3"><Sparkles size={17} className="text-[#176B5B]" /></span>
-            <p className="text-ink-mute text-[11px]">{t("home.daily.simulate")}</p>
-            <p className="text-ink-soft text-sm font-medium mt-0.5">{t("home.daily.simulateHint")}</p>
-            <p className="text-[10px] text-[#176B5B] mt-1.5 inline-flex items-center gap-0.5 group-hover:gap-1.5 transition-all">{t("home.daily.simulate")} <ArrowRight size={11} /></p>
-          </Link>
+          {/* Personal: the simulator gets the third slot. */}
+          {!isBusiness && (
+            <Link href="/simulator" className="rounded-2xl bg-surface border border-line hover:border-[#176B5B]/60 hover:-translate-y-0.5 hover:shadow-md p-4 sm:p-5 transition-all group">
+              <span className="inline-flex items-center justify-center w-9 h-9 rounded-xl bg-[#176B5B]/10 mb-3"><Sparkles size={17} className="text-[#176B5B]" /></span>
+              <p className="text-ink-mute text-[11px]">{t("home.daily.simulate")}</p>
+              <p className="text-ink-soft text-sm font-medium mt-0.5">{t("home.daily.simulateHint")}</p>
+              <p className="text-[10px] text-[#176B5B] mt-1.5 inline-flex items-center gap-0.5 group-hover:gap-1.5 transition-all">{t("home.daily.simulate")} <ArrowRight size={11} /></p>
+            </Link>
+          )}
         </div>
 
         {/* 4 — Quick actions: real buttons, not afterthoughts */}

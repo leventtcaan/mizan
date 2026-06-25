@@ -36,10 +36,17 @@ export interface StoredUser {
   plan?: string;
   // First-impression profile, captured at registration. Stored locally so the app
   // can personalize (greet by name, tailor copy for personal vs business) from the
-  // very first screen without an extra backend round-trip.
+  // very first screen without an extra backend round-trip. full_name/country/
+  // primary_goal also persist server-side (see TokenResponse / preferences).
   display_name?: string;
   account_type?: "personal" | "business";
+  country?: string;
+  primary_goal?: string;
 }
+
+// The version of the Terms/Privacy the current build presents. Sent on register and
+// stored server-side (with a timestamp) so consent is provably tied to a policy version.
+export const TOS_VERSION = "1.0";
 
 export function getStoredUser(): StoredUser | null {
   if (typeof window === "undefined") return null;
@@ -104,6 +111,18 @@ export function detectBrowserCurrency(): string {
   return "USD";
 }
 
+/** Best-effort ISO 3166-1 alpha-2 country from the browser locale (e.g. "en-GB" → "GB").
+ * Used only to pre-select the registration country; the user can change it. */
+export function detectBrowserCountry(): string {
+  if (typeof navigator === "undefined") return "";
+  const candidates = navigator.languages?.length ? navigator.languages : [navigator.language];
+  for (const c of candidates) {
+    const region = c?.split("-")[1]?.toUpperCase();
+    if (region && region.length === 2) return region;
+  }
+  return "";
+}
+
 /** The user's preferred display currency — single source of truth across the app. */
 export function getDefaultCurrency(): string {
   return getStoredUser()?.display_currency || detectBrowserCurrency();
@@ -158,6 +177,9 @@ export interface TokenResponse {
   is_admin: boolean;
   email_verified: boolean;
   plan: string;
+  full_name?: string | null;
+  country?: string | null;
+  primary_goal?: string | null;
 }
 
 export interface UserResponse {
@@ -170,6 +192,10 @@ export interface UserResponse {
   is_admin: boolean;
   email_verified: boolean;
   plan: string;
+  full_name?: string | null;
+  country?: string | null;
+  marketing_consent?: boolean;
+  primary_goal?: string | null;
 }
 
 export async function getMe(): Promise<UserResponse> {
@@ -182,6 +208,10 @@ export async function updatePreferences(prefs: {
   language?: string;
   email_weekly_enabled?: boolean;
   display_currency?: string;
+  full_name?: string;
+  country?: string;
+  marketing_consent?: boolean;
+  primary_goal?: string;
 }): Promise<UserResponse> {
   const response = await fetch(`${API_BASE_URL}/auth/preferences`, {
     method: "POST",
@@ -380,7 +410,15 @@ export async function checkHealth(): Promise<HealthResponse> {
   return response.json() as Promise<HealthResponse>;
 }
 
-export async function register(email: string, password: string): Promise<TokenResponse> {
+export interface RegisterOptions {
+  full_name?: string;
+  country?: string;
+  marketing_consent?: boolean;
+  tos_accepted?: boolean;
+  tos_version?: string;
+}
+
+export async function register(email: string, password: string, opts: RegisterOptions = {}): Promise<TokenResponse> {
   const response = await fetch(`${API_BASE_URL}/auth/register`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -391,6 +429,11 @@ export async function register(email: string, password: string): Promise<TokenRe
       password,
       language: detectBrowserLang(),
       display_currency: detectBrowserCurrency(),
+      full_name: opts.full_name,
+      country: opts.country,
+      marketing_consent: opts.marketing_consent ?? false,
+      tos_accepted: opts.tos_accepted ?? false,
+      tos_version: opts.tos_version,
     }),
   });
   if (!response.ok) {

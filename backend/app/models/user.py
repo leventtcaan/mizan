@@ -150,6 +150,29 @@ class User(Base):
         nullable=True,
     )
 
+    # ── Registration profile (captured at signup / enriched in onboarding) ──
+    # WHY full_name: personalization (greet by name) + a future requirement for
+    # billing/invoicing. Nullable — name is optional at signup.
+    full_name: Mapped[str | None] = mapped_column(String(120), nullable=True)
+
+    # WHY country: ISO 3166-1 alpha-2 residence code. Drives default currency/formatting,
+    # localization roadmap, and — critically — which privacy regime applies (GDPR/KVKK/…).
+    # Cannot be reliably inferred from IP, so we ask once at signup.
+    country: Mapped[str | None] = mapped_column(String(2), nullable=True)
+
+    # ── Consent (compliance-critical, must be auditable) ──
+    # WHY: GDPR/KVKK require marketing consent to be explicit, unbundled and OFF by
+    # default; ToS acceptance must be provable with a timestamp + the policy version.
+    marketing_consent: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default=text("false"),
+    )
+    tos_accepted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    tos_version: Mapped[str | None] = mapped_column(String(20), nullable=True)
+
+    # WHY: The user's primary intent ("understand_spending", "manage_cashflow", …).
+    # Asked once in onboarding; powers dashboard emphasis, Mim's framing and BI cohorts.
+    primary_goal: Mapped[str | None] = mapped_column(String(40), nullable=True)
+
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         nullable=False,

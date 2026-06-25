@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
   getStoredUser, setStoredUser, completeOnboarding,
-  uploadStatement, analyzeOnboarding, isPaidPlan,
+  uploadStatement, updatePreferences, isPaidPlan,
   type UploadResponse,
 } from "@/lib/api";
 import { FileText, ArrowRight, CheckCircle, Plus, Sparkles } from "@/components/ui/Icons";
@@ -63,10 +63,8 @@ export default function OnboardingPage() {
   const [manualCount, setManualCount] = useState(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const [analyzing, setAnalyzing] = useState(false);
-  const [summary, setSummary] = useState<string | null>(null);
+  const [goal, setGoal] = useState<string>("");
   const [finishing, setFinishing] = useState(false);
-  const analyzedRef = useRef(false);
 
   const successUploads = uploads.filter((u) => u.result.status === "success");
   const hasStatement = successUploads.length > 0;
@@ -125,24 +123,21 @@ export default function OnboardingPage() {
     }
   };
 
-  // Step 2 (no-statement welcome). The AI "first impression" is a real LLM read and
-  // is reserved for paid plans — free users see Mim's presence + an upsell instead of
-  // an AI call. (With a statement, the flow routes through /review → /brief earlier.)
-  useEffect(() => {
-    if (step !== 2 || analyzedRef.current) return;
-    analyzedRef.current = true;
-    if (!hasStatement || !paid) { setSummary(null); return; }
-    setAnalyzing(true);
-    analyzeOnboarding({
-      has_statement: true, parsed_income: parsedIncome, parsed_expenses: parsedExpenses, currency, lang,
-    })
-      .then((res) => setSummary(res.summary))
-      .catch(() => setSummary(null))
-      .finally(() => setAnalyzing(false));
-  }, [step, hasStatement, parsedIncome, parsedExpenses, currency, lang, paid]);
+  // Step 1 always advances to the goal step (step 2). The real AI read happens later
+  // in /brief (statement path), never here — so onboarding makes no LLM call.
+  const next = () => { setError(null); setStep(2); };
+  const back = () => { setError(null); setStep(1); };
 
-  const next = async () => {
+  // Save the chosen goal (server + local), then route: a parsed statement goes through
+  // /review → /brief (which marks onboarding done); otherwise finish straight to Home.
+  const finishOnboarding = async () => {
+    setFinishing(true);
     setError(null);
+    if (goal) {
+      try { await updatePreferences({ primary_goal: goal }); } catch { /* non-blocking */ }
+      const u = getStoredUser();
+      if (u) setStoredUser({ ...u, primary_goal: goal });
+    }
     if (hasStatement) {
       const ids = successUploads.map((u) => u.result.job_id).join(",");
       const inferred = successUploads
@@ -153,17 +148,21 @@ export default function OnboardingPage() {
       router.push(`/review?${q.toString()}`);
       return;
     }
-    setStep(2);
+    await markDone();
+    router.push("/home");
   };
-  const back = () => { setError(null); analyzedRef.current = false; setSummary(null); setStep(1); };
+
+  const goalKeys = accountType === "business"
+    ? ["manage_cashflow", "track_receivables", "reduce_costs", "grow_business", "track_everything"]
+    : ["understand_spending", "pay_off_debt", "grow_net_worth", "save_more", "track_everything"];
 
   const greet = name ? `${name}, ` : "";
   const mimS1 = lang === "tr"
     ? `${greet}${accountType === "business" ? "ekstre veya hesap dökümü" : "banka ekstreni"} yükle — saniyeler içinde okuyup panona dökeyim.`
     : `${greet}drop a ${accountType === "business" ? "statement or export" : "bank statement"} and I'll read it into your dashboard in seconds.`;
   const mimS2 = lang === "tr"
-    ? "Sorun değil — istediğin zaman ekleyebilirsin. Buradayım."
-    : "No problem — you can add one anytime. I'm right here when you're ready.";
+    ? "Son bir şey: en çok neye odaklanalım? Panonu buna göre düzenleyeceğim."
+    : "One last thing: what should we focus on? I'll shape your dashboard around it.";
 
   const progressPct = (step / STEP_COUNT) * 100;
 
@@ -269,32 +268,39 @@ export default function OnboardingPage() {
           </div>
         )}
 
-        {/* STEP 2 — FIRST IMPRESSION (paid) / welcome + AI upsell (free) */}
+        {/* STEP 2 — GOAL (tailored by account type) + free-tier AI upsell */}
         {step === 2 && (
           <div>
-            <h2 className="text-2xl font-bold mb-4">{hasStatement && paid ? t("onboarding.flow.impressionTitle") : t("onboarding.flow.welcomeTitle")}</h2>
+            <h2 className="text-2xl font-bold mb-1.5">
+              {accountType === "business" ? t("setup.goalTitleBusiness") : t("setup.goalTitlePersonal")}
+            </h2>
+            <p className="text-ink-mute text-sm mb-5">{t("setup.goalSub")}</p>
 
-            {hasStatement && paid ? (
-              analyzing ? (
-                <div className="space-y-3 mb-6">
-                  <div className="h-3 w-full bg-surface-2 rounded animate-pulse" />
-                  <div className="h-3 w-2/3 bg-surface-2 rounded animate-pulse" />
-                  <p className="text-ink-mute text-sm">{t("onboarding.flow.analyzing")}</p>
-                </div>
-              ) : (
-                <div className="mb-6 p-4 rounded-xl bg-[#176B5B]/[0.06] border border-[#176B5B]/30">
-                  <p className="text-ink-soft text-sm leading-relaxed">{summary || t("onboarding.flow.impressionFallback")}</p>
-                </div>
-              )
-            ) : (
-              <div className="mb-6 p-4 rounded-xl bg-surface border border-line">
-                <p className="text-ink-soft text-sm leading-relaxed">{t("onboarding.flow.welcomeBody")}</p>
-              </div>
-            )}
+            <div className="space-y-2 mb-5">
+              {goalKeys.map((k) => {
+                const active = goal === k;
+                return (
+                  <button
+                    key={k}
+                    type="button"
+                    onClick={() => setGoal(k)}
+                    aria-pressed={active}
+                    className={`w-full flex items-center justify-between gap-3 text-left px-4 py-3 rounded-xl border transition-colors ${
+                      active ? "border-[#176B5B] bg-[#176B5B]/[0.07]" : "border-line hover:border-[#176B5B]/50"
+                    }`}
+                  >
+                    <span className={`text-sm ${active ? "text-[#176B5B] font-semibold" : "text-ink-soft"}`}>
+                      {t(`setup.goal.${k}`)}
+                    </span>
+                    {active && <CheckCircle size={16} className="text-[#176B5B] shrink-0" />}
+                  </button>
+                );
+              })}
+            </div>
 
-            {/* Free-tier: show what AI would do, motivate upgrade — no LLM call made */}
+            {/* Free-tier: show what AI would add, motivate upgrade — no LLM call made */}
             {!paid && (
-              <div className="mb-6 rounded-xl border border-[#176B5B]/30 bg-[#176B5B]/[0.06] p-4">
+              <div className="mb-5 rounded-xl border border-[#176B5B]/30 bg-[#176B5B]/[0.06] p-4">
                 <div className="flex items-center gap-2 mb-1.5">
                   <Sparkles size={16} className="text-[#176B5B] shrink-0" />
                   <p className="text-sm font-semibold text-ink">{t("setup.freeAiTitle")}</p>
@@ -312,7 +318,7 @@ export default function OnboardingPage() {
               <button onClick={back} disabled={finishing} className="flex-1 py-3.5 rounded-xl bg-surface border border-line hover:bg-surface-2 font-semibold transition-colors text-ink-soft disabled:opacity-50">
                 ← {t("common.back")}
               </button>
-              <button onClick={goHome} disabled={finishing || analyzing} className="flex-[2] py-3.5 rounded-xl bg-[#176B5B] hover:bg-[#125848] text-white disabled:opacity-50 font-semibold transition-colors flex items-center justify-center gap-2">
+              <button onClick={finishOnboarding} disabled={finishing} className="flex-[2] py-3.5 rounded-xl bg-[#176B5B] hover:bg-[#125848] text-white disabled:opacity-50 font-semibold transition-colors flex items-center justify-center gap-2">
                 {finishing ? t("onboarding.flow.creating") : <>{t("onboarding.flow.seeDashboard")} <ArrowRight size={18} /></>}
               </button>
             </div>

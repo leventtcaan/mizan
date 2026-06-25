@@ -3,10 +3,11 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { login, register, setToken, setStoredUser, getStoredUser, detectBrowserCurrency } from "@/lib/api";
+import { login, register, setToken, setStoredUser, getStoredUser, detectBrowserCurrency, detectBrowserCountry, TOS_VERSION } from "@/lib/api";
 import { useLanguage, setLanguage, detectBrowserLang, type Lang } from "@/lib/i18n";
 import ThemeToggle from "@/components/ui/ThemeToggle";
 import MimGuide from "@/components/companion/MimGuide";
+import CountrySelect from "@/components/CountrySelect";
 import { Sparkles, Home as HomeIcon, Briefcase } from "@/components/ui/Icons";
 
 type Mode = "login" | "register";
@@ -25,6 +26,9 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
   const [accountType, setAccountType] = useState<AccountType>("personal");
+  const [country, setCountry] = useState("");
+  const [tosAccepted, setTosAccepted] = useState(false);
+  const [marketing, setMarketing] = useState(false);
   const [state, setState] = useState<FormState>("idle");
   const [errorMsg, setErrorMsg] = useState("");
   // A paid plan chosen on the landing pricing section (?plan=plus|pro).
@@ -36,6 +40,7 @@ export default function LoginPage() {
     if (params.get("mode") === "register") setMode("register");
     const p = params.get("plan");
     if (p === "plus" || p === "pro") setSelectedPlan(p);
+    setCountry(detectBrowserCountry()); // pre-select; user can change
   }, []);
 
   const switchMode = (next: Mode) => {
@@ -47,12 +52,24 @@ export default function LoginPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    // Consent gate (register only) — required, and unbundled from marketing.
+    if (mode === "register" && !tosAccepted) {
+      setErrorMsg(t("setup.tosError"));
+      setState("error");
+      return;
+    }
     setState("loading");
     setErrorMsg("");
     try {
       const result = mode === "login"
         ? await login(email, password)
-        : await register(email, password);
+        : await register(email, password, {
+            full_name: name.trim() || undefined,
+            country: country || undefined,
+            marketing_consent: marketing,
+            tos_accepted: tosAccepted,
+            tos_version: TOS_VERSION,
+          });
       setToken(result.access_token);
       const resolvedLang: Lang = (result.language === "tr" || result.language === "en")
         ? result.language
@@ -67,8 +84,10 @@ export default function LoginPage() {
         onboarding_completed: result.onboarding_completed,
         language: resolvedLang, display_currency: resolvedCurrency,
         is_admin: result.is_admin ?? false, email_verified: result.email_verified, plan: result.plan,
-        display_name: mode === "register" ? (name.trim() || undefined) : prior?.display_name,
+        display_name: mode === "register" ? (name.trim() || undefined) : (result.full_name ?? prior?.display_name),
         account_type: mode === "register" ? accountType : prior?.account_type,
+        country: mode === "register" ? (country || undefined) : (result.country ?? prior?.country),
+        primary_goal: result.primary_goal ?? prior?.primary_goal,
       });
       setLanguage(resolvedLang);
       if (mode === "register" && selectedPlan) {
@@ -241,6 +260,55 @@ export default function LoginPage() {
                       );
                     })}
                   </div>
+                </div>
+              )}
+
+              {/* Country — register only; required (currency + privacy regime) */}
+              {isRegister && (
+                <div>
+                  <label className="block text-xs text-ink-mute mb-1.5 uppercase tracking-wide">{t("setup.countryLabel")}</label>
+                  <CountrySelect value={country} onChange={setCountry} placeholder={t("setup.countryPlaceholder")} />
+                </div>
+              )}
+
+              {/* Consent — register only. ToS required + unbundled from marketing (GDPR/KVKK). */}
+              {isRegister && (
+                <div className="space-y-2.5 pt-1">
+                  <label className="flex items-start gap-2.5 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={tosAccepted}
+                      onChange={(e) => setTosAccepted(e.target.checked)}
+                      className="mt-0.5 w-4 h-4 shrink-0 accent-[#176B5B]"
+                    />
+                    <span className="text-ink-soft text-xs leading-relaxed">
+                      {lang === "tr" ? (
+                        <>
+                          <Link href="/terms" target="_blank" className="text-[#176B5B] hover:underline font-medium">{t("setup.terms")}</Link>
+                          {" ve "}
+                          <Link href="/privacy" target="_blank" className="text-[#176B5B] hover:underline font-medium">{t("setup.privacy")}</Link>
+                          {"'nı okudum ve kabul ediyorum."}
+                        </>
+                      ) : (
+                        <>
+                          {"I agree to the "}
+                          <Link href="/terms" target="_blank" className="text-[#176B5B] hover:underline font-medium">{t("setup.terms")}</Link>
+                          {" and "}
+                          <Link href="/privacy" target="_blank" className="text-[#176B5B] hover:underline font-medium">{t("setup.privacy")}</Link>
+                          {"."}
+                        </>
+                      )}
+                    </span>
+                  </label>
+                  <label className="flex items-start gap-2.5 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={marketing}
+                      onChange={(e) => setMarketing(e.target.checked)}
+                      className="mt-0.5 w-4 h-4 shrink-0 accent-[#176B5B]"
+                    />
+                    <span className="text-ink-mute text-xs leading-relaxed">{t("setup.marketing")}</span>
+                  </label>
                 </div>
               )}
 
