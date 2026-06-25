@@ -9,14 +9,16 @@ BREAKS IF REMOVED: The /reports page has no data and no CSV export.
 
 import logging
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, Response
 from fastapi.responses import PlainTextResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_session
 from app.core.dependencies import get_current_user
 from app.models.user import User
-from app.services.report import build_report, build_transactions_csv
+from app.services.report import build_report, build_report_xlsx, build_transactions_csv
+
+_XLSX_MEDIA = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 
 logger = logging.getLogger(__name__)
 
@@ -54,5 +56,23 @@ async def transactions_csv(
     return PlainTextResponse(
         content=csv_text,
         media_type="text/csv",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
+@router.get("/financial.xlsx")
+async def financial_report_xlsx(
+    period: str = Query(default="this_month"),
+    display_currency: str = Query(default="TRY"),
+    lang: str = Query(default="tr"),
+    current_user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
+) -> Response:
+    """Multi-sheet Excel workbook of the report (summary + holdings + transactions)."""
+    data = await build_report_xlsx(current_user.id, session, _period(period), display_currency, lang)
+    filename = f"mizan-report-{_period(period)}.xlsx"
+    return Response(
+        content=data,
+        media_type=_XLSX_MEDIA,
         headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )

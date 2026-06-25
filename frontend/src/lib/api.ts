@@ -626,21 +626,43 @@ export async function getFinancialReport(period: string, displayCurrency = "TRY"
   return r.json() as Promise<FinancialReport>;
 }
 
+// Trigger a browser download from a Blob. The object URL is revoked on a later
+// tick — revoking synchronously after click() cancels the download in some
+// browsers (Firefox/Safari), which is the classic "nothing happens" bug.
+function triggerBlobDownload(blob: Blob, filename: string): void {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  a.rel = "noopener";
+  a.style.display = "none";
+  document.body.appendChild(a);
+  a.click();
+  setTimeout(() => {
+    a.remove();
+    URL.revokeObjectURL(url);
+  }, 1500);
+}
+
 export async function downloadTransactionsCsv(period: string, displayCurrency = "TRY"): Promise<void> {
   const r = await fetch(
     `${API_BASE_URL}/reports/transactions.csv?period=${period}&display_currency=${displayCurrency}`,
     { headers: authHeaders() },
   );
   if (!r.ok) throw new Error(`Failed to export CSV: ${r.status}`);
+  // Tag the blob as CSV so the OS associates the right app.
+  const blob = new Blob([await r.blob()], { type: "text/csv;charset=utf-8" });
+  triggerBlobDownload(blob, `mizan-transactions-${period}.csv`);
+}
+
+export async function downloadReportXlsx(period: string, displayCurrency = "TRY", lang = "tr"): Promise<void> {
+  const r = await fetch(
+    `${API_BASE_URL}/reports/financial.xlsx?period=${period}&display_currency=${displayCurrency}&lang=${lang}`,
+    { headers: authHeaders() },
+  );
+  if (!r.ok) throw new Error(`Failed to export Excel: ${r.status}`);
   const blob = await r.blob();
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = `mizan-transactions-${period}.csv`;
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  URL.revokeObjectURL(url);
+  triggerBlobDownload(blob, `mizan-report-${period}.xlsx`);
 }
 
 export async function getBatches(): Promise<BatchSummary[]> {

@@ -332,6 +332,152 @@ def _exec_summary(lang, ccy, net_worth, nw_change, estimated, income, expense, n
 
 # ── CSV appendix ─────────────────────────────────────────────────────────────
 
+# ── Excel workbook ───────────────────────────────────────────────────────────
+
+async def build_report_xlsx(
+    user_id: uuid.UUID, session: AsyncSession, period_key: str, ccy: str, lang: str,
+) -> bytes:
+    """Multi-sheet .xlsx workbook of the same report — for accountants / analysts.
+
+    Reuses build_report() for the structured figures and re-queries the raw
+    transactions for the appendix sheet. openpyxl is already a dependency.
+    """
+    from openpyxl import Workbook
+    from openpyxl.styles import Alignment, Font, PatternFill
+    from openpyxl.utils import get_column_letter
+
+    report = await build_report(user_id, session, period_key, ccy, lang)
+    ccy = ccy.upper()
+    num_fmt = "#,##0"
+
+    header_fill = PatternFill("solid", fgColor="0F5C5E")
+    header_font = Font(bold=True, color="FFFFFF")
+    title_font = Font(bold=True, size=14, color="0F5C5E")
+    label_font = Font(bold=True)
+
+    wb = Workbook()
+
+    def _style_header(ws, ncols: int, row: int = 1) -> None:
+        for c in range(1, ncols + 1):
+            cell = ws.cell(row=row, column=c)
+            cell.fill = header_fill
+            cell.font = header_font
+            cell.alignment = Alignment(horizontal="left", vertical="center")
+        ws.freeze_panes = ws.cell(row=row + 1, column=1)
+
+    def _autosize(ws, widths: list[int]) -> None:
+        for i, w in enumerate(widths, start=1):
+            ws.column_dimensions[get_column_letter(i)].width = w
+
+    def _table(ws, headers: list[str], rows: list[list], widths: list[int],
+               money_cols: tuple[int, ...] = (), pct_cols: tuple[int, ...] = ()) -> None:
+        ws.append(headers)
+        _style_header(ws, len(headers))
+        for r in rows:
+            ws.append(r)
+        for ri in range(2, len(rows) + 2):
+            for c in money_cols:
+                ws.cell(row=ri, column=c).number_format = num_fmt
+            for c in pct_cols:
+                ws.cell(row=ri, column=c).number_format = '0"%"'
+        _autosize(ws, widths)
+
+    # ── Summary ──
+    nw, cf, meta = report["net_worth"], report["cash_flow"], report["meta"]
+    ws = wb.active
+    ws.title = "Summary"
+    ws["A1"] = "Mizan · Financial Report"
+    ws["A1"].font = title_font
+    ws["A2"] = meta["period_label"]
+    ws["A3"] = f"Currency: {ccy}   ·   Generated: {meta['generated_at'][:10]}"
+    ws["A3"].font = Font(color="64748B")
+    ws["A5"] = report["summary"]
+    ws["A5"].alignment = Alignment(wrap_text=True, vertical="top")
+    ws.merge_cells("A5:D7")
+
+    rows = [
+        ("Net worth", nw["net_worth"]),
+        ("Total assets", nw["total_assets"]),
+        ("Total liabilities", nw["total_liabilities"]),
+        ("Pending receivables", nw["pending_receivables"]),
+        ("Income", cf["income"]),
+        ("Expenses", cf["expenses"]),
+        ("Net cash flow", cf["net"]),
+    ]
+    if nw["opening"] is not None:
+        rows += [("Opening net worth", nw["opening"]), ("Closing net worth", nw["closing"]), ("Net change", nw["change"])]
+    start_row = 9
+    ws.cell(row=start_row, column=1, value="Metric").font = header_font
+    ws.cell(row=start_row, column=2, value=f"Amount ({ccy})").font = header_font
+    for c in (1, 2):
+        ws.cell(row=start_row, column=c).fill = header_fill
+    for i, (label, val) in enumerate(rows, start=start_row + 1):
+        ws.cell(row=i, column=1, value=label).font = label_font
+        vc = ws.cell(row=i, column=2, value=val)
+        vc.number_format = num_fmt
+    _autosize(ws, [26, 20])
+
+    # ── Holdings ──
+    ws = wb.create_sheet("Holdings")
+    _table(ws, ["Name", "Type", f"Value ({ccy})"],
+           [[a["name"], a["type"], a["value"]] for a in report["assets"]],
+           [34, 22, 18], money_cols=(3,))
+
+    # ── Liabilities ──
+    ws = wb.create_sheet("Liabilities")
+    _table(ws, ["Name", f"Remaining ({ccy})", f"Monthly ({ccy})", "Rate %"],
+           [[l["name"], l["remaining"], l.get("monthly_payment") or 0, l.get("rate")] for l in report["liabilities"]],
+           [34, 20, 18, 10], money_cols=(2, 3))
+
+    # ── Receivables ──
+    if report["receivables"]:
+        ws = wb.create_sheet("Receivables")
+        _table(ws, ["From", f"Amount ({ccy})", "Expected date"],
+               [[r["from_person"], r["amount"], r.get("expected_date") or ""] for r in report["receivables"]],
+               [30, 18, 16], money_cols=(2,))
+
+    # ── Cash flow categories ──
+    ws = wb.create_sheet("Cash Flow")
+    _table(ws, ["Category", f"Amount ({ccy})", "Share %"],
+           [[c["name"], c["amount"], round(c["share"])] for c in cf["top_categories"]],
+           [28, 18, 12], money_cols=(2,), pct_cols=(3,))
+
+    # ── Currency mix ──
+    if len(report["currency_mix"]) > 1:
+        ws = wb.create_sheet("Currency Mix")
+        _table(ws, ["Currency", f"Value ({ccy})", "Share %"],
+               [[c["code"], c["value"], round(c["share"])] for c in report["currency_mix"]],
+               [14, 20, 12], money_cols=(2,), pct_cols=(3,))
+
+    # ── Transactions appendix ──
+    start, end, _ = resolve_period(period_key)
+    cache: dict[str, float] = {}
+    stmt = select(Transaction).where(Transaction.user_id == user_id, Transaction.transaction_date <= end)
+    if start is not None:
+        stmt = stmt.where(Transaction.transaction_date >= start)
+    stmt = stmt.order_by(Transaction.transaction_date.asc())
+    txs = (await session.execute(stmt)).scalars().all()
+    tx_rows = []
+    for t in txs:
+        f = await _factor(t.currency or ccy, ccy, cache)
+        tx_rows.append([
+            t.transaction_date.isoformat(),
+            (t.description or "").replace("\n", " ").strip(),
+            t.transaction_type,
+            round(float(t.amount), 2),
+            t.currency or "",
+            t.category or "",
+            round(float(t.amount) * f, 2),
+        ])
+    ws = wb.create_sheet("Transactions")
+    _table(ws, ["Date", "Description", "Type", "Amount", "Currency", "Category", f"Amount ({ccy})"],
+           tx_rows, [12, 40, 10, 14, 10, 16, 16], money_cols=(4, 7))
+
+    buf = io.BytesIO()
+    wb.save(buf)
+    return buf.getvalue()
+
+
 async def build_transactions_csv(
     user_id: uuid.UUID, session: AsyncSession, period_key: str, ccy: str,
 ) -> str:
