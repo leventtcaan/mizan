@@ -19,7 +19,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.asset import Asset
 from app.models.networth_suggestion import NetworthSuggestion
-from app.services.pdf_parser import _AMOUNT_RE, _normalise_amount
+from app.services.pdf_parser import _AMOUNT_RE, _normalise_amount, _read_xlsx_rows
 
 logger = logging.getLogger(__name__)
 
@@ -50,46 +50,94 @@ _BANK_MARKERS = ("bank", "banka", "bankası", "bankasi", "finansbank", "katılı
 _DEPOSIT_ASSET_TYPES = ("cash", "bank_account", "foreign_currency")
 
 
-def _extract_scan_text(contents: bytes, content_type: str | None, filename: str) -> str:
-    """Best-effort plain text for the balance scan. PDF text layer only (no OCR — if a
-    scan has no text, we simply skip the bridge); CSV decoded; XLSX skipped."""
+def _extract_pdf_text(contents: bytes) -> str:
+    """PDF text layer (first 2 + last 2 pages — where balances live). No OCR: a scanned
+    PDF with no text layer simply yields '' and the bridge is skipped."""
+    try:
+        import pdfplumber
+        with pdfplumber.open(io.BytesIO(contents)) as pdf:
+            pages = pdf.pages
+            n = len(pages)
+            idxs = sorted(set(list(range(min(2, n))) + list(range(max(0, n - 2), n))))
+            parts = []
+            for i in idxs:
+                try:
+                    parts.append(pages[i].extract_text() or "")
+                except Exception:
+                    pass
+            return "\n".join(parts)
+    except Exception:
+        return ""
+
+
+def _extract_grid(contents: bytes, content_type: str | None, filename: str) -> list[list[str]]:
+    """Rows of a CSV/XLSX statement as string cells, so we can both column-scan a running
+    balance AND join to text for labelled-line scanning. XLSX reuses the parser's reader
+    (openpyxl with a raw zip/XML fallback) so even style-malformed exports are readable."""
     name = (filename or "").lower()
     ct = (content_type or "").lower()
-    if "pdf" in ct or name.endswith(".pdf"):
-        try:
-            import pdfplumber
-            with pdfplumber.open(io.BytesIO(contents)) as pdf:
-                pages = pdf.pages
-                n = len(pages)
-                # Balances live in the header/summary or the footer → scan first 2 + last 2.
-                idxs = sorted(set(list(range(min(2, n))) + list(range(max(0, n - 2), n))))
-                parts = []
-                for i in idxs:
-                    try:
-                        parts.append(pages[i].extract_text() or "")
-                    except Exception:
-                        pass
-                return "\n".join(parts)
-        except Exception:
-            return ""
     if "csv" in ct or name.endswith(".csv"):
+        text = ""
         for enc in ("utf-8", "latin-1"):
             try:
-                return contents.decode(enc)
+                text = contents.decode(enc)
+                break
             except Exception:
                 continue
-    return ""
+        if not text:
+            return []
+        try:
+            import csv
+            sample = text[:2000]
+            delim = ";" if sample.count(";") > sample.count(",") else ","
+            rows = list(csv.reader(io.StringIO(text), delimiter=delim))
+            return [[(c or "") for c in r] for r in rows[:300]]
+        except Exception:
+            return []
+    if "xlsx" in ct or name.endswith(".xlsx") or "spreadsheet" in ct:
+        try:
+            rows = _read_xlsx_rows(contents) or []
+            return [[("" if c is None else str(c)) for c in r] for r in rows[:300]]
+        except Exception:
+            return []
+    return []
+
+
+def _grid_balance(rows: list[list[str]]) -> float | None:
+    """Column-aware: a SHORT header cell naming a balance → the last numeric value in that
+    column (the running balance's final value = the closing balance)."""
+    for hi, row in enumerate(rows):
+        for ci, cell in enumerate(row):
+            cl = str(cell or "").lower().strip()
+            if cl and len(cl) <= 24 and any(k in cl for k in _BALANCE_KEYS):
+                last: str | None = None
+                for r in rows[hi + 1:]:
+                    if ci < len(r):
+                        amts = _AMOUNT_RE.findall(str(r[ci]))
+                        if amts:
+                            last = amts[-1]
+                if last is not None:
+                    try:
+                        val = abs(float(_normalise_amount(last)))
+                        if val >= 0.01:
+                            return round(val, 2)
+                    except Exception:
+                        pass
+    return None
 
 
 def _find_balance(lines_lower: list[str]) -> float | None:
-    """Most-specific balance label whose line carries an amount; the last such line wins."""
+    """Most-specific balance label whose line (or the next one) carries an amount; the last
+    such occurrence wins (footers repeat running totals; the final one is the closing one)."""
     for key in _BALANCE_KEYS:
         found: str | None = None
-        for line in lines_lower:
+        for i, line in enumerate(lines_lower):
             if key in line:
                 amts = _AMOUNT_RE.findall(line)
+                if not amts and i + 1 < len(lines_lower):
+                    amts = _AMOUNT_RE.findall(lines_lower[i + 1])  # label/value split across lines
                 if amts:
-                    found = amts[-1]  # the last number on the labelled line
+                    found = amts[-1]
         if found is not None:
             try:
                 val = abs(float(_normalise_amount(found)))
@@ -114,16 +162,26 @@ def _find_institution(lines: list[str]) -> str | None:
 
 def detect_statement_metadata(contents: bytes, content_type: str | None, filename: str) -> dict | None:
     """Deterministically detect {closing_balance, statement_kind, institution} from a
-    statement, or None when no balance is found. Never raises (best-effort)."""
+    statement (PDF text, CSV or XLSX), or None when no balance is found. Never raises."""
     try:
-        text = _extract_scan_text(contents, content_type, filename)
-        if not text:
-            return None
-        lines = text.splitlines()
+        name = (filename or "").lower()
+        ct = (content_type or "").lower()
+        is_pdf = "pdf" in ct or name.endswith(".pdf")
+
+        balance: float | None = None
+        if is_pdf:
+            lines = _extract_pdf_text(contents).splitlines()
+        else:
+            rows = _extract_grid(contents, content_type, filename)
+            balance = _grid_balance(rows)  # column-aware running balance (CSV/XLSX)
+            lines = [" ".join(c for c in r) for r in rows]
+
         lines_lower = [ln.lower() for ln in lines]
-        balance = _find_balance(lines_lower)
+        if balance is None:
+            balance = _find_balance(lines_lower)  # labelled footer/summary line
         if balance is None:
             return None
+
         is_credit = any(m in ln for ln in lines_lower for m in _CREDIT_CARD_MARKERS)
         return {
             "closing_balance": balance,
