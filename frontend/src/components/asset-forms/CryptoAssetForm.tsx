@@ -74,12 +74,12 @@ export default function CryptoAssetForm({ onDraftChange, displayCurrency }: Asse
                 <button key={e.code} type="button" onClick={() => pick(e)}
                   className={`flex flex-col items-center gap-0.5 px-1.5 py-2 rounded-lg text-xs border transition-colors ${
                     selected?.code === e.code
-                      ? "bg-brand/20 border-brand/50 text-brand"
-                      : "bg-canvas border-line text-ink-soft hover:border-brand"
+                      ? "bg-[#176B5B]/10 border-[#176B5B]/30 text-[#176B5B]"
+                      : "bg-canvas border-line text-ink-soft hover:border-[#176B5B]"
                   }`}>
                   <span className="font-bold">{e.code}</span>
                   {price !== null && (
-                    <span className={`text-[9px] tabular-nums ${selected?.code === e.code ? "text-brand" : "text-ink-mute"}`}>
+                    <span className={`text-[9px] tabular-nums ${selected?.code === e.code ? "text-[#176B5B]" : "text-ink-mute"}`}>
                       {fmtUsdPrice(price)}
                     </span>
                   )}
@@ -114,8 +114,8 @@ export default function CryptoAssetForm({ onDraftChange, displayCurrency }: Asse
 
       {/* Selected coin summary */}
       {selected && (
-        <div className="rounded-lg bg-brand/20 border border-brand/30 px-3 py-2 flex items-center justify-between">
-          <span className="text-sm text-brand font-medium">{selected.code} · {selected.name}</span>
+        <div className="rounded-lg bg-[#176B5B]/10 border border-[#176B5B]/30 px-3 py-2 flex items-center justify-between">
+          <span className="text-sm text-[#176B5B] font-medium">{selected.code} · {selected.name}</span>
           {unitUsd !== null && <span className="text-xs text-ink-mute">{fmtUsdPrice(unitUsd)}</span>}
         </div>
       )}
@@ -125,7 +125,7 @@ export default function CryptoAssetForm({ onDraftChange, displayCurrency }: Asse
         <label className="block text-xs text-ink-mute mb-1.5">{t("assetForm.holdings")}</label>
         <input type="number" min="0" step="any" value={qty} onChange={(e) => setQty(e.target.value)}
           placeholder={t("assetForm.holdingsHint")} className={sharedInputClass} />
-        {preview && <p className="text-emerald-400/80 text-xs mt-1.5">{preview}</p>}
+        {preview && <p className="text-pos text-xs mt-1.5">{preview}</p>}
       </div>
     </div>
   );

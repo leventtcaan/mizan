@@ -30,7 +30,7 @@ export interface AssetFormProps {
 }
 
 export const sharedInputClass =
-  "w-full bg-canvas border border-line rounded-lg px-3 py-2 text-sm text-ink placeholder-gray-600 focus:outline-none focus:border-brand";
+  "w-full bg-canvas border border-line rounded-lg px-3 py-2.5 text-sm text-ink placeholder:text-ink-mute focus:outline-none focus:border-[#176B5B] focus:ring-2 focus:ring-[#176B5B]/20 transition-shadow";
 
 export function buildSourceDetail(detail: Record<string, string | number | undefined>): string {
   const cleaned = Object.fromEntries(

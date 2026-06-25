@@ -72,13 +72,13 @@ export default function CurrencyAssetForm({ assetType, onDraftChange, displayCur
                 <button key={e.code} type="button" onClick={() => { setSelected(e); setQty(""); }}
                   className={`flex flex-col items-center gap-0.5 px-2 py-3 rounded-lg text-xs border transition-colors ${
                     selected?.code === e.code
-                      ? "bg-brand/20 border-brand/50 text-brand"
-                      : "bg-canvas border-line text-ink-soft hover:border-brand"
+                      ? "bg-[#176B5B]/10 border-[#176B5B]/30 text-[#176B5B]"
+                      : "bg-canvas border-line text-ink-soft hover:border-[#176B5B]"
                   }`}>
                   <span className="font-bold text-sm">{e.code}</span>
                   <span className="text-ink-mute text-[10px] truncate w-full text-center">{e.name}</span>
                   {price !== null && (
-                    <span className={`text-[10px] tabular-nums mt-0.5 ${selected?.code === e.code ? "text-brand" : "text-ink-mute"}`}>
+                    <span className={`text-[10px] tabular-nums mt-0.5 ${selected?.code === e.code ? "text-[#176B5B]" : "text-ink-mute"}`}>
                       {fmtUsdPrice(price)}
                     </span>
                   )}
@@ -103,7 +103,7 @@ export default function CurrencyAssetForm({ assetType, onDraftChange, displayCur
             </label>
             <input type="number" min="0" step="any" value={qty} onChange={(e) => setQty(e.target.value)}
               placeholder={t("assetForm.amountHeldHint")} className={sharedInputClass} />
-            {preview && <p className="text-emerald-400/80 text-xs mt-1.5">{preview}</p>}
+            {preview && <p className="text-pos text-xs mt-1.5">{preview}</p>}
           </div>
         )}
       </div>
@@ -116,8 +116,8 @@ export default function CurrencyAssetForm({ assetType, onDraftChange, displayCur
       <div>
         <label className="block text-xs text-ink-mute mb-1.5">{t("assetForm.currencyChooseLabel")}</label>
         {selected && (
-          <div className="flex items-center justify-between mb-2 px-3 py-2 rounded-lg bg-brand/30 border border-brand/30">
-            <span className="text-sm font-semibold text-brand">{selected.code}</span>
+          <div className="flex items-center justify-between mb-2 px-3 py-2 rounded-lg bg-[#176B5B]/10 border border-[#176B5B]/30">
+            <span className="text-sm font-semibold text-[#176B5B]">{selected.code}</span>
             <span className="text-xs text-ink-mute truncate ml-3">{selected.name}</span>
             <button type="button" onClick={() => { setSelected(null); setQuery(""); }}
               className="ml-3 text-ink-mute hover:text-ink-soft text-xs">✕</button>
@@ -154,7 +154,7 @@ export default function CurrencyAssetForm({ assetType, onDraftChange, displayCur
           <input type="number" min="0" step="any" value={qty} onChange={(e) => setQty(e.target.value)}
             placeholder={t("assetForm.amountHeldHint")} className={sharedInputClass} />
           {preview && (
-            <p className="text-emerald-400/80 text-xs mt-1.5">
+            <p className="text-pos text-xs mt-1.5">
               {preview} <span className="text-ink-mute">({displayCurrency})</span>
             </p>
           )}

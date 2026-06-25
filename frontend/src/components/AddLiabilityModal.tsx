@@ -2,9 +2,10 @@
 
 import { useState } from "react";
 import { createLiability, updateLiability, getDefaultCurrency, LiabilityItem } from "@/lib/api";
-import { X } from "@/components/ui/Icons";
+import { X, TrendingDown } from "@/components/ui/Icons";
 import CurrencySelect from "@/components/CurrencySelect";
 import { useLanguage } from "@/lib/i18n";
+import { useTheme } from "@/lib/theme";
 
 const LIABILITY_TYPE_KEYS = [
   "mortgage", "auto_loan", "personal_loan", "credit_card",
@@ -20,6 +21,8 @@ interface Props {
 
 export default function AddLiabilityModal({ onClose, onAdded, onUpdated, editData }: Props) {
   const { t } = useLanguage();
+  const { resolved } = useTheme();
+  const surfaceBg = resolved === "dark" ? "#1C1915" : "#FFFFFF";
   const isEdit = !!editData;
 
   const [name, setName] = useState(editData?.name ?? "");
@@ -65,16 +68,19 @@ export default function AddLiabilityModal({ onClose, onAdded, onUpdated, editDat
     }
   };
 
-  const inputClass = "w-full bg-canvas border border-line rounded-lg px-3 py-2 text-sm text-ink placeholder-gray-600 focus:outline-none focus:border-brand";
+  const inputClass = "w-full bg-canvas border border-line rounded-lg px-3 py-2.5 text-sm text-ink placeholder:text-ink-mute focus:outline-none focus:border-[#176B5B] focus:ring-2 focus:ring-[#176B5B]/20 transition-shadow";
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm" onClick={onClose}>
-      <div className="bg-surface border border-line rounded-2xl w-full max-w-md mx-4 p-6 max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4" onClick={onClose}>
+      <div className="border border-line rounded-2xl w-full max-w-md p-6 max-h-[90vh] overflow-y-auto shadow-2xl shadow-black/30" style={{ backgroundColor: surfaceBg }} onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between mb-5">
-          <h2 className="text-ink font-semibold text-lg">
-            {isEdit ? `${t("common.edit")}: ${editData!.name}` : t("nw.addLiability")}
-          </h2>
-          <button onClick={onClose} className="text-ink-mute hover:text-ink-soft transition-colors"><X size={20} /></button>
+          <div className="flex items-center gap-2.5 min-w-0">
+            <span className="w-9 h-9 rounded-xl bg-neg/10 flex items-center justify-center shrink-0"><TrendingDown size={17} className="text-neg" /></span>
+            <h2 className="text-ink font-semibold text-lg truncate">
+              {isEdit ? `${t("common.edit")}: ${editData!.name}` : t("nw.addLiability")}
+            </h2>
+          </div>
+          <button onClick={onClose} className="w-8 h-8 rounded-lg flex items-center justify-center text-ink-mute hover:text-ink hover:bg-surface-2 transition-colors shrink-0"><X size={18} /></button>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -135,10 +141,10 @@ export default function AddLiabilityModal({ onClose, onAdded, onUpdated, editDat
           {error && <p className="text-neg text-xs">{error}</p>}
 
           <div className="flex gap-3 pt-1">
-            <button type="button" onClick={onClose} className="flex-1 px-4 py-2 rounded-lg border border-line text-sm text-ink-mute hover:text-ink-soft transition-colors">
+            <button type="button" onClick={onClose} className="flex-1 px-4 py-2.5 rounded-lg border border-line text-sm font-medium text-ink-soft hover:bg-surface-2 transition-colors">
               {t("common.cancel")}
             </button>
-            <button type="submit" disabled={loading || !name || !totalAmount} className="flex-1 px-4 py-2 rounded-lg bg-red-600 hover:bg-red-500 disabled:opacity-50 disabled:cursor-not-allowed text-sm font-medium text-white transition-colors">
+            <button type="submit" disabled={loading || !name || !totalAmount} className="flex-1 px-4 py-2.5 rounded-lg bg-[#176B5B] hover:bg-[#125848] disabled:opacity-50 disabled:cursor-not-allowed text-sm font-semibold text-white transition-colors">
               {loading ? t("common.loading") : isEdit ? t("common.save") : t("common.add")}
             </button>
           </div>

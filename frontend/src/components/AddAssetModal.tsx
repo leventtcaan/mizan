@@ -2,8 +2,9 @@
 
 import { useEffect, useState } from "react";
 import { createAsset, updateAsset, getAccounts, createAccount, AssetItem, type Account } from "@/lib/api";
-import { X } from "@/components/ui/Icons";
+import { X, TrendingUp } from "@/components/ui/Icons";
 import { useLanguage } from "@/lib/i18n";
+import { useTheme } from "@/lib/theme";
 import { AssetDraft } from "@/components/asset-forms/shared";
 import CryptoAssetForm from "@/components/asset-forms/CryptoAssetForm";
 import CurrencyAssetForm from "@/components/asset-forms/CurrencyAssetForm";
@@ -43,6 +44,8 @@ interface Props {
 
 export default function AddAssetModal({ onClose, onAdded, onUpdated, displayCurrency, editData, initialType }: Props) {
   const { t } = useLanguage();
+  const { resolved } = useTheme();
+  const surfaceBg = resolved === "dark" ? "#1C1915" : "#FFFFFF";
   const isEdit = !!editData;
 
   const [assetType, setAssetType] = useState<string | null>(editData?.asset_type ?? initialType ?? null);
@@ -149,23 +152,25 @@ export default function AddAssetModal({ onClose, onAdded, onUpdated, displayCurr
   }
 
   const inputClass =
-    "w-full bg-canvas border border-line rounded-lg px-3 py-2 text-sm text-ink placeholder-gray-600 focus:outline-none focus:border-brand";
+    "w-full bg-canvas border border-line rounded-lg px-3 py-2.5 text-sm text-ink placeholder:text-ink-mute focus:outline-none focus:border-[#176B5B] focus:ring-2 focus:ring-[#176B5B]/20 transition-shadow";
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm" onClick={onClose}>
-      <div className="bg-surface border border-line rounded-2xl w-full max-w-md mx-4 p-6 max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4" onClick={onClose}>
+      <div className="border border-line rounded-2xl w-full max-w-md p-6 max-h-[90vh] overflow-y-auto shadow-2xl shadow-black/30" style={{ backgroundColor: surfaceBg }} onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between mb-5">
-          <div className="flex items-center gap-2.5">
-            {assetType && !isEdit && (
-              <button onClick={back} className="text-ink-mute hover:text-ink-soft transition-colors" aria-label={t("common.back")}>
+          <div className="flex items-center gap-2.5 min-w-0">
+            {assetType && !isEdit ? (
+              <button onClick={back} className="w-8 h-8 rounded-lg flex items-center justify-center text-ink-mute hover:text-ink hover:bg-surface-2 transition-colors shrink-0" aria-label={t("common.back")}>
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6" /></svg>
               </button>
+            ) : (
+              <span className="w-9 h-9 rounded-xl bg-pos/10 flex items-center justify-center shrink-0"><TrendingUp size={17} className="text-pos" /></span>
             )}
-            <h2 className="text-ink font-semibold text-lg">
+            <h2 className="text-ink font-semibold text-lg truncate">
               {isEdit ? `${t("common.edit")}: ${editData!.name}` : assetType ? typeLabel(assetType) : t("nw.addAsset")}
             </h2>
           </div>
-          <button onClick={onClose} className="text-ink-mute hover:text-ink-soft transition-colors"><X size={20} /></button>
+          <button onClick={onClose} className="w-8 h-8 rounded-lg flex items-center justify-center text-ink-mute hover:text-ink hover:bg-surface-2 transition-colors shrink-0"><X size={18} /></button>
         </div>
 
         {/* Step 1 — type picker (add mode only) */}
@@ -180,7 +185,7 @@ export default function AddAssetModal({ onClose, onAdded, onUpdated, displayCurr
                 <div className="grid grid-cols-2 gap-2">
                   {group.types.map((tp) => (
                     <button key={tp} type="button" onClick={() => chooseType(tp)}
-                      className="text-left px-3 py-2.5 rounded-lg bg-canvas border border-line text-sm text-ink-soft hover:border-brand hover:text-ink transition-colors">
+                      className="text-left px-3 py-2.5 rounded-lg bg-canvas border border-line text-sm text-ink-soft hover:border-[#176B5B] hover:text-[#176B5B] transition-colors">
                       {typeLabel(tp)}
                     </button>
                   ))}
@@ -226,11 +231,11 @@ export default function AddAssetModal({ onClose, onAdded, onUpdated, displayCurr
             {error && <p className="text-neg text-xs">{error}</p>}
 
             <div className="flex gap-3 pt-1">
-              <button type="button" onClick={back} className="flex-1 px-4 py-2 rounded-lg border border-line text-sm text-ink-mute hover:text-ink-soft transition-colors">
+              <button type="button" onClick={back} className="flex-1 px-4 py-2.5 rounded-lg border border-line text-sm font-medium text-ink-soft hover:bg-surface-2 transition-colors">
                 {isEdit ? t("common.cancel") : t("common.back")}
               </button>
               <button type="submit" disabled={loading || !draft}
-                className="flex-1 px-4 py-2 rounded-lg bg-brand hover:bg-brand-hover disabled:opacity-50 disabled:cursor-not-allowed text-sm font-medium text-white transition-colors">
+                className="flex-1 px-4 py-2.5 rounded-lg bg-[#176B5B] hover:bg-[#125848] disabled:opacity-50 disabled:cursor-not-allowed text-sm font-semibold text-white transition-colors">
                 {loading ? t("common.loading") : isEdit ? t("common.save") : t("common.add")}
               </button>
             </div>

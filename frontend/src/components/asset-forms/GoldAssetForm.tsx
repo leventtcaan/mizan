@@ -54,7 +54,7 @@ export default function GoldAssetForm({ onDraftChange, displayCurrency }: AssetF
         </label>
         <input type="number" min="0" step="any" value={qty} onChange={(e) => setQty(e.target.value)}
           placeholder="0" className={sharedInputClass} />
-        {preview && <p className="text-emerald-400/80 text-xs mt-1.5">{preview}</p>}
+        {preview && <p className="text-pos text-xs mt-1.5">{preview}</p>}
       </div>
 
       <p className="text-[11px] text-ink-mute leading-relaxed">{t("assetForm.goldPurityNote")}</p>
