@@ -8,6 +8,7 @@ import {
   X as XIcon, FileText, Calendar, Target, ArrowRight,
 } from "@/components/ui/Icons";
 import { CATEGORY_LABELS } from "@/lib/categories";
+import { useTheme } from "@/lib/theme";
 import {
   getToken, getStoredUser,
   getAdminOverview, getAdminSystem, getAdminUsers,
@@ -64,7 +65,7 @@ const PAGE_SIZE = 25;
 const TX_PAGE = 25;
 
 const BAND_COLOR: Record<string, string> = {
-  strong: "text-emerald-400", steady: "text-brand", fragile: "text-amber-400", at_risk: "text-neg",
+  strong: "text-pos", steady: "text-brand", fragile: "text-warn", at_risk: "text-neg",
 };
 
 const JOBS: { key: string; label: string; schedJobId: string }[] = [
@@ -89,24 +90,29 @@ function Metric({ label, value, sub, icon, accent = "text-ink" }: {
 function Chip({ ok, label }: { ok: boolean; label: string }) {
   return (
     <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border ${
-      ok ? "bg-emerald-950/40 border-emerald-800/50 text-emerald-300" : "bg-red-950/30 border-red-800/40 text-red-300"
+      ok ? "bg-pos/10 border-pos/30 text-pos" : "bg-danger/10 border-danger/30 text-danger"
     }`}>
-      <span className={`w-1.5 h-1.5 rounded-full ${ok ? "bg-emerald-400" : "bg-red-400"}`} />{label}
+      <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: ok ? "#1F7A5C" : "#C03131" }} />{label}
     </span>
   );
 }
 function Badge({ tone, children }: { tone: "founder" | "admin" | "ok" | "muted"; children: React.ReactNode }) {
   const cls = {
-    founder: "bg-amber-950/40 text-amber-300 border-amber-800/50",
-    admin: "bg-brand/40 text-brand border-brand/50",
-    ok: "bg-emerald-950/30 text-emerald-300 border-emerald-800/40",
-    muted: "bg-surface text-ink-mute border-line",
+    founder: "bg-warn/10 text-warn border-warn/30",
+    admin: "bg-brand/10 text-brand border-brand/30",
+    ok: "bg-pos/10 text-pos border-pos/30",
+    muted: "bg-surface-2 text-ink-mute border-line",
   }[tone];
   return <span className={`px-2 py-0.5 rounded text-[10px] font-medium border ${cls}`}>{children}</span>;
 }
 
 export default function AdminPage() {
   const router = useRouter();
+  // Explicit theme-resolved fills for floating overlays (modals must never be
+  // see-through — solid bg-<token> utilities don't always paint at runtime).
+  const { resolved } = useTheme();
+  const canvasBg = resolved === "dark" ? "#11100E" : "#F6F4EF";
+  const surfaceBg = resolved === "dark" ? "#1C1915" : "#FFFFFF";
   const [authorized, setAuthorized] = useState<boolean | null>(null);
   const [overview, setOverview] = useState<AdminOverview | null>(null);
   const [system, setSystem] = useState<AdminSystem | null>(null);
@@ -244,7 +250,7 @@ export default function AdminPage() {
 
   const refreshAction = (
     <button onClick={() => { loadOverview(); loadSystem(); loadUsers(search, offset); }}
-      className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-line hover:border-[#3C3832] hover:bg-surface text-sm text-ink-mute hover:text-ink-soft transition-colors">
+      className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-line hover:border-line-strong hover:bg-surface text-sm text-ink-mute hover:text-ink-soft transition-colors">
       <RefreshCw size={14} /> Refresh
     </button>
   );
@@ -254,7 +260,7 @@ export default function AdminPage() {
       title="Admin"
       titleBadge={
         <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold border ${
-          iAmFounder ? "bg-amber-950/40 border-amber-800/50 text-amber-300" : "bg-brand/40 border-brand/50 text-brand"
+          iAmFounder ? "bg-warn/10 border-warn/30 text-warn" : "bg-brand/10 border-brand/30 text-brand"
         }`}>
           <ShieldCheck size={11} /> {iAmFounder ? "founder" : "admin"}
         </span>
@@ -263,7 +269,7 @@ export default function AdminPage() {
       action={refreshAction}
       maxWidth="xl"
     >
-      {error && <div className="mb-6 bg-red-950/30 border border-red-800/40 rounded-xl p-4 text-red-300 text-sm">{error}</div>}
+      {error && <div className="mb-6 bg-danger/10 border border-danger/30 rounded-xl p-4 text-danger text-sm">{error}</div>}
 
       {/* GROWTH */}
       {overview && (
@@ -272,9 +278,9 @@ export default function AdminPage() {
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 mb-8">
             <Metric label="Total users" value={num(overview.users_total)} icon={<TrendingUp size={12} />}
               sub={`${num(overview.users_admins)} admin${overview.users_admins === 1 ? "" : "s"}`} />
-            <Metric label="New · 24h" value={num(overview.users_new_24h)} accent="text-emerald-400" />
-            <Metric label="New · 7d" value={num(overview.users_new_7d)} accent="text-emerald-400" />
-            <Metric label="New · 30d" value={num(overview.users_new_30d)} accent="text-emerald-400" />
+            <Metric label="New · 24h" value={num(overview.users_new_24h)} accent="text-pos" />
+            <Metric label="New · 7d" value={num(overview.users_new_7d)} accent="text-pos" />
+            <Metric label="New · 30d" value={num(overview.users_new_30d)} accent="text-pos" />
             <Metric label="Onboarded" value={`${onboardPct}%`} sub={`${num(overview.users_onboarded)} of ${num(overview.users_total)}`} />
             <Metric label="Weekly email" value={num(overview.users_weekly_email_optin)} sub="opted in" icon={<Bell size={12} />} />
           </div>
@@ -286,7 +292,7 @@ export default function AdminPage() {
             <Metric label="Statements" value={num(overview.upload_batches)} sub="upload batches" />
             <Metric label="Assets" value={num(overview.assets_total)} icon={<Scale size={12} />} />
             <Metric label="Liabilities" value={num(overview.liabilities_total)} />
-            <Metric label="Open reconciliations" value={num(overview.reconciliation_open)} accent={overview.reconciliation_open > 0 ? "text-amber-400" : "text-ink"} />
+            <Metric label="Open reconciliations" value={num(overview.reconciliation_open)} accent={overview.reconciliation_open > 0 ? "text-warn" : "text-ink"} />
             <Metric label="Notifications" value={num(overview.notifications_total)} sub={`${num(overview.notifications_unread)} unread`} />
           </div>
         </>
@@ -299,7 +305,7 @@ export default function AdminPage() {
             <p className="text-[11px] font-bold tracking-widest text-ink-mute uppercase">System</p>
             <span className="text-xs text-ink-mute">
               env: <span className="text-ink-soft font-medium">{system.environment}</span> · scheduler:{" "}
-              <span className={system.scheduler.running ? "text-emerald-400" : "text-neg"}>{system.scheduler.running ? "running" : "stopped"}</span>
+              <span className={system.scheduler.running ? "text-pos" : "text-neg"}>{system.scheduler.running ? "running" : "stopped"}</span>
             </span>
           </div>
           <div className="flex flex-wrap gap-2 mb-5">
@@ -319,7 +325,7 @@ export default function AdminPage() {
                     <p className="text-sm text-ink-soft">{j.label}</p>
                     <p className="text-xs text-ink-mute">last run: {fmtDateTimeUTC(last)} · next: {fmtDateTimeUTC(next)}</p>
                   </div>
-                  {jobMsg[j.key] && <span className="text-xs text-emerald-400 shrink-0">{jobMsg[j.key]}</span>}
+                  {jobMsg[j.key] && <span className="text-xs text-pos shrink-0">{jobMsg[j.key]}</span>}
                   <button onClick={() => triggerJob(j.key)} disabled={Boolean(jobMsg[j.key])}
                     className="shrink-0 px-3 py-1.5 rounded-lg text-xs font-medium bg-surface-2 hover:bg-surface-3 text-ink-soft transition-colors disabled:opacity-50">Run now</button>
                 </div>
@@ -335,7 +341,7 @@ export default function AdminPage() {
         <span className="text-xs text-ink-mute">{num(usersTotal)} total</span>
       </div>
       <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search by email…"
-        className="w-full mb-3 bg-surface border border-line rounded-lg px-3 py-2 text-sm text-ink placeholder-gray-600 focus:outline-none focus:border-brand" />
+        className="w-full mb-3 bg-surface border border-line rounded-lg px-3 py-2 text-sm text-ink placeholder:text-ink-mute focus:outline-none focus:border-[#176B5B]" />
 
       <div className="overflow-x-auto rounded-xl border border-line">
         <table className="w-full text-sm min-w-[720px]">
@@ -354,11 +360,11 @@ export default function AdminPage() {
             {usersLoading && users.length === 0 && <tr><td colSpan={7} className="px-3 py-8 text-center text-ink-mute">Loading…</td></tr>}
             {!usersLoading && users.length === 0 && <tr><td colSpan={7} className="px-3 py-8 text-center text-ink-mute">No users found.</td></tr>}
             {users.map((u) => (
-              <tr key={u.id} className="border-t border-line bg-canvas hover:bg-[#16130F] transition-colors">
+              <tr key={u.id} className="border-t border-line bg-canvas hover:bg-surface-2 transition-colors">
                 <td className="px-3 py-2.5">
                   <button onClick={() => openProfile(u.id)} className="text-left group inline-flex items-center gap-1.5">
                     <span className="text-ink-soft group-hover:text-brand transition-colors truncate block max-w-[220px]">{u.email}</span>
-                    <ArrowRight size={12} className="text-gray-700 group-hover:text-brand transition-colors shrink-0" />
+                    <ArrowRight size={12} className="text-ink-mute group-hover:text-brand transition-colors shrink-0" />
                   </button>
                   {u.id === meId && <span className="block text-[10px] text-ink-mute">you</span>}
                 </td>
@@ -382,7 +388,7 @@ export default function AdminPage() {
                     </button>
                     <button onClick={() => setDeleteTarget({ id: u.id, email: u.email })}
                       disabled={u.id === meId} title="Delete user"
-                      className="px-2 py-1 rounded-md text-[11px] font-medium border border-red-900/50 text-danger hover:bg-red-950/30 transition-colors disabled:opacity-30">Delete</button>
+                      className="px-2 py-1 rounded-md text-[11px] font-medium border border-danger/30 text-danger hover:bg-danger/10 transition-colors disabled:opacity-30">Delete</button>
                   </div>
                 </td>
               </tr>
@@ -406,9 +412,9 @@ export default function AdminPage() {
         <div className="fixed inset-0 z-50 overflow-y-auto" onClick={closeProfile}>
           <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" />
           <div onClick={(e) => e.stopPropagation()}
-            className="relative max-w-4xl mx-auto my-6 bg-canvas border border-line rounded-2xl shadow-2xl shadow-black/60">
+            className="relative max-w-4xl mx-auto my-6 border border-line rounded-2xl shadow-2xl shadow-black/40" style={{ backgroundColor: canvasBg }}>
             {/* sticky header */}
-            <div className="sticky top-0 z-10 flex items-center justify-between gap-4 px-6 py-4 bg-canvas/95 backdrop-blur border-b border-line rounded-t-2xl">
+            <div className="sticky top-0 z-10 flex items-center justify-between gap-4 px-6 py-4 border-b border-line rounded-t-2xl" style={{ backgroundColor: canvasBg }}>
               <p className="text-[11px] font-bold tracking-widest text-ink-mute uppercase">User profile</p>
               <button onClick={closeProfile} className="text-ink-mute hover:text-ink-soft transition-colors"><XIcon size={18} /></button>
             </div>
@@ -422,7 +428,7 @@ export default function AdminPage() {
                   {/* identity header */}
                   <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
                     <div className="flex items-start gap-3 min-w-0">
-                      <div className="w-12 h-12 rounded-full bg-brand text-white text-lg font-semibold flex items-center justify-center shrink-0">
+                      <div className="w-12 h-12 rounded-full bg-[#176B5B] text-white text-lg font-semibold flex items-center justify-center shrink-0">
                         {profile.email[0]?.toUpperCase() ?? "?"}
                       </div>
                       <div className="min-w-0">
@@ -458,7 +464,7 @@ export default function AdminPage() {
                             onClick={() => patchUser(profile.id, { plan: p })}
                             disabled={busy || profile.plan === p}
                             className={`px-2.5 py-1.5 transition-colors ${
-                              profile.plan === p ? "bg-brand text-white" : "text-ink-soft hover:bg-surface"
+                              profile.plan === p ? "bg-[#176B5B] text-white" : "text-ink-soft hover:bg-surface"
                             } disabled:opacity-60`}
                           >
                             {p}
@@ -466,7 +472,7 @@ export default function AdminPage() {
                         ))}
                       </div>
                       <button onClick={() => setDeleteTarget({ id: profile.id, email: profile.email })} disabled={profile.id === meId}
-                        className="px-3 py-1.5 rounded-lg text-xs font-medium border border-red-900/50 text-danger hover:bg-red-950/30 transition-colors disabled:opacity-30">Delete</button>
+                        className="px-3 py-1.5 rounded-lg text-xs font-medium border border-danger/30 text-danger hover:bg-danger/10 transition-colors disabled:opacity-30">Delete</button>
                     </div>
                   </div>
 
@@ -494,7 +500,7 @@ export default function AdminPage() {
                     <Metric label="Statements" value={num(profile.upload_batches)} />
                     <Metric label="Assets" value={num(profile.asset_count)} />
                     <Metric label="Liabilities" value={num(profile.liability_count)} />
-                    <Metric label="Open recon." value={num(profile.reconciliation_open)} accent={profile.reconciliation_open > 0 ? "text-amber-400" : "text-ink"} />
+                    <Metric label="Open recon." value={num(profile.reconciliation_open)} accent={profile.reconciliation_open > 0 ? "text-warn" : "text-ink"} />
                   </div>
 
                   {/* statements */}
@@ -527,7 +533,7 @@ export default function AdminPage() {
                                 <p className="text-ink-soft truncate">{a.name}</p>
                                 <p className="text-ink-mute text-xs capitalize">{slug(a.asset_type)}</p>
                               </div>
-                              <span className="text-emerald-300 tabular-nums shrink-0">{money(a.current_value, a.currency)}</span>
+                              <span className="text-pos tabular-nums shrink-0">{money(a.current_value, a.currency)}</span>
                             </div>
                           ))}
                         </div>
@@ -543,7 +549,7 @@ export default function AdminPage() {
                                 <p className="text-ink-soft truncate">{li.name}</p>
                                 <p className="text-ink-mute text-xs capitalize">{slug(li.liability_type)}{li.interest_rate ? ` · ${li.interest_rate}%` : ""}</p>
                               </div>
-                              <span className="text-red-300 tabular-nums shrink-0">{money(li.remaining_amount, li.currency)}</span>
+                              <span className="text-neg tabular-nums shrink-0">{money(li.remaining_amount, li.currency)}</span>
                             </div>
                           ))}
                         </div>
@@ -591,7 +597,7 @@ export default function AdminPage() {
                                   <td className="px-3 py-2 text-ink-mute text-xs whitespace-nowrap">{fmtDate(t.transaction_date)}</td>
                                   <td className="px-3 py-2 text-ink-soft truncate max-w-[260px]" title={t.description}>{t.description}</td>
                                   <td className="px-3 py-2 text-ink-mute text-xs">{t.category ? (CATEGORY_LABELS[t.category] || t.category) : "—"}</td>
-                                  <td className={`px-3 py-2 text-right tabular-nums whitespace-nowrap ${t.transaction_type === "credit" ? "text-emerald-300" : "text-ink-soft"}`}>
+                                  <td className={`px-3 py-2 text-right tabular-nums whitespace-nowrap ${t.transaction_type === "credit" ? "text-pos" : "text-ink-soft"}`}>
                                     {t.transaction_type === "credit" ? "+" : "−"}{money(t.amount, t.currency)}
                                   </td>
                                 </tr>
@@ -624,24 +630,24 @@ export default function AdminPage() {
       {deleteTarget && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center p-4" onClick={() => { if (!deleting) { setDeleteTarget(null); setDeleteText(""); } }}>
           <div className="absolute inset-0 bg-black/75 backdrop-blur-sm" />
-          <div onClick={(e) => e.stopPropagation()} className="relative w-full max-w-md bg-surface border border-red-900/50 rounded-2xl shadow-2xl shadow-black/60 p-6">
+          <div onClick={(e) => e.stopPropagation()} className="relative w-full max-w-md border border-danger/30 rounded-2xl shadow-2xl shadow-black/40 p-6" style={{ backgroundColor: surfaceBg }}>
             <div className="flex items-center gap-2 mb-3">
-              <span className="w-8 h-8 rounded-full bg-red-950/50 border border-red-800/50 flex items-center justify-center text-neg text-lg font-bold">!</span>
+              <span className="w-8 h-8 rounded-full bg-danger/10 border border-danger/30 flex items-center justify-center text-danger text-lg font-bold">!</span>
               <h2 className="text-ink font-semibold">Delete this user?</h2>
             </div>
             <p className="text-ink-mute text-sm leading-relaxed mb-4">
               This permanently deletes <span className="text-ink-soft font-medium break-all">{deleteTarget.email}</span> and{" "}
-              <span className="text-red-300">all of their data</span> — transactions, statements, assets, liabilities. This cannot be undone.
+              <span className="text-neg">all of their data</span> — transactions, statements, assets, liabilities. This cannot be undone.
             </p>
             <label className="block text-xs text-ink-mute mb-1.5">Type the email to confirm</label>
             <input autoFocus value={deleteText} onChange={(e) => setDeleteText(e.target.value)}
               placeholder={deleteTarget.email}
-              className="w-full mb-4 bg-canvas border border-line rounded-lg px-3 py-2 text-sm text-ink placeholder-gray-700 focus:outline-none focus:border-red-600" />
+              className="w-full mb-4 bg-canvas border border-line rounded-lg px-3 py-2 text-sm text-ink placeholder:text-ink-mute focus:outline-none focus:border-danger" />
             <div className="flex gap-3">
               <button onClick={() => { setDeleteTarget(null); setDeleteText(""); }} disabled={deleting}
                 className="flex-1 py-2.5 rounded-xl bg-surface-2 hover:bg-surface-3 text-ink-soft text-sm font-medium transition-colors disabled:opacity-50">Cancel</button>
               <button onClick={confirmDelete} disabled={deleting || deleteText !== deleteTarget.email}
-                className="flex-1 py-2.5 rounded-xl bg-red-600 hover:bg-red-500 text-ink text-sm font-semibold transition-colors disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2">
+                className="flex-1 py-2.5 rounded-xl bg-red-600 hover:bg-red-500 text-white text-sm font-semibold transition-colors disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2">
                 {deleting ? <><span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> Deleting…</> : "Delete permanently"}
               </button>
             </div>
