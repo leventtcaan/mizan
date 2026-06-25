@@ -94,7 +94,8 @@ export default function LandingPage() {
   const TRUST = [
     { icon: CreditCard, label: t("pricing.trustNoBank") },
     { icon: ShieldCheck, label: t("pricing.trustEncrypt") },
-    { icon: CheckCircle, label: t("pricing.trustRefund") },
+    // Inline (locale files are out of scope this change): cancel-anytime, not a refund promise.
+    { icon: CheckCircle, label: lang === "tr" ? "Dilediğinde iptal et." : "Cancel anytime." },
   ];
 
   return (
@@ -311,10 +312,10 @@ export default function LandingPage() {
           <h2 className="text-3xl font-bold text-center mb-16">{t("landing.loopTitle")}</h2>
           <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-5">
             {STEPS.map((s, i) => (
-              <div key={s.title} className="relative bg-surface border border-line rounded-xl p-6">
+              <div key={s.title} className="relative bg-surface border border-line rounded-xl p-6 transition-all duration-200 hover:-translate-y-1 hover:border-[#176B5B]/50 hover:shadow-md">
                 {/* Prominent icon on its own row; step number is small and secondary. */}
-                <div className="w-12 h-12 rounded-xl bg-brand/10 border border-brand/30 flex items-center justify-center mb-5">
-                  <s.icon size={22} className="text-brand" />
+                <div className="w-12 h-12 rounded-xl bg-[#176B5B]/10 border border-[#176B5B]/30 flex items-center justify-center mb-5">
+                  <s.icon size={22} className="text-[#176B5B]" />
                 </div>
                 <div className="flex items-center gap-2 mb-1.5">
                   <span className="text-ink-mute text-xs font-semibold tabular-nums">{`0${i + 1}`}</span>
@@ -328,15 +329,15 @@ export default function LandingPage() {
       </section>
 
       {/* Features */}
-      <section className="py-24 px-6 bg-canvas">
+      <section className="py-24 px-6 bg-canvas border-t border-line">
         <div className="max-w-5xl mx-auto">
           <p className="text-center text-ink-mute text-xs uppercase tracking-widest mb-3">{t("landing.featEyebrow")}</p>
           <h2 className="text-3xl font-bold text-center mb-16">{t("landing.featTitle")}</h2>
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {FEATURES.map((f) => (
-              <div key={f.title} className="group bg-surface border border-line hover:border-brand/50 rounded-xl p-5 transition-colors">
-                <div className="w-10 h-10 rounded-lg bg-brand/10 border border-brand/30 flex items-center justify-center mb-4 group-hover:bg-brand/15 transition-colors">
-                  <f.icon size={20} className="text-brand" />
+              <div key={f.title} className="group bg-surface border border-line hover:border-[#176B5B]/50 rounded-xl p-5 transition-all duration-200 hover:-translate-y-1 hover:shadow-md">
+                <div className="w-10 h-10 rounded-lg bg-[#176B5B]/10 border border-[#176B5B]/30 flex items-center justify-center mb-4 group-hover:bg-[#176B5B]/15 transition-colors">
+                  <f.icon size={20} className="text-[#176B5B]" />
                 </div>
                 <h3 className="font-semibold text-ink mb-1.5">{f.title}</h3>
                 <p className="text-ink-mute text-sm leading-relaxed">{f.desc}</p>
@@ -357,8 +358,8 @@ export default function LandingPage() {
             <p className="text-ink-mute text-lg leading-relaxed mb-6">{t("landing.simDesc")}</p>
             <div className="space-y-2">
               {simQuestions.map((q) => (
-                <div key={q} className="flex items-start gap-2 px-3 py-2 rounded-lg bg-surface border border-line text-ink-soft text-sm">
-                  <MessageCircle size={14} className="text-brand shrink-0 mt-0.5" /> {q}
+                <div key={q} className="flex items-start gap-2 px-3 py-2 rounded-lg bg-surface border border-line border-l-2 border-l-transparent text-ink-soft text-sm transition-colors hover:border-l-[#176B5B] hover:bg-surface-2">
+                  <MessageCircle size={14} className="text-[#176B5B] shrink-0 mt-0.5" /> {q}
                 </div>
               ))}
             </div>
@@ -391,18 +392,18 @@ export default function LandingPage() {
           <h2 className="text-3xl sm:text-4xl font-bold text-center mb-3">{t("pricing.title")}</h2>
           <p className="text-center text-ink-mute mb-8 max-w-xl mx-auto">{t("pricing.subtitle")}</p>
 
-          {/* Billing toggle */}
+          {/* Billing toggle — two clearly distinct buttons; active = solid teal */}
           <div className="flex items-center justify-center gap-3 mb-12">
-            <div className="inline-flex items-center rounded-xl border border-line bg-surface p-1">
+            <div className="inline-flex items-center gap-1.5 rounded-xl border border-ink/15 bg-surface p-1">
               <button
                 onClick={() => setAnnual(false)}
-                className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-colors ${!annual ? "bg-brand text-white" : "text-ink-mute hover:text-ink-soft"}`}
+                className={`px-5 py-2 rounded-lg text-sm font-semibold transition-colors ${!annual ? "bg-[#176B5B] text-white shadow-sm" : "text-ink-soft hover:text-ink"}`}
               >
                 {t("pricing.monthly")}
               </button>
               <button
                 onClick={() => setAnnual(true)}
-                className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-colors ${annual ? "bg-brand text-white" : "text-ink-mute hover:text-ink-soft"}`}
+                className={`px-5 py-2 rounded-lg text-sm font-semibold transition-colors ${annual ? "bg-[#176B5B] text-white shadow-sm" : "text-ink-soft hover:text-ink"}`}
               >
                 {t("pricing.yearly")}
               </button>
@@ -417,20 +418,17 @@ export default function LandingPage() {
               return (
                 <div
                   key={tier.id}
-                  className={`relative rounded-2xl p-6 flex flex-col overflow-hidden ${
+                  className={`relative rounded-2xl p-6 flex flex-col ${
                     tier.highlight
-                      ? "bg-brand/5 border-2 border-brand shadow-lg shadow-brand/15 md:-mt-3 md:mb-3"
+                      ? "bg-[#176B5B]/5 border-2 border-[#176B5B] shadow-lg shadow-[#176B5B]/15 md:-mt-3 md:mb-3"
                       : "bg-surface border border-line"
                   }`}
                 >
-                  {/* Teal accent strip + popular badge on the highlighted tier */}
+                  {/* "Most popular" badge — straddles the top edge, solid teal, white text */}
                   {tier.highlight && (
-                    <>
-                      <span className="absolute inset-x-0 top-0 h-1.5 bg-action" />
-                      <span className="absolute top-4 right-4 px-2.5 py-1 rounded-full bg-action text-white text-[11px] font-semibold shadow-sm">
-                        {t("pricing.popular")}
-                      </span>
-                    </>
+                    <span className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-1 rounded-full bg-[#176B5B] text-white text-xs font-semibold shadow-sm whitespace-nowrap">
+                      {t("pricing.popular")}
+                    </span>
                   )}
 
                   <h3 className={`text-lg font-bold ${tier.highlight ? "text-brand" : ""}`}>{tier.name}</h3>
@@ -447,7 +445,7 @@ export default function LandingPage() {
                           <span className="text-ink-mute text-sm">/{perYr}</span>
                         </div>
                         <p className="text-ink-mute text-xs mt-1.5 tabular-nums">
-                          ≈ {tier.yearlyMo}/{perMo} · ≈ {tier.usd}/{perYr}
+                          ≈ {tier.yearlyMo}/{perMo} · {tier.usd}/yr
                         </p>
                       </>
                     ) : (
@@ -463,8 +461,8 @@ export default function LandingPage() {
                     href={tier.href}
                     className={`block text-center px-4 py-2.5 rounded-xl text-sm font-semibold transition-colors mb-6 ${
                       tier.highlight
-                        ? "bg-action hover:bg-action-hover text-white shadow-sm shadow-action/20"
-                        : "bg-surface border border-line hover:border-brand/60 text-ink hover:text-brand"
+                        ? "bg-[#176B5B] hover:bg-[#125848] text-white shadow-sm"
+                        : "bg-surface border border-ink/30 hover:border-[#176B5B] text-ink hover:text-[#176B5B]"
                     }`}
                   >
                     {tier.cta}
@@ -520,7 +518,7 @@ export default function LandingPage() {
       {/* Final CTA */}
       {!isLoggedIn && (
         <section className="py-24 px-6 border-t border-line">
-          <div className="max-w-3xl mx-auto text-center bg-surface border border-line rounded-2xl px-6 py-14">
+          <div className="max-w-3xl mx-auto text-center bg-[#176B5B]/5 border border-[#176B5B]/30 rounded-2xl px-6 py-14">
             <h2 className="text-4xl font-bold mb-4">{t("landing.ctaTitle")}</h2>
             <p className="text-ink-mute mb-8 text-lg">{t("landing.ctaSubtitle")}</p>
             <Link href={startHref} className="inline-flex items-center gap-2 px-10 py-4 rounded-xl bg-[#176B5B] hover:bg-[#125848] text-white font-semibold text-base shadow-sm transition-colors">
