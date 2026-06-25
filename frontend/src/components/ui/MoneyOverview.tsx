@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { TrendingUp, TrendingDown, RefreshCw, Wallet } from "@/components/ui/Icons";
 import {
   getCashFlowSummary, getRecurring, getDefaultCurrency, getToken, CURRENCY_CHANGE_EVENT,
@@ -62,6 +63,7 @@ export default function MoneyOverview() {
   const expenses = parseFloat(cashflow.month_expenses_actual) || 0;
   const net = income - expenses;
   const commitments = recurring ? parseFloat(recurring.monthly_total) || 0 : 0;
+  const commitmentCount = recurring ? (recurring.subscription_count || 0) + (recurring.installment_count || 0) : 0;
   const projected = parseFloat(cashflow.projected_month_end) || 0;
 
   const Foot = ({ label, value, color, icon }: { label: string; value: string; color: string; icon?: React.ReactNode }) => (
@@ -98,14 +100,22 @@ export default function MoneyOverview() {
         </div>
       </div>
 
-      {/* Footnotes: fixed monthly commitments + projected month-end */}
+      {/* Footnotes: recurring commitments (tap → /recurring) + projected month-end */}
       <div className="flex flex-wrap gap-y-3 gap-x-6 mt-5 pt-4 border-t border-line">
-        <Foot
-          label={t("money.commitments")}
-          value={fmt(commitments, ccy)}
-          color="text-ink-soft"
-          icon={<RefreshCw size={12} className="text-ink-mute" />}
-        />
+        <Link href="/recurring" className="flex-1 min-w-[160px] group rounded-lg -mx-1 px-1 py-0.5 transition-colors hover:bg-[#176B5B]/[0.06]">
+          <div className="flex items-center gap-1.5 text-ink-mute text-[11px] mb-1">
+            <RefreshCw size={12} className="text-ink-mute" />
+            <span>{t("money.commitmentsLabel")} · {commitmentCount} {commitmentCount === 1 ? t("money.item") : t("money.items")}</span>
+            <span
+              title={t("money.commitmentsTip")}
+              aria-label={t("money.commitmentsTip")}
+              className="inline-flex items-center justify-center w-3.5 h-3.5 rounded-full border border-ink-mute/50 text-ink-mute text-[8px] font-bold leading-none cursor-help shrink-0"
+            >
+              i
+            </span>
+          </div>
+          <p className="text-sm font-semibold tabular-nums text-ink-soft group-hover:text-[#176B5B] transition-colors">{fmt(commitments, ccy)}</p>
+        </Link>
         <Foot
           label={t("money.projectedMonthEnd")}
           value={fmt(projected, ccy)}

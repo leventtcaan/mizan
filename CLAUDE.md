@@ -1400,6 +1400,16 @@ curl -s http://localhost:8000/currency/list | python3 -c "import sys,json; d=jso
 
 ## Backlog (priority order)
 
+### Next product bet — Cash flow ↔ Net Worth bridge (ekstre→varlık)
+- **Onboarding ekstre→varlık akışı.** After statement upload, read closing/account balance from statement footer. Suggest as asset. Example: "Ziraat vadesiz hesap, ₺8,643 — varlık olarak ekleyelim mi?" → one tap creates Asset.
+  - Credit card statement → suggest as **liability** (balance owed), not asset.
+  - Detect statement kind (deposit/checking vs credit card) → asset vs liability.
+  - Closing balance parse = new parser job (footer/"bakiye"/"closing balance" line). Global, not bank-specific. No Turkish hardcoding.
+- **Ekstre↔varlık otomatik eşleştirme.** User has named asset (e.g. "Ziraat vadesiz") + uploads Ziraat statement → auto-detect match → offer "varlığını güncelle: ₺X kapanış bakiyesi". One tap updates Asset.current_value to statement closing balance.
+  - Match heuristic: asset name ↔ statement institution/account hints (fuzzy, language-agnostic).
+  - This is **the bridge**: cash flow (transactions) ↔ net worth (assets). Makes upload feed net worth, not just spending.
+  - Reuse reconciliation_items pattern (propose → user confirms), not silent overwrite.
+
 1. **Fix known issues** (1 item listed in Known Issues section) — do before new features
 2. **Real-time price refresh** — `GET /networth/assets/{id}/refresh-price` → calls asset_prices.py per type
 3. **Global market search** — stock ticker search + fund ISIN lookup via chosen providers; current Phase 23 stores structured fields but does not fetch full global search results yet.

@@ -883,6 +883,15 @@ Proactive threshold alerts — user sets price/value threshold per asset on netw
 
 ## Backlog (priority order)
 
+### Next product bet — Cash flow ↔ Net Worth bridge (ekstre→varlık)
+- **Onboarding ekstre→varlık akışı.** After statement upload, read closing/account balance from statement footer. Suggest as asset. Example: "Ziraat vadesiz hesap, ₺8,643 — varlık olarak ekleyelim mi?" → one tap creates Asset.
+  - Credit card statement → suggest as **liability** (balance owed), not asset. Detect statement kind → asset vs liability.
+  - Closing-balance parse = new parser job (footer / "bakiye" / "closing balance"). Global, not bank-specific. No Turkish hardcoding.
+- **Ekstre↔varlık otomatik eşleştirme.** User has named asset (e.g. "Ziraat vadesiz") + uploads Ziraat statement → auto-detect match → offer "varlığını güncelle: ₺X kapanış bakiyesi". One tap updates Asset.current_value to statement closing balance.
+  - Match heuristic: asset name ↔ statement institution/account hints (fuzzy, language-agnostic).
+  - **The bridge**: cash flow (transactions) ↔ net worth (assets). Upload feeds net worth, not just spending.
+  - Reuse reconciliation_items pattern (propose → user confirms), not silent overwrite.
+
 1. **Immediate fixes** — USD subtitle, duplicate detection, remove large_transaction producer
 2. **Proactive threshold alerts** — per-asset price thresholds → reconciliation_items on breach
 3. **Net worth historical chart** — dated snapshots; area chart. Needs new table or event-log derivation.

@@ -15,9 +15,9 @@ import {
 
 const FLAGS = ["essential", "review", "cancelled"] as const;
 const FLAG_ACTIVE: Record<string, string> = {
-  essential: "bg-emerald-900 border-emerald-700 text-emerald-300",
-  review: "bg-amber-900 border-amber-700 text-amber-300",
-  cancelled: "bg-red-950 border-red-800 text-neg",
+  essential: "bg-pos/10 border-pos/40 text-pos",
+  review: "bg-warn/10 border-warn/40 text-warn",
+  cancelled: "bg-neg/10 border-neg/40 text-neg",
 };
 
 export default function RecurringPage() {
@@ -85,17 +85,17 @@ export default function RecurringPage() {
       <MoneyTabs />
 
       {loading && (
-        <div className="space-y-3">{[1, 2, 3].map((i) => <div key={i} className="h-28 rounded-xl bg-surface animate-pulse" />)}</div>
+        <div className="space-y-3">{[1, 2, 3].map((i) => <div key={i} className="h-28 rounded-xl bg-surface-2 animate-pulse" />)}</div>
       )}
 
       {isEmpty && (
         <div className="text-center py-16 bg-surface border border-line rounded-2xl">
           <div className="w-12 h-12 rounded-2xl bg-canvas border border-line flex items-center justify-center mx-auto mb-4">
-            <RefreshCw size={22} className="text-brand" />
+            <RefreshCw size={22} className="text-[#176B5B]" />
           </div>
           <p className="text-base text-ink-soft font-medium">{t("money.noRecurring")}</p>
           <p className="text-sm text-ink-mute mt-2 max-w-sm mx-auto">{t("money.noRecurringHint")}</p>
-          <Link href="/upload" className="inline-flex items-center gap-1.5 mt-5 px-4 py-2 rounded-lg bg-brand hover:bg-brand-hover text-white text-sm font-medium transition-colors">
+          <Link href="/upload" className="inline-flex items-center gap-1.5 mt-5 px-4 py-2 rounded-lg bg-[#176B5B] hover:bg-[#125848] text-white text-sm font-medium transition-colors">
             <Upload size={15} /> {t("nav.upload")}
           </Link>
         </div>
@@ -123,8 +123,8 @@ export default function RecurringPage() {
                 </div>
                 {parseFloat(summary.potential_savings) > 0 && (
                   <div>
-                    <p className="text-emerald-600 text-xs mb-1">{t("money.potentialSavings")}</p>
-                    <p className="text-lg font-semibold text-emerald-400 tabular-nums">{fmt(parseFloat(summary.potential_savings))}</p>
+                    <p className="text-pos text-xs mb-1">{t("money.potentialSavings")}</p>
+                    <p className="text-lg font-semibold text-pos tabular-nums">{fmt(parseFloat(summary.potential_savings))}</p>
                   </div>
                 )}
               </div>
@@ -144,7 +144,7 @@ export default function RecurringPage() {
                           <h3 className="font-semibold text-ink truncate">{s.merchant}</h3>
                           <span className="text-xs px-2 py-0.5 rounded-full bg-surface-2 text-ink-mute">{catLabel(s.category)}</span>
                           {s.frequency === "weekly" && (
-                            <span className="text-xs px-2 py-0.5 rounded-full bg-blue-950 border border-blue-900 text-blue-400">{t("subscriptions.weekly")}</span>
+                            <span className="text-xs px-2 py-0.5 rounded-full bg-surface-2 border border-line text-ink-mute">{t("subscriptions.weekly")}</span>
                           )}
                         </div>
                         <p className="text-xs text-ink-mute">{s.months_active} {t("subscriptions.monthsActive")}</p>
@@ -190,15 +190,15 @@ export default function RecurringPage() {
                             <h3 className="font-semibold text-ink truncate">{p.merchant}</h3>
                             <span className="text-xs px-2 py-0.5 rounded-full bg-surface-2 text-ink-mute">{catLabel(p.category)}</span>
                             {p.source === "explicit" && p.confidence !== "possible" && (
-                              <span className="text-xs px-2 py-0.5 rounded-full bg-brand/15 border border-brand/15 text-brand">{t("installments.explicit")}</span>
+                              <span className="text-xs px-2 py-0.5 rounded-full bg-[#176B5B]/10 border border-[#176B5B]/20 text-[#176B5B]">{t("installments.explicit")}</span>
                             )}
                             {p.confidence === "possible" && (
-                              <span className="text-xs px-2 py-0.5 rounded-full bg-amber-950/50 border border-amber-800/40 text-amber-400">{t("installments.possible")}</span>
+                              <span className="text-xs px-2 py-0.5 rounded-full bg-warn/10 border border-warn/30 text-warn">{t("installments.possible")}</span>
                             )}
                           </div>
                           <p className="text-xs text-ink-mute">{p.months_detected}/{p.total_plan_months} {t("installments.paid")}</p>
                           {p.confidence === "possible" && (
-                            <p className="text-xs text-amber-500/80 mt-1">{t("installments.possibleHint")}</p>
+                            <p className="text-xs text-warn mt-1">{t("installments.possibleHint")}</p>
                           )}
                         </div>
                         <div className="text-right shrink-0">
@@ -207,13 +207,13 @@ export default function RecurringPage() {
                         </div>
                       </div>
                       <div className="h-2 rounded-full bg-canvas overflow-hidden mb-3">
-                        <div className="h-full rounded-full bg-brand" style={{ width: `${pctPaid}%` }} />
+                        <div className="h-full rounded-full bg-[#176B5B]" style={{ width: `${pctPaid}%` }} />
                       </div>
                       {p.estimated_remaining > 0 ? (
                         <>
                           <button
                             onClick={() => setEarlyOpen((prev) => ({ ...prev, [p.merchant_key]: !prev[p.merchant_key] }))}
-                            className="flex items-center gap-1.5 text-xs text-brand hover:text-brand transition-colors"
+                            className="flex items-center gap-1.5 text-xs text-[#176B5B] hover:text-[#125848] transition-colors"
                           >
                             {open ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
                             {t("installments.earlyPayoffQ")}
@@ -224,19 +224,19 @@ export default function RecurringPage() {
                                 <p className="text-ink-mute text-xs mb-0.5">{t("installments.remaining")}</p>
                                 <p className="text-ink font-semibold text-sm">{p.estimated_remaining}</p>
                               </div>
-                              <div className="bg-amber-950/30 border border-amber-900/20 rounded-lg p-3">
-                                <p className="text-amber-600 text-xs mb-0.5">{t("installments.realCost")}</p>
-                                <p className="text-amber-400 font-semibold text-sm">{fmt(p.real_cost_with_opportunity)}</p>
+                              <div className="bg-warn/10 border border-warn/30 rounded-lg p-3">
+                                <p className="text-warn text-xs mb-0.5">{t("installments.realCost")}</p>
+                                <p className="text-warn font-semibold text-sm">{fmt(p.real_cost_with_opportunity)}</p>
                               </div>
                               <div className="bg-canvas rounded-lg p-3">
                                 <p className="text-ink-mute text-xs mb-0.5">{t("installments.opportunityLoss")}</p>
-                                <p className="text-amber-400 font-semibold text-sm">{fmt(p.opportunity_loss)}</p>
+                                <p className="text-warn font-semibold text-sm">{fmt(p.opportunity_loss)}</p>
                               </div>
                             </div>
                           )}
                         </>
                       ) : (
-                        <span className="text-emerald-400 text-xs">{t("installments.completed")} ✓</span>
+                        <span className="text-pos text-xs">{t("installments.completed")} ✓</span>
                       )}
                     </div>
                   );
