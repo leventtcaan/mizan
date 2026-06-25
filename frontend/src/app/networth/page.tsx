@@ -225,13 +225,9 @@ function SectionHeader({
   label: string; icon: ReactNode; total?: number; count?: number; displayCurrency: string;
   onAdd: () => void; addLabel: string; addColor?: string; iconTint?: string; badge?: ReactNode;
 }) {
-  const btnColors: Record<string, string> = {
-    indigo: "bg-[#176B5B]/10 text-[#176B5B] hover:bg-[#176B5B]/20 border-[#176B5B]/30",
-    red: "bg-danger/10 text-danger hover:bg-danger/20 border-danger/30",
-    amber: "bg-warn/10 text-warn hover:bg-warn/20 border-warn/30",
-  };
+  void addColor;
   return (
-    <div className="flex items-center justify-between mb-4">
+    <div className="flex items-center justify-between mb-4 gap-3">
       <div className="flex items-center gap-2.5 min-w-0">
         <span className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${iconTint}`}>{icon}</span>
         <div className="min-w-0">
@@ -245,9 +241,30 @@ function SectionHeader({
           {total !== undefined && <span className="text-xs text-ink-mute tabular-nums">{fmt(total, displayCurrency)}</span>}
         </div>
       </div>
-      <button onClick={onAdd} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-medium transition-colors shrink-0 ${btnColors[addColor] ?? btnColors.indigo}`}>
-        <Plus size={12} />
+      <button onClick={onAdd} className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-[#176B5B] hover:bg-[#125848] text-white text-sm font-semibold shadow-sm transition-colors shrink-0">
+        <Plus size={14} />
         {addLabel}
+      </button>
+    </div>
+  );
+}
+
+function SectionEmpty({
+  icon, iconTint, title, desc, ctaLabel, onCta,
+}: {
+  icon: ReactNode; iconTint: string; title: string; desc: string; ctaLabel: string; onCta: () => void;
+}) {
+  return (
+    <div className="bg-surface border border-line border-dashed rounded-2xl px-6 py-10 flex flex-col items-center text-center">
+      <span className={`w-12 h-12 rounded-2xl flex items-center justify-center mb-3 ${iconTint}`}>{icon}</span>
+      <p className="text-ink font-semibold text-sm">{title}</p>
+      <p className="text-ink-mute text-xs mt-1 max-w-xs leading-relaxed">{desc}</p>
+      <button
+        onClick={onCta}
+        className="mt-4 inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-[#176B5B] hover:bg-[#125848] text-white text-sm font-semibold shadow-sm transition-colors"
+      >
+        <Plus size={14} />
+        {ctaLabel}
       </button>
     </div>
   );
@@ -1110,10 +1127,14 @@ export default function NetWorthPage() {
         {loading ? (
           <div className="space-y-2">{[1,2,3].map((i) => <div key={i} className="h-16 bg-surface border border-line rounded-xl animate-pulse" />)}</div>
         ) : assets.length === 0 ? (
-          <div className="bg-surface border border-line border-dashed rounded-xl p-8 text-center">
-            <p className="text-ink-mute text-sm">{t("nw.noAssets")}</p>
-            <button onClick={() => setShowAddAsset(true)} className="mt-3 text-brand text-sm hover:text-brand transition-colors">{t("nw.addFirstAsset")}</button>
-          </div>
+          <SectionEmpty
+            icon={<TrendingUp size={22} className="text-pos" />}
+            iconTint="bg-pos/15"
+            title={t("nw.noAssets")}
+            desc={t("nw.empty.assetsDesc")}
+            ctaLabel={t("nw.addFirstAsset")}
+            onCta={() => setShowAddAsset(true)}
+          />
         ) : (
           <div className="space-y-3">
             {ASSET_TYPE_GROUPS.map((group) => {
@@ -1244,10 +1265,14 @@ export default function NetWorthPage() {
         {loading ? (
           <div className="space-y-2">{[1,2].map((i) => <div key={i} className="h-20 bg-surface border border-line rounded-xl animate-pulse" />)}</div>
         ) : liabilities.length === 0 ? (
-          <div className="bg-surface border border-line border-dashed rounded-xl p-8 text-center">
-            <p className="text-ink-mute text-sm">{t("nw.noLiabilities")}</p>
-            <button onClick={() => setShowAddLiability(true)} className="mt-3 text-neg text-sm hover:text-neg transition-colors">{t("nw.addFirstLiability")}</button>
-          </div>
+          <SectionEmpty
+            icon={<TrendingDown size={22} className="text-neg" />}
+            iconTint="bg-neg/15"
+            title={t("nw.noLiabilities")}
+            desc={t("nw.empty.liabilitiesDesc")}
+            ctaLabel={t("nw.addFirstLiability")}
+            onCta={() => setShowAddLiability(true)}
+          />
         ) : (
           <div className="space-y-3">
             {liabilities.map((l) => {
@@ -1317,10 +1342,14 @@ export default function NetWorthPage() {
         {loading ? (
           <div className="space-y-2"><div className="h-16 bg-surface border border-line rounded-xl animate-pulse" /></div>
         ) : receivables.length === 0 ? (
-          <div className="bg-surface border border-line border-dashed rounded-xl p-8 text-center">
-            <p className="text-ink-mute text-sm">{t("nw.noReceivables")}</p>
-            <button onClick={() => setShowAddReceivable(true)} className="mt-3 text-warn text-sm hover:text-warn transition-colors">{t("nw.addFirstReceivable")}</button>
-          </div>
+          <SectionEmpty
+            icon={<Scale size={22} className="text-warn" />}
+            iconTint="bg-warn/15"
+            title={t("nw.noReceivables")}
+            desc={t("nw.empty.receivablesDesc")}
+            ctaLabel={t("nw.addFirstReceivable")}
+            onCta={() => setShowAddReceivable(true)}
+          />
         ) : (
           <div className="space-y-2">
             {receivables.map((r) => {
