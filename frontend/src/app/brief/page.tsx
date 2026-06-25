@@ -7,6 +7,7 @@ import { useLanguage } from "@/lib/i18n";
 import { CATEGORY_LABELS, CATEGORY_COLORS, DEFAULT_CATEGORY_COLOR } from "@/lib/categories";
 import { ArrowRight } from "@/components/ui/Icons";
 import AskMim from "@/components/companion/AskMim";
+import Mim from "@/components/companion/Mim";
 
 // "18 May–18 Haz" / "May 18–Jun 18" — noon avoids tz day-shift on ISO dates.
 function fmtDateRange(startISO: string, endISO: string, lang: string): string {
@@ -64,7 +65,7 @@ function BriefContent() {
     return (
       <div className="min-h-screen bg-canvas text-ink flex flex-col items-center justify-center px-4">
         <div className="flex items-center gap-3 text-ink-mute">
-          <span className="w-5 h-5 border-2 border-gray-600 border-t-brand rounded-full animate-spin" />
+          <span className="w-5 h-5 border-2 border-line border-t-[#176B5B] rounded-full animate-spin" />
           <span className="text-sm">{t("brief.loading")}</span>
         </div>
       </div>
@@ -99,8 +100,11 @@ function BriefContent() {
   return (
     <div className="min-h-screen bg-canvas text-ink px-4 py-12">
       <div className="w-full max-w-lg mx-auto">
-        {/* Eyebrow + explicit data source */}
+        {/* Mim presents the read + eyebrow + explicit data source */}
         <div className={beatCls} style={beatStyle(0)}>
+          <div className="flex justify-center mb-4">
+            <Mim size={56} mood={positive ? "happy" : "calm"} speaking />
+          </div>
           <p className="text-center text-ink-mute text-xs font-medium tracking-widest uppercase mb-2">{t("brief.eyebrow")}</p>
           <p className="text-center text-ink-mute text-sm mb-8">
             {t("brief.sourceStatement")} · {periodRange} · {period.transaction_count} {t("brief.transactions")}
@@ -118,7 +122,7 @@ function BriefContent() {
           {/* BEAT — flow */}
           <div className={`bg-surface border border-line rounded-2xl p-6 ${beatCls}`} style={beatStyle(2)}>
             <p className="text-ink-mute text-xs font-medium uppercase tracking-wide mb-3">{t("brief.b2Title")}</p>
-            <p className={`text-4xl font-bold tabular-nums ${positive ? "text-emerald-400" : "text-neg"}`}>
+            <p className={`text-4xl font-bold tabular-nums ${positive ? "text-pos" : "text-neg"}`}>
               {positive ? "+" : "−"}{money(Math.abs(flow.net), ccy)}
             </p>
             <p className="text-ink-soft text-sm mt-2">
@@ -129,7 +133,7 @@ function BriefContent() {
             <div className="flex gap-6 mt-4 pt-4 border-t border-line text-sm">
               <div>
                 <p className="text-ink-mute text-xs">{t("brief.income")}</p>
-                <p className="text-emerald-400 font-semibold tabular-nums">{money(flow.income, ccy)}</p>
+                <p className="text-pos font-semibold tabular-nums">{money(flow.income, ccy)}</p>
               </div>
               <div>
                 <p className="text-ink-mute text-xs">{t("brief.expenses")}</p>
@@ -198,11 +202,11 @@ function BriefContent() {
           </div>
 
           {/* BEAT — the one move */}
-          <div className={`bg-brand/30 border border-brand/40 rounded-2xl p-6 ${beatCls}`} style={beatStyle(5)}>
-            <p className="text-brand/70 text-xs font-medium uppercase tracking-wide mb-3">{t("brief.b5Title")}</p>
+          <div className={`bg-[#176B5B]/[0.06] border border-[#176B5B]/30 rounded-2xl p-6 ${beatCls}`} style={beatStyle(5)}>
+            <p className="text-[#176B5B] text-xs font-semibold uppercase tracking-wide mb-3">{t("brief.b5Title")}</p>
             <button
               onClick={() => router.push(suggested_action.href)}
-              className="w-full py-3.5 rounded-xl bg-brand hover:bg-brand-hover font-semibold transition-colors flex items-center justify-center gap-2"
+              className="w-full py-3.5 rounded-xl bg-[#176B5B] hover:bg-[#125848] text-white font-semibold transition-colors flex items-center justify-center gap-2"
             >
               {suggested_action.label} <ArrowRight size={18} />
             </button>

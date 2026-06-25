@@ -86,15 +86,15 @@ function FlowStepper({ labels }: { labels: [string, string, string] }) {
         <div key={s.label} className="flex items-center gap-2">
           <span
             className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full font-medium ${
-              s.state === "done" ? "text-emerald-400"
-                : s.state === "active" ? "bg-brand text-white"
+              s.state === "done" ? "text-pos"
+                : s.state === "active" ? "bg-[#176B5B] text-white"
                 : "text-ink-mute"
             }`}
           >
             {s.state === "done" && <CheckCircle size={13} />}
             {s.label}
           </span>
-          {i < steps.length - 1 && <span className="text-gray-700">›</span>}
+          {i < steps.length - 1 && <span className="text-ink-mute">›</span>}
         </div>
       ))}
     </div>
@@ -315,14 +315,14 @@ function ReviewContent() {
     return (
       <PageLayout maxWidth="xl">
         <div className="flex items-center gap-3 text-ink-mute py-20 justify-center">
-          <span className="w-5 h-5 border-2 border-gray-600 border-t-brand rounded-full animate-spin" />
+          <span className="w-5 h-5 border-2 border-line border-t-[#176B5B] rounded-full animate-spin" />
           <span className="text-sm">{t("review.loading")}</span>
         </div>
       </PageLayout>
     );
   }
 
-  const inputCls = "bg-canvas border border-line rounded-lg px-2 py-1.5 text-sm text-ink focus:outline-none focus:border-brand";
+  const inputCls = "bg-canvas border border-line rounded-lg px-2 py-1.5 text-sm text-ink focus:outline-none focus:border-[#176B5B]";
 
   const flaggedCount = new Set([...highAmount, ...duplicates, ...garbled]).size;
 
@@ -348,12 +348,12 @@ function ReviewContent() {
           // Inferred + not yet confirmed → the confirmation step.
           if (b.inferred && !confirmed[b.id]) {
             return (
-              <div key={b.id} className="p-4 rounded-xl bg-amber-950/25 border border-amber-800/40">
+              <div key={b.id} className="p-4 rounded-2xl bg-warn/10 border border-warn/30">
                 <div className="flex items-center gap-2 mb-1">
-                  <span className="w-1.5 h-1.5 rounded-full bg-amber-400 shrink-0" />
-                  <p className="text-amber-200 text-sm font-semibold">{t("review.currencyConfirmTitle")}</p>
+                  <span className="w-1.5 h-1.5 rounded-full bg-[#B0741E] shrink-0" />
+                  <p className="text-warn text-sm font-semibold">{t("review.currencyConfirmTitle")}</p>
                 </div>
-                {stmtLabel && <p className="text-amber-300/70 text-xs mb-2.5 pl-3.5">{stmtLabel}</p>}
+                {stmtLabel && <p className="text-warn text-xs mb-2.5 pl-3.5">{stmtLabel}</p>}
                 <p className="text-ink-mute text-sm mb-3 pl-3.5">{t("review.currencyConfirmPrompt")}</p>
                 <div className="flex flex-wrap items-center gap-2 pl-3.5">
                   <div className="w-44">
@@ -361,7 +361,7 @@ function ReviewContent() {
                   </div>
                   <button
                     onClick={() => confirmBatchCurrency(b.id)}
-                    className="px-3.5 py-2 rounded-lg bg-brand hover:bg-brand-hover text-white text-sm font-medium transition-colors"
+                    className="px-3.5 py-2 rounded-lg bg-[#176B5B] hover:bg-[#125848] text-white text-sm font-medium transition-colors"
                   >
                     {t("review.currencyConfirmBtn")}
                   </button>
@@ -373,7 +373,7 @@ function ReviewContent() {
           // Settled → a compact confidence badge. Detected vs (inferred &) confirmed.
           return (
             <div key={b.id} className="flex items-center gap-2 px-3.5 py-2 rounded-lg bg-surface border border-line text-xs">
-              <CheckCircle size={14} className="text-emerald-400 shrink-0" />
+              <CheckCircle size={14} className="text-pos shrink-0" />
               <span className="text-ink-mute">{t("review.currencyLabel")}:</span>
               <span className="text-ink font-semibold">{b.currency}</span>
               <span className="text-ink-mute">
@@ -383,7 +383,7 @@ function ReviewContent() {
               {b.inferred && settled && (
                 <button
                   onClick={() => reopenBatchCurrency(b.id)}
-                  className="ml-auto text-brand hover:text-brand transition-colors shrink-0"
+                  className="ml-auto text-[#176B5B] hover:text-[#125848] transition-colors shrink-0"
                 >
                   {t("review.currencyChange")}
                 </button>
@@ -394,7 +394,7 @@ function ReviewContent() {
       </div>
 
       {/* Summary bar — per currency, never mixed into one number */}
-      <div className="mb-4 p-4 rounded-xl bg-surface border border-line">
+      <div className="mb-4 p-4 rounded-2xl bg-surface border border-line shadow-sm">
         <p className="text-[11px] font-semibold tracking-wide text-ink-mute uppercase mb-2.5">{t("review.addsUpTo")}</p>
         <div className="space-y-2.5">
           {byCurrency.map((c) => (
@@ -402,13 +402,13 @@ function ReviewContent() {
               {byCurrency.length > 1 && (
                 <span className="text-[11px] font-semibold text-ink-mute bg-canvas border border-line rounded px-1.5 py-0.5">{c.currency}</span>
               )}
-              <span className="text-emerald-400 font-semibold tabular-nums text-sm flex items-center gap-1">
+              <span className="text-pos font-semibold tabular-nums text-sm flex items-center gap-1">
                 <TrendingUp size={14} /> {money(c.income, c.currency)} <span className="text-ink-mute font-normal text-xs">{t("review.income")}</span>
               </span>
               <span className="text-neg font-semibold tabular-nums text-sm flex items-center gap-1">
                 <TrendingDown size={14} /> {money(c.expenses, c.currency)} <span className="text-ink-mute font-normal text-xs">{t("review.expenses")}</span>
               </span>
-              <span className={`font-semibold tabular-nums text-sm ${c.net >= 0 ? "text-ink" : "text-orange-400"}`}>
+              <span className={`font-semibold tabular-nums text-sm ${c.net >= 0 ? "text-ink" : "text-warn"}`}>
                 {c.net >= 0 ? "" : "−"}{money(Math.abs(c.net), c.currency)} <span className="text-ink-mute font-normal text-xs">{t("review.net")}</span>
               </span>
             </div>
@@ -418,14 +418,14 @@ function ReviewContent() {
 
       {/* Gentle heads-up when rows are flagged — guidance, not an error */}
       {flaggedCount > 0 && (
-        <p className="flex items-center gap-2 text-amber-300/90 text-xs mb-3">
-          <span className="w-1.5 h-1.5 rounded-full bg-amber-400 shrink-0" />
+        <p className="flex items-center gap-2 text-warn text-xs mb-3">
+          <span className="w-1.5 h-1.5 rounded-full bg-[#B0741E] shrink-0" />
           {t("review.flaggedHint")}
         </p>
       )}
 
       {/* Editable table — desktop / tablet */}
-      <div className="hidden sm:block overflow-x-auto rounded-xl border border-line">
+      <div className="hidden sm:block overflow-x-auto rounded-2xl border border-line shadow-sm">
         <table className="w-full text-sm min-w-[720px]">
           <thead>
             <tr className="bg-surface text-left text-ink-mute text-xs">
@@ -448,7 +448,7 @@ function ReviewContent() {
                 <tr
                   key={r.key}
                   title={tip || undefined}
-                  className={`border-t border-line ${flagged ? "bg-amber-950/20" : "bg-canvas"}`}
+                  className={`border-t border-line ${flagged ? "bg-warn/10" : "bg-canvas"}`}
                 >
                   <td className="px-3 py-2">
                     <input type="date" value={r.transaction_date}
@@ -458,10 +458,10 @@ function ReviewContent() {
                   <td className="px-3 py-2">
                     <input type="text" value={r.description}
                       onChange={(e) => update(r.key, { description: e.target.value })}
-                      className={`${inputCls} w-full min-w-[180px] ${isGarbled ? "border-amber-700 text-amber-300" : ""}`} />
+                      className={`${inputCls} w-full min-w-[180px] ${isGarbled ? "border-warn/50 text-warn" : ""}`} />
                     {isGarbled && (
-                      <p className="text-amber-400/90 text-[11px] mt-1 flex items-center gap-1">
-                        <span className="w-1 h-1 rounded-full bg-amber-400 shrink-0" />
+                      <p className="text-warn text-[11px] mt-1 flex items-center gap-1">
+                        <span className="w-1 h-1 rounded-full bg-[#B0741E] shrink-0" />
                         {t("review.ocrGarbled")}
                       </p>
                     )}
@@ -470,7 +470,7 @@ function ReviewContent() {
                     <div className="flex items-center gap-1.5">
                       <input type="text" inputMode="decimal" value={r.amount}
                         onChange={(e) => update(r.key, { amount: e.target.value })}
-                        className={`${inputCls} w-[100px] tabular-nums ${highAmount.has(r.key) ? "border-amber-700 text-amber-300" : ""}`} />
+                        className={`${inputCls} w-[100px] tabular-nums ${highAmount.has(r.key) ? "border-warn/50 text-warn" : ""}`} />
                       <span className="text-ink-mute text-xs">{r.currency}</span>
                     </div>
                   </td>
@@ -479,8 +479,8 @@ function ReviewContent() {
                       onClick={() => update(r.key, { transaction_type: r.transaction_type === "debit" ? "credit" : "debit" })}
                       className={`px-2.5 py-1 rounded-lg text-xs font-medium border transition-colors ${
                         r.transaction_type === "credit"
-                          ? "bg-emerald-950/40 border-emerald-800/50 text-emerald-300"
-                          : "bg-red-950/40 border-red-800/50 text-red-300"
+                          ? "bg-pos/10 border-pos/30 text-pos"
+                          : "bg-neg/10 border-neg/30 text-neg"
                       }`}
                     >
                       {r.transaction_type === "credit" ? t("review.typeCredit") : t("review.typeDebit")}
@@ -519,7 +519,7 @@ function ReviewContent() {
             : isGarbled ? t("review.ocrGarbled") : "";
           return (
             <div key={r.key}
-              className={`rounded-xl border p-3 ${flagged ? "bg-amber-950/20 border-amber-800/40" : "bg-canvas border-line"}`}>
+              className={`rounded-xl border p-3 ${flagged ? "bg-warn/10 border-warn/30" : "bg-canvas border-line"}`}>
               {/* Date + delete */}
               <div className="flex items-center gap-2 mb-2.5">
                 <input type="date" value={r.transaction_date}
@@ -535,10 +535,10 @@ function ReviewContent() {
               <label className="block text-[11px] text-ink-mute mb-1">{t("review.colDescription")}</label>
               <input type="text" value={r.description}
                 onChange={(e) => update(r.key, { description: e.target.value })}
-                className={`${inputCls} w-full ${isGarbled ? "mb-1 border-amber-700 text-amber-300" : "mb-3"}`} />
+                className={`${inputCls} w-full ${isGarbled ? "mb-1 border-warn/50 text-warn" : "mb-3"}`} />
               {isGarbled && (
-                <p className="text-amber-400/90 text-[11px] mb-3 flex items-center gap-1">
-                  <span className="w-1 h-1 rounded-full bg-amber-400 shrink-0" />
+                <p className="text-warn text-[11px] mb-3 flex items-center gap-1">
+                  <span className="w-1 h-1 rounded-full bg-[#B0741E] shrink-0" />
                   {t("review.ocrGarbled")}
                 </p>
               )}
@@ -550,7 +550,7 @@ function ReviewContent() {
                   <div className="flex items-center gap-1.5">
                     <input type="text" inputMode="decimal" value={r.amount}
                       onChange={(e) => update(r.key, { amount: e.target.value })}
-                      className={`${inputCls} w-full tabular-nums ${highAmount.has(r.key) ? "border-amber-700 text-amber-300" : ""}`} />
+                      className={`${inputCls} w-full tabular-nums ${highAmount.has(r.key) ? "border-warn/50 text-warn" : ""}`} />
                     <span className="text-ink-mute text-xs shrink-0">{r.currency}</span>
                   </div>
                 </div>
@@ -560,8 +560,8 @@ function ReviewContent() {
                     onClick={() => update(r.key, { transaction_type: r.transaction_type === "debit" ? "credit" : "debit" })}
                     className={`px-3 py-2 rounded-lg text-xs font-medium border transition-colors whitespace-nowrap ${
                       r.transaction_type === "credit"
-                        ? "bg-emerald-950/40 border-emerald-800/50 text-emerald-300"
-                        : "bg-red-950/40 border-red-800/50 text-red-300"
+                        ? "bg-pos/10 border-pos/30 text-pos"
+                        : "bg-neg/10 border-neg/30 text-neg"
                     }`}>
                     {r.transaction_type === "credit" ? t("review.typeCredit") : t("review.typeDebit")}
                   </button>
@@ -579,7 +579,7 @@ function ReviewContent() {
                 ))}
               </select>
 
-              {tip && !isGarbled && <p className="text-amber-300/80 text-[11px] mt-2">{tip}</p>}
+              {tip && !isGarbled && <p className="text-warn text-[11px] mt-2">{tip}</p>}
             </div>
           );
         })}
@@ -587,7 +587,7 @@ function ReviewContent() {
 
       {/* Add row */}
       <button onClick={addRow}
-        className="mt-3 inline-flex items-center gap-1.5 text-brand hover:text-brand text-sm transition-colors">
+        className="mt-3 inline-flex items-center gap-1.5 text-[#176B5B] hover:text-[#125848] text-sm transition-colors">
         <Plus size={15} /> {t("review.addRow")}
       </button>
 
@@ -601,7 +601,7 @@ function ReviewContent() {
         </button>
         <button onClick={confirm} disabled={saving || rows.length === 0 || pendingCurrency}
           title={pendingCurrency ? t("review.currencyConfirmHint") : undefined}
-          className="flex-1 py-3 rounded-xl bg-brand hover:bg-brand-hover disabled:opacity-50 disabled:cursor-not-allowed font-semibold transition-colors flex items-center justify-center gap-2">
+          className="flex-1 py-3 rounded-xl bg-[#176B5B] hover:bg-[#125848] disabled:opacity-50 disabled:cursor-not-allowed font-semibold transition-colors flex items-center justify-center gap-2">
           {saving ? (
             <><span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> {t("review.saving")}</>
           ) : (
@@ -610,7 +610,7 @@ function ReviewContent() {
         </button>
       </div>
       {pendingCurrency && (
-        <p className="text-amber-300/80 text-xs mt-2 text-right">{t("review.currencyConfirmHint")}</p>
+        <p className="text-warn text-xs mt-2 text-right">{t("review.currencyConfirmHint")}</p>
       )}
     </PageLayout>
   );
