@@ -34,6 +34,11 @@ export interface StoredUser {
   is_admin?: boolean;
   email_verified?: boolean;
   plan?: string;
+  // First-impression profile, captured at registration. Stored locally so the app
+  // can personalize (greet by name, tailor copy for personal vs business) from the
+  // very first screen without an extra backend round-trip.
+  display_name?: string;
+  account_type?: "personal" | "business";
 }
 
 export function getStoredUser(): StoredUser | null {
@@ -49,6 +54,27 @@ export function getStoredUser(): StoredUser | null {
 
 export function setStoredUser(user: StoredUser): void {
   localStorage.setItem("mizan_user", JSON.stringify(user));
+}
+
+/** True once the user has a paid (Plus/Pro) plan. Used to gate real LLM calls. */
+export function isPaidPlan(): boolean {
+  const p = getStoredUser()?.plan;
+  return p === "plus" || p === "pro";
+}
+
+/**
+ * The correct in-app destination for the current session — the single source of
+ * truth for "where should a logged-in user go". Enforces the gate order:
+ * unverified → /verify, verified-but-new → /onboarding, else → /home. Used by the
+ * landing CTA and as a guard so an unverified user can never slip past verification
+ * (e.g. via the landing "Continue" button).
+ */
+export function postAuthRoute(): string {
+  const u = getStoredUser();
+  if (!u || !getToken()) return "/login";
+  if (u.email_verified === false) return "/verify";        // undefined = grandfathered, allow
+  if (!u.onboarding_completed) return "/onboarding";
+  return "/home";
 }
 
 export const CURRENCY_CHANGE_EVENT = "mizan-currency-change";

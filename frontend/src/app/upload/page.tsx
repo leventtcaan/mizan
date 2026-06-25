@@ -7,6 +7,7 @@ import {
   uploadStatement, getStoredUser, UploadCapError, EmailNotVerifiedError, type UploadResponse,
 } from "@/lib/api";
 import PageLayout from "@/components/ui/PageLayout";
+import MimGuide from "@/components/companion/MimGuide";
 import { FileText, ArrowRight, CheckCircle, ShieldCheck, Sparkles, Mail, Upload } from "@/components/ui/Icons";
 import { useLanguage } from "@/lib/i18n";
 
@@ -32,7 +33,7 @@ function reasonKey(result: UploadResponse): string {
 
 export default function UploadPage() {
   const router = useRouter();
-  const { t } = useLanguage();
+  const { t, lang } = useLanguage();
   const [dragOver, setDragOver] = useState(false);
   const [entries, setEntries] = useState<FileEntry[]>([]);
   const [processing, setProcessing] = useState(false);
@@ -186,20 +187,39 @@ export default function UploadPage() {
         </div>
       )}
 
-      {/* Free-tier monthly upload cap reached → upgrade prompt */}
+      {/* Free-tier monthly upload cap reached → show what AI parsing does, motivate upgrade */}
       {gate === "cap" && (
-        <div className="mt-4 rounded-xl border border-[#176B5B]/30 bg-[#176B5B]/[0.06] p-5 text-center">
-          <div className="w-11 h-11 rounded-xl bg-[#176B5B]/15 flex items-center justify-center mx-auto mb-3">
-            <Sparkles size={20} className="text-[#176B5B]" />
+        <div className="mt-4 space-y-4">
+          <MimGuide
+            mood="thinking"
+            size={52}
+            message={lang === "tr"
+              ? "Bu ay ücretsiz yükleme hakkını kullandın. Plus ile her ekstreyi sınırsız okuyabilirim."
+              : "You've used this month's free upload. With Plus I can read every statement for you, no limits."}
+          />
+          <div className="rounded-2xl border border-[#176B5B]/30 bg-[#176B5B]/[0.06] p-5">
+            <div className="flex items-center gap-2 mb-1">
+              <Sparkles size={18} className="text-[#176B5B] shrink-0" />
+              <p className="font-semibold text-ink">{t("upload.capTitle")}</p>
+            </div>
+            <p className="text-ink-mute text-sm mb-4">{t("upload.capBody")}</p>
+            <ul className="space-y-2 mb-5">
+              {(lang === "tr"
+                ? ["Sınırsız ekstre yükleme", "Her ekstre için AI okuması ve özeti", "Otomatik kategorilendirme ve tekrarlayan ödeme tespiti"]
+                : ["Unlimited statement uploads", "An AI read and summary of every statement", "Automatic categorization & recurring-charge detection"]
+              ).map((line, i) => (
+                <li key={i} className="flex items-start gap-2 text-sm text-ink-soft">
+                  <CheckCircle size={15} className="text-pos shrink-0 mt-0.5" /> <span>{line}</span>
+                </li>
+              ))}
+            </ul>
+            <Link
+              href="/upgrade"
+              className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-lg bg-[#176B5B] hover:bg-[#125848] text-white text-sm font-semibold transition-colors"
+            >
+              {t("upload.capCta")} <ArrowRight size={16} />
+            </Link>
           </div>
-          <p className="font-semibold text-ink mb-1">{t("upload.capTitle")}</p>
-          <p className="text-ink-mute text-sm mb-4">{t("upload.capBody")}</p>
-          <Link
-            href="/settings"
-            className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-lg bg-[#176B5B] hover:bg-[#125848] text-white text-sm font-semibold transition-colors"
-          >
-            {t("upload.capCta")} <ArrowRight size={16} />
-          </Link>
         </div>
       )}
 

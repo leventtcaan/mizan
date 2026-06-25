@@ -93,8 +93,12 @@ export default function HomePage() {
   }, [ccy]);
 
   useEffect(() => {
-    if (!getToken() || !getStoredUser()) { router.replace("/login"); return; }
-    setName((getStoredUser()?.email ?? "").split("@")[0]);
+    const u = getStoredUser();
+    if (!getToken() || !u) { router.replace("/login"); return; }
+    // Verification gate (defense in depth): an unverified user must never reach the
+    // app shell, even by typing /home or via the landing "Continue" button.
+    if (u.email_verified === false) { router.replace("/verify"); return; }
+    setName(u.display_name?.trim() || (u.email ?? "").split("@")[0]);
     loadAll();
   }, [router, loadAll]);
 

@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { getToken, getStoredUser } from "@/lib/api";
+import { getToken, getStoredUser, postAuthRoute } from "@/lib/api";
 import {
   Brain, Scale, Sparkles, Mail, ShieldCheck, FileText, MessageCircle,
   ArrowRight, TrendingUp, CheckCircle, CreditCard, Sun, Moon, Monitor,
@@ -30,10 +30,13 @@ export default function LandingPage() {
   }, []);
 
   const isLoggedIn = userEmail !== null;
-  // "Ücretsiz başla" sends new visitors to the register form; logged-in users continue to /home.
-  const startHref = isLoggedIn ? "/home" : "/login?mode=register";
-  // Logo: landing for logged-out visitors, the app home for logged-in users.
-  const logoHref = isLoggedIn ? "/home" : "/";
+  // Logged-in users continue to the correct gated destination (NOT a hardcoded
+  // /home) — an unverified user clicking "Continue" must land on /verify, never
+  // slip past the verification gate. New visitors go to the register form.
+  const continueHref = isLoggedIn ? postAuthRoute() : "/login?mode=register";
+  const startHref = continueHref;
+  // Logo: landing for logged-out visitors, the correct app destination for logged-in.
+  const logoHref = isLoggedIn ? postAuthRoute() : "/";
   // Paid-plan CTA: logged-in users jump straight to /upgrade; visitors register first
   // with the chosen plan carried through so registration can land them on /upgrade.
   const planHref = (p: "plus" | "pro") => (isLoggedIn ? "/upgrade" : `/login?mode=register&plan=${p}`);

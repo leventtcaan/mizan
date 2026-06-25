@@ -3,13 +3,15 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { login, register, setToken, setStoredUser, detectBrowserCurrency } from "@/lib/api";
+import { login, register, setToken, setStoredUser, getStoredUser, detectBrowserCurrency } from "@/lib/api";
 import { useLanguage, setLanguage, detectBrowserLang, type Lang } from "@/lib/i18n";
 import ThemeToggle from "@/components/ui/ThemeToggle";
-import { Sparkles } from "@/components/ui/Icons";
+import MimGuide from "@/components/companion/MimGuide";
+import { Sparkles, Home as HomeIcon, Briefcase } from "@/components/ui/Icons";
 
 type Mode = "login" | "register";
 type FormState = "idle" | "loading" | "error";
+type AccountType = "personal" | "business";
 
 const inputClass =
   "w-full px-4 py-3 rounded-xl bg-canvas border border-line text-ink placeholder:text-ink-mute " +
@@ -21,15 +23,14 @@ export default function LoginPage() {
   const [mode, setMode] = useState<Mode>("login");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [name, setName] = useState("");
+  const [accountType, setAccountType] = useState<AccountType>("personal");
   const [state, setState] = useState<FormState>("idle");
   const [errorMsg, setErrorMsg] = useState("");
-  // A paid plan chosen on the landing pricing section (?plan=plus|pro). Drives the
-  // "you selected X" banner and the post-registration redirect to /upgrade.
+  // A paid plan chosen on the landing pricing section (?plan=plus|pro).
   const [selectedPlan, setSelectedPlan] = useState<"plus" | "pro" | null>(null);
 
-  // Open directly on the register form when arriving via /login?mode=register
-  // (the landing CTAs). Read on mount from the URL — no useSearchParams, so the
-  // page keeps prerendering without a Suspense boundary.
+  // Open directly on register when arriving via /login?mode=register (landing CTAs).
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     if (params.get("mode") === "register") setMode("register");
@@ -53,20 +54,26 @@ export default function LoginPage() {
         ? await login(email, password)
         : await register(email, password);
       setToken(result.access_token);
-      // Fall back to the browser locale (not a hardcoded tr/TRY) when the backend omits a preference.
       const resolvedLang: Lang = (result.language === "tr" || result.language === "en")
         ? result.language
         : detectBrowserLang();
       const resolvedCurrency = result.display_currency ?? detectBrowserCurrency();
-      setStoredUser({ id: result.user_id, email: result.email, onboarding_completed: result.onboarding_completed, language: resolvedLang, display_currency: resolvedCurrency, is_admin: result.is_admin ?? false, email_verified: result.email_verified, plan: result.plan });
+      // On register, capture the first-impression profile (name + how they'll use
+      // Mizan) so the rest of setup and Home can personalize immediately. On login,
+      // preserve whatever profile is already stored locally.
+      const prior = getStoredUser();
+      setStoredUser({
+        id: result.user_id, email: result.email,
+        onboarding_completed: result.onboarding_completed,
+        language: resolvedLang, display_currency: resolvedCurrency,
+        is_admin: result.is_admin ?? false, email_verified: result.email_verified, plan: result.plan,
+        display_name: mode === "register" ? (name.trim() || undefined) : prior?.display_name,
+        account_type: mode === "register" ? accountType : prior?.account_type,
+      });
       setLanguage(resolvedLang);
-      // Registering from a paid-plan CTA → straight to /upgrade (carry the choice),
-      // not onboarding. (The verification email is still sent; upload/AI stay gated
-      // until verified, with the verify prompt shown at that point.)
       if (mode === "register" && selectedPlan) {
         router.push(`/upgrade?plan=${selectedPlan}`);
       } else if (!result.email_verified) {
-        // Email must be verified before upload/AI features unlock.
         router.push(`/verify?email=${encodeURIComponent(result.email)}&sent=1`);
       } else if (mode === "register" || !result.onboarding_completed) {
         router.push("/onboarding");
@@ -80,10 +87,17 @@ export default function LoginPage() {
   };
 
   const isRegister = mode === "register";
+  const mimLine = isRegister
+    ? (lang === "tr"
+        ? "Merhaba, ben Mim. Paranı tek bir yerde toplamana yardım edeceğim. Önce hesabını oluşturalım."
+        : "Hi, I'm Mim. I'll help you see all your money in one place. First, let's create your account.")
+    : (lang === "tr"
+        ? "Tekrar hoş geldin. Kaldığın yerden devam edelim."
+        : "Welcome back. Let's pick up where you left off.");
 
   return (
     <main className="min-h-screen bg-canvas text-ink flex flex-col">
-      {/* Top bar — logo + language + theme, matching the landing chrome */}
+      {/* Top bar — logo + language + theme */}
       <header className="flex items-center justify-between px-6 py-5 max-w-6xl mx-auto w-full">
         <Link href="/" className="text-lg font-bold tracking-tight text-ink hover:text-[#176B5B] transition-colors">
           Mizan
@@ -112,8 +126,12 @@ export default function LoginPage() {
       {/* Centered auth card */}
       <div className="flex-1 flex items-center justify-center px-4 pb-20">
         <div className="w-full max-w-md">
+          {/* Mim — present from the very first screen */}
+          <div className="mb-5">
+            <MimGuide message={mimLine} mood={isRegister ? "happy" : "calm"} size={56} />
+          </div>
+
           <div className="rounded-2xl border border-line bg-surface shadow-xl shadow-ink/5 p-7 sm:p-8">
-            {/* Header */}
             <div className="mb-6">
               <h1 className="text-2xl font-bold tracking-tight">
                 {isRegister ? t("auth.registerTitle") : t("auth.loginTitle")}
@@ -135,7 +153,7 @@ export default function LoginPage() {
               </div>
             )}
 
-            {/* Mode tabs — two distinct buttons; active = solid teal */}
+            {/* Mode tabs */}
             <div className="grid grid-cols-2 gap-2.5 mb-6">
               {([["login", t("auth.loginBtn")], ["register", t("auth.registerBtn")]] as [Mode, string][]).map(
                 ([m, label]) => (
@@ -157,32 +175,74 @@ export default function LoginPage() {
             </div>
 
             <form onSubmit={handleSubmit} className="space-y-4">
+              {/* Name — register only; helps Mim greet & personalize from day one */}
+              {isRegister && (
+                <div>
+                  <label className="block text-xs text-ink-mute mb-1.5 uppercase tracking-wide">
+                    {t("setup.nameLabel")} <span className="normal-case text-ink-mute/70">· {t("setup.optional")}</span>
+                  </label>
+                  <input
+                    type="text"
+                    autoComplete="given-name"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    className={inputClass}
+                    placeholder={t("setup.namePlaceholder")}
+                  />
+                </div>
+              )}
+
               <div>
                 <label className="block text-xs text-ink-mute mb-1.5 uppercase tracking-wide">{t("auth.email")}</label>
                 <input
-                  type="email"
-                  required
-                  autoComplete="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className={inputClass}
-                  placeholder="example@email.com"
+                  type="email" required autoComplete="email"
+                  value={email} onChange={(e) => setEmail(e.target.value)}
+                  className={inputClass} placeholder="example@email.com"
                 />
               </div>
 
               <div>
                 <label className="block text-xs text-ink-mute mb-1.5 uppercase tracking-wide">{t("auth.password")}</label>
                 <input
-                  type="password"
-                  required
-                  autoComplete={isRegister ? "new-password" : "current-password"}
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className={inputClass}
-                  placeholder="••••••••"
+                  type="password" required autoComplete={isRegister ? "new-password" : "current-password"}
+                  value={password} onChange={(e) => setPassword(e.target.value)}
+                  className={inputClass} placeholder="••••••••"
                 />
                 {isRegister && <p className="text-ink-mute text-xs mt-1.5">{t("auth.passwordHint")}</p>}
               </div>
+
+              {/* Account type — register only; tailors Mizan to personal vs business */}
+              {isRegister && (
+                <div>
+                  <label className="block text-xs text-ink-mute mb-1.5 uppercase tracking-wide">{t("setup.useTitle")}</label>
+                  <div className="grid grid-cols-2 gap-2.5">
+                    {([
+                      ["personal", t("setup.personal"), t("setup.personalDesc"), <HomeIcon key="p" size={16} />],
+                      ["business", t("setup.business"), t("setup.businessDesc"), <Briefcase key="b" size={16} />],
+                    ] as [AccountType, string, string, React.ReactNode][]).map(([val, label, desc, icon]) => {
+                      const active = accountType === val;
+                      return (
+                        <button
+                          key={val}
+                          type="button"
+                          onClick={() => setAccountType(val)}
+                          aria-pressed={active}
+                          className={`text-left p-3 rounded-xl border transition-colors ${
+                            active
+                              ? "border-[#176B5B] bg-[#176B5B]/[0.07]"
+                              : "border-line hover:border-[#176B5B]/50"
+                          }`}
+                        >
+                          <span className={`flex items-center gap-1.5 text-sm font-semibold ${active ? "text-[#176B5B]" : "text-ink"}`}>
+                            {icon}{label}
+                          </span>
+                          <span className="block text-ink-mute text-xs mt-0.5">{desc}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
 
               {state === "error" && (
                 <div className="p-3.5 rounded-xl bg-neg/10 border border-neg/30">
@@ -205,7 +265,6 @@ export default function LoginPage() {
             </form>
           </div>
 
-          {/* Reassurance line under the card */}
           <p className="text-center text-ink-mute text-xs mt-5">
             {lang === "tr"
               ? "Banka girişi yok. Kart yok. İstediğinde iptal et."
