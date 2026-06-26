@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { createLiability, updateLiability, getDefaultCurrency, LiabilityItem } from "@/lib/api";
-import { X, TrendingDown } from "@/components/ui/Icons";
+import { X, TrendingDown, ChevronDown } from "@/components/ui/Icons";
 import CurrencySelect from "@/components/CurrencySelect";
 import { useLanguage } from "@/lib/i18n";
 import { useTheme } from "@/lib/theme";
@@ -29,12 +29,17 @@ export default function AddLiabilityModal({ onClose, onAdded, onUpdated, editDat
   const [liabilityType, setLiabilityType] = useState(editData?.liability_type ?? "personal_loan");
   // New entries default to the user's display currency; edits keep their own.
   const [currency, setCurrency] = useState(() => editData?.currency ?? getDefaultCurrency());
-  const [totalAmount, setTotalAmount] = useState(editData?.total_amount ?? "");
-  const [remainingAmount, setRemainingAmount] = useState(editData?.remaining_amount ?? "");
+  // The one number that matters for net worth: what you owe right now.
+  const [amountOwed, setAmountOwed] = useState(editData?.remaining_amount ?? "");
+
+  // Optional extras (cash-flow / progress) — hidden by default.
+  const [originalAmount, setOriginalAmount] = useState(editData?.total_amount ?? "");
   const [monthlyPayment, setMonthlyPayment] = useState(editData?.monthly_payment ?? "");
   const [dueDate, setDueDate] = useState(editData?.due_date ?? "");
   const [interestRate, setInterestRate] = useState(editData?.interest_rate ?? "");
   const [notes, setNotes] = useState(editData?.notes ?? "");
+  const [showDetails, setShowDetails] = useState(isEdit);
+
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -47,8 +52,9 @@ export default function AddLiabilityModal({ onClose, onAdded, onUpdated, editDat
         name,
         liability_type: liabilityType,
         currency,
-        total_amount: totalAmount,
-        remaining_amount: remainingAmount || totalAmount,
+        // If no original amount is given, treat the owed amount as the whole balance.
+        total_amount: originalAmount || amountOwed,
+        remaining_amount: amountOwed,
         monthly_payment: monthlyPayment || undefined,
         due_date: dueDate || undefined,
         interest_rate: interestRate || undefined,
@@ -86,7 +92,7 @@ export default function AddLiabilityModal({ onClose, onAdded, onUpdated, editDat
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label className="block text-xs text-ink-mute mb-1">{t("common.name")}</label>
-            <input value={name} onChange={(e) => setName(e.target.value)} required className={inputClass} />
+            <input value={name} autoFocus onChange={(e) => setName(e.target.value)} required className={inputClass} />
           </div>
 
           <div className="grid grid-cols-2 gap-3">
@@ -106,36 +112,45 @@ export default function AddLiabilityModal({ onClose, onAdded, onUpdated, editDat
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="block text-xs text-ink-mute mb-1">{t("nw.total")}</label>
-              <input type="number" min="0" step="0.01" value={totalAmount} onChange={(e) => setTotalAmount(e.target.value)} placeholder="0.00" required className={inputClass} />
-            </div>
-            <div>
-              <label className="block text-xs text-ink-mute mb-1">{t("nw.remaining")}</label>
-              <input type="number" min="0" step="0.01" value={remainingAmount} onChange={(e) => setRemainingAmount(e.target.value)} className={inputClass} />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="block text-xs text-ink-mute mb-1">{t("nw.monthly")} ({t("common.optional")})</label>
-              <input type="number" min="0" step="0.01" value={monthlyPayment} onChange={(e) => setMonthlyPayment(e.target.value)} placeholder="0.00" className={inputClass} />
-            </div>
-            <div>
-              <label className="block text-xs text-ink-mute mb-1">% ({t("common.optional")})</label>
-              <input type="number" min="0" step="0.01" value={interestRate} onChange={(e) => setInterestRate(e.target.value)} className={inputClass} />
-            </div>
-          </div>
-
           <div>
-            <label className="block text-xs text-ink-mute mb-1">{t("nw.due")} ({t("common.optional")})</label>
-            <input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} className={inputClass} />
+            <label className="block text-xs text-ink-mute mb-1">{t("nw.remaining")}</label>
+            <input type="number" min="0" step="0.01" inputMode="decimal" value={amountOwed} onChange={(e) => setAmountOwed(e.target.value)} placeholder="0.00" required className={inputClass} />
           </div>
 
-          <div>
-            <label className="block text-xs text-ink-mute mb-1">{t("common.notes")} ({t("common.optional")})</label>
-            <input value={notes} onChange={(e) => setNotes(e.target.value)} className={inputClass} />
+          <div className="border-t border-line">
+            <button type="button" onClick={() => setShowDetails((v) => !v)}
+              className="flex items-center gap-1.5 text-xs text-ink-mute hover:text-ink-soft transition-colors py-1.5">
+              <ChevronDown size={14} className={`transition-transform ${showDetails ? "rotate-180" : ""}`} />
+              {t("assetForm.moreDetails")}
+            </button>
+            {showDetails && (
+              <div className="space-y-4 pt-2">
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs text-ink-mute mb-1">{t("nw.total")} ({t("common.optional")})</label>
+                    <input type="number" min="0" step="0.01" value={originalAmount} onChange={(e) => setOriginalAmount(e.target.value)} placeholder="0.00" className={inputClass} />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-ink-mute mb-1">{t("nw.monthly")} ({t("common.optional")})</label>
+                    <input type="number" min="0" step="0.01" value={monthlyPayment} onChange={(e) => setMonthlyPayment(e.target.value)} placeholder="0.00" className={inputClass} />
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs text-ink-mute mb-1">% ({t("common.optional")})</label>
+                    <input type="number" min="0" step="0.01" value={interestRate} onChange={(e) => setInterestRate(e.target.value)} className={inputClass} />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-ink-mute mb-1">{t("nw.due")} ({t("common.optional")})</label>
+                    <input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} className={inputClass} />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-xs text-ink-mute mb-1">{t("common.notes")} ({t("common.optional")})</label>
+                  <input value={notes} onChange={(e) => setNotes(e.target.value)} className={inputClass} />
+                </div>
+              </div>
+            )}
           </div>
 
           {error && <p className="text-neg text-xs">{error}</p>}
@@ -144,7 +159,7 @@ export default function AddLiabilityModal({ onClose, onAdded, onUpdated, editDat
             <button type="button" onClick={onClose} className="flex-1 px-4 py-2.5 rounded-lg border border-line text-sm font-medium text-ink-soft hover:bg-surface-2 transition-colors">
               {t("common.cancel")}
             </button>
-            <button type="submit" disabled={loading || !name || !totalAmount} className="flex-1 px-4 py-2.5 rounded-lg bg-[#176B5B] hover:bg-[#125848] disabled:opacity-50 disabled:cursor-not-allowed text-sm font-semibold text-white transition-colors">
+            <button type="submit" disabled={loading || !name || !amountOwed} className="flex-1 px-4 py-2.5 rounded-lg bg-[#176B5B] hover:bg-[#125848] disabled:opacity-50 disabled:cursor-not-allowed text-sm font-semibold text-white transition-colors">
               {loading ? t("common.loading") : isEdit ? t("common.save") : t("common.add")}
             </button>
           </div>

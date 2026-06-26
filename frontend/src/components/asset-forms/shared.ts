@@ -65,26 +65,6 @@ export const GOLD_UNITS: GoldUnit[] = [
   { code: "FULL_COIN", labelKey: "full_coin", unitKey: "piece", xauPerUnit: 0.2122 },
 ];
 
-// Manual asset types → which optional slots their form shows + value-label key.
-// primary (p) is always required; secondary (s) / tertiary (x) optional.
-export interface ManualConfig {
-  slots: ("s" | "x")[];
-}
-
-export const MANUAL_CONFIGS: Record<string, ManualConfig> = {
-  cash: { slots: ["s"] },
-  bank_account: { slots: ["s", "x"] },
-  real_estate: { slots: ["s", "x"] },
-  vehicle: { slots: ["s", "x"] },
-  bond: { slots: ["s", "x"] },
-  art_collectible: { slots: ["s", "x"] },
-  jewelry: { slots: ["s", "x"] },
-  life_insurance: { slots: ["s", "x"] },
-  pension: { slots: ["s"] },
-  business_ownership: { slots: ["s", "x"] },
-  other_asset: { slots: ["s"] },
-};
-
 /**
  * Live USD rates: getCurrencyRates("USD") returns rates[code] = units of `code` per 1 USD.
  * So USD price of one unit of `code` = 1 / rates[code]. Works for fiat, crypto and commodities.

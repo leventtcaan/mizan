@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { createAsset, updateAsset, getAccounts, createAccount, AssetItem, type Account } from "@/lib/api";
-import { X, TrendingUp } from "@/components/ui/Icons";
+import { X, TrendingUp, ChevronDown } from "@/components/ui/Icons";
 import { useLanguage } from "@/lib/i18n";
 import { useTheme } from "@/lib/theme";
 import { AssetDraft } from "@/components/asset-forms/shared";
@@ -57,6 +57,9 @@ export default function AddAssetModal({ onClose, onAdded, onUpdated, displayCurr
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [accountId, setAccountId] = useState<string>(editData?.account_id ?? "");
   const [newAccountName, setNewAccountName] = useState("");
+  // Account / date / notes are optional — hidden by default so the common path is just
+  // name + value. Opened by default when editing (so existing extras are visible).
+  const [showDetails, setShowDetails] = useState(isEdit);
 
   useEffect(() => { getAccounts().then(setAccounts).catch(() => setAccounts([])); }, []);
 
@@ -200,32 +203,41 @@ export default function AddAssetModal({ onClose, onAdded, onUpdated, displayCurr
           <form onSubmit={submit} className="space-y-4">
             {routeForm(assetType, setDraft, displayCurrency)}
 
-            <div className="pt-1 border-t border-line space-y-4">
-              {accountRelevant && (
-                <div>
-                  <label className="block text-xs text-ink-mute mb-1.5">{t("nw.account")} ({t("common.optional")})</label>
-                  <select value={accountId} onChange={(e) => setAccountId(e.target.value)} className={inputClass}>
-                    <option value="">{t("nw.noAccount")}</option>
-                    {accounts.map((a) => <option key={a.id} value={a.id}>{a.name}{a.institution ? ` · ${a.institution}` : ""}</option>)}
-                  </select>
-                  {!accountId && (
-                    <input
-                      value={newAccountName}
-                      onChange={(e) => setNewAccountName(e.target.value)}
-                      placeholder={t("nw.newAccountPlaceholder")}
-                      className={`${inputClass} mt-2`}
-                    />
+            <div className="pt-1 border-t border-line">
+              <button type="button" onClick={() => setShowDetails((v) => !v)}
+                className="flex items-center gap-1.5 text-xs text-ink-mute hover:text-ink-soft transition-colors py-1.5">
+                <ChevronDown size={14} className={`transition-transform ${showDetails ? "rotate-180" : ""}`} />
+                {t("assetForm.moreDetails")}
+              </button>
+              {showDetails && (
+                <div className="space-y-4 pt-2">
+                  {accountRelevant && (
+                    <div>
+                      <label className="block text-xs text-ink-mute mb-1.5">{t("nw.account")} ({t("common.optional")})</label>
+                      <select value={accountId} onChange={(e) => setAccountId(e.target.value)} className={inputClass}>
+                        <option value="">{t("nw.noAccount")}</option>
+                        {accounts.map((a) => <option key={a.id} value={a.id}>{a.name}{a.institution ? ` · ${a.institution}` : ""}</option>)}
+                      </select>
+                      {!accountId && (
+                        <input
+                          value={newAccountName}
+                          onChange={(e) => setNewAccountName(e.target.value)}
+                          placeholder={t("nw.newAccountPlaceholder")}
+                          className={`${inputClass} mt-2`}
+                        />
+                      )}
+                    </div>
                   )}
+                  <div>
+                    <label className="block text-xs text-ink-mute mb-1.5">{t("common.date")}</label>
+                    <input type="date" value={asOfDate} onChange={(e) => setAsOfDate(e.target.value)} className={inputClass} />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-ink-mute mb-1.5">{t("common.notes")} ({t("common.optional")})</label>
+                    <input value={notes} onChange={(e) => setNotes(e.target.value)} className={inputClass} />
+                  </div>
                 </div>
               )}
-              <div>
-                <label className="block text-xs text-ink-mute mb-1.5">{t("common.date")}</label>
-                <input type="date" value={asOfDate} onChange={(e) => setAsOfDate(e.target.value)} className={inputClass} />
-              </div>
-              <div>
-                <label className="block text-xs text-ink-mute mb-1.5">{t("common.notes")} ({t("common.optional")})</label>
-                <input value={notes} onChange={(e) => setNotes(e.target.value)} className={inputClass} />
-              </div>
             </div>
 
             {error && <p className="text-neg text-xs">{error}</p>}

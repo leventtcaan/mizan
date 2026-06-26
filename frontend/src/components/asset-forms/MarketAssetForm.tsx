@@ -20,7 +20,6 @@ export default function MarketAssetForm({ assetType, onDraftChange, displayCurre
   const [exchange, setExchange] = useState("AUTO");
   const [symbol, setSymbol] = useState("");
   const [name, setName] = useState("");
-  const [venue, setVenue] = useState("");
   const [quoting, setQuoting] = useState(false);
   const [quotePrice, setQuotePrice] = useState<number | null>(null);
   const [quoteCurrency, setQuoteCurrency] = useState<string>("USD");
@@ -77,18 +76,18 @@ export default function MarketAssetForm({ assetType, onDraftChange, displayCurre
       const totalUsd = priceInUsd * sharesN;
       const sd = buildSourceDetail({
         subtype: assetType, symbol: sym, code: sym,
-        name: name.trim() || quoteName, venue: venue.trim() || exchange,
+        name: name.trim() || quoteName, venue: exchange,
         shares, last_price_usd: priceInUsd,
         quote_currency: quoteCurrency, quote_price: quotePrice ?? undefined,
       });
       onDraftChange({ name: name.trim() || quoteName || sym, asset_type: assetType, currency: "USD", current_value: totalUsd.toFixed(2), source_detail: sd, quantity: shares, unit_code: sym });
     } else if (quoteFailed && manualN > 0 && sym) {
-      const sd = buildSourceDetail({ subtype: assetType, symbol: sym, code: sym, name: name.trim(), venue: venue.trim() || exchange });
+      const sd = buildSourceDetail({ subtype: assetType, symbol: sym, code: sym, name: name.trim(), venue: exchange });
       onDraftChange({ name: name.trim() || sym, asset_type: assetType, currency: "USD", current_value: manualValue, source_detail: sd });
     } else {
       onDraftChange(null);
     }
-  }, [symbol, name, venue, exchange, quotePrice, quoteCurrency, yahooSymbol, shares, manualValue, quoteFailed]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [symbol, name, exchange, quotePrice, quoteCurrency, yahooSymbol, shares, manualValue, quoteFailed]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const totalUsd = hasQuote && priceInUsd !== null && shares ? priceInUsd * parseFloat(shares || "0") : null;
   const preview = totalUsd !== null ? previewLine(totalUsd, displayCurrency, rates) : null;
@@ -167,23 +166,20 @@ export default function MarketAssetForm({ assetType, onDraftChange, displayCurre
         </>
       )}
 
-      {/* Manual fallback — shown immediately on failure, no retry loop */}
+      {/* Manual fallback — shown immediately on failure. Also lets the user name it,
+          since there's no live quote to derive the name from. */}
       {quoteFailed && (
-        <div>
-          <p className="text-warn text-xs mb-2">{t("assetForm.marketManualNote")}</p>
-          <label className="block text-xs text-ink-mute mb-1.5">{t("assetForm.totalValueUsd")}</label>
-          <input type="number" min="0" step="0.01" value={manualValue} onChange={(e) => setManualValue(e.target.value)}
-            placeholder="0.00" className={sharedInputClass} />
+        <div className="space-y-3">
+          <p className="text-warn text-xs">{t("assetForm.marketManualNote")}</p>
+          <input value={name} onChange={(e) => setName(e.target.value)}
+            placeholder={t("assetForm.nameOptional")} className={sharedInputClass} />
+          <div>
+            <label className="block text-xs text-ink-mute mb-1.5">{t("assetForm.totalValueUsd")}</label>
+            <input type="number" min="0" step="0.01" value={manualValue} onChange={(e) => setManualValue(e.target.value)}
+              placeholder="0.00" className={sharedInputClass} />
+          </div>
         </div>
       )}
-
-      {/* Optional name + venue */}
-      <div className="grid grid-cols-2 gap-3">
-        <input value={name} onChange={(e) => setName(e.target.value)}
-          placeholder={t("assetForm.nameOptional")} className={sharedInputClass} />
-        <input value={venue} onChange={(e) => setVenue(e.target.value)}
-          placeholder={t("assetForm.venueOptional")} className={sharedInputClass} />
-      </div>
     </div>
   );
 }

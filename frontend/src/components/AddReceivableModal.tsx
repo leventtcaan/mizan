@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { createReceivable, updateReceivable, getDefaultCurrency, ReceivableItem } from "@/lib/api";
-import { X, DollarSign } from "@/components/ui/Icons";
+import { X, DollarSign, ChevronDown } from "@/components/ui/Icons";
 import CurrencySelect from "@/components/CurrencySelect";
 import { useLanguage } from "@/lib/i18n";
 import { useTheme } from "@/lib/theme";
@@ -26,6 +26,7 @@ export default function AddReceivableModal({ onClose, onAdded, onUpdated, editDa
   const [currency, setCurrency] = useState(() => editData?.currency ?? getDefaultCurrency());
   const [expectedDate, setExpectedDate] = useState(editData?.expected_date ?? "");
   const [notes, setNotes] = useState(editData?.notes ?? "");
+  const [showDetails, setShowDetails] = useState(isEdit);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -73,13 +74,13 @@ export default function AddReceivableModal({ onClose, onAdded, onUpdated, editDa
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label className="block text-xs text-ink-mute mb-1">{t("common.name")}</label>
-            <input value={fromPerson} onChange={(e) => setFromPerson(e.target.value)} required className={inputClass} />
+            <input value={fromPerson} autoFocus onChange={(e) => setFromPerson(e.target.value)} required className={inputClass} />
           </div>
 
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-xs text-ink-mute mb-1">{t("common.amount")}</label>
-              <input type="number" min="0.01" step="0.01" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="0.00" required className={inputClass} />
+              <input type="number" min="0.01" step="0.01" inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="0.00" required className={inputClass} />
             </div>
             <div>
               <label className="block text-xs text-ink-mute mb-1">{t("common.currency")}</label>
@@ -87,14 +88,24 @@ export default function AddReceivableModal({ onClose, onAdded, onUpdated, editDa
             </div>
           </div>
 
-          <div>
-            <label className="block text-xs text-ink-mute mb-1">{t("common.date")} ({t("common.optional")})</label>
-            <input type="date" value={expectedDate} onChange={(e) => setExpectedDate(e.target.value)} className={inputClass} />
-          </div>
-
-          <div>
-            <label className="block text-xs text-ink-mute mb-1">{t("common.notes")} ({t("common.optional")})</label>
-            <input value={notes} onChange={(e) => setNotes(e.target.value)} className={inputClass} />
+          <div className="border-t border-line">
+            <button type="button" onClick={() => setShowDetails((v) => !v)}
+              className="flex items-center gap-1.5 text-xs text-ink-mute hover:text-ink-soft transition-colors py-1.5">
+              <ChevronDown size={14} className={`transition-transform ${showDetails ? "rotate-180" : ""}`} />
+              {t("assetForm.moreDetails")}
+            </button>
+            {showDetails && (
+              <div className="space-y-4 pt-2">
+                <div>
+                  <label className="block text-xs text-ink-mute mb-1">{t("common.date")} ({t("common.optional")})</label>
+                  <input type="date" value={expectedDate} onChange={(e) => setExpectedDate(e.target.value)} className={inputClass} />
+                </div>
+                <div>
+                  <label className="block text-xs text-ink-mute mb-1">{t("common.notes")} ({t("common.optional")})</label>
+                  <input value={notes} onChange={(e) => setNotes(e.target.value)} className={inputClass} />
+                </div>
+              </div>
+            )}
           </div>
 
           {error && <p className="text-neg text-xs">{error}</p>}
