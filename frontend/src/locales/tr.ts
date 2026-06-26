@@ -174,6 +174,12 @@ export const tr = {
     passwordMismatch: "Yeni şifreler eşleşmiyor.",
     passwordChanged: "Şifre güncellendi ✓",
     passwordHint: "En az 8 karakter.",
+    edit: "Düzenle",
+    notSet: "Belirtilmedi",
+    profileHint: "Bilgilerin ve Mizan'ın sana nasıl hitap edeceği.",
+    securityHint: "Hesabını güvende tut.",
+    passwordSet: "Şifre",
+    phoneNumber: "Telefon numarası",
   },
   common: {
     loading: "Yükleniyor...",

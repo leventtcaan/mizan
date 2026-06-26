@@ -174,6 +174,12 @@ export const en = {
     passwordMismatch: "New passwords don't match.",
     passwordChanged: "Password updated ✓",
     passwordHint: "At least 8 characters.",
+    edit: "Edit",
+    notSet: "Not set",
+    profileHint: "Your details and how Mizan addresses you.",
+    securityHint: "Keep your account safe.",
+    passwordSet: "Password",
+    phoneNumber: "Phone number",
   },
   common: {
     loading: "Loading...",
