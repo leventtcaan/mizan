@@ -18,6 +18,7 @@ import {
   CashFlowSummary,
 } from "@/lib/api";
 import { useLanguage } from "@/lib/i18n";
+import { useTheme } from "@/lib/theme";
 
 const DAYS_OPTIONS = [7, 14, 30, 60, 90];
 
@@ -69,6 +70,9 @@ function AddPaymentModal({
   onAdded: () => void;
   t: (key: string) => string;
 }) {
+  // Explicit theme-resolved fill so the floating modal card stays opaque over content.
+  const { resolved } = useTheme();
+  const surfaceBg = resolved === "dark" ? "#1C1915" : "#FFFFFF";
   const [form, setForm] = useState<AddPaymentFormData>({
     name: "",
     amount: "",
@@ -111,7 +115,7 @@ function AddPaymentModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm px-4">
-      <div className="bg-surface border border-line rounded-2xl p-6 w-full max-w-sm shadow-xl">
+      <div className="border border-line rounded-2xl p-6 w-full max-w-sm shadow-xl" style={{ backgroundColor: surfaceBg }}>
         <div className="flex items-center justify-between mb-5">
           <h3 className="text-ink font-semibold">{t("cashflow.addPaymentTitle")}</h3>
           <button onClick={onClose} className="text-ink-mute hover:text-ink-soft transition-colors">

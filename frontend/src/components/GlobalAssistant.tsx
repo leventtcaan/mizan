@@ -7,6 +7,7 @@ import { Send, X as XIcon, CheckCircle, FileText, Sparkles, ArrowRight } from "@
 import Mim from "@/components/companion/Mim";
 import { observe, checkEscalation, contextFromPath, type Observation } from "@/components/companion/voice";
 import { useLanguage } from "@/lib/i18n";
+import { useTheme } from "@/lib/theme";
 import {
   getToken, getStoredUser, getNetWorthSummary, getDefaultCurrency,
   assistantChat, confirmAssistantAction, rejectAssistantAction, AssistantCapError,
@@ -37,6 +38,11 @@ function detectContext(pathname: string): AssistantPageContext {
 export default function GlobalAssistant() {
   const pathname = usePathname();
   const { t } = useLanguage();
+  // Explicit theme-resolved fill for the floating bubble + panel — solid `bg-<token>`
+  // utilities don't paint opaquely for overlays in this build, so they go see-through
+  // over page content in light mode.
+  const { resolved } = useTheme();
+  const surfaceBg = resolved === "dark" ? "#1C1915" : "#FFFFFF";
   const [authed, setAuthed] = useState(false);
   const [open, setOpen] = useState(false);
   // True once the user has opened the panel this session. On Home the FAB is normally
@@ -201,7 +207,7 @@ export default function GlobalAssistant() {
           {bubble && (
             // Hidden on small screens so the speech bubble never covers financial
             // content; the compact Mim FAB below stays (tap it to open the panel).
-            <div className="mim-bubble hidden sm:flex items-start gap-2 max-w-[270px] rounded-2xl rounded-br-md bg-surface border border-line shadow-xl shadow-ink/10 pl-3.5 pr-2 py-2.5">
+            <div className="mim-bubble hidden sm:flex items-start gap-2 max-w-[270px] rounded-2xl rounded-br-md border border-line shadow-xl shadow-ink/10 pl-3.5 pr-2 py-2.5" style={{ backgroundColor: surfaceBg }}>
               <button
                 onClick={() => { setScope(null); setInput(bubble.prefill); setBubble(null); setOpen(true); }}
                 className="text-left text-[13px] leading-snug text-ink-soft hover:text-ink transition-colors"
@@ -232,7 +238,8 @@ export default function GlobalAssistant() {
       {open && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-end sm:justify-end bg-black/40 sm:bg-transparent" onClick={() => { setOpen(false); setScope(null); }}>
           <div
-            className="w-full sm:w-[400px] sm:m-5 bg-surface border border-line rounded-t-2xl sm:rounded-2xl shadow-2xl flex flex-col max-h-[80vh] sm:max-h-[600px]"
+            className="w-full sm:w-[400px] sm:m-5 border border-line rounded-t-2xl sm:rounded-2xl shadow-2xl flex flex-col max-h-[80vh] sm:max-h-[600px]"
+            style={{ backgroundColor: surfaceBg }}
             onClick={(e) => e.stopPropagation()}
           >
             {/* Header */}
@@ -279,7 +286,7 @@ export default function GlobalAssistant() {
                       <div className="max-w-[85%] rounded-2xl rounded-bl-md border border-[#176B5B]/30 bg-[#176B5B]/[0.06] p-3.5">
                         <p className="text-ink text-sm leading-relaxed mb-3">{m.text}</p>
                         <Link
-                          href="/settings"
+                          href="/upgrade"
                           onClick={() => setOpen(false)}
                           className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#176B5B] hover:bg-[#125848] text-white text-xs font-semibold transition-colors"
                         >

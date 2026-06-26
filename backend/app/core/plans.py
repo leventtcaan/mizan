@@ -26,7 +26,7 @@ PAID_PLANS = {PLUS, PRO}
 FREE_MONTHLY_UPLOAD_CAP = 1
 
 # Free-tier AI assistant messages allowed per day (rolling 24h). Paid = unlimited.
-FREE_DAILY_ASSISTANT_CAP = 10
+FREE_DAILY_ASSISTANT_CAP = 3
 
 
 def effective_plan(user: "User") -> str:

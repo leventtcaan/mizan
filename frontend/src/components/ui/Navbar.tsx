@@ -246,7 +246,7 @@ export default function Navbar() {
             className="absolute inset-0 bg-black/60"
             onClick={() => setMobileOpen(false)}
           />
-          <div className="absolute top-14 left-0 right-0 bg-canvas border-b border-line px-4 py-4 space-y-1">
+          <div className="absolute top-14 left-0 right-0 border-b border-line px-4 py-4 space-y-1" style={{ backgroundColor: surfaceBg }}>
             {NAV_LINKS.map((link) => {
               const isActive = link.match.some((p) => pathname === p || pathname.startsWith(p + "/"));
               return (

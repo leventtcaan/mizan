@@ -11,6 +11,7 @@ import {
   getToken,
 } from "@/lib/api";
 import { useLanguage } from "@/lib/i18n";
+import { useTheme } from "@/lib/theme";
 
 // Backend now returns action_* fields on notifications (the api.ts type predates them),
 // so we extend it locally without touching the shared client.
@@ -51,6 +52,11 @@ interface Props {
 
 export default function NotificationDropdown({ onCountChange }: Props) {
   const { t, lang } = useLanguage();
+  // Explicit theme-resolved background — solid `bg-<token>` utilities don't paint opaquely
+  // for floating overlays in this build, so the panel goes see-through in light mode.
+  // Same fix as the other dropdowns (CurrencyMenu / CurrencySelect / account menu).
+  const { resolved } = useTheme();
+  const surfaceBg = resolved === "dark" ? "#1C1915" : "#FFFFFF";
   const [open, setOpen] = useState(false);
   const [notifications, setNotifications] = useState<ActionNotif[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
@@ -163,7 +169,7 @@ export default function NotificationDropdown({ onCountChange }: Props) {
       </button>
 
       {open && (
-        <div className="absolute right-0 top-full mt-2 w-80 bg-surface border border-line rounded-xl shadow-2xl z-50 overflow-hidden">
+        <div className="absolute right-0 top-full mt-2 w-80 border border-line rounded-xl shadow-2xl z-50 overflow-hidden" style={{ backgroundColor: surfaceBg }}>
           <div className="flex items-center justify-between px-4 py-3 border-b border-line">
             <span className="text-ink text-sm font-semibold">{t("notifications.title")}</span>
             {unreadCount > 0 && (
