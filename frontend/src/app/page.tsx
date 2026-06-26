@@ -85,13 +85,13 @@ export default function LandingPage() {
     },
     {
       id: "plus", name: "Plus", tagline: t("pricing.plusTagline"),
-      monthly: "₺199", yearly: "₺1.690", yearlyMo: "₺141", usdMonthly: "$7", usdYearly: "$59", usdMo: "$5",
+      monthly: "₺249", yearly: "₺2.090", yearlyMo: "₺174", usdMonthly: "$9", usdYearly: "$79", usdMo: "$7",
       features: tList("pricing.plusFeatures"), cta: t("pricing.plusCta"),
       href: planHref("plus"), highlight: true,
     },
     {
       id: "pro", name: "Pro", tagline: t("pricing.proTagline"),
-      monthly: "₺349", yearly: "₺2.990", yearlyMo: "₺249", usdMonthly: "$12", usdYearly: "$99", usdMo: "$8",
+      monthly: "₺449", yearly: "₺3.790", yearlyMo: "₺316", usdMonthly: "$19", usdYearly: "$169", usdMo: "$14",
       features: tList("pricing.proFeatures"), cta: t("pricing.proCta"),
       href: planHref("pro"), highlight: false,
     },

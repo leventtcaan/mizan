@@ -8,6 +8,7 @@ import {
 } from "@/lib/api";
 import PageLayout from "@/components/ui/PageLayout";
 import MimGuide from "@/components/companion/MimGuide";
+import BlurredBriefTeaser from "@/components/BlurredBriefTeaser";
 import { FileText, ArrowRight, CheckCircle, ShieldCheck, Sparkles, Mail, Upload } from "@/components/ui/Icons";
 import { useLanguage } from "@/lib/i18n";
 
@@ -197,6 +198,8 @@ export default function UploadPage() {
               ? "Bu ay ücretsiz yükleme hakkını kullandın. Plus ile her ekstreyi sınırsız okuyabilirim."
               : "You've used this month's free upload. With Plus I can read every statement for you, no limits."}
           />
+          {/* The brief they'd be getting — shown blurred behind an unlock overlay (loss aversion). */}
+          <BlurredBriefTeaser />
           <div className="rounded-2xl border border-[#176B5B]/30 bg-[#176B5B]/[0.06] p-5">
             <div className="flex items-center gap-2 mb-1">
               <Sparkles size={18} className="text-[#176B5B] shrink-0" />

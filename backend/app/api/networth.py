@@ -14,7 +14,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
 from app.core.database import get_session
-from app.core.dependencies import get_current_user, get_paid_user
+from app.core.dependencies import get_current_user, get_pro_user
 from app.models.asset import Asset, ASSET_TYPES
 from app.models.financial_event import FinancialEvent
 from app.models.liability import Liability, LIABILITY_TYPES
@@ -1386,7 +1386,7 @@ def _guidance_cache_key(user_id: uuid.UUID, asset_ids: list[str], liability_ids:
 async def get_guidance(
     display_currency: str = "TRY",
     lang: str = "tr",
-    current_user: User = Depends(get_paid_user),
+    current_user: User = Depends(get_pro_user),
     session: AsyncSession = Depends(get_session),
 ) -> GuidanceResponse:
     """

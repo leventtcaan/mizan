@@ -51,12 +51,12 @@ export default function UpgradePage() {
     },
     {
       id: "plus", name: "Plus", tagline: t("pricing.plusTagline"), highlight: true,
-      tr: { m: "₺199", y: "₺1.690", yMo: "₺141" }, usd: { m: "$7", y: "$59", yMo: "$5" },
+      tr: { m: "₺249", y: "₺2.090", yMo: "₺174" }, usd: { m: "$9", y: "$79", yMo: "$7" },
       features: tList("pricing.plusFeatures"),
     },
     {
       id: "pro", name: "Pro", tagline: t("pricing.proTagline"), highlight: false,
-      tr: { m: "₺349", y: "₺2.990", yMo: "₺249" }, usd: { m: "$12", y: "$99", yMo: "$8" },
+      tr: { m: "₺449", y: "₺3.790", yMo: "₺316" }, usd: { m: "$19", y: "$169", yMo: "$14" },
       features: tList("pricing.proFeatures"),
     },
   ];

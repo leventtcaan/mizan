@@ -35,7 +35,7 @@ from app.models.transaction import Transaction
 from app.models.user import User
 
 # Monthly USD list prices (mirrors the pricing page) — drives MRR-potential.
-_PLAN_PRICE_USD = {"plus": 7.0, "pro": 12.0}
+_PLAN_PRICE_USD = {"plus": 9.0, "pro": 19.0}
 
 logger = logging.getLogger(__name__)
 

@@ -18,7 +18,7 @@ from decimal import Decimal
 from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.plans import is_paid
+from app.core.plans import is_paid, is_pro
 from app.models.app_notification import AppNotification
 from app.models.asset import Asset
 from app.models.budget_goal import BudgetGoal
@@ -145,7 +145,7 @@ async def _proactive_triggers(
     user_id: uuid.UUID, today: date, lang: str,
     liabilities, overdue_receivables, session: AsyncSession,
 ) -> list[dict]:
-    """Smart, actionable "Mim" questions — paid tier only. Each is deduped so the user
+    """Smart, actionable "Mim" questions — PRO tier only. Each is deduped so the user
     isn't re-asked the same thing. Returns notification dicts (with action_* fields)."""
     tr = lang != "en"
     out: list[dict] = []
@@ -263,9 +263,10 @@ async def generate_for_user(user_id: uuid.UUID, lang: str, session: AsyncSession
     today = date.today()
 
     user = await session.get(User, user_id)
-    paid = is_paid(user) if user is not None else False
+    paid = is_paid(user) if user is not None else False   # plus OR pro (daily LLM insight)
+    pro = is_pro(user) if user is not None else False     # pro only (proactive Mim)
 
-    # 1. Overdue receivables. Free tier gets a plain warning; paid users instead get the
+    # 1. Overdue receivables. Free + Plus get a plain warning; Pro users instead get the
     #    actionable "should I remind them?" question in the proactive section below.
     recv_result = await session.execute(
         select(Receivable).where(
@@ -275,7 +276,7 @@ async def generate_for_user(user_id: uuid.UUID, lang: str, session: AsyncSession
     )
     receivables = list(recv_result.scalars().all())
     overdue_receivables = [r for r in receivables if r.expected_date and r.expected_date < today]
-    if not paid:
+    if not pro:
         for r in overdue_receivables:
             days_late = (today - r.expected_date).days
             notifications.append({
@@ -396,8 +397,8 @@ async def generate_for_user(user_id: uuid.UUID, lang: str, session: AsyncSession
         except Exception:
             pass
 
-    # 6. Proactive "Mim" triggers (paid tier only) — smart, actionable questions.
-    if paid:
+    # 6. Proactive "Mim" triggers (PRO tier only) — smart, actionable questions.
+    if pro:
         try:
             notifications.extend(
                 await _proactive_triggers(user_id, today, lang, liabilities, overdue_receivables, session)

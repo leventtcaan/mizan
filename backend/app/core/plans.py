@@ -25,8 +25,12 @@ PAID_PLANS = {PLUS, PRO}
 # Free-tier statement uploads allowed per calendar month.
 FREE_MONTHLY_UPLOAD_CAP = 1
 
-# Free-tier AI assistant messages allowed per day (rolling 24h). Paid = unlimited.
+# AI assistant messages allowed per rolling 24h, per tier.
+#   Free = 3, Plus = 30, Pro = unlimited (None).
 FREE_DAILY_ASSISTANT_CAP = 3
+PLUS_DAILY_ASSISTANT_CAP = 30
+# Back-compat alias (older imports referenced the single free cap).
+PRO_DAILY_ASSISTANT_CAP: int | None = None
 
 
 def effective_plan(user: "User") -> str:
@@ -45,7 +49,15 @@ def effective_plan(user: "User") -> str:
 
 
 def is_paid(user: "User") -> bool:
+    """Any active paid plan (plus OR pro)."""
     return effective_plan(user) in PAID_PLANS
+
+
+def is_pro(user: "User") -> bool:
+    """The top tier only. Pro-exclusive surfaces (simulator, reports, net-worth
+    guidance, proactive Mim) gate on this — NOT is_paid — so Plus and Pro are
+    genuinely different products."""
+    return effective_plan(user) == PRO
 
 
 def vision_enabled(user: "User") -> bool:
@@ -54,5 +66,10 @@ def vision_enabled(user: "User") -> bool:
 
 
 def assistant_daily_cap(user: "User") -> int | None:
-    """Max AI assistant messages per rolling 24h. None = unlimited (paid plans)."""
-    return None if is_paid(user) else FREE_DAILY_ASSISTANT_CAP
+    """Max AI assistant messages per rolling 24h. None = unlimited.
+    Free = 3, Plus = 30, Pro = unlimited."""
+    if is_pro(user):
+        return None
+    if is_paid(user):
+        return PLUS_DAILY_ASSISTANT_CAP
+    return FREE_DAILY_ASSISTANT_CAP

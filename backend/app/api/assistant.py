@@ -82,8 +82,7 @@ async def assistant_chat(
     current_user: User = Depends(get_verified_user),
     session: AsyncSession = Depends(get_session),
 ) -> AssistantChatResponse:
-    # Free tier: 10 assistant messages per rolling 24h. Paid plans are unlimited
-    # (cap is None → skip the check).
+    # Per-tier rolling-24h cap: Free = 3, Plus = 30, Pro = unlimited (cap None → skip).
     #
     # The cap is enforced DURABLY by counting persisted messages from the DB — the
     # previous rate-limiter-only check was volatile (in-memory window reset on every
