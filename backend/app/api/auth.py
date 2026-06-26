@@ -39,6 +39,18 @@ VALID_GOALS = {
     "track_everything",
 }
 
+VALID_ACCOUNT_TYPES = {"personal", "business"}
+VALID_INDUSTRIES = {
+    "retail", "food", "services", "tech", "manufacturing", "construction",
+    "healthcare", "education", "ecommerce", "realestate", "creative", "finance", "other",
+}
+VALID_TEAM_SIZES = {"solo", "2-10", "11-50", "51-200", "200+"}
+
+
+def _clean_account_type(value: str | None) -> str:
+    v = (value or "").strip().lower()
+    return v if v in VALID_ACCOUNT_TYPES else "personal"
+
 
 def _clean_country(value: str | None) -> str | None:
     """Normalize an ISO 3166-1 alpha-2 code; None/invalid → None (don't reject signup)."""
@@ -79,6 +91,13 @@ class RegisterRequest(BaseModel):
     # ToS/Privacy acceptance is REQUIRED — register() rejects the request if not accepted.
     tos_accepted: bool = False
     tos_version: str | None = None
+    # Account type + (when business) company profile; phone + browser timezone.
+    account_type: str | None = None
+    company_name: str | None = None
+    industry: str | None = None
+    team_size: str | None = None
+    phone: str | None = None
+    timezone: str | None = None
 
 
 class LoginRequest(BaseModel):
@@ -100,6 +119,12 @@ class TokenResponse(BaseModel):
     full_name: str | None = None
     country: str | None = None
     primary_goal: str | None = None
+    account_type: str = "personal"
+    company_name: str | None = None
+    industry: str | None = None
+    team_size: str | None = None
+    phone: str | None = None
+    timezone: str | None = None
 
 
 class UserResponse(BaseModel):
@@ -116,6 +141,12 @@ class UserResponse(BaseModel):
     country: str | None = None
     marketing_consent: bool = False
     primary_goal: str | None = None
+    account_type: str = "personal"
+    company_name: str | None = None
+    industry: str | None = None
+    team_size: str | None = None
+    phone: str | None = None
+    timezone: str | None = None
 
 
 class PreferencesRequest(BaseModel):
@@ -126,6 +157,17 @@ class PreferencesRequest(BaseModel):
     country: str | None = None
     marketing_consent: bool | None = None
     primary_goal: str | None = None
+    account_type: str | None = None
+    company_name: str | None = None
+    industry: str | None = None
+    team_size: str | None = None
+    phone: str | None = None
+    timezone: str | None = None
+
+
+class ChangePasswordRequest(BaseModel):
+    current_password: str
+    new_password: str
 
 
 class VerifyEmailRequest(BaseModel):
@@ -151,6 +193,12 @@ def _user_response(user: User) -> UserResponse:
         country=user.country,
         marketing_consent=user.marketing_consent,
         primary_goal=user.primary_goal,
+        account_type=user.account_type or "personal",
+        company_name=user.company_name,
+        industry=user.industry,
+        team_size=user.team_size,
+        phone=user.phone,
+        timezone=user.timezone,
     )
 
 
@@ -168,7 +216,22 @@ def _token_response(user: User, token: str) -> TokenResponse:
         full_name=user.full_name,
         country=user.country,
         primary_goal=user.primary_goal,
+        account_type=user.account_type or "personal",
+        company_name=user.company_name,
+        industry=user.industry,
+        team_size=user.team_size,
+        phone=user.phone,
+        timezone=user.timezone,
     )
+
+
+def _apply_business_profile(user: User, account_type: str) -> None:
+    """When account_type isn't business, the company fields are meaningless — clear them
+    so a personal account never carries stale company data."""
+    if account_type != "business":
+        user.company_name = None
+        user.industry = None
+        user.team_size = None
 
 
 @router.post("/register", response_model=TokenResponse, status_code=status.HTTP_201_CREATED)
@@ -218,6 +281,20 @@ async def register(
     user.marketing_consent = bool(body.marketing_consent)
     user.tos_accepted_at = datetime.now(timezone.utc)
     user.tos_version = (body.tos_version or "1.0").strip()[:20]
+
+    # Account type + business profile.
+    user.account_type = _clean_account_type(body.account_type)
+    if user.account_type == "business":
+        if body.company_name:
+            user.company_name = body.company_name.strip()[:160] or None
+        if body.industry and body.industry in VALID_INDUSTRIES:
+            user.industry = body.industry
+        if body.team_size and body.team_size in VALID_TEAM_SIZES:
+            user.team_size = body.team_size
+    if body.phone:
+        user.phone = body.phone.strip()[:40] or None
+    if body.timezone:
+        user.timezone = body.timezone.strip()[:60] or None
 
     session.add(user)
     await session.commit()
@@ -355,6 +432,26 @@ async def update_preferences(
         if goal and goal not in VALID_GOALS:
             raise HTTPException(status_code=422, detail="invalid primary_goal")
         current_user.primary_goal = goal or None
+    if body.account_type is not None:
+        current_user.account_type = _clean_account_type(body.account_type)
+        # Switching to personal clears company data.
+        _apply_business_profile(current_user, current_user.account_type)
+    if body.company_name is not None:
+        current_user.company_name = body.company_name.strip()[:160] or None
+    if body.industry is not None:
+        ind = body.industry.strip()
+        if ind and ind not in VALID_INDUSTRIES:
+            raise HTTPException(status_code=422, detail="invalid industry")
+        current_user.industry = ind or None
+    if body.team_size is not None:
+        ts = body.team_size.strip()
+        if ts and ts not in VALID_TEAM_SIZES:
+            raise HTTPException(status_code=422, detail="invalid team_size")
+        current_user.team_size = ts or None
+    if body.phone is not None:
+        current_user.phone = body.phone.strip()[:40] or None
+    if body.timezone is not None:
+        current_user.timezone = body.timezone.strip()[:60] or None
     session.add(current_user)
     await session.commit()
     logger.info(
@@ -362,6 +459,26 @@ async def update_preferences(
         current_user.id, current_user.language, current_user.display_currency,
     )
     return _user_response(current_user)
+
+
+@router.post("/change-password", status_code=200)
+async def change_password(
+    body: ChangePasswordRequest,
+    current_user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
+) -> dict:
+    """Change the signed-in user's password: verify the current one, then set the new one."""
+    if current_user.password_hash is None or not verify_password(body.current_password, current_user.password_hash):
+        raise HTTPException(status_code=422, detail="Current password is incorrect.")
+    if len(body.new_password) < 8:
+        raise HTTPException(status_code=422, detail="Password must be at least 8 characters.")
+    if body.new_password == body.current_password:
+        raise HTTPException(status_code=422, detail="New password must be different.")
+    current_user.password_hash = hash_password(body.new_password)
+    session.add(current_user)
+    await session.commit()
+    logger.info("Password changed — user=%s", current_user.id)
+    return {"ok": True}
 
 
 @router.post("/complete-onboarding", status_code=200)

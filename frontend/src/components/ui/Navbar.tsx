@@ -37,6 +37,7 @@ export default function Navbar() {
   const { resolved, pref: themePref, setTheme } = useTheme();
   const surfaceBg = resolved === "dark" ? "#1C1915" : "#FFFFFF";
   const [userEmail, setUserEmail] = useState<string | null>(null);
+  const [userName, setUserName] = useState<string | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [accountOpen, setAccountOpen] = useState(false);
@@ -59,9 +60,11 @@ export default function Navbar() {
     const user = getStoredUser();
     if (user && getToken()) {
       setUserEmail(user.email);
+      setUserName(user.display_name?.trim() || null);
       setIsAdmin(Boolean(user.is_admin));
     } else {
       setUserEmail(null);
+      setUserName(null);
       setIsAdmin(false);
     }
   }, [pathname]);
@@ -98,6 +101,12 @@ export default function Navbar() {
 
   if (HIDDEN_PATHS.includes(pathname)) return null;
   if (!userEmail) return null;
+
+  // Avatar initials from the name (up to two), falling back to the email's first letter.
+  const initials = (userName
+    ? userName.split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0]).join("")
+    : userEmail[0]
+  ).toUpperCase();
 
   const handleLogout = () => {
     clearToken();
@@ -177,20 +186,20 @@ export default function Navbar() {
               <button
                 onClick={() => setAccountOpen((v) => !v)}
                 className="w-8 h-8 rounded-full bg-[#176B5B] hover:bg-[#125848] text-white text-sm font-semibold flex items-center justify-center shadow-sm transition-colors"
-                title={userEmail ?? ""}
+                title={userName ?? userEmail ?? ""}
               >
-                {userEmail?.[0]?.toUpperCase() ?? "?"}
+                {initials}
               </button>
               {accountOpen && (
                 <div className="absolute right-0 mt-2 w-64 border border-line rounded-2xl shadow-2xl shadow-black/30 ring-1 ring-black/5 overflow-hidden z-50" style={{ backgroundColor: surfaceBg }}>
                   {/* Identity */}
                   <div className="flex items-center gap-3 px-4 py-3.5 border-b border-line">
                     <div className="w-9 h-9 rounded-full bg-[#176B5B] text-white text-sm font-semibold flex items-center justify-center shrink-0">
-                      {userEmail?.[0]?.toUpperCase() ?? "?"}
+                      {initials}
                     </div>
                     <div className="min-w-0">
-                      <p className="text-ink text-sm font-medium truncate">{userEmail}</p>
-                      <p className="text-ink-mute text-[11px]">{t("settings.account")}</p>
+                      <p className="text-ink text-sm font-medium truncate">{userName ?? userEmail}</p>
+                      <p className="text-ink-mute text-[11px] truncate">{userName ? userEmail : t("settings.account")}</p>
                     </div>
                   </div>
 

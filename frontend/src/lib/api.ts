@@ -42,6 +42,10 @@ export interface StoredUser {
   account_type?: "personal" | "business";
   country?: string;
   primary_goal?: string;
+  company_name?: string;
+  industry?: string;
+  team_size?: string;
+  phone?: string;
 }
 
 // The version of the Terms/Privacy the current build presents. Sent on register and
@@ -180,6 +184,12 @@ export interface TokenResponse {
   full_name?: string | null;
   country?: string | null;
   primary_goal?: string | null;
+  account_type?: string;
+  company_name?: string | null;
+  industry?: string | null;
+  team_size?: string | null;
+  phone?: string | null;
+  timezone?: string | null;
 }
 
 export interface UserResponse {
@@ -196,6 +206,12 @@ export interface UserResponse {
   country?: string | null;
   marketing_consent?: boolean;
   primary_goal?: string | null;
+  account_type?: string;
+  company_name?: string | null;
+  industry?: string | null;
+  team_size?: string | null;
+  phone?: string | null;
+  timezone?: string | null;
 }
 
 export async function getMe(): Promise<UserResponse> {
@@ -212,6 +228,12 @@ export async function updatePreferences(prefs: {
   country?: string;
   marketing_consent?: boolean;
   primary_goal?: string;
+  account_type?: string;
+  company_name?: string;
+  industry?: string;
+  team_size?: string;
+  phone?: string;
+  timezone?: string;
 }): Promise<UserResponse> {
   const response = await fetch(`${API_BASE_URL}/auth/preferences`, {
     method: "POST",
@@ -224,6 +246,51 @@ export async function updatePreferences(prefs: {
   }
   return response.json() as Promise<UserResponse>;
 }
+
+/** Change the signed-in user's password. */
+export async function changePassword(currentPassword: string, newPassword: string): Promise<void> {
+  const response = await fetch(`${API_BASE_URL}/auth/change-password`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...authHeaders() },
+    body: JSON.stringify({ current_password: currentPassword, new_password: newPassword }),
+  });
+  if (!response.ok) {
+    const err = await response.json().catch(() => null);
+    throw new Error(extractErrorMessage(err, "Failed to change password"));
+  }
+}
+
+/** Browser IANA timezone (e.g. "Europe/Istanbul"), or undefined if unavailable. */
+export function detectTimezone(): string | undefined {
+  try { return Intl.DateTimeFormat().resolvedOptions().timeZone || undefined; }
+  catch { return undefined; }
+}
+
+// Business profile option slugs (must match backend VALID_INDUSTRIES / VALID_TEAM_SIZES).
+// Labels are localized at the call site via { tr, en }.
+export const INDUSTRIES: { value: string; tr: string; en: string }[] = [
+  { value: "retail", tr: "Perakende", en: "Retail" },
+  { value: "food", tr: "Yiyecek & İçecek", en: "Food & Beverage" },
+  { value: "services", tr: "Hizmetler", en: "Services" },
+  { value: "tech", tr: "Teknoloji", en: "Technology" },
+  { value: "ecommerce", tr: "E-ticaret", en: "E-commerce" },
+  { value: "manufacturing", tr: "Üretim", en: "Manufacturing" },
+  { value: "construction", tr: "İnşaat", en: "Construction" },
+  { value: "healthcare", tr: "Sağlık", en: "Healthcare" },
+  { value: "education", tr: "Eğitim", en: "Education" },
+  { value: "realestate", tr: "Gayrimenkul", en: "Real Estate" },
+  { value: "finance", tr: "Finans", en: "Finance" },
+  { value: "creative", tr: "Yaratıcı / Ajans", en: "Creative / Agency" },
+  { value: "other", tr: "Diğer", en: "Other" },
+];
+
+export const TEAM_SIZES: { value: string; tr: string; en: string }[] = [
+  { value: "solo", tr: "Tek kişi", en: "Just me" },
+  { value: "2-10", tr: "2–10", en: "2–10" },
+  { value: "11-50", tr: "11–50", en: "11–50" },
+  { value: "51-200", tr: "51–200", en: "51–200" },
+  { value: "200+", tr: "200+", en: "200+" },
+];
 
 export interface SuggestionItem {
   id: string;
@@ -417,6 +484,12 @@ export interface RegisterOptions {
   marketing_consent?: boolean;
   tos_accepted?: boolean;
   tos_version?: string;
+  account_type?: "personal" | "business";
+  company_name?: string;
+  industry?: string;
+  team_size?: string;
+  phone?: string;
+  timezone?: string;
 }
 
 export async function register(email: string, password: string, opts: RegisterOptions = {}): Promise<TokenResponse> {
@@ -435,6 +508,12 @@ export async function register(email: string, password: string, opts: RegisterOp
       marketing_consent: opts.marketing_consent ?? false,
       tos_accepted: opts.tos_accepted ?? false,
       tos_version: opts.tos_version,
+      account_type: opts.account_type,
+      company_name: opts.company_name,
+      industry: opts.industry,
+      team_size: opts.team_size,
+      phone: opts.phone,
+      timezone: opts.timezone ?? detectTimezone(),
     }),
   });
   if (!response.ok) {

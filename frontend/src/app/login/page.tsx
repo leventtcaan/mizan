@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { login, register, setToken, setStoredUser, getStoredUser, detectBrowserCurrency, detectBrowserCountry, TOS_VERSION } from "@/lib/api";
+import { login, register, setToken, setStoredUser, getStoredUser, detectBrowserCurrency, detectBrowserCountry, detectTimezone, INDUSTRIES, TEAM_SIZES, TOS_VERSION } from "@/lib/api";
 import { useLanguage, setLanguage, detectBrowserLang, type Lang } from "@/lib/i18n";
 import ThemeToggle from "@/components/ui/ThemeToggle";
 import MimGuide from "@/components/companion/MimGuide";
@@ -26,6 +26,9 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
   const [accountType, setAccountType] = useState<AccountType>("personal");
+  const [companyName, setCompanyName] = useState("");
+  const [industry, setIndustry] = useState("");
+  const [teamSize, setTeamSize] = useState("");
   const [country, setCountry] = useState("");
   const [tosAccepted, setTosAccepted] = useState(false);
   const [marketing, setMarketing] = useState(false);
@@ -58,6 +61,12 @@ export default function LoginPage() {
       setState("error");
       return;
     }
+    // Business accounts must name the company.
+    if (mode === "register" && accountType === "business" && !companyName.trim()) {
+      setErrorMsg(t("setup.companyRequired"));
+      setState("error");
+      return;
+    }
     setState("loading");
     setErrorMsg("");
     try {
@@ -69,6 +78,11 @@ export default function LoginPage() {
             marketing_consent: marketing,
             tos_accepted: tosAccepted,
             tos_version: TOS_VERSION,
+            account_type: accountType,
+            company_name: accountType === "business" ? (companyName.trim() || undefined) : undefined,
+            industry: accountType === "business" ? (industry || undefined) : undefined,
+            team_size: accountType === "business" ? (teamSize || undefined) : undefined,
+            timezone: detectTimezone(),
           });
       setToken(result.access_token);
       const resolvedLang: Lang = (result.language === "tr" || result.language === "en")
@@ -85,9 +99,13 @@ export default function LoginPage() {
         language: resolvedLang, display_currency: resolvedCurrency,
         is_admin: result.is_admin ?? false, email_verified: result.email_verified, plan: result.plan,
         display_name: mode === "register" ? (name.trim() || undefined) : (result.full_name ?? prior?.display_name),
-        account_type: mode === "register" ? accountType : prior?.account_type,
+        account_type: mode === "register" ? accountType : ((result.account_type as "personal" | "business" | undefined) ?? prior?.account_type),
         country: mode === "register" ? (country || undefined) : (result.country ?? prior?.country),
         primary_goal: result.primary_goal ?? prior?.primary_goal,
+        company_name: mode === "register" ? (companyName.trim() || undefined) : (result.company_name ?? prior?.company_name),
+        industry: mode === "register" ? (industry || undefined) : (result.industry ?? prior?.industry),
+        team_size: mode === "register" ? (teamSize || undefined) : (result.team_size ?? prior?.team_size),
+        phone: result.phone ?? prior?.phone,
       });
       setLanguage(resolvedLang);
       if (mode === "register" && selectedPlan) {
@@ -259,6 +277,35 @@ export default function LoginPage() {
                         </button>
                       );
                     })}
+                  </div>
+                </div>
+              )}
+
+              {/* Business profile — register + business only */}
+              {isRegister && accountType === "business" && (
+                <div className="space-y-3 rounded-xl border border-line p-3">
+                  <div>
+                    <label className="block text-xs text-ink-mute mb-1.5 uppercase tracking-wide">{t("setup.companyLabel")}</label>
+                    <input
+                      type="text" value={companyName} onChange={(e) => setCompanyName(e.target.value)}
+                      className={inputClass} placeholder={t("setup.companyPlaceholder")}
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs text-ink-mute mb-1.5 uppercase tracking-wide">{t("setup.industryLabel")}</label>
+                      <select value={industry} onChange={(e) => setIndustry(e.target.value)} className={inputClass}>
+                        <option value="">—</option>
+                        {INDUSTRIES.map((o) => <option key={o.value} value={o.value}>{lang === "tr" ? o.tr : o.en}</option>)}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-xs text-ink-mute mb-1.5 uppercase tracking-wide">{t("setup.teamSizeLabel")}</label>
+                      <select value={teamSize} onChange={(e) => setTeamSize(e.target.value)} className={inputClass}>
+                        <option value="">—</option>
+                        {TEAM_SIZES.map((o) => <option key={o.value} value={o.value}>{lang === "tr" ? o.tr : o.en}</option>)}
+                      </select>
+                    </div>
                   </div>
                 </div>
               )}

@@ -173,6 +173,22 @@ class User(Base):
     # Asked once in onboarding; powers dashboard emphasis, Mim's framing and BI cohorts.
     primary_goal: Mapped[str | None] = mapped_column(String(40), nullable=True)
 
+    # ── Account type + business profile ──
+    # WHY account_type: durably drives dashboard emphasis (business → receivables/cash flow,
+    # personal → spending/savings) instead of relying only on a localStorage hint.
+    account_type: Mapped[str] = mapped_column(
+        String(20), nullable=False, default="personal", server_default="personal",
+    )
+    # Business fields — populated when account_type == "business" (else NULL).
+    company_name: Mapped[str | None] = mapped_column(String(160), nullable=True)
+    industry: Mapped[str | None] = mapped_column(String(60), nullable=True)
+    team_size: Mapped[str | None] = mapped_column(String(20), nullable=True)
+
+    # Optional contact + locale.
+    phone: Mapped[str | None] = mapped_column(String(40), nullable=True)
+    # IANA timezone, auto-detected from the browser (e.g. "Europe/Istanbul").
+    timezone: Mapped[str | None] = mapped_column(String(60), nullable=True)
+
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         nullable=False,
