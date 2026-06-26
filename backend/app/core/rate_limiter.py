@@ -151,3 +151,6 @@ upload_ip_limiter = _make_limiter("upload_ip")    # max 3 uploads per IP per 10 
 correction_limiter = _make_limiter("correction")  # max 20 corrections per user per hour
 # WHY: Free-tier AI assistant cap — 10 messages per rolling 24h per user.
 assistant_limiter = _make_limiter("assistant")
+# WHY: Throttle verification-email resends so the endpoint can't be used to spam an
+# inbox or hammer the email provider — max 3 per hour per email address.
+resend_verification_limiter = _make_limiter("resend_verification")

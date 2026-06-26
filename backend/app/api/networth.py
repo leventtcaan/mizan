@@ -795,6 +795,7 @@ async def create_receivable(
         created_at=datetime.now(timezone.utc),
     )
     session.add(receivable)
+    await bust_networth_insight_cache(current_user.id, session)
     await session.commit()
     await session.refresh(receivable)
     logger.info("Receivable created — user=%s from=%s amount=%s %s", current_user.id, body.from_person, body.amount, body.currency)
@@ -987,6 +988,7 @@ async def update_receivable(
     receivable.currency = body.currency
     receivable.expected_date = exp
     receivable.notes = body.notes
+    await bust_networth_insight_cache(current_user.id, session)
     await session.commit()
     await session.refresh(receivable)
     return _receivable_resp(receivable)

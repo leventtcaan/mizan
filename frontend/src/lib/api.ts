@@ -800,8 +800,10 @@ export async function downloadReportCsv(period: string, displayCurrency = "TRY",
     { headers: authHeaders() },
   );
   if (!r.ok) throw new Error(`Failed to export CSV: ${r.status}`);
-  // Tag the blob as CSV so the OS associates the right app.
-  const blob = new Blob([await r.blob()], { type: "text/csv;charset=utf-8" });
+  // Read as text and build the CSV blob from the string — wrapping a Blob inside
+  // another Blob (new Blob([await r.blob()], …)) is the bug we're avoiding.
+  const text = await r.text();
+  const blob = new Blob([text], { type: "text/csv;charset=utf-8" });
   triggerBlobDownload(blob, filename ?? `mizan-report-${period}.csv`);
 }
 

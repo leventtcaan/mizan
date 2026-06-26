@@ -18,6 +18,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import settings
 from app.core.database import get_session
 from app.core.dependencies import get_current_user
+from app.core.rate_limiter import resend_verification_limiter
 from app.core.security import (
     create_access_token,
     create_email_verification_token,
@@ -393,7 +394,15 @@ async def resend_verification(
          generic response whether or not the email exists / is already verified, so
          it can't be used to enumerate accounts.
     """
-    user = (await session.execute(select(User).where(User.email == body.email.strip().lower()))).scalar_one_or_none()
+    email = body.email.strip().lower()
+    # Throttle per email (max 3/hour) BEFORE doing any work — keeps the response
+    # generic (no account enumeration) while stopping inbox spam. 429 if exceeded.
+    if not resend_verification_limiter.is_allowed(email, max_calls=3, window_seconds=3600):
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="Too many verification emails requested. Please try again later.",
+        )
+    user = (await session.execute(select(User).where(User.email == email))).scalar_one_or_none()
     if user is not None and not user.is_deleted and not user.email_verified:
         await _send_verification(user)
     return {"message": "If that account exists and is unverified, a new link is on its way."}

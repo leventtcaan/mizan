@@ -51,7 +51,10 @@ class Asset(Base):
     )
 
     source: Mapped[str] = mapped_column(String(50), nullable=False, default="manual")
-    source_detail: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    # JSON string (subtype metadata, price cache, lineage). Text not String(500):
+    # accumulated price metadata + subtype fields can exceed 500 chars and would
+    # otherwise silently truncate, corrupting the stored JSON.
+    source_detail: Mapped[str | None] = mapped_column(Text, nullable=True)
     as_of_date: Mapped[date] = mapped_column(Date, nullable=False, default=date.today)
 
     created_at: Mapped[datetime] = mapped_column(
