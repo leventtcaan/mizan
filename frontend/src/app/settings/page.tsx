@@ -111,8 +111,8 @@ export default function SettingsPage() {
           </div>
         </Section>
 
-        {/* ── Preferences ── */}
-        <Section icon={<Settings size={16} />} title={t("settings.preferences")}>
+        {/* ── Preferences ── (overflowVisible so the currency dropdown isn't clipped) */}
+        <Section icon={<Settings size={16} />} title={t("settings.preferences")} overflowVisible>
           <Row label={t("settings.language")}>
             <div className="flex rounded-lg overflow-hidden border border-line text-xs font-semibold">
               {(["tr", "en"] as const).map((l) => {
@@ -177,9 +177,9 @@ export default function SettingsPage() {
 
 // ── presentational pieces ────────────────────────────────────────────────────
 
-function Section({ icon, title, children }: { icon: ReactNode; title: string; children: ReactNode }) {
+function Section({ icon, title, children, overflowVisible }: { icon: ReactNode; title: string; children: ReactNode; overflowVisible?: boolean }) {
   return (
-    <section className="bg-surface border border-line rounded-2xl overflow-hidden">
+    <section className={`bg-surface border border-line rounded-2xl ${overflowVisible ? "" : "overflow-hidden"}`}>
       <div className="flex items-center gap-2.5 px-5 py-3.5 border-b border-line">
         <span className="w-8 h-8 rounded-lg bg-brand/10 text-brand flex items-center justify-center shrink-0">{icon}</span>
         <h2 className="text-sm font-semibold text-ink">{title}</h2>
