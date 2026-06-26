@@ -8,6 +8,7 @@ WHY: A useful report leads with judgment and frames every figure as change-over-
 BREAKS IF REMOVED: /reports endpoints have nothing to assemble.
 """
 
+import calendar
 import csv
 import io
 import logging
@@ -79,10 +80,23 @@ def resolve_period(key: str, today: date | None = None) -> tuple[date | None, da
     if key == "quarter":
         q = (today.month - 1) // 3
         return date(today.year, q * 3 + 1, 1), today, "quarter"
+    if key == "last_quarter":
+        q = (today.month - 1) // 3
+        py, pq = (today.year - 1, 3) if q == 0 else (today.year, q - 1)
+        end_month = pq * 3 + 3
+        return (date(py, pq * 3 + 1, 1),
+                date(py, end_month, calendar.monthrange(py, end_month)[1]),
+                "last_quarter")
     if key == "ytd":
         return date(today.year, 1, 1), today, "ytd"
+    if key == "last_year":
+        return date(today.year - 1, 1, 1), date(today.year - 1, 12, 31), "last_year"
     if key == "last_30":
         return today - timedelta(days=30), today, "last_30"
+    if key == "last_90":
+        return today - timedelta(days=90), today, "last_90"
+    if key == "last_12_months":
+        return today - timedelta(days=365), today, "last_12_months"
     return None, today, "all"
 
 
@@ -276,6 +290,8 @@ async def build_report(
             "generated_at": datetime.now(timezone.utc).isoformat(),
             "period_key": period_key,
             "period_label": _period_label(period_key, start, end, lang),
+            "start": start.isoformat() if start else None,
+            "end": end.isoformat(),
             "currency": ccy,
             "lang": lang,
         },

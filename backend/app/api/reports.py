@@ -26,11 +26,25 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/reports", tags=["reports"])
 
-_PERIODS = {"this_month", "last_month", "quarter", "ytd", "last_30", "all"}
+_PERIODS = {
+    "this_month", "last_month", "quarter", "last_quarter", "ytd", "last_year",
+    "last_30", "last_90", "last_12_months", "all",
+}
 
 
 def _period(p: str) -> str:
     return p if p in _PERIODS else "this_month"
+
+
+def _filename(period: str, lang: str, ext: str) -> str:
+    """A distinguishable, localized file name carrying the actual date range —
+    e.g. mizan-rapor-2026-05-23-2026-06-23.csv / mizan-report-all-2026-06-23.xlsx."""
+    from app.services.report import resolve_period
+
+    start, end, key = resolve_period(period)
+    word = "rapor" if lang == "tr" else "report"
+    span = f"{start.isoformat()}-{end.isoformat()}" if start else f"all-{end.isoformat()}"
+    return f"mizan-{word}-{span}.{ext}"
 
 
 @router.get("/financial")
@@ -55,7 +69,7 @@ async def financial_report_csv(
 ) -> PlainTextResponse:
     """Full report as a single structured CSV — every section the PDF/Excel has."""
     csv_text = await build_report_csv(current_user.id, session, _period(period), display_currency, lang)
-    filename = f"mizan-report-{_period(period)}.csv"
+    filename = _filename(_period(period), lang, "csv")
     return PlainTextResponse(
         content=csv_text,
         media_type="text/csv",
@@ -90,7 +104,7 @@ async def financial_report_xlsx(
 ) -> Response:
     """Multi-sheet Excel workbook of the report (summary + holdings + transactions)."""
     data = await build_report_xlsx(current_user.id, session, _period(period), display_currency, lang)
-    filename = f"mizan-report-{_period(period)}.xlsx"
+    filename = _filename(_period(period), lang, "xlsx")
     return Response(
         content=data,
         media_type=_XLSX_MEDIA,

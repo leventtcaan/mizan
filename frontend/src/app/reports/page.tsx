@@ -1,16 +1,42 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import PageLayout from "@/components/ui/PageLayout";
-import { FileText, ArrowRight, TrendingUp, TrendingDown } from "@/components/ui/Icons";
+import { FileText, ArrowRight, TrendingUp, TrendingDown, Calendar, ChevronDown } from "@/components/ui/Icons";
 import { useLanguage, getCurrentLang } from "@/lib/i18n";
+import { useTheme } from "@/lib/theme";
 import {
   getToken, getStoredUser, getDefaultCurrency, CURRENCY_CHANGE_EVENT,
   getFinancialReport, downloadReportCsv, downloadReportXlsx, type FinancialReport,
 } from "@/lib/api";
 
-const PERIODS = ["this_month", "last_month", "quarter", "ytd", "last_30", "all"];
+// Periods grouped by how they're framed — to-date, rolling windows, completed periods.
+const PERIOD_GROUPS: { key: string; items: string[] }[] = [
+  { key: "current", items: ["this_month", "quarter", "ytd"] },
+  { key: "trailing", items: ["last_30", "last_90", "last_12_months"] },
+  { key: "previous", items: ["last_month", "last_quarter", "last_year"] },
+];
+
+// Mirror of backend resolve_period() — for the date-range hint shown on each option.
+function resolveRange(key: string, today = new Date()): { start: Date | null; end: Date } {
+  const y = today.getFullYear(), m = today.getMonth();
+  const day = (yy: number, mm: number, dd: number) => new Date(yy, mm, dd);
+  const lastDay = (yy: number, mm: number) => new Date(yy, mm + 1, 0).getDate();
+  const minus = (n: number) => { const s = new Date(today); s.setDate(s.getDate() - n); return s; };
+  switch (key) {
+    case "this_month": return { start: day(y, m, 1), end: today };
+    case "last_month": { const lm = m === 0 ? 11 : m - 1, ly = m === 0 ? y - 1 : y; return { start: day(ly, lm, 1), end: day(ly, lm, lastDay(ly, lm)) }; }
+    case "quarter": { const q = Math.floor(m / 3); return { start: day(y, q * 3, 1), end: today }; }
+    case "last_quarter": { const q = Math.floor(m / 3); const py = q === 0 ? y - 1 : y, pq = q === 0 ? 3 : q - 1; return { start: day(py, pq * 3, 1), end: day(py, pq * 3 + 2, lastDay(py, pq * 3 + 2)) }; }
+    case "ytd": return { start: day(y, 0, 1), end: today };
+    case "last_year": return { start: day(y - 1, 0, 1), end: day(y - 1, 11, 31) };
+    case "last_30": return { start: minus(30), end: today };
+    case "last_90": return { start: minus(90), end: today };
+    case "last_12_months": return { start: minus(365), end: today };
+    default: return { start: null, end: today };
+  }
+}
 
 /* The report "paper" is a self-contained light document: it must look identical
    and correct in light mode, dark mode AND in print. So it uses ONLY fixed colors
@@ -78,15 +104,23 @@ export default function ReportsPage() {
     setExportError(null);
     requestAnimationFrame(() => { try { window.print(); } catch { setExportError(t("report.exportError")); } });
   };
+  // Distinguishable, localized file name carrying the actual date range, e.g.
+  // mizan-report-2026-05-23-2026-06-23.csv  /  mizan-rapor-all-2026-06-23.xlsx
+  const exportFilename = (ext: string): string => {
+    const word = lang === "tr" ? "rapor" : "report";
+    const s = report?.meta.start, e = report?.meta.end;
+    const span = s && e ? `${s}-${e}` : e ? `${lang === "tr" ? "tum" : "all"}-${e}` : period;
+    return `mizan-${word}-${span}.${ext}`;
+  };
   const exportCsv = async () => {
     setExportError(null); setCsvBusy(true);
-    try { await downloadReportCsv(period, ccy, getCurrentLang()); }
+    try { await downloadReportCsv(period, ccy, getCurrentLang(), exportFilename("csv")); }
     catch { setExportError(t("report.exportError")); }
     finally { setCsvBusy(false); }
   };
   const exportExcel = async () => {
     setExportError(null); setXlsxBusy(true);
-    try { await downloadReportXlsx(period, ccy, getCurrentLang()); }
+    try { await downloadReportXlsx(period, ccy, getCurrentLang(), exportFilename("xlsx")); }
     catch { setExportError(t("report.exportError")); }
     finally { setXlsxBusy(false); }
   };
@@ -121,10 +155,7 @@ export default function ReportsPage() {
             <p className="text-xs text-ink-mute">{t("report.docTitle")} · {ccy}</p>
           </div>
           <div className="flex-1" />
-          <select value={period} onChange={(e) => setPeriod(e.target.value)}
-            className="bg-surface border border-line rounded-lg px-3 py-2 text-sm text-ink focus:outline-none focus:border-[#176B5B] focus:ring-2 focus:ring-[#176B5B]/20 transition-shadow">
-            {PERIODS.map((p) => <option key={p} value={p}>{t(`report.period.${p}`)}</option>)}
-          </select>
+          <PeriodPicker value={period} onChange={setPeriod} lang={lang} t={t} />
           <button onClick={exportCsv} disabled={csvBusy || !report}
             className="px-3.5 py-2 rounded-lg border border-line bg-surface text-ink-soft hover:text-ink hover:border-line-strong text-sm font-medium disabled:opacity-50 transition-colors">
             {csvBusy ? "…" : t("report.csv")}
@@ -534,5 +565,79 @@ function Table({ head, rows, subtitles, total }: { head: string[]; rows: string[
         </tfoot>
       )}
     </table>
+  );
+}
+
+// ── Modern period selector: grouped, with a live date-range hint per option ──
+function PeriodPicker({
+  value, onChange, lang, t,
+}: { value: string; onChange: (v: string) => void; lang: string; t: (k: string) => string }) {
+  const { resolved } = useTheme();
+  const surfaceBg = resolved === "dark" ? "#1C1915" : "#FFFFFF";
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  const loc = lang === "tr" ? "tr-TR" : "en-US";
+
+  useEffect(() => {
+    const onClick = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false); };
+    if (open) document.addEventListener("mousedown", onClick);
+    return () => document.removeEventListener("mousedown", onClick);
+  }, [open]);
+
+  const fmtRange = (key: string): string => {
+    const { start, end } = resolveRange(key);
+    const o = { day: "2-digit", month: "short" } as const;
+    if (!start) return `→ ${end.toLocaleDateString(loc, { ...o, year: "numeric" })}`;
+    return `${start.toLocaleDateString(loc, o)} – ${end.toLocaleDateString(loc, { ...o, year: "numeric" })}`;
+  };
+
+  const Option = ({ k }: { k: string }) => {
+    const active = k === value;
+    return (
+      <button
+        onClick={() => { onChange(k); setOpen(false); }}
+        className={`w-full text-left px-3 py-2 rounded-lg flex items-center justify-between gap-3 transition-colors ${active ? "bg-[#176B5B]/10" : "hover:bg-surface-2"}`}
+      >
+        <span className="min-w-0">
+          <span className={`block text-sm truncate ${active ? "text-[#176B5B] font-semibold" : "text-ink-soft"}`}>{t(`report.period.${k}`)}</span>
+          <span className="block text-[11px] text-ink-mute tabular-nums">{fmtRange(k)}</span>
+        </span>
+        {active && <span className="text-[#176B5B] text-sm shrink-0">✓</span>}
+      </button>
+    );
+  };
+
+  return (
+    <div ref={ref} className="relative">
+      <button
+        onClick={() => setOpen((v) => !v)}
+        className="flex items-center gap-2 bg-surface border border-line rounded-lg pl-2.5 pr-2 py-1.5 text-left hover:border-[#176B5B] focus:outline-none focus:border-[#176B5B] focus:ring-2 focus:ring-[#176B5B]/20 transition-colors"
+        aria-label={t("report.periodPick")}
+      >
+        <Calendar size={15} className="text-[#176B5B] shrink-0" />
+        <span className="min-w-0">
+          <span className="block text-sm text-ink font-medium leading-tight">{t(`report.period.${value}`)}</span>
+          <span className="block text-[10px] text-ink-mute leading-tight tabular-nums">{fmtRange(value)}</span>
+        </span>
+        <ChevronDown size={14} className={`text-ink-mute shrink-0 transition-transform ${open ? "rotate-180" : ""}`} />
+      </button>
+
+      {open && (
+        <div
+          className="absolute right-0 top-full mt-2 w-64 border border-line rounded-xl shadow-xl shadow-black/20 ring-1 ring-black/5 z-50 p-1.5"
+          style={{ backgroundColor: surfaceBg }}
+        >
+          {PERIOD_GROUPS.map((g) => (
+            <div key={g.key} className="mb-1 last:mb-0">
+              <p className="px-3 pt-1.5 pb-1 text-[10px] font-semibold uppercase tracking-wider text-ink-mute">{t(`report.periodGroup.${g.key}`)}</p>
+              {g.items.map((k) => <Option key={k} k={k} />)}
+            </div>
+          ))}
+          <div className="border-t border-line mt-1 pt-1">
+            <Option k="all" />
+          </div>
+        </div>
+      )}
+    </div>
   );
 }

@@ -667,7 +667,7 @@ export async function askSimulator(
 
 // ── Financial report ─────────────────────────────────────────────────────────
 export interface FinancialReport {
-  meta: { generated_at: string; period_key: string; period_label: string; currency: string; lang: string };
+  meta: { generated_at: string; period_key: string; period_label: string; start: string | null; end: string; currency: string; lang: string };
   summary: string;
   net_worth: {
     total_assets: number; total_liabilities: number; net_worth: number; pending_receivables: number;
@@ -714,7 +714,7 @@ function triggerBlobDownload(blob: Blob, filename: string): void {
   }, 1500);
 }
 
-export async function downloadReportCsv(period: string, displayCurrency = "TRY", lang = "tr"): Promise<void> {
+export async function downloadReportCsv(period: string, displayCurrency = "TRY", lang = "tr", filename?: string): Promise<void> {
   // The full report (all sections), not just transactions — matches the PDF/Excel content.
   const r = await fetch(
     `${API_BASE_URL}/reports/financial.csv?period=${period}&display_currency=${displayCurrency}&lang=${lang}`,
@@ -723,17 +723,17 @@ export async function downloadReportCsv(period: string, displayCurrency = "TRY",
   if (!r.ok) throw new Error(`Failed to export CSV: ${r.status}`);
   // Tag the blob as CSV so the OS associates the right app.
   const blob = new Blob([await r.blob()], { type: "text/csv;charset=utf-8" });
-  triggerBlobDownload(blob, `mizan-report-${period}.csv`);
+  triggerBlobDownload(blob, filename ?? `mizan-report-${period}.csv`);
 }
 
-export async function downloadReportXlsx(period: string, displayCurrency = "TRY", lang = "tr"): Promise<void> {
+export async function downloadReportXlsx(period: string, displayCurrency = "TRY", lang = "tr", filename?: string): Promise<void> {
   const r = await fetch(
     `${API_BASE_URL}/reports/financial.xlsx?period=${period}&display_currency=${displayCurrency}&lang=${lang}`,
     { headers: authHeaders() },
   );
   if (!r.ok) throw new Error(`Failed to export Excel: ${r.status}`);
   const blob = await r.blob();
-  triggerBlobDownload(blob, `mizan-report-${period}.xlsx`);
+  triggerBlobDownload(blob, filename ?? `mizan-report-${period}.xlsx`);
 }
 
 export async function getBatches(): Promise<BatchSummary[]> {
