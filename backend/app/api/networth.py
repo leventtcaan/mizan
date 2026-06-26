@@ -345,13 +345,23 @@ def _parse_quantity(raw: str | None) -> Decimal | None:
         return None
 
 
-def _parse_account_id(raw: str | None) -> uuid.UUID | None:
+async def _parse_account_id(
+    raw: str | None, user_id: uuid.UUID, session: AsyncSession
+) -> uuid.UUID | None:
+    """Parse an account UUID and confirm it belongs to the current user.
+    Returns None for missing/invalid/foreign accounts — never links an asset to
+    another user's account."""
     if not raw:
         return None
     try:
-        return uuid.UUID(raw)
+        aid = uuid.UUID(raw)
     except (ValueError, TypeError):
         return None
+    from app.models.account import Account
+    result = await session.execute(
+        select(Account.id).where(Account.id == aid, Account.user_id == user_id)
+    )
+    return aid if result.scalar_one_or_none() is not None else None
 
 
 def _archive_cutoff() -> datetime:
@@ -542,7 +552,7 @@ async def create_asset(
         as_of_date=_parse_as_of_date(body.as_of_date),
         quantity=_parse_quantity(body.quantity),
         unit_code=(body.unit_code.strip().upper()[:20] if body.unit_code else None),
-        account_id=_parse_account_id(body.account_id),
+        account_id=await _parse_account_id(body.account_id, current_user.id, session),
         created_at=now,
         updated_at=now,
     )
@@ -583,7 +593,7 @@ async def update_asset(
     asset.as_of_date = _parse_as_of_date(body.as_of_date)
     asset.quantity = _parse_quantity(body.quantity)
     asset.unit_code = body.unit_code.strip().upper()[:20] if body.unit_code else None
-    asset.account_id = _parse_account_id(body.account_id)
+    asset.account_id = await _parse_account_id(body.account_id, current_user.id, session)
     asset.updated_at = datetime.now(timezone.utc)
     await bust_networth_insight_cache(current_user.id, session)
     await session.commit()
@@ -1245,12 +1255,18 @@ def _build_warnings(
     liabilities: list[Liability],
     receivables: list[Receivable],
     target: str,
+    lang: str = "tr",
 ) -> list[str]:
+    en = (lang or "tr").lower().startswith("en")
     warnings: list[str] = []
 
     if total_assets > 0 and total_liabilities > 0.4 * total_assets:
         pct = round(total_liabilities / total_assets * 100)
-        warnings.append(f"Borçlarınız varlıklarınızın %{pct}'ini oluşturuyor. Finansal risk yüksek.")
+        warnings.append(
+            f"Your debt is {pct}% of your assets. Financial risk is high."
+            if en
+            else f"Borçlarınız varlıklarınızın %{pct}'ini oluşturuyor. Finansal risk yüksek."
+        )
 
     # Liquid assets check (cash + bank_account, only TRY or converted)
     liquid_types = {"cash", "bank_account"}
@@ -1258,7 +1274,11 @@ def _build_warnings(
         float(a.current_value) for a in assets if a.asset_type in liquid_types
     )
     if liquid_total == 0:
-        warnings.append("Likit varlık yok. Acil nakit ihtiyacında risk var.")
+        warnings.append(
+            "No liquid assets. You are at risk if you need emergency cash."
+            if en
+            else "Likit varlık yok. Acil nakit ihtiyacında risk var."
+        )
 
     # Overdue receivables
     today_str = date.today().isoformat()
@@ -1267,7 +1287,11 @@ def _build_warnings(
         if r.status == "pending" and r.expected_date and r.expected_date.isoformat() < today_str
     ]
     if overdue:
-        warnings.append(f"{len(overdue)} alacağınız gecikmiş durumda.")
+        warnings.append(
+            f"{len(overdue)} of your receivables are overdue."
+            if en
+            else f"{len(overdue)} alacağınız gecikmiş durumda."
+        )
 
     # High interest liabilities
     high_interest = [
@@ -1275,7 +1299,11 @@ def _build_warnings(
         if l.interest_rate is not None and float(l.interest_rate) > 30
     ]
     for l in high_interest:
-        warnings.append(f"Yüksek faizli borcunuz var (%{l.interest_rate}). Erken ödeme düşünebilirsiniz.")
+        warnings.append(
+            f"You have high-interest debt ({l.interest_rate}%). Consider paying it down early."
+            if en
+            else f"Yüksek faizli borcunuz var (%{l.interest_rate}). Erken ödeme düşünebilirsiniz."
+        )
 
     return warnings
 
@@ -1618,7 +1646,10 @@ async def get_summary(
         pending_recv_total += await convert(float(r.amount), r.currency, target)
 
     # Warnings (rule-based, instant)
-    warnings = _build_warnings(total_assets, total_liabilities, list(assets), list(liabilities), all_receivables, target)
+    warnings = _build_warnings(
+        total_assets, total_liabilities, list(assets), list(liabilities),
+        all_receivables, target, getattr(current_user, "language", None) or "tr",
+    )
 
     # AI commentary now lives in GET /networth/guidance (ranked, action-linked
     # findings). The summary no longer spends an LLM call on a single blurb;

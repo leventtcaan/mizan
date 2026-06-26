@@ -20,6 +20,7 @@ from sqlalchemy import func, select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.categories import VALID_CATEGORIES as _VALID_CATEGORIES
 from app.core.config import settings
 from app.core.database import get_session
 from app.core.dependencies import get_verified_user
@@ -41,11 +42,6 @@ from app.services.transaction_service import (
     insert_transactions,
 )
 
-# Categories the review table is allowed to assign (mirrors transactions.VALID_CATEGORIES).
-_VALID_CATEGORIES = {
-    "market", "restoran", "ulasim", "eglence", "saglik", "fatura",
-    "giyim", "nakit_atm", "transfer", "faiz", "iade", "vergi", "teknoloji", "diger", "egitim",
-}
 
 logger = logging.getLogger(__name__)
 

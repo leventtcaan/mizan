@@ -562,12 +562,44 @@ Systematic audit + fixes across the whole app. Highlights:
 - [x] **Root cause**: the daily cap rode on the rate-limiter window only — **volatile** (in-memory resets on restart, per-process without Redis), so free users were effectively never capped. The new assistant doesn't persist messages, so nothing durable was counted.
 - [x] **Fix (api/assistant.py)**: cap is now **DB-backed** — counts the user's `role="user"` `ConversationMessage` rows in the last 24h vs `assistant_daily_cap` (10 free / None paid) → 429 `assistant_daily_cap_reached`; each exchange (user msg + reply) is **persisted** so the count is real and survives restarts/workers/no-Redis. Rate limiter kept as a secondary burst guard. `/assistant/chat` is the only path the UI uses (legacy `/chat` chat.py is unused by the frontend).
 
+### Phase 99 — Admin panel redesign (2026-06-26)
+- [x] **Command center** (tabs: Dashboard · Users · System). `admin.py` enriched: per-user list now carries email_verified, last_activity, statement_count, message_count, net_worth/assets/liabilities_usd (latest NetworthSnapshot). `/overview` adds plan breakdown, MRR potential (Plus×$7 + Pro×$12), active_7d/30d, upload rate, 30-day signups series. No migration (read/derived).
+- [x] **User profile**: identity (name/account_type/company/industry/team/phone/country), net-worth history (last 60 snapshots), plan history (from audit log), message_count, full financial picture (assets/liabilities/receivables/statements/health).
+- [x] **Actions**: change plan · verify/unverify email (PATCH email_verified, audited) · soft delete · send message (→ AppNotification, audited) · impersonate (mints user token, audited; frontend backs up admin token → /home). Dashboard signups AreaChart + per-user net-worth LineChart.
+
+### Phase 100 — Liability living obligation (2026-06-26) [migrations 0039–0041]
+- [x] **Payment day-of-month** — progressive liability form (one-time ↔ monthly toggle → monthly amount + day 1-31 + end date + reminder days). `due_date` stores the recurrence-day anchor; `end_date` (0040) bounds it; `reminder_days` (0039, default 7).
+- [x] **Recurring calendar**: cashflow projects EVERY monthly occurrence in the window (capped at end_date), not just the next. Notifications warn N days before ("due today/tomorrow/in N days"). Weekly email brief mentions upcoming liability payments.
+- [x] **Statement→liability**: credit-card detection auto-populates the liability form (institution + amount owed, prefill) for review→save instead of silent create — Brief + Net Worth suggestion both route through it.
+- [x] **Proactive Mim triggers** (paid only; 0041 adds action_type/data/state to app_notifications): liability follow-up ("Did you pay?" yes→logs txn + reduces balance, no→reschedule), salary→savings nudge, overdue-receivable chase, stale-data (30d+ no upload) prompt. POST /notifications/{id}/action; dropdown Yes/No + confirmation.
+
+### Phase 101 — User profile (2026-06-26) [migration 0042]
+- [x] **0042**: users += account_type (default personal), company_name, industry, team_size, phone, timezone.
+- [x] Name in navbar (initials avatar + name in dropdown) + settings header. `POST /auth/change-password` (verify current → set new). Business registration: account_type=business → company_name (req) + industry + team_size dropdowns, persisted. **account_type now durable** (was localStorage-only) → drives Home emphasis (business=receivables/cashflow, personal=spending/savings). Shared INDUSTRIES/TEAM_SIZES slugs (api.ts ↔ backend whitelists); detectTimezone() on register.
+
+### Phase 102 — Settings redesign (2026-06-26)
+- [x] **Read-only-first** profile (Stripe/Linear pattern): definition-list view + Edit per section; Save/Cancel; loaded vs draft state; email locked.
+- [x] Phone = **country-code selector** (flag + dial code, ~31 codes) + number; split/recombine on load/save. Password change **collapsed** behind a button (was always-open). Section component gains subtitle + header-action slot.
+
+### Phase 103 — Security fixes (2026-06-26)
+- [x] **Next.js 14.2.0 → 14.2.35** (critical). **/chat DELETED** (api/chat.py + main.py wiring) — it bypassed the assistant cap + plan gates; all AI now via /assistant/chat.
+- [x] **LLM provider call fix**: networth /analyze + notification daily-insight called `provider.complete(system_prompt=, user_message=, await)` — wrong (complete is sync `(prompt)->str` + injects categorizer prompt). Replaced with `provider.client.chat.completions.create([system,user])` via `asyncio.to_thread`.
+- [x] **Plan gates**: `get_paid_user` dep (verified + is_paid → 403 `upgrade_required`) on /reports/*, /simulator/*, /networth/guidance. `get_verified_user` added to review + notifications endpoints. **Email normalized** (.strip().lower()) on register/login/resend.
+
+### Phase 104 — Statement bridge multilingual (2026-06-26)
+- [x] **Date-aware balance detection**: PDF-text path takes the balance on the row with the LATEST date (works chronological OR reverse-chron, e.g. Itaú newest-first) — not a running-balance guess. Sign-agnostic running-balance (magnitude + date order) + trailing D/C parsing for XLSX/CSV. Portuguese (+ES/FR/DE) balance/CC/bank keywords; priority-ordered deposit keys (saldo em conta > available); excludes credit-limit/opening-balance lines.
+- [x] Paid users: gpt-4o-mini reads the authoritative current balance from the statement header (any language/format); free users keep the improved heuristic.
+
+### Phase 105 — Reports (2026-06-26)
+- [x] **Grouped period picker** (To date / Rolling / Completed + All) with live date-range hint; added last_quarter/last_year/last_90/last_12_months (backend resolve_period). **Download filenames carry the real date range** + localized word: `mizan-report-2026-05-23-2026-06-23.csv` / `mizan-rapor-…xlsx`.
+- [x] **CSV + Excel now match the PDF**: net worth, cash flow, top categories, assets, liabilities, receivables, allocation, currency mix, recommendations, assumptions, transactions. CSV = one structured file w/ `[SECTION]` markers; Excel = multi-sheet. Hydration fix: reports currency lazy-init → SSR-safe "TRY" then useEffect.
+
 ---
 
 ## Current Status
 
-**Phases 1–98 complete. Alembic head = 0038.**
-**Light-first design system done app-wide + auth/onboarding redesign + registration consent fields (0037) + statement bridge ekstre→varlık (0038) + DB-backed free-tier assistant cap. Pending: deploy to production, Resend domain verify, Stripe billing, statement-bridge live testing.**
+**Phases 1–105 complete. Alembic head = 0042.**
+**Since 98: admin command-center (99), liability living-obligation + proactive Mim triggers 0039–0041 (100), user profile + business fields 0042 (101), settings read-only redesign (102), security fixes — Next 14.2.35 / /chat removed / plan gates / email normalize (103), statement bridge multilingual date-aware balance (104), reports period picker + full CSV/Excel (105). Pending: audit fixes (below), automated tests, Stripe billing, deploy.**
 
 ### Design system (Phase 82, established)
 - **Light mode default**, dark toggle (Light/Dark/System) in navbar. Token system: `:root` (light) / `[data-theme="dark"]` (dark) channel CSS vars; Tailwind semantic colors.
@@ -609,7 +641,7 @@ Systematic audit + fixes across the whole app. Highlights:
 
 Full stack: register/login → JWT → upload (rate-limited, busts caches) → 3-layer OCR → LLM extract → OCR cleanup → dedup → zero-amount filter → persist → LLM categorize (13 categories) → insight cache → globalized LLM coach with corrections+notes injected → spending chart + progress page (LineChart 3-month trend + cross-batch-deduped category comparison + LLM one-liners, 24h cached) → PersonalityCard (5 types, cached per batch) → AlertsPanel (3 algorithmic detectors, dismiss persisted, stale dismissals auto-cleaned) → GoalsPanel (monthly budget vs actual) → ChatPanel (globalized conversational coaching, behavioral profile memory, voice input, chat-based tx entry with confirmation card, sessionStorage prefill from alerts) → weekly email summary (Resend HTML, preferences toggle) → inflation-adjusted analysis (TUFE 2023-2026, real vs nominal per category, ProgressInsight cache) → net worth asset subtype capture (all asset types have specific fields; crypto/fiat/commodity live picker; gold unit picker; stock/fund code fields; manual categories store structured metadata in `Asset.source_detail` JSON) → net worth display currency searchable via live `CurrencySelect` → receivable collection creates linked cash asset, repeated collection is idempotent, delete/write-off removes linked asset → stale received receivables and processed suggestions are hidden/cleaned after 30 days → onboarding accepts any institution/export source instead of hardcoded Turkish banks → financial event log + reconciliation item backend skeleton exists → net worth page shows Action Queue with open reconciliation items and recent financial events → reconciliation producers (overdue receivables, missing receivable assets, cross-batch duplicate detection) → Action Queue real action handlers per issue_type → net worth history AreaChart (daily USD snapshots, converted to display currency) → asset allocation donut PieChart (5 groups, click to highlight) → proactive threshold alerts (WealthAlert model, asset_price_drop / net_worth_drop / payment_coverage_risk, bell icon on auto-priced asset cards, triggered alerts banner).
 
-### Migrations (head = 0038)
+### Migrations (head = 0042)
 | Migration | What |
 |---|---|
 | 0001 | CREATE users + transactions |
@@ -650,6 +682,10 @@ Full stack: register/login → JWT → upload (rate-limited, busts caches) → 3
 | 0036 | ADD email_verified (grandfathered true) + plan (free/plus/pro) + plan_expires_at to users |
 | 0037 | ADD full_name + country + marketing_consent + tos_accepted_at + tos_version + primary_goal to users (registration profile + consent) |
 | 0038 | ADD source_detail (JSON) to networth_suggestions (statement bridge payload) |
+| 0039 | ADD reminder_days to liabilities (payment-reminder lead time, default 7) |
+| 0040 | ADD end_date to liabilities (recurring payoff bound) |
+| 0041 | ADD action_type + action_data + action_state to app_notifications (proactive Mim actions) |
+| 0042 | ADD account_type + company_name + industry + team_size + phone + timezone to users |
 
 ### Known Issues (open)
 - **PDF extraction not perfect** — scanned/image PDFs hit inherent OCR limits. Vision LLM (gpt-4o-mini, Phase 59) + strip tiling fixed column/sign/format errors and gets income exact on the Ziraat scan, but residual amount/count drift remains = pixel-level digit misreads on poor scans. gpt-4o is more accurate (swap `_VISION_MODEL`) at ~10x cost.
@@ -1464,19 +1500,24 @@ Full stack: register/login → JWT → upload (rate-limited, busts caches) → 3
 
 ## Next Session — Start Here
 
-**Phases 1–98 complete. Alembic head = 0038. Design system done app-wide; auth/onboarding redesign + registration consent (0037) + statement bridge ekstre→varlık (0038) + DB-backed free-tier assistant cap shipped.**
+**Phases 1–105 complete. Alembic head = 0042.** Shipped since 98: admin command-center (99), liability living-obligation + proactive Mim triggers — migrations 0039–0041 (100), user profile + business fields — 0042 (101), settings read-only redesign (102), security fixes — Next 14.2.35 / /chat removed / LLM provider fix / plan gates / email normalize (103), statement bridge multilingual date-aware balance (104), reports period picker + full CSV/Excel (105).
 
-### Pending (priority)
-1. **Deploy to production** — Railway backend + Vercel frontend. SECRET_KEY + RESEND_API_KEY + REDIS_URL via platform env; `alembic upgrade head` (→0038) on cold start.
-2. **Resend domain verification** — verify sending domain (sandbox only sends to account owner).
-3. **Stripe payment integration** — `/upgrade` only captures interest in localStorage; wire real checkout → webhook sets `plan`/`plan_expires_at`.
-4. **Statement bridge testing + edge cases** — verify balance detection + ekstre↔varlık matching across real banks/formats (Phase 94 wired but not live-tested).
+### Pending (from audit — fix next)
+1. **Account ownership validation** — networth.py: account UUID stored without checking it belongs to the user. Validate ownership.
+2. **Category list unification** — `egitim` is in upload.py's allowed list but not in categorizer.py / transactions.py. Make ONE shared constant across all three.
+3. **Cross-batch dedup fix** — transaction_service.py uses `description[:30]`; match full description like pdf_parser.py does.
+4. **Upgrade page honest copy** — trust line "No credit card. Cancel anytime." promises a subscription that doesn't exist yet. Make honest.
+5. **Hardcoded Turkish warnings** — networth.py net-worth warning text is TR-only; use the user's `lang`.
+6. **Reports currency default** — defaults to TRY; use the user's stored `display_currency`.
+7. **Automated tests** — none yet; add backend + critical-path coverage.
+8. **Stripe payment integration** — `/upgrade` captures interest in localStorage only; wire checkout → webhook sets `plan`/`plan_expires_at`.
+9. **Deploy** — Railway backend + Vercel frontend; SECRET_KEY + RESEND_API_KEY + REDIS_URL via env; `alembic upgrade head` (→0042) on cold start; Resend domain verify.
 
 ### Next session setup:
 - Use claude-opus-4-8 model
 - **Shipped since last doc update**: light-first design-system overhaul (82), landing+pricing redesign (83), login/register redesign (84), upgrade page (85), pre-production — email verification + Redis rate limiter + plan system/upload cap, **migration 0036** (86), Home redesign (87), Transactions redesign (88), Cashflow/Recurring pass (89), Upload pass (90), Navbar + overlay light-mode fixes (91). Loop intact: Upload → Review → Brief → Home.
 - **State: design system established (light default, teal #176B5B, terracotta negatives). Email verification + Redis limiter + free/plus/pro plan + upload cap all live behind `get_verified_user` / `effective_plan`.**
-- **Pending: (1) deploy to production** — Railway backend + Vercel frontend; **SECRET_KEY + RESEND_API_KEY + REDIS_URL** via platform env; `docker compose` now includes Redis; `alembic upgrade head` (→0036) on cold start. **(2) billing integration** — `/upgrade` only captures interest in localStorage; wire real checkout → webhook sets `plan`/`plan_expires_at`.
+- **Pending: (1) deploy to production** — Railway backend + Vercel frontend; **SECRET_KEY + RESEND_API_KEY + REDIS_URL** via platform env; `docker compose` now includes Redis; `alembic upgrade head` (→0042) on cold start. **(2) billing integration** — `/upgrade` only captures interest in localStorage; wire real checkout → webhook sets `plan`/`plan_expires_at`.
 - **⚠ Untraced runtime quirk**: solid `bg-<token>` utilities (e.g. `bg-surface`, `bg-neg`) don't paint reliably while `text-`/`border-` tokens do. Overlays + selected-state fills mitigated with explicit inline colors; trace + fix the channel-token bg CSS layer.
 - **Next product bet (IMPORTANT)**: cash flow ↔ net worth bridge — see the IMPORTANT block under Current Status (onboarding ekstre→varlık asset/liability suggestion + ekstre↔varlık auto-match to update asset balance).
 - Deferred items live in "Known deferred (post-57)" under Current Status.

@@ -7,6 +7,7 @@ BREAKS IF REMOVED: Parsed transactions never reach the database.
 """
 
 import logging
+import re
 import uuid
 from datetime import date, datetime
 from decimal import Decimal, InvalidOperation
@@ -212,16 +213,20 @@ async def bust_insight_cache(user_id: uuid.UUID, session: AsyncSession) -> None:
 
 def dedup_transactions_orm(transactions: list[Transaction]) -> list[Transaction]:
     """
-    WHAT: Deduplicates ORM Transaction rows using (transaction_date, amount, description[:30]).
+    WHAT: Deduplicates ORM Transaction rows using (transaction_date, amount, FULL description).
     WHY: Users may upload the same statement twice or upload overlapping date ranges.
          The progress page aggregates across ALL batches, so without dedup each overlap
          is counted twice — inflating spending totals and poisoning coaching insights.
-         Same key logic as pdf_parser._deduplicate() but operates on ORM objects.
+         Keys on the FULL normalised description (collapse whitespace + casefold), NOT a
+         30-char prefix — same fix as pdf_parser._deduplicate(): statement rows routinely
+         share a long generic prefix with the distinguishing merchant only after ~30 chars,
+         so a prefix key wrongly merged distinct same-day same-amount purchases.
     """
     seen: set[tuple] = set()
     result: list[Transaction] = []
     for t in transactions:
-        key = (str(t.transaction_date), str(t.amount), t.description[:30])
+        norm_desc = re.sub(r"\s+", " ", t.description or "").strip().casefold()
+        key = (str(t.transaction_date), str(t.amount), norm_desc)
         if key not in seen:
             seen.add(key)
             result.append(t)

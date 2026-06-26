@@ -36,6 +36,20 @@ def _period(p: str) -> str:
     return p if p in _PERIODS else "this_month"
 
 
+def _ccy(display_currency: str | None, user: User) -> str:
+    """Use the explicit query param, else fall back to the user's stored display
+    currency, else TRY. Never silently defaults to TRY when the user has a preference."""
+    if display_currency:
+        return display_currency
+    return getattr(user, "display_currency", None) or "TRY"
+
+
+def _lang(lang: str | None, user: User) -> str:
+    if lang:
+        return lang
+    return getattr(user, "language", None) or "tr"
+
+
 def _filename(period: str, lang: str, ext: str) -> str:
     """A distinguishable, localized file name carrying the actual date range —
     e.g. mizan-rapor-2026-05-23-2026-06-23.csv / mizan-report-all-2026-06-23.xlsx."""
@@ -50,26 +64,32 @@ def _filename(period: str, lang: str, ext: str) -> str:
 @router.get("/financial")
 async def financial_report(
     period: str = Query(default="this_month"),
-    display_currency: str = Query(default="TRY"),
-    lang: str = Query(default="tr"),
+    display_currency: str | None = Query(default=None),
+    lang: str | None = Query(default=None),
     current_user: User = Depends(get_paid_user),
     session: AsyncSession = Depends(get_session),
 ) -> dict:
     """Structured, period-scoped report. Frontend renders + prints it to PDF."""
-    return await build_report(current_user.id, session, _period(period), display_currency, lang)
+    return await build_report(
+        current_user.id, session, _period(period),
+        _ccy(display_currency, current_user), _lang(lang, current_user),
+    )
 
 
 @router.get("/financial.csv", response_class=PlainTextResponse)
 async def financial_report_csv(
     period: str = Query(default="this_month"),
-    display_currency: str = Query(default="TRY"),
-    lang: str = Query(default="tr"),
+    display_currency: str | None = Query(default=None),
+    lang: str | None = Query(default=None),
     current_user: User = Depends(get_paid_user),
     session: AsyncSession = Depends(get_session),
 ) -> PlainTextResponse:
     """Full report as a single structured CSV — every section the PDF/Excel has."""
-    csv_text = await build_report_csv(current_user.id, session, _period(period), display_currency, lang)
-    filename = _filename(_period(period), lang, "csv")
+    rlang = _lang(lang, current_user)
+    csv_text = await build_report_csv(
+        current_user.id, session, _period(period), _ccy(display_currency, current_user), rlang,
+    )
+    filename = _filename(_period(period), rlang, "csv")
     return PlainTextResponse(
         content=csv_text,
         media_type="text/csv",
@@ -80,12 +100,14 @@ async def financial_report_csv(
 @router.get("/transactions.csv", response_class=PlainTextResponse)
 async def transactions_csv(
     period: str = Query(default="this_month"),
-    display_currency: str = Query(default="TRY"),
+    display_currency: str | None = Query(default=None),
     current_user: User = Depends(get_paid_user),
     session: AsyncSession = Depends(get_session),
 ) -> PlainTextResponse:
     """Raw transaction appendix for analysts who want only the underlying numbers."""
-    csv_text = await build_transactions_csv(current_user.id, session, _period(period), display_currency)
+    csv_text = await build_transactions_csv(
+        current_user.id, session, _period(period), _ccy(display_currency, current_user),
+    )
     filename = f"mizan-transactions-{_period(period)}.csv"
     return PlainTextResponse(
         content=csv_text,
@@ -97,14 +119,17 @@ async def transactions_csv(
 @router.get("/financial.xlsx")
 async def financial_report_xlsx(
     period: str = Query(default="this_month"),
-    display_currency: str = Query(default="TRY"),
-    lang: str = Query(default="tr"),
+    display_currency: str | None = Query(default=None),
+    lang: str | None = Query(default=None),
     current_user: User = Depends(get_paid_user),
     session: AsyncSession = Depends(get_session),
 ) -> Response:
     """Multi-sheet Excel workbook of the report (summary + holdings + transactions)."""
-    data = await build_report_xlsx(current_user.id, session, _period(period), display_currency, lang)
-    filename = _filename(_period(period), lang, "xlsx")
+    rlang = _lang(lang, current_user)
+    data = await build_report_xlsx(
+        current_user.id, session, _period(period), _ccy(display_currency, current_user), rlang,
+    )
+    filename = _filename(_period(period), rlang, "xlsx")
     return Response(
         content=data,
         media_type=_XLSX_MEDIA,

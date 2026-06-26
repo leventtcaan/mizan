@@ -182,8 +182,8 @@ export default function UpgradePage() {
       <div className="mt-10 flex items-center justify-center gap-2 text-ink-mute text-sm">
         <ShieldCheck size={16} className="text-[#176B5B]" />
         {lang === "tr"
-          ? "Banka girişi yok. Kart yok. İstediğinde iptal et."
-          : "No bank login. No credit card. Cancel anytime."}
+          ? "Banka girişi yok. Ücretsiz plan süresiz kullanılabilir."
+          : "No bank login. The free plan stays free, with no time limit."}
       </div>
     </PageLayout>
   );

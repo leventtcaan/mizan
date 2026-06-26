@@ -14,6 +14,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, field_validator
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.categories import VALID_CATEGORIES
 from app.core.database import get_session
 from app.core.dependencies import get_current_user
 from app.models.transaction import Transaction
@@ -64,10 +65,7 @@ class DeleteBatchResponse(BaseModel):
     message: str
 
 
-VALID_CATEGORIES = {
-    "market", "restoran", "ulasim", "eglence", "saglik", "fatura",
-    "giyim", "nakit_atm", "transfer", "faiz", "iade", "vergi", "teknoloji", "diger",
-}
+# VALID_CATEGORIES now lives in app.core.categories (single source of truth).
 
 # Provenance values a manual entry is allowed to declare. Statement-parsed rows are
 # only ever created by the upload pipeline, never through this endpoint.

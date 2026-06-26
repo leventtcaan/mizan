@@ -11,29 +11,11 @@ import json
 import logging
 import re
 
+from app.core.categories import VALID_CATEGORIES
 from app.models.transaction import Transaction
 from app.services.llm_provider import LLMProvider
 
 logger = logging.getLogger(__name__)
-
-# WHY: Legacy category slugs are stable API/storage values. Do not rename without a migration.
-# Display labels can be localized above this layer.
-VALID_CATEGORIES = {
-    "market",
-    "restoran",
-    "ulasim",
-    "fatura",
-    "saglik",
-    "giyim",
-    "eglence",
-    "nakit_atm",
-    "transfer",
-    "faiz",
-    "iade",
-    "vergi",
-    "teknoloji",
-    "diger",
-}
 
 _SYSTEM_PROMPT = """\
 You are a financial transaction categorizer that works for ANY country and ANY language.
@@ -46,7 +28,7 @@ HOW TO REASON (do NOT keyword-match):
    expand bank abbreviations mentally (e.g. "PAY IFD" → iFood; "REND PAGO" → rendimento/yield;
    "RSHOP" → a card purchase, judged by the rest of the line).
 3. Map that meaning to exactly ONE slug from this fixed list:
-market, restoran, ulasim, fatura, saglik, giyim, eglence, nakit_atm, transfer, faiz, iade, vergi, teknoloji, diger
+market, restoran, ulasim, fatura, saglik, giyim, eglence, nakit_atm, transfer, faiz, iade, vergi, teknoloji, egitim, diger
 
 WHAT EACH SLUG MEANS (match by meaning, in any language):
 - market — groceries, supermarkets, convenience stores (Migros, BIM, Carrefour, Walmart,
@@ -76,6 +58,8 @@ WHAT EACH SLUG MEANS (match by meaning, in any language):
 - vergi — taxes & bank levies ("imposto", "IOF", "tax", "BSMV", "stopaj", "vergi").
 - teknoloji — cloud / SaaS / developer & business software: AWS, Google Cloud, Azure,
   GitHub, OpenAI, Anthropic, Adobe, Microsoft 365, hosting, domains.
+- egitim — education: tuition, schools, universities, courses, online learning (Udemy,
+  Coursera), books/exam fees, training ("okul", "üniversite", "kurs", "escola", "curso").
 - diger — use ONLY when you genuinely cannot place it. Do not force a guess.
 
 BRAZILIAN / PORTUGUESE STATEMENTS — common bank patterns and their correct slug:
