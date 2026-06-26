@@ -6,11 +6,12 @@ POST /notifications/mark-all-read — mark all read
 POST /notifications/generate-daily — LLM analysis, one run per UTC day per user
 """
 
+import json
 import logging
 import uuid
 from datetime import datetime
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -19,7 +20,7 @@ from app.core.dependencies import get_current_user
 from app.core.database import get_session
 from app.models.user import User
 from app.models.app_notification import AppNotification
-from app.services.notification_service import generate_for_user
+from app.services.notification_service import generate_for_user, resolve_notification_action
 from app.services.email_brief import run_email_briefs
 
 logger = logging.getLogger(__name__)
@@ -34,9 +35,22 @@ class NotificationResponse(BaseModel):
     type: str
     is_read: bool
     created_at: datetime
+    action_type: str | None = None
+    action_state: str = "none"
+    action_data: dict | None = None
+
+
+class ActionRequest(BaseModel):
+    answer: str  # "yes" | "no"
 
 
 def _resp(n: AppNotification) -> NotificationResponse:
+    data = None
+    if getattr(n, "action_data", None):
+        try:
+            data = json.loads(n.action_data)
+        except Exception:
+            data = None
     return NotificationResponse(
         id=str(n.id),
         title=n.title,
@@ -44,6 +58,9 @@ def _resp(n: AppNotification) -> NotificationResponse:
         type=n.type,
         is_read=n.is_read,
         created_at=n.created_at,
+        action_type=getattr(n, "action_type", None),
+        action_state=getattr(n, "action_state", None) or "none",
+        action_data=data,
     )
 
 
@@ -102,6 +119,37 @@ async def mark_read(
     notif.is_read = True
     await session.commit()
     await session.refresh(notif)
+    return _resp(notif)
+
+
+@router.post("/{notification_id}/action", response_model=NotificationResponse)
+async def respond_to_action(
+    notification_id: str,
+    body: ActionRequest,
+    current_user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
+) -> NotificationResponse:
+    """Answer a proactive notification ('yes'/'no'). Dispatches to the action handler —
+    e.g. a 'yes' on a payment follow-up logs the transaction and reduces the balance."""
+    try:
+        nid = uuid.UUID(notification_id)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid notification ID")
+
+    result = await session.execute(
+        select(AppNotification).where(
+            AppNotification.id == nid,
+            AppNotification.user_id == current_user.id,
+        )
+    )
+    notif = result.scalar_one_or_none()
+    if not notif:
+        raise HTTPException(status_code=404, detail="Notification not found")
+    if not notif.action_type:
+        raise HTTPException(status_code=400, detail="Notification is not actionable")
+
+    lang = current_user.language or "tr"
+    await resolve_notification_action(notif, body.answer, lang, session)
     return _resp(notif)
 
 

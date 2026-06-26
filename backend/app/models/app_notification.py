@@ -16,6 +16,12 @@ class AppNotification(Base):
     message: Mapped[str] = mapped_column(Text)
     type: Mapped[str] = mapped_column(String(20), default="info")
     is_read: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    # Proactive "Mim" actions: a notification can ask a question and act on the answer.
+    # action_type drives the response handler; action_data is a JSON payload; action_state
+    # tracks the question's lifecycle. "none" = a plain informational notification.
+    action_type: Mapped[str | None] = mapped_column(String(40), nullable=True)
+    action_data: Mapped[str | None] = mapped_column(Text, nullable=True)
+    action_state: Mapped[str] = mapped_column(String(20), default="none", nullable=False, server_default="none")
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         default=lambda: datetime.now(timezone.utc),
