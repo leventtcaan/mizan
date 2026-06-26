@@ -19,8 +19,10 @@ from difflib import SequenceMatcher
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.config import settings
 from app.models.asset import Asset
 from app.models.networth_suggestion import NetworthSuggestion
+from app.services.llm_provider import get_provider
 from app.services.pdf_parser import (
     _AMOUNT_RE, _normalise_amount, _read_xlsx_rows,
     _XLSX_BALANCE_HINTS, _XLSX_DATE_HINTS,
@@ -49,17 +51,39 @@ _CC_MARKERS = _CC_STRONG + (
     "limite de paiement", "kreditkarte", "kreditlimit",
 )
 
-# Labelled-balance keys for a DEPOSIT account (funds you HAVE), specific → generic.
+# Labelled-balance keys for a DEPOSIT account (funds you HAVE). ORDER IS PRIORITY:
+# the *true* current account-balance terms come FIRST; the generic "balance/saldo" word
+# next; and the easily-confused "available" terms (which often fold in an overdraft/credit
+# limit — e.g. Itaú's "saldo disponível" or "limite da conta disponível") come LAST, so a
+# real "saldo em conta" always outranks an available-credit figure.
 _DEPOSIT_BALANCE_KEYS = (
-    "closing balance", "ending balance", "available balance", "current balance",
-    "new balance", "account balance",
-    "kapanış bakiye", "kapanis bakiye", "kapanış bakiyesi", "kapanis bakiyesi",
-    "kullanılabilir bakiye", "kullanilabilir bakiye", "güncel bakiye", "guncel bakiye",
-    "hesap bakiyesi", "son bakiye", "mevcut bakiye",
-    # PT: saldo final/disponível/atual/em conta · ES: saldo · FR: solde · DE: kontostand
-    "saldo final", "saldo disponível", "saldo disponivel", "saldo atual", "saldo em conta",
-    "saldo da conta", "saldo anterior", "solde final", "solde disponible", "solde du compte",
-    "kontostand", "saldo", "solde", "bakiye", "balance",
+    # tier 1 — unambiguous current/closing account balance
+    "closing balance", "ending balance", "account balance", "current balance", "new balance",
+    "hesap bakiyesi", "kapanış bakiyesi", "kapanis bakiyesi", "kapanış bakiye", "kapanis bakiye",
+    "güncel bakiye", "guncel bakiye", "son bakiye", "mevcut bakiye",
+    "saldo em conta", "saldo da conta", "saldo em c/c", "saldo final", "saldo atual",
+    "saldo contábil", "saldo contabil", "saldo total", "saldo en cuenta", "saldo de la cuenta",
+    "solde du compte", "solde final", "kontostand", "kontosaldo",
+    # tier 2 — the bare balance word (any language)
+    "saldo", "solde", "bakiye", "balance",
+    # tier 3 — "available" terms, last resort (may include overdraft/credit headroom)
+    "available balance", "kullanılabilir bakiye", "kullanilabilir bakiye",
+    "saldo disponível", "saldo disponivel", "solde disponible",
+)
+
+# A balance line that mentions a credit limit / available credit / overdraft, OR an
+# OPENING/PREVIOUS balance, is NOT the current account balance. Skip such lines when
+# scanning for a deposit balance (NOT applied to credit-card statements, where the whole
+# page is credit).
+_BALANCE_LINE_EXCLUDE = (
+    # credit limit / available credit / overdraft
+    "limit", "limite", "límite", "available credit", "crédit disponible", "credito disponible",
+    "crédito disponível", "credito disponivel", "kredi limiti", "kullanılabilir kredi",
+    "kullanilabilir kredi", "cheque especial", "overdraft", "verfügbarer kredit", "kreditlimit",
+    # opening / previous balance (the figure at the START of the period, not the current one)
+    "saldo anterior", "saldo inicial", "previous balance", "opening balance", "beginning balance",
+    "solde précédent", "solde precedent", "solde initial", "anfangssaldo", "önceki bakiye",
+    "onceki bakiye", "devir bakiye", "açılış bakiye", "acilis bakiye",
 )
 # For a CREDIT CARD the relevant figure is the amount OWED.
 _OWED_BALANCE_KEYS = (
@@ -322,7 +346,8 @@ def _balance_by_header_order(str_rows: list[list[str]], num_rows: list[list[floa
     for hi in range(min(15, len(str_rows))):
         for ci, cell in enumerate(str_rows[hi]):
             cl = str(cell).lower().strip()
-            if cl and len(cl) <= 24 and any(k in cl for k in _XLSX_BALANCE_HINTS):
+            if (cl and len(cl) <= 24 and any(k in cl for k in _XLSX_BALANCE_HINTS)
+                    and not any(x in cl for x in _BALANCE_LINE_EXCLUDE)):
                 bcol, hdr = ci, hi
                 break
         if bcol is not None:
@@ -392,15 +417,20 @@ def _running_balance_from_text(lines: list[str]) -> float | None:
     return None
 
 
-def _find_balance(lines_lower: list[str], keys: tuple) -> float | None:
-    """Most-specific labelled-balance key whose line (or the next one) carries an amount;
-    the last such occurrence wins (footers repeat totals; the final one is the closing one)."""
+def _find_balance(lines_lower: list[str], keys: tuple, exclude: tuple = ()) -> float | None:
+    """Highest-priority labelled-balance key (keys are ordered most-trustworthy → generic)
+    whose line (or the next one) carries an amount; the last such occurrence wins (footers
+    repeat totals; the final one is the closing one). Lines matching `exclude` (credit-limit
+    / available-credit / overdraft) are skipped so they can't masquerade as the balance."""
+    def _excluded(line: str) -> bool:
+        return bool(exclude) and any(x in line for x in exclude)
+
     for key in keys:
         found: str | None = None
         for i, line in enumerate(lines_lower):
-            if key in line:
+            if key in line and not _excluded(line):
                 amts = _AMOUNT_RE.findall(line)
-                if not amts and i + 1 < len(lines_lower):
+                if not amts and i + 1 < len(lines_lower) and not _excluded(lines_lower[i + 1]):
                     amts = _AMOUNT_RE.findall(lines_lower[i + 1])  # label/value split across lines
                 if amts:
                     found = amts[-1]
@@ -434,22 +464,29 @@ def _find_institution(lines: list[str]) -> str | None:
     return None
 
 
+def _statement_lines(contents: bytes, content_type: str | None, filename: str):
+    """(lines, str_rows, num_rows, is_pdf) for a statement. PDF → text lines (no grid);
+    CSV/XLSX → grid rows joined into lines plus the numeric grid."""
+    name = (filename or "").lower()
+    ct = (content_type or "").lower()
+    is_pdf = "pdf" in ct or name.endswith(".pdf")
+    str_rows: list[list[str]] = []
+    num_rows: list[list[float | None]] = []
+    if is_pdf:
+        lines = _extract_pdf_text(contents).splitlines()
+    else:
+        str_rows, num_rows = _load_grid(contents, content_type, filename)
+        lines = [" ".join(c for c in r) for r in str_rows]
+    return lines, str_rows, num_rows, is_pdf
+
+
 def detect_statement_metadata(contents: bytes, content_type: str | None, filename: str) -> dict | None:
     """Deterministically detect {closing_balance, statement_kind, institution} from a
-    statement (PDF text, CSV or XLSX), or None when no balance is found. Never raises."""
+    statement (PDF text, CSV or XLSX), or None when no balance is found. Never raises.
+    This is the FREE-tier path (heuristics only); paid users go through
+    detect_statement_balance(), which lets an LLM read the authoritative balance."""
     try:
-        name = (filename or "").lower()
-        ct = (content_type or "").lower()
-        is_pdf = "pdf" in ct or name.endswith(".pdf")
-
-        str_rows: list[list[str]] = []
-        num_rows: list[list[float | None]] = []
-        if is_pdf:
-            lines = _extract_pdf_text(contents).splitlines()
-        else:
-            str_rows, num_rows = _load_grid(contents, content_type, filename)
-            lines = [" ".join(c for c in r) for r in str_rows]
-
+        lines, str_rows, num_rows, is_pdf = _statement_lines(contents, content_type, filename)
         lines_lower = [ln.lower() for ln in lines]
         if not any(lines_lower):
             return None
@@ -461,14 +498,15 @@ def detect_statement_metadata(contents: bytes, content_type: str | None, filenam
             balance = _find_balance(lines_lower, _OWED_BALANCE_KEYS)
         else:
             # Deposit: prefer the running-balance column (self-validating, order-aware),
-            # then a header-named balance column by date order, then a labelled line.
+            # then a header-named balance column by date order, then a labelled line
+            # (skipping credit-limit / available-credit lines that aren't the balance).
             if num_rows:
                 balance = _running_balance(num_rows, str_rows) or _balance_by_header_order(str_rows, num_rows)
             if balance is None and is_pdf:
                 # PDF has no positional grid — scan the '… amount  balance' line layout.
                 balance = _running_balance_from_text(lines)
             if balance is None:
-                balance = _find_balance(lines_lower, _DEPOSIT_BALANCE_KEYS)
+                balance = _find_balance(lines_lower, _DEPOSIT_BALANCE_KEYS, _BALANCE_LINE_EXCLUDE)
 
         if balance is None:
             return None
@@ -476,10 +514,173 @@ def detect_statement_metadata(contents: bytes, content_type: str | None, filenam
             "closing_balance": balance,
             "statement_kind": kind,
             "institution": _find_institution(lines),
+            "balance_source": "heuristic",
         }
     except Exception as exc:  # never let detection break the upload
         logger.warning("Statement metadata detection failed: %s", exc)
         return None
+
+
+# ── Paid-tier LLM balance extraction ──────────────────────────────────────────
+# WHY: keyword heuristics can't keep up with 100+ countries' terminology for "account
+# balance" vs "credit limit" vs "available credit". For paid users we hand the statement
+# header to gpt-4o-mini, which understands any language/format, and ask one precise
+# question. The deterministic path stays the free fallback (and the safety net).
+_BALANCE_MODEL = "gpt-4o-mini"
+_BALANCE_SYSTEM = (
+    "You read bank and credit-card statements in ANY language and extract a single number. "
+    "You never explain, never add currency symbols, never guess."
+)
+_BALANCE_USER_TMPL = (
+    "Below is the header/summary of a bank statement.\n"
+    "Return ONLY the CURRENT ACCOUNT BALANCE — the money actually in the account right now "
+    "(the closing/ending balance for a deposit account, or the amount OWED for a credit-card "
+    "statement).\n"
+    "Do NOT return the credit limit, the available credit, the available limit, the overdraft "
+    "limit, the previous/opening balance, or any total of transactions.\n"
+    "Reply with ONLY the number using a dot as the decimal separator (e.g. 9302.55). "
+    "If you cannot find it, reply exactly: NONE.\n\n"
+    "STATEMENT:\n{body}"
+)
+_MAX_LLM_CHARS = 6000
+
+
+def _llm_excerpt(lines: list[str]) -> str:
+    """Header + footer of the statement (where balances live) within a char budget — keeps
+    the prompt small and cheap while still covering opening/closing summary blocks."""
+    clean = [ln.strip() for ln in lines if ln and ln.strip()]
+    if not clean:
+        return ""
+    head, tail = clean[:45], clean[-15:]
+    seen, merged = set(), []
+    for ln in head + tail:
+        if ln not in seen:
+            seen.add(ln)
+            merged.append(ln)
+    return "\n".join(merged)[:_MAX_LLM_CHARS]
+
+
+def _render_first_page_png_b64(contents: bytes) -> str | None:
+    """First PDF page → base64 PNG (for image-only statements with no text layer)."""
+    try:
+        import base64
+        import fitz  # pymupdf
+        doc = fitz.open(stream=contents, filetype="pdf")
+        try:
+            if len(doc) == 0:
+                return None
+            pix = doc[0].get_pixmap(dpi=150)
+            return base64.b64encode(pix.tobytes("png")).decode("ascii")
+        finally:
+            doc.close()
+    except Exception:
+        return None
+
+
+def _parse_balance_reply(raw: str | None) -> float | None:
+    """Parse the model's reply ('9302.55', '9.302,55', 'NONE') → positive float or None."""
+    if not raw:
+        return None
+    s = raw.strip()
+    if not s or "none" in s.lower():
+        return None
+    m = _AMOUNT_RE.search(s)
+    cand = m.group(1) if m else s
+    try:
+        val = abs(float(_normalise_amount(cand)))
+        return round(val, 2) if val >= 0.01 else None
+    except Exception:
+        return None
+
+
+def _llm_balance_sync(body_text: str, image_b64: str | None) -> float | None:
+    """Synchronous gpt-4o-mini (text, or vision for image-only PDFs) balance read. Prefers
+    OpenAI gpt-4o-mini; if only a DeepSeek key is present, uses it for the text case. Never
+    raises — returns None on any failure so the deterministic value stands."""
+    try:
+        from openai import OpenAI
+        if settings.OPENAI_API_KEY:
+            client = OpenAI(api_key=settings.OPENAI_API_KEY)
+            if image_b64:
+                user_content = [
+                    {"type": "text", "text": _BALANCE_USER_TMPL.format(body="(see image)")},
+                    {"type": "image_url",
+                     "image_url": {"url": f"data:image/png;base64,{image_b64}", "detail": "high"}},
+                ]
+            else:
+                if not body_text.strip():
+                    return None
+                user_content = _BALANCE_USER_TMPL.format(body=body_text)
+            resp = client.chat.completions.create(
+                model=_BALANCE_MODEL,
+                messages=[
+                    {"role": "system", "content": _BALANCE_SYSTEM},
+                    {"role": "user", "content": user_content},
+                ],
+                temperature=0,
+                max_tokens=20,
+            )
+            return _parse_balance_reply(resp.choices[0].message.content)
+
+        # No OpenAI key: fall back to the configured provider (DeepSeek) for text only.
+        if not body_text.strip():
+            return None
+        provider = get_provider()
+        resp = provider.client.chat.completions.create(
+            model=provider.model,
+            messages=[
+                {"role": "system", "content": _BALANCE_SYSTEM},
+                {"role": "user", "content": _BALANCE_USER_TMPL.format(body=body_text)},
+            ],
+            temperature=0,
+            max_tokens=20,
+        )
+        return _parse_balance_reply(resp.choices[0].message.content)
+    except Exception as exc:
+        logger.warning("LLM balance read failed: %s", exc)
+        return None
+
+
+async def detect_statement_balance(
+    contents: bytes, content_type: str | None, filename: str,
+    *, allow_llm: bool, lang: str = "tr",
+) -> dict | None:
+    """Statement metadata with an LLM balance read for paid users. Always runs the
+    deterministic detector first (kind/institution/heuristic balance); when `allow_llm`
+    is set, an LLM reads the authoritative current account balance and OVERRIDES the
+    heuristic. Never raises."""
+    import asyncio
+
+    meta = detect_statement_metadata(contents, content_type, filename)
+    if not allow_llm:
+        return meta
+
+    try:
+        lines, str_rows, _num, is_pdf = _statement_lines(contents, content_type, filename)
+    except Exception:
+        return meta
+
+    body = _llm_excerpt(lines)
+    image_b64 = None
+    if is_pdf and not body.strip():
+        image_b64 = _render_first_page_png_b64(contents)  # scanned/image PDF → vision
+    if not body.strip() and image_b64 is None:
+        return meta
+
+    llm_balance = await asyncio.to_thread(_llm_balance_sync, body, image_b64)
+    if llm_balance is None:
+        return meta  # LLM unsure → keep the deterministic value
+
+    if meta is None:
+        lines_lower = [ln.lower() for ln in lines]
+        meta = {
+            "statement_kind": _classify_kind(lines_lower),
+            "institution": _find_institution(lines),
+        }
+    meta["closing_balance"] = llm_balance
+    meta["balance_source"] = "llm"
+    logger.info("Statement balance from LLM — overriding heuristic (%s)", llm_balance)
+    return meta
 
 
 async def propose_statement_bridge(

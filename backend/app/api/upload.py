@@ -303,8 +303,15 @@ async def upload_statement(
     # and propose adding it as an asset / liability (or updating a matching asset). Fully
     # best-effort — a detection failure must never break the upload.
     try:
-        from app.services.statement_bridge import detect_statement_metadata, propose_statement_bridge
-        meta = detect_statement_metadata(contents, file.content_type, filename)
+        from app.core.plans import is_paid
+        from app.services.statement_bridge import detect_statement_balance, propose_statement_bridge
+        # Paid users (plus/pro) get an LLM read of the authoritative account balance — it
+        # understands any language/bank format; free users get the deterministic heuristic.
+        meta = await detect_statement_balance(
+            contents, file.content_type, filename,
+            allow_llm=is_paid(current_user) and llm_available,
+            lang=current_user.language,
+        )
         if meta:
             await propose_statement_bridge(
                 current_user.id, job_id, meta, default_ccy, current_user.language, session,
