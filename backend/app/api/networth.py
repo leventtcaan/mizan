@@ -107,6 +107,7 @@ class LiabilityRequest(BaseModel):
     monthly_payment: str | None = None
     due_date: str | None = None  # ISO date string YYYY-MM-DD
     interest_rate: str | None = None
+    reminder_days: int | None = None  # lead time for the payment reminder (default 7)
     notes: str | None = None
 
     @field_validator("liability_type")
@@ -139,6 +140,7 @@ class LiabilityResponse(BaseModel):
     monthly_payment: str | None
     due_date: str | None
     interest_rate: str | None
+    reminder_days: int
     notes: str | None
     created_at: datetime
 
@@ -269,9 +271,17 @@ def _liability_resp(l: Liability) -> LiabilityResponse:
         monthly_payment=str(l.monthly_payment) if l.monthly_payment is not None else None,
         due_date=l.due_date.isoformat() if l.due_date else None,
         interest_rate=str(l.interest_rate) if l.interest_rate is not None else None,
+        reminder_days=l.reminder_days if l.reminder_days is not None else 7,
         notes=l.notes,
         created_at=l.created_at,
     )
+
+
+def _clean_reminder_days(v: int | None) -> int:
+    """Clamp the reminder lead time to a sane 0–30 day window; default 7."""
+    if v is None:
+        return 7
+    return max(0, min(30, int(v)))
 
 
 def _receivable_resp(r: Receivable) -> ReceivableResponse:
@@ -646,6 +656,7 @@ async def create_liability(
         monthly_payment=Decimal(body.monthly_payment.replace(",", ".")) if body.monthly_payment else None,
         due_date=due,
         interest_rate=Decimal(body.interest_rate.replace(",", ".")) if body.interest_rate else None,
+        reminder_days=_clean_reminder_days(body.reminder_days),
         notes=body.notes,
         created_at=datetime.now(timezone.utc),
     )
@@ -691,6 +702,7 @@ async def update_liability(
     liability.monthly_payment = Decimal(body.monthly_payment.replace(",", ".")) if body.monthly_payment else None
     liability.due_date = due
     liability.interest_rate = Decimal(body.interest_rate.replace(",", ".")) if body.interest_rate else None
+    liability.reminder_days = _clean_reminder_days(body.reminder_days)
     liability.notes = body.notes
     await bust_networth_insight_cache(current_user.id, session)
     await session.commit()

@@ -19,6 +19,7 @@ from decimal import Decimal
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.models.liability import Liability
 from app.models.networth_snapshot import NetworthSnapshot
 from app.models.receivable import Receivable
 from app.models.transaction import Transaction
@@ -69,6 +70,29 @@ async def _upcoming_receivables(
         )
     )
     return list(result.scalars().all())
+
+
+async def _upcoming_liability_payments(
+    user_id: uuid.UUID, today: date, session: AsyncSession
+) -> list[tuple[Liability, int]]:
+    """Liabilities with a monthly payment + due date whose NEXT payment falls within the
+    next 7 days. Returns (liability, days_until) sorted soonest-first."""
+    from app.services.notification_service import _next_payment_date
+
+    result = await session.execute(
+        select(Liability).where(Liability.user_id == user_id)
+    )
+    out: list[tuple[Liability, int]] = []
+    for l in result.scalars().all():
+        if not l.monthly_payment or l.monthly_payment <= 0 or not l.due_date:
+            continue
+        if l.remaining_amount is not None and l.remaining_amount <= 0:
+            continue
+        days_until = (_next_payment_date(l.due_date, today) - today).days
+        if 0 <= days_until <= 7:
+            out.append((l, days_until))
+    out.sort(key=lambda x: x[1])
+    return out
 
 
 def _subject(lang: str, spend_var: float, nw_pct: float | None, currency: str) -> str:
@@ -160,11 +184,15 @@ async def generate_email_brief(user_id: uuid.UUID, session: AsyncSession) -> dic
     # Receivables coming due in the next 7 days.
     upcoming = await _upcoming_receivables(user_id, today, session)
 
+    # Liability payments coming due in the next 7 days.
+    upcoming_liab = await _upcoming_liability_payments(user_id, today, session)
+
     # --- meaningful-change gate: only these "NEW/timely" signals count ---
     spend_ok = abs(spend_var) >= _MEANINGFUL_PCT
     nw_ok = nw_pct is not None and abs(nw_pct) >= _MEANINGFUL_PCT
     goals_ok = len(flagged) > 0
     recv_ok = len(upcoming) > 0
+    liab_ok = len(upcoming_liab) > 0
     logger.info(
         "Email brief gate — user=%s cur_txs=%d prev_txs=%d | spend_var=%.1f%% (pass=%s) "
         "nw_pct=%s (pass=%s) goals_breached=%d (pass=%s) receivables_due=%d (pass=%s)",
@@ -174,7 +202,8 @@ async def generate_email_brief(user_id: uuid.UUID, session: AsyncSession) -> dic
         len(flagged), goals_ok,
         len(upcoming), recv_ok,
     )
-    meaningful = spend_ok or nw_ok or goals_ok or recv_ok
+    logger.info("Email brief gate — user=%s liability_payments_due=%d (pass=%s)", user_id, len(upcoming_liab), liab_ok)
+    meaningful = spend_ok or nw_ok or goals_ok or recv_ok or liab_ok
     if not meaningful:
         logger.info(
             "Email brief SKIPPED (no meaningful change) — user=%s: spend<%.0f%% AND "
@@ -218,6 +247,18 @@ async def generate_email_brief(user_id: uuid.UUID, session: AsyncSession) -> dic
             bullets.append(f"{len(upcoming)} alacak önümüzdeki 7 günde bekleniyor — en yakını: {nearest.from_person}.")
         else:
             bullets.append(f"{len(upcoming)} receivable(s) due in the next 7 days — soonest: {nearest.from_person}.")
+
+    if upcoming_liab:
+        liab, days = upcoming_liab[0]
+        pay = _money(float(liab.monthly_payment or 0), liab.currency)
+        if lang == "tr":
+            when = "bugün" if days == 0 else "yarın" if days == 1 else f"{days} gün içinde"
+            extra = f" (+{len(upcoming_liab) - 1} ödeme daha)" if len(upcoming_liab) > 1 else ""
+            bullets.append(f"{liab.name} ödemesi {when}: {pay}{extra}.")
+        else:
+            when = "today" if days == 0 else "tomorrow" if days == 1 else f"in {days} days"
+            extra = f" (+{len(upcoming_liab) - 1} more payment(s))" if len(upcoming_liab) > 1 else ""
+            bullets.append(f"{liab.name} payment due {when}: {pay}{extra}.")
 
     if recurring.get("highlight"):
         bullets.append(recurring["highlight"])

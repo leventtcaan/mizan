@@ -86,11 +86,20 @@ async def generate_for_user(user_id: uuid.UUID, lang: str, session: AsyncSession
         if l.monthly_payment and l.due_date:
             next_due = _next_payment_date(l.due_date, today)
             days_until = (next_due - today).days
-            if 0 <= days_until <= 7:
+            # Per-liability reminder lead time (column default 7). The user picks how many
+            # days before each payment they want to be warned.
+            lead = l.reminder_days if getattr(l, "reminder_days", None) is not None else 7
+            if 0 <= days_until <= lead:
+                if days_until == 0:
+                    when = "due today" if lang == "en" else "bugün ödenecek"
+                elif days_until == 1:
+                    when = "due tomorrow" if lang == "en" else "yarın ödenecek"
+                else:
+                    when = (f"due in {days_until} days" if lang == "en"
+                            else f"{days_until} gün içinde ödenecek")
                 notifications.append({
                     "title": "Upcoming Payment" if lang == "en" else "Yaklaşan Ödeme",
-                    "message": f"{l.name}: {float(l.monthly_payment):.2f} {l.currency} due in {days_until} days" if lang == "en"
-                        else f"{l.name}: {float(l.monthly_payment):.2f} {l.currency} — {days_until} gün içinde",
+                    "message": f"{l.name}: {float(l.monthly_payment):.2f} {l.currency} — {when}",
                     "type": "alert" if days_until <= 2 else "info",
                 })
 

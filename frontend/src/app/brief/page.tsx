@@ -11,6 +11,23 @@ import { CATEGORY_LABELS, CATEGORY_COLORS, DEFAULT_CATEGORY_COLOR } from "@/lib/
 import { ArrowRight, Scale, TrendingDown, TrendingUp, CheckCircle, PieChart, RefreshCw, Sparkles } from "@/components/ui/Icons";
 import AskMim from "@/components/companion/AskMim";
 import Mim from "@/components/companion/Mim";
+import AddLiabilityModal, { type LiabilityPrefill } from "@/components/AddLiabilityModal";
+
+// Build a prefilled liability form from a detected credit-card statement bridge.
+function liabilityPrefillFromBridge(b: SuggestionItem): LiabilityPrefill {
+  let institution: string | undefined;
+  try {
+    const d = b.source_detail ? (JSON.parse(b.source_detail) as Record<string, unknown>) : {};
+    institution = (d.institution as string) || (d.proposed_name as string) || undefined;
+  } catch { /* ignore — fall back below */ }
+  return {
+    name: institution || b.reason || "Credit card",
+    liability_type: "credit_card",
+    currency: b.currency,
+    remaining_amount: b.suggested_change,
+    fromStatement: true,
+  };
+}
 
 // "18 May–18 Haz" / "May 18–Jun 18" — noon avoids tz day-shift on ISO dates.
 function fmtDateRange(startISO: string, endISO: string, lang: string): string {
@@ -36,6 +53,9 @@ function BriefContent() {
   const [bridge, setBridge] = useState<SuggestionItem | null>(null);
   const [bridgeDone, setBridgeDone] = useState<"" | "added" | "skipped">("");
   const [bridgeBusy, setBridgeBusy] = useState(false);
+  // A detected credit-card statement opens the liability form prefilled (review → save),
+  // rather than silently creating the debt.
+  const [liabModalOpen, setLiabModalOpen] = useState(false);
 
   // Silent fallback: any failure (missing/expired job, network) → the dashboard.
   const fallback = useCallback(() => router.replace("/transactions"), [router]);
@@ -88,6 +108,15 @@ function BriefContent() {
     catch { /* ignore */ }
     finally { setBridgeBusy(false); }
   }, [bridge, bridgeBusy]);
+
+  // After the user reviews + saves the prefilled liability, resolve the bridge suggestion
+  // so it doesn't reappear, and let other views refresh.
+  const onLiabilityAdded = useCallback(async () => {
+    setLiabModalOpen(false);
+    setBridgeDone("added");
+    window.dispatchEvent(new CustomEvent("mizan-data-changed"));
+    if (bridge) { try { await dismissSuggestion(bridge.id); } catch { /* non-blocking */ } }
+  }, [bridge]);
 
   const money = useCallback((n: number, ccy: string) => {
     try {
@@ -290,7 +319,7 @@ function BriefContent() {
                     <p className="text-3xl font-bold tabular-nums text-ink">{money(amt, bridge.currency)}</p>
                     <p className="text-ink-mute text-xs mt-1 mb-4">{bridge.reason}</p>
                     <div className="flex gap-3">
-                      <button onClick={acceptBridge} disabled={bridgeBusy}
+                      <button onClick={isLiab ? () => setLiabModalOpen(true) : acceptBridge} disabled={bridgeBusy}
                         className="flex-1 py-3 rounded-xl bg-[#176B5B] hover:bg-[#125848] text-white text-sm font-semibold transition-colors disabled:opacity-50 flex items-center justify-center gap-2">
                         {bridgeBusy ? <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : acceptLabel}
                       </button>
@@ -323,6 +352,14 @@ function BriefContent() {
           </div>
         </div>
       </div>
+
+      {liabModalOpen && bridge && (
+        <AddLiabilityModal
+          prefill={liabilityPrefillFromBridge(bridge)}
+          onClose={() => setLiabModalOpen(false)}
+          onAdded={onLiabilityAdded}
+        />
+      )}
     </div>
   );
 }

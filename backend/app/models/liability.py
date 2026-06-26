@@ -2,7 +2,7 @@ import uuid
 from datetime import date, datetime, timezone
 from decimal import Decimal
 
-from sqlalchemy import Date, DateTime, ForeignKey, Numeric, String, Text
+from sqlalchemy import Date, DateTime, ForeignKey, Integer, Numeric, String, Text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -36,6 +36,8 @@ class Liability(Base):
     monthly_payment: Mapped[Decimal | None] = mapped_column(Numeric(18, 2), nullable=True)
     due_date: Mapped[date | None] = mapped_column(Date, nullable=True)
     interest_rate: Mapped[Decimal | None] = mapped_column(Numeric(6, 2), nullable=True)
+    # Days before the monthly due date to warn the user (notification lead time).
+    reminder_days: Mapped[int] = mapped_column(Integer, nullable=False, default=7, server_default="7")
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     created_at: Mapped[datetime] = mapped_column(

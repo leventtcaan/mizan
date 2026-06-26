@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback, useRef, type ReactNode } from "react"
 import { useRouter } from "next/navigation";
 import PageLayout from "@/components/ui/PageLayout";
 import AddAssetModal from "@/components/AddAssetModal";
-import AddLiabilityModal from "@/components/AddLiabilityModal";
+import AddLiabilityModal, { type LiabilityPrefill } from "@/components/AddLiabilityModal";
 import GuidancePanel from "@/components/GuidancePanel";
 import AllocationChart from "@/components/AllocationChart";
 import AddReceivableModal from "@/components/AddReceivableModal";
@@ -343,6 +343,7 @@ export default function NetWorthPage() {
   const [showAddAsset, setShowAddAsset] = useState(false);
   const [addAssetInitialType, setAddAssetInitialType] = useState<string | undefined>(undefined);
   const [showAddLiability, setShowAddLiability] = useState(false);
+  const [liabPrefill, setLiabPrefill] = useState<{ suggestionId: string; prefill: LiabilityPrefill } | null>(null);
   const [showAddReceivable, setShowAddReceivable] = useState(false);
 
   const SOURCE_LABELS: Record<string, string> = {
@@ -629,6 +630,26 @@ export default function NetWorthPage() {
     setSuggestions((prev) => prev.filter((s) => s.id !== id));
     void reloadSummary();
     void loadAll();
+  };
+
+  // A detected credit-card statement opens the liability form prefilled — the user reviews
+  // (and can add monthly payment / due date / reminder) before it becomes a tracked debt.
+  const openLiabilityFromSuggestion = (s: SuggestionItem) => {
+    let institution: string | undefined;
+    try {
+      const d = s.source_detail ? (JSON.parse(s.source_detail) as Record<string, unknown>) : {};
+      institution = (d.institution as string) || (d.proposed_name as string) || undefined;
+    } catch { /* ignore */ }
+    setLiabPrefill({
+      suggestionId: s.id,
+      prefill: {
+        name: institution || s.reason || "Credit card",
+        liability_type: "credit_card",
+        currency: s.currency,
+        remaining_amount: s.suggested_change,
+        fromStatement: true,
+      },
+    });
   };
 
   const handleDismissSuggestion = async (id: string) => {
@@ -1422,7 +1443,7 @@ export default function NetWorthPage() {
                   </p>
                 </div>
                 <div className="flex gap-2 shrink-0">
-                  <button onClick={() => handleAcceptSuggestion(s.id)} className="px-3 py-1.5 rounded-lg bg-[#176B5B]/10 text-[#176B5B] border border-[#176B5B]/30 hover:bg-[#176B5B]/20 text-xs font-medium transition-colors">
+                  <button onClick={() => s.suggestion_type === "statement_liability" ? openLiabilityFromSuggestion(s) : handleAcceptSuggestion(s.id)} className="px-3 py-1.5 rounded-lg bg-[#176B5B]/10 text-[#176B5B] border border-[#176B5B]/30 hover:bg-[#176B5B]/20 text-xs font-medium transition-colors">
                     {t("nw.accept")}
                   </button>
                   <button onClick={() => handleDismissSuggestion(s.id)} className="px-3 py-1.5 rounded-lg bg-surface-2 text-ink-mute hover:text-ink-soft text-xs font-medium transition-colors">
@@ -1670,6 +1691,21 @@ export default function NetWorthPage() {
       )}
       {editingReceivable && (
         <AddReceivableModal editData={editingReceivable} onClose={() => setEditingReceivable(null)} onAdded={() => setEditingReceivable(null)} onUpdated={handleUpdateReceivable} />
+      )}
+      {liabPrefill && (
+        <AddLiabilityModal
+          prefill={liabPrefill.prefill}
+          onClose={() => setLiabPrefill(null)}
+          onAdded={(liability) => {
+            const sid = liabPrefill.suggestionId;
+            setLiabPrefill(null);
+            setLiabilities((prev) => [...prev, liability]);
+            // Resolve the originating suggestion so it doesn't reappear.
+            void dismissSuggestion(sid).catch(() => null);
+            setSuggestions((prev) => prev.filter((s) => s.id !== sid));
+            void reloadSummary();
+          }}
+        />
       )}
     </PageLayout>
   );

@@ -80,11 +80,14 @@ async def _liability_items(
             continue
         if li.remaining_amount <= 0:
             continue
-        # Recurring monthly payment → always project the NEXT occurrence (never overdue).
+        # A monthly payment is a RECURRING obligation — project every occurrence that falls
+        # inside the window, not just the next one, so a multi-month view shows it repeating.
         has_due = li.due_date is not None
         base_day = li.due_date.day if has_due else today.day
         pay_date = _next_monthly(base_day, today)
-        if pay_date <= end:
+        guard = 0  # hard stop against any pathological month math
+        while pay_date <= end and guard < 36:
+            guard += 1
             items.append(CashFlowItem(
                 date=pay_date.isoformat(),
                 type="liability_payment",
@@ -92,10 +95,14 @@ async def _liability_items(
                 currency=li.currency,
                 description=li.name,
                 source="liability",
-                # Only flag urgent when we actually know the due day and it's near.
-                urgent=has_due and (pay_date - today).days <= _URGENT_DAYS,
+                # Only the soonest occurrence can be "urgent"; later ones are just scheduled.
+                urgent=has_due and guard == 1 and (pay_date - today).days <= _URGENT_DAYS,
                 overdue=False,
             ))
+            # Step to the same day next month.
+            ny, nm = (pay_date.year + 1, 1) if pay_date.month == 12 else (pay_date.year, pay_date.month + 1)
+            last_day_next = calendar.monthrange(ny, nm)[1]
+            pay_date = date(ny, nm, min(base_day, last_day_next))
     return items
 
 

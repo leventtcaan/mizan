@@ -12,33 +12,45 @@ const LIABILITY_TYPE_KEYS = [
   "student_loan", "family_debt", "other_liability",
 ] as const;
 
+// Seed values for a fresh liability (e.g. auto-filled from a detected credit-card statement).
+export interface LiabilityPrefill {
+  name?: string;
+  liability_type?: string;
+  currency?: string;
+  remaining_amount?: string;
+  fromStatement?: boolean;
+}
+
 interface Props {
   onClose: () => void;
   onAdded: (liability: LiabilityItem) => void;
   onUpdated?: (liability: LiabilityItem) => void;
   editData?: LiabilityItem | null;
+  prefill?: LiabilityPrefill | null;
 }
 
-export default function AddLiabilityModal({ onClose, onAdded, onUpdated, editData }: Props) {
+export default function AddLiabilityModal({ onClose, onAdded, onUpdated, editData, prefill }: Props) {
   const { t } = useLanguage();
   const { resolved } = useTheme();
   const surfaceBg = resolved === "dark" ? "#1C1915" : "#FFFFFF";
   const isEdit = !!editData;
 
-  const [name, setName] = useState(editData?.name ?? "");
-  const [liabilityType, setLiabilityType] = useState(editData?.liability_type ?? "personal_loan");
-  // New entries default to the user's display currency; edits keep their own.
-  const [currency, setCurrency] = useState(() => editData?.currency ?? getDefaultCurrency());
+  const [name, setName] = useState(editData?.name ?? prefill?.name ?? "");
+  const [liabilityType, setLiabilityType] = useState(editData?.liability_type ?? prefill?.liability_type ?? "personal_loan");
+  // New entries default to the user's display currency; edits/prefills keep their own.
+  const [currency, setCurrency] = useState(() => editData?.currency ?? prefill?.currency ?? getDefaultCurrency());
   // The one number that matters for net worth: what you owe right now.
-  const [amountOwed, setAmountOwed] = useState(editData?.remaining_amount ?? "");
+  const [amountOwed, setAmountOwed] = useState(editData?.remaining_amount ?? prefill?.remaining_amount ?? "");
 
   // Optional extras (cash-flow / progress) — hidden by default.
   const [originalAmount, setOriginalAmount] = useState(editData?.total_amount ?? "");
   const [monthlyPayment, setMonthlyPayment] = useState(editData?.monthly_payment ?? "");
   const [dueDate, setDueDate] = useState(editData?.due_date ?? "");
   const [interestRate, setInterestRate] = useState(editData?.interest_rate ?? "");
+  const [reminderDays, setReminderDays] = useState<string>(editData?.reminder_days != null ? String(editData.reminder_days) : "7");
   const [notes, setNotes] = useState(editData?.notes ?? "");
-  const [showDetails, setShowDetails] = useState(isEdit);
+  // Open details by default when editing, or when a statement prefill wants reviewing.
+  const [showDetails, setShowDetails] = useState(isEdit || !!prefill);
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -58,6 +70,7 @@ export default function AddLiabilityModal({ onClose, onAdded, onUpdated, editDat
         monthly_payment: monthlyPayment || undefined,
         due_date: dueDate || undefined,
         interest_rate: interestRate || undefined,
+        reminder_days: reminderDays ? Math.max(0, Math.min(30, parseInt(reminderDays, 10) || 0)) : undefined,
         notes: notes || undefined,
       };
       if (isEdit && editData) {
@@ -90,6 +103,11 @@ export default function AddLiabilityModal({ onClose, onAdded, onUpdated, editDat
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
+          {prefill?.fromStatement && (
+            <div className="rounded-lg bg-[#176B5B]/10 border border-[#176B5B]/30 px-3 py-2.5 text-xs text-[#176B5B]">
+              {t("nw.fromStatementLiability")}
+            </div>
+          )}
           <div>
             <label className="block text-xs text-ink-mute mb-1">{t("common.name")}</label>
             <input value={name} autoFocus onChange={(e) => setName(e.target.value)} required className={inputClass} />
@@ -144,6 +162,15 @@ export default function AddLiabilityModal({ onClose, onAdded, onUpdated, editDat
                     <label className="block text-xs text-ink-mute mb-1">{t("nw.due")} ({t("common.optional")})</label>
                     <input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} className={inputClass} />
                   </div>
+                </div>
+                <div>
+                  <label className="block text-xs text-ink-mute mb-1">{t("nw.reminderLabel")}</label>
+                  <div className="flex items-center gap-2">
+                    <input type="number" min="0" max="30" step="1" value={reminderDays}
+                      onChange={(e) => setReminderDays(e.target.value)} className={`${inputClass} w-20`} />
+                    <span className="text-xs text-ink-mute">{t("nw.reminderSuffix")}</span>
+                  </div>
+                  <p className="text-[11px] text-ink-mute mt-1.5">{t("nw.reminderHint")}</p>
                 </div>
                 <div>
                   <label className="block text-xs text-ink-mute mb-1">{t("common.notes")} ({t("common.optional")})</label>
