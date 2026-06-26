@@ -33,9 +33,10 @@ const CHART = ["#0F5C5E", "#2F9E8F", "#C99A2E", "#3B7DA8", "#8A6FB0", "#B54747",
 export default function ReportsPage() {
   const router = useRouter();
   const { t, lang } = useLanguage();
-  // Lazy-init from the stored display currency so the first report fetch isn't fired
-  // under "TRY" and then redone under the real currency.
-  const [ccy, setCcy] = useState(() => getDefaultCurrency());
+  // Must start from an SSR-safe constant: getDefaultCurrency() reads localStorage, which
+  // doesn't exist on the server, so a lazy init would render "USD"/"TRY" differently on
+  // server vs client and throw a hydration error. Set the real currency in useEffect.
+  const [ccy, setCcy] = useState("TRY");
   const [email, setEmail] = useState<string>("");
   const [period, setPeriod] = useState("this_month");
   const [report, setReport] = useState<FinancialReport | null>(null);
