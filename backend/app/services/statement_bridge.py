@@ -24,7 +24,7 @@ from app.models.asset import Asset
 from app.models.networth_suggestion import NetworthSuggestion
 from app.services.llm_provider import get_provider
 from app.services.pdf_parser import (
-    _AMOUNT_RE, _normalise_amount, _read_xlsx_rows,
+    _AMOUNT_RE, _DATE_RE, _normalise_amount, _read_xlsx_rows,
     _XLSX_BALANCE_HINTS, _XLSX_DATE_HINTS,
 )
 
@@ -371,50 +371,44 @@ def _balance_by_header_order(str_rows: list[list[str]], num_rows: list[list[floa
 
 
 def _running_balance_from_text(lines: list[str]) -> float | None:
-    """Running-balance detection for PDF text (no positional grid). Most statement layouts
-    end each transaction line with '… amount  balance', so we pair the last two amounts on
-    every line and validate that balance moves by amount across consecutive lines. Signed
-    first; magnitude fallback (current = last line, the usual chronological order). Purely
-    numeric — works regardless of language."""
-    seq: list[tuple[float, float]] = []  # (amount, balance) per transaction line
-    for ln in lines:
+    """Date-aware current-balance detection for PDF text (no positional grid).
+
+    The current balance is always the one adjacent to the MOST RECENT transaction — i.e. the
+    row with the latest date. This holds whether the statement is chronological (oldest →
+    newest) or reverse-chronological (newest first, as Itaú prints), so we don't have to
+    guess the order: just find the latest-dated row and read its balance.
+
+    Each transaction line ends with '… amount  balance', so the balance is the last amount on
+    the row (a row needs ≥2 amounts so the balance is distinct from the transaction amount)."""
+    rows: list[tuple[tuple, float, int]] = []  # (date_key, balance, doc_index)
+    for idx, ln in enumerate(lines):
+        m = _DATE_RE.search(ln)
+        if not m:
+            continue
+        dk = _date_key(m.group(0))
+        if dk is None:
+            continue
         amts = _AMOUNT_RE.findall(ln)
         if len(amts) < 2:
             continue
         try:
-            a = float(_normalise_amount(amts[-2]))
-            b = float(_normalise_amount(amts[-1]))
+            bal = float(_normalise_amount(amts[-1]))
         except Exception:
             continue
-        seq.append((a, b))
-    if len(seq) < 3:
+        rows.append((dk, bal, idx))
+
+    if len(rows) < 2:
         return None
-    amounts = [a for a, _ in seq]
-    bals = [b for _, b in seq]
-    m = len(seq)
 
-    def score(signed: bool, chron: bool) -> tuple[int, int]:
-        hits = comps = 0
-        for i in range(m):
-            j = i - 1 if chron else i + 1
-            if not (0 <= j < m):
-                continue
-            comps += 1
-            delta, tgt = bals[i] - bals[j], amounts[i]
-            ok = (abs(delta - tgt) if signed else abs(abs(delta) - abs(tgt))) <= max(0.02, abs(tgt) * 0.02)
-            if ok:
-                hits += 1
-        return hits, comps
+    # Determine document order from the first vs last dated row, so same-day ties resolve
+    # to the END-of-day balance: chronological → the last such row; reverse → the first.
+    chronological = rows[0][0] <= rows[-1][0]
+    max_dk = max(r[0] for r in rows)
+    latest = [r for r in rows if r[0] == max_dk]
+    chosen = latest[-1] if chronological else latest[0]
 
-    for chron in (True, False):  # signed: direction known from which way the sign lines up
-        h, c = score(True, chron)
-        if c >= 2 and h >= 2 and h / c >= 0.6:
-            return round(abs(bals[-1] if chron else bals[0]), 2)
-    for chron in (True, False):  # magnitude fallback: assume chronological → current = last
-        h, c = score(False, chron)
-        if c >= 2 and h >= 2 and h / c >= 0.6:
-            return round(abs(bals[-1]), 2)
-    return None
+    bal = abs(chosen[1])
+    return round(bal, 2) if bal >= 0.01 else None
 
 
 def _find_balance(lines_lower: list[str], keys: tuple, exclude: tuple = ()) -> float | None:
