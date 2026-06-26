@@ -80,7 +80,10 @@ export default function GoalsPanel() {
     <div className="mb-6 bg-surface border border-line rounded-xl p-6">
       <div className="flex items-center justify-between mb-4">
         <p className="text-xs font-semibold text-ink-mute uppercase tracking-wider">{t("goals.title")}</p>
-        {availableCategories.length > 0 && (
+        {/* Only offer "add goal" once we actually know the user's goals — otherwise
+            goalCategories is still its initial empty Set and the button (plus a category
+            picker full of already-used categories) flashes active before data loads. */}
+        {!loading && !error && availableCategories.length > 0 && (
           <button
             onClick={() => { setShowForm((v) => !v); setFormCategory(availableCategories[0]); setFormError(null); }}
             className="px-3 py-1 rounded-lg bg-[#176B5B] hover:bg-[#125848] text-xs font-medium text-white transition-colors"

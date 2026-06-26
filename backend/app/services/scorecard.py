@@ -279,17 +279,34 @@ async def build_scorecard(
         if diffs[0][1] != 0:
             top_mover = {"key": diffs[0][0], "direction": "up" if diffs[0][1] > 0 else "down"}
 
+    # The user's LIVE current net worth in the display currency (matches the Net Worth
+    # page: convert each asset/liability then net). Used both to anchor the chart's latest
+    # point and to reconstruct history when snapshots are too few.
+    nw_now_cur = await _to(assets_usd - liab_usd, "USD", cur)
+
     trajectory = await _trajectory(snaps, cur)
     trajectory_estimated = False
     # Net-worth snapshots accrue one-per-day, so a new user has <2 points and the
     # real line can't render. Reconstruct an approximate trajectory from monthly
     # cash flow, anchored to the true current net worth, until snapshots build up.
     if len(trajectory) < 2:
-        nw_now_cur = await _to(assets_usd - liab_usd, "USD", cur)
         recon = await _reconstruct_trajectory(by_month, nw_now_cur, cur)
         if len(recon) >= 2:
             trajectory = recon
             trajectory_estimated = True
+
+    # Anchor the most-recent point to the LIVE net worth. The Progress page only READS
+    # snapshots (it never writes one — that happens on the Net Worth page / scheduler), so
+    # the latest snapshot is often stale: it predates today's price moves or a just-added
+    # asset, and the chart's "current" value wouldn't match the real net worth. Refresh
+    # today's point (or append one) so the line always ends at the true current figure.
+    if trajectory:
+        today_iso = date.today().isoformat()
+        live_point = {"date": today_iso, "net_worth": round(nw_now_cur, 2)}
+        if trajectory[-1]["date"] == today_iso:
+            trajectory[-1] = live_point
+        else:
+            trajectory.append(live_point)
 
     annotations = await _annotations(snaps, cur)
     drivers = await _drivers(by_month.get(this_key, {}), by_month.get(last_key, {}), snaps, cur)
