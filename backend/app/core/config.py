@@ -46,6 +46,23 @@ class Settings(BaseSettings):
     JWT_ALGORITHM: str = "HS256"
     JWT_EXPIRE_MINUTES: int = 60 * 24 * 7  # 7 days
 
+    # ── Paddle (payments — Merchant of Record; handles tax + compliance) ──────────
+    # PADDLE_ENVIRONMENT selects the API host: "sandbox" (test) or "production".
+    PADDLE_ENVIRONMENT: str = "sandbox"
+    # Secret that signs incoming webhooks (Paddle dashboard → Notifications). Used to
+    # verify the Paddle-Signature header. Empty in dev → the webhook rejects everything
+    # (fail closed) so a misconfigured prod can't silently accept forged events.
+    PADDLE_WEBHOOK_SECRET: str = ""
+    # Server-side API key (Paddle dashboard → Authentication). Needed to cancel a
+    # subscription via the Paddle API. Empty disables the cancel call.
+    PADDLE_API_KEY: str = ""
+    # Price IDs (pri_…) — map an incoming subscription's price back to our plan tier
+    # as a fallback when checkout custom_data is absent. Set the ones you've created.
+    PADDLE_PRICE_PLUS_MONTHLY: str = ""
+    PADDLE_PRICE_PLUS_YEARLY: str = ""
+    PADDLE_PRICE_PRO_MONTHLY: str = ""
+    PADDLE_PRICE_PRO_YEARLY: str = ""
+
     # WHY: "env_file" lets .env override Docker env vars during local dev without Docker.
     # case_sensitive=True prevents DATABASE_URL from matching database_url in .env.
     model_config = {"env_file": ".env", "case_sensitive": True, "extra": "ignore"}

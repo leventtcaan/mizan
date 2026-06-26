@@ -10,6 +10,7 @@ import { useLanguage, type Lang } from "@/lib/i18n";
 import {
   getToken, getStoredUser, setStoredUser, clearToken, getMe, updatePreferences,
   getDefaultCurrency, setDefaultCurrencyLocal, changePassword, INDUSTRIES, TEAM_SIZES,
+  getBillingSubscription, cancelSubscription, type BillingSubscription,
 } from "@/lib/api";
 
 const TEAL = "#176B5B";
@@ -66,6 +67,11 @@ export default function SettingsPage() {
   const [plan, setPlan] = useState<string>("free");
   const [savedFlash, setSavedFlash] = useState(false);
 
+  // Billing (Paddle subscription state)
+  const [sub, setSub] = useState<BillingSubscription | null>(null);
+  const [cancelling, setCancelling] = useState(false);
+  const [cancelNote, setCancelNote] = useState<string | null>(null);
+
   // Profile: `loaded` is the canonical saved state; `draft` is what the edit form mutates.
   const [loaded, setLoaded] = useState<Profile>(EMPTY_PROFILE);
   const [draft, setDraft] = useState<Profile>(EMPTY_PROFILE);
@@ -86,6 +92,7 @@ export default function SettingsPage() {
     setEmail(su?.email ?? "");
     setCurrency(getDefaultCurrency());
     setPlan(su?.plan ?? "free");
+    getBillingSubscription().then(setSub).catch(() => null);
     getMe()
       .then((me) => {
         setEmail(me.email);
@@ -192,6 +199,26 @@ export default function SettingsPage() {
     updatePreferences({ email_weekly_enabled: next }).then(flashSaved).catch(() => setEmailWeekly(!next));
   };
 
+  const handleCancelSubscription = async () => {
+    if (cancelling) return;
+    if (!confirm(t("settings.cancelConfirm"))) return;
+    setCancelNote(null);
+    setCancelling(true);
+    try {
+      const r = await cancelSubscription();
+      setCancelNote(r.message || t("settings.cancelScheduled"));
+      getBillingSubscription().then(setSub).catch(() => null);
+    } catch (err) {
+      setCancelNote(err instanceof Error ? err.message : t("common.error"));
+    } finally { setCancelling(false); }
+  };
+
+  const fmtRenewal = (iso: string | null): string => {
+    if (!iso) return "—";
+    try { return new Date(iso).toLocaleDateString(lang === "tr" ? "tr-TR" : "en-US", { year: "numeric", month: "long", day: "numeric" }); }
+    catch { return iso; }
+  };
+
   const handleLogout = () => { clearToken(); router.push("/login"); };
 
   const isPaid = plan !== "free";
@@ -228,6 +255,23 @@ export default function SettingsPage() {
               <Sparkles size={15} />{isPaid ? t("settings.managePlan") : t("settings.upgradeCta")}<ArrowRight size={15} />
             </Link>
           </div>
+
+          {/* Renewal + cancel (only for an active Paddle subscription) */}
+          {isPaid && sub?.next_renewal && (
+            <div className="flex items-center justify-between gap-4 py-4 border-t border-line flex-wrap">
+              <div className="min-w-0">
+                <p className="text-ink-mute text-xs uppercase tracking-wide">{t("settings.nextRenewal")}</p>
+                <p className="text-ink text-sm font-medium mt-0.5">{fmtRenewal(sub.next_renewal)}</p>
+                {cancelNote && <p className="text-ink-mute text-xs mt-1.5">{cancelNote}</p>}
+              </div>
+              {sub.manageable && (
+                <button onClick={handleCancelSubscription} disabled={cancelling}
+                  className="px-3.5 py-2 rounded-lg border border-line text-ink-soft hover:text-danger hover:border-danger/40 text-sm font-medium transition-colors disabled:opacity-50 shrink-0">
+                  {cancelling ? t("common.loading") : t("settings.cancelPlan")}
+                </button>
+              )}
+            </div>
+          )}
         </Section>
 
         {/* ── Profile (read-only by default, Edit toggles the form) ── */}

@@ -83,12 +83,19 @@ class User(Base):
         server_default=text("'free'"),
     )
 
-    # WHY: When the current paid plan lapses. Null = never expires (or free). Set by a
-    # future billing webhook; read by effective_plan() to downgrade lapsed subscriptions.
+    # WHY: When the current paid plan lapses. Null = never expires (or free). Set by the
+    # Paddle billing webhook; read by effective_plan() to downgrade lapsed subscriptions.
     plan_expires_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True),
         nullable=True,
     )
+
+    # WHY: Paddle subscription + customer identifiers. The subscription id (sub_…) is
+    # needed to cancel via the Paddle API and to correlate webhook updates back to this
+    # user; the customer id (ctm_…) lets us look the account up across events. Nullable —
+    # only set once the user has gone through Paddle checkout.
+    paddle_subscription_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    paddle_customer_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
 
     # WHY: timezone=True stores UTC offset alongside the timestamp in PostgreSQL.
     # ALTERNATIVE: Store naive datetime. TRADEOFF: Naive datetimes silently break

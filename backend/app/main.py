@@ -39,6 +39,8 @@ from app.api.onboarding import router as onboarding_router
 from app.api.simulator import router as simulator_router
 from app.api.reports import router as reports_router
 from app.api.admin import router as admin_router
+from app.api.billing import router as billing_router
+from app.api.webhooks import router as webhooks_router
 from app.core.config import settings
 from app.core.database import engine
 from app.models.user import Base
@@ -145,6 +147,8 @@ app.include_router(onboarding_router)
 app.include_router(simulator_router)
 app.include_router(reports_router)
 app.include_router(admin_router)
+app.include_router(billing_router)
+app.include_router(webhooks_router)
 
 
 @app.get("/health")

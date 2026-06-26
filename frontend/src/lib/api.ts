@@ -260,6 +260,42 @@ export async function changePassword(currentPassword: string, newPassword: strin
   }
 }
 
+// ── Billing (Paddle) ──────────────────────────────────────────────────────────
+export interface BillingSubscription {
+  plan: string;                  // effective plan: free | plus | pro
+  is_paid: boolean;
+  plan_expires_at: string | null;
+  next_renewal: string | null;
+  status: string;                // active | free
+  manageable: boolean;           // true only when there's a Paddle subscription to cancel
+}
+
+export interface CancelResult {
+  ok: boolean;
+  status: string;                // canceling | free | unavailable
+  message?: string | null;
+}
+
+/** Current subscription state (plan, renewal, whether it's cancelable). */
+export async function getBillingSubscription(): Promise<BillingSubscription> {
+  const response = await fetch(`${API_BASE_URL}/billing/subscription`, { headers: authHeaders() });
+  if (!response.ok) throw new Error(`Failed to fetch subscription: ${response.status}`);
+  return response.json() as Promise<BillingSubscription>;
+}
+
+/** Cancel the Paddle subscription at period end. The downgrade lands via webhook. */
+export async function cancelSubscription(): Promise<CancelResult> {
+  const response = await fetch(`${API_BASE_URL}/billing/cancel`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...authHeaders() },
+  });
+  if (!response.ok) {
+    const err = await response.json().catch(() => null);
+    throw new Error(extractErrorMessage(err, "Failed to cancel subscription"));
+  }
+  return response.json() as Promise<CancelResult>;
+}
+
 /** Browser IANA timezone (e.g. "Europe/Istanbul"), or undefined if unavailable. */
 export function detectTimezone(): string | undefined {
   try { return Intl.DateTimeFormat().resolvedOptions().timeZone || undefined; }

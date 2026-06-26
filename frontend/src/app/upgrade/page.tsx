@@ -5,9 +5,8 @@ import { useRouter } from "next/navigation";
 import PageLayout from "@/components/ui/PageLayout";
 import { CheckCircle, Sparkles, ShieldCheck } from "@/components/ui/Icons";
 import { useLanguage } from "@/lib/i18n";
-import { getToken, getStoredUser, getMe } from "@/lib/api";
-
-const INTEREST_KEY = "mizan_upgrade_interest";
+import { getToken, getStoredUser, setStoredUser, getMe } from "@/lib/api";
+import { openCheckout, paddleConfigured } from "@/lib/paddle";
 
 type PlanId = "free" | "plus" | "pro";
 
@@ -17,7 +16,9 @@ export default function UpgradePage() {
 
   const [currentPlan, setCurrentPlan] = useState<PlanId>("free");
   const [annual, setAnnual] = useState(true);
-  const [interest, setInterest] = useState<PlanId | null>(null);
+  const [busy, setBusy] = useState<PlanId | null>(null);   // plan whose checkout is opening
+  const [activating, setActivating] = useState(false);     // post-checkout, waiting for webhook
+  const [notice, setNotice] = useState<string | null>(null);
 
   useEffect(() => {
     if (!getToken() || !getStoredUser()) { router.replace("/login"); return; }
@@ -25,13 +26,52 @@ export default function UpgradePage() {
     const stored = getStoredUser();
     if (stored?.plan === "plus" || stored?.plan === "pro") setCurrentPlan(stored.plan);
     getMe().then((me) => setCurrentPlan((me.plan as PlanId) || "free")).catch(() => null);
-    const saved = localStorage.getItem(INTEREST_KEY);
-    if (saved === "plus" || saved === "pro") setInterest(saved);
   }, [router]);
 
-  const markInterest = (plan: PlanId) => {
-    setInterest(plan);
-    try { localStorage.setItem(INTEREST_KEY, plan); } catch { /* ignore */ }
+  // After checkout completes, the Paddle webhook upgrades the plan server-side. Poll
+  // /auth/me a few times to reflect it, then sync local state + storage.
+  const pollForUpgrade = async (target: PlanId) => {
+    setActivating(true);
+    for (let i = 0; i < 12; i++) {
+      await new Promise((r) => setTimeout(r, 2500));
+      try {
+        const me = await getMe();
+        if (me.plan === target || me.plan === "pro") {
+          setCurrentPlan((me.plan as PlanId) || "free");
+          const u = getStoredUser();
+          if (u) setStoredUser({ ...u, plan: me.plan });
+          setActivating(false);
+          setNotice(t("upgrade.activated"));
+          return;
+        }
+      } catch { /* keep polling */ }
+    }
+    // Webhook may still be in flight — reassure rather than error.
+    setActivating(false);
+    setNotice(t("upgrade.activationPending"));
+  };
+
+  const handleCheckout = async (plan: PlanId) => {
+    if (plan === "free" || busy) return;
+    setNotice(null);
+    if (!paddleConfigured()) { setNotice(t("upgrade.notConfigured")); return; }
+    const me = getStoredUser();
+    if (!me) { router.replace("/login"); return; }
+    setBusy(plan);
+    try {
+      const ok = await openCheckout({
+        plan,
+        cycle: annual ? "yearly" : "monthly",
+        email: me.email,
+        userId: me.id,
+        onComplete: () => void pollForUpgrade(plan),
+      });
+      if (!ok) setNotice(t("upgrade.checkoutError"));
+    } catch {
+      setNotice(t("upgrade.checkoutError"));
+    } finally {
+      setBusy(null);
+    }
   };
 
   const perMo = t("pricing.perMonthShort");
@@ -63,11 +103,20 @@ export default function UpgradePage() {
 
   return (
     <PageLayout title={t("upgrade.title")} subtitle={t("upgrade.subtitle")} maxWidth="lg">
-      {/* Honest banner — payment isn't live yet */}
+      {/* Secure-checkout note (Paddle is the Merchant of Record) */}
       <div className="mb-8 rounded-xl border border-[#176B5B]/30 bg-[#176B5B]/5 px-4 py-3.5 flex items-start gap-2.5">
-        <Sparkles size={18} className="text-[#176B5B] shrink-0 mt-0.5" />
-        <p className="text-ink-soft text-sm leading-relaxed">{t("upgrade.banner")}</p>
+        <ShieldCheck size={18} className="text-[#176B5B] shrink-0 mt-0.5" />
+        <p className="text-ink-soft text-sm leading-relaxed">{t("upgrade.securedByPaddle")}</p>
       </div>
+
+      {notice && (
+        <div className="mb-6 rounded-xl border border-line bg-surface px-4 py-3 flex items-center gap-2.5">
+          {activating
+            ? <span className="w-4 h-4 border-2 border-line border-t-[#176B5B] rounded-full animate-spin shrink-0" />
+            : <CheckCircle size={16} className="text-[#176B5B] shrink-0" />}
+          <p className="text-ink-soft text-sm">{notice}</p>
+        </div>
+      )}
 
       {/* Billing toggle */}
       <div className="flex items-center justify-center gap-3 mb-10">
@@ -94,7 +143,6 @@ export default function UpgradePage() {
           const free = p.id === "free";
           const isCurrent = currentPlan === p.id;
           const price = lang === "tr" ? p.tr : p.usd;
-          const interested = interest === p.id;
           return (
             <div
               key={p.id}
@@ -146,20 +194,17 @@ export default function UpgradePage() {
                   <div className="text-center px-4 py-2.5 rounded-xl text-sm font-medium text-ink-mute">
                     {t("upgrade.alwaysFree")}
                   </div>
-                ) : interested ? (
-                  <div className="text-center px-4 py-2.5 rounded-xl text-sm font-semibold bg-pos/10 text-pos border border-pos/30 flex items-center justify-center gap-1.5">
-                    <CheckCircle size={15} /> {t("upgrade.interestedDone")}
-                  </div>
                 ) : (
                   <button
-                    onClick={() => markInterest(p.id)}
-                    className={`w-full text-center px-4 py-2.5 rounded-xl text-sm font-semibold transition-colors ${
+                    onClick={() => handleCheckout(p.id)}
+                    disabled={busy !== null || activating}
+                    className={`w-full text-center px-4 py-2.5 rounded-xl text-sm font-semibold transition-colors disabled:opacity-60 disabled:cursor-not-allowed ${
                       p.highlight
                         ? "bg-[#176B5B] hover:bg-[#125848] text-white shadow-sm"
                         : "bg-surface border border-ink/30 hover:border-[#176B5B] text-ink hover:text-[#176B5B]"
                     }`}
                   >
-                    {t("upgrade.interestedCta")}
+                    {busy === p.id ? t("upgrade.opening") : t(p.id === "pro" ? "pricing.proCta" : "pricing.plusCta")}
                   </button>
                 )}
               </div>
