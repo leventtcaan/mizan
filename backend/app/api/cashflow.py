@@ -84,9 +84,12 @@ async def _liability_items(
         # inside the window, not just the next one, so a multi-month view shows it repeating.
         has_due = li.due_date is not None
         base_day = li.due_date.day if has_due else today.day
+        # A recurring payment stops once the loan is paid off (end_date), if one is set.
+        end_cap = li.end_date if li.end_date is not None else end
+        window_end = min(end, end_cap)
         pay_date = _next_monthly(base_day, today)
         guard = 0  # hard stop against any pathological month math
-        while pay_date <= end and guard < 36:
+        while pay_date <= window_end and guard < 36:
             guard += 1
             items.append(CashFlowItem(
                 date=pay_date.isoformat(),

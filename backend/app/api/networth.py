@@ -105,7 +105,8 @@ class LiabilityRequest(BaseModel):
     total_amount: str
     remaining_amount: str
     monthly_payment: str | None = None
-    due_date: str | None = None  # ISO date string YYYY-MM-DD
+    due_date: str | None = None  # monthly payment-day anchor (YYYY-MM-DD; only the day is used)
+    end_date: str | None = None  # final payment month (YYYY-MM-DD); null = open-ended
     interest_rate: str | None = None
     reminder_days: int | None = None  # lead time for the payment reminder (default 7)
     notes: str | None = None
@@ -139,6 +140,7 @@ class LiabilityResponse(BaseModel):
     remaining_amount: str
     monthly_payment: str | None
     due_date: str | None
+    end_date: str | None
     interest_rate: str | None
     reminder_days: int
     notes: str | None
@@ -270,6 +272,7 @@ def _liability_resp(l: Liability) -> LiabilityResponse:
         remaining_amount=str(l.remaining_amount),
         monthly_payment=str(l.monthly_payment) if l.monthly_payment is not None else None,
         due_date=l.due_date.isoformat() if l.due_date else None,
+        end_date=l.end_date.isoformat() if l.end_date else None,
         interest_rate=str(l.interest_rate) if l.interest_rate is not None else None,
         reminder_days=l.reminder_days if l.reminder_days is not None else 7,
         notes=l.notes,
@@ -282,6 +285,15 @@ def _clean_reminder_days(v: int | None) -> int:
     if v is None:
         return 7
     return max(0, min(30, int(v)))
+
+
+def _parse_opt_date(raw: str | None, field: str) -> "date | None":
+    if not raw:
+        return None
+    try:
+        return date.fromisoformat(raw)
+    except ValueError:
+        raise HTTPException(status_code=422, detail=f"{field} must be YYYY-MM-DD")
 
 
 def _receivable_resp(r: Receivable) -> ReceivableResponse:
@@ -638,12 +650,8 @@ async def create_liability(
     current_user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
 ) -> LiabilityResponse:
-    due = None
-    if body.due_date:
-        try:
-            due = date.fromisoformat(body.due_date)
-        except ValueError:
-            raise HTTPException(status_code=422, detail="due_date must be YYYY-MM-DD")
+    due = _parse_opt_date(body.due_date, "due_date")
+    end = _parse_opt_date(body.end_date, "end_date")
 
     liability = Liability(
         id=uuid.uuid4(),
@@ -655,6 +663,7 @@ async def create_liability(
         remaining_amount=Decimal(body.remaining_amount.replace(",", ".")),
         monthly_payment=Decimal(body.monthly_payment.replace(",", ".")) if body.monthly_payment else None,
         due_date=due,
+        end_date=end,
         interest_rate=Decimal(body.interest_rate.replace(",", ".")) if body.interest_rate else None,
         reminder_days=_clean_reminder_days(body.reminder_days),
         notes=body.notes,
@@ -687,12 +696,8 @@ async def update_liability(
     if not liability:
         raise HTTPException(status_code=404, detail="Liability not found")
 
-    due = None
-    if body.due_date:
-        try:
-            due = date.fromisoformat(body.due_date)
-        except ValueError:
-            raise HTTPException(status_code=422, detail="due_date must be YYYY-MM-DD")
+    due = _parse_opt_date(body.due_date, "due_date")
+    end = _parse_opt_date(body.end_date, "end_date")
 
     liability.name = body.name
     liability.liability_type = body.liability_type
@@ -701,6 +706,7 @@ async def update_liability(
     liability.remaining_amount = Decimal(body.remaining_amount.replace(",", "."))
     liability.monthly_payment = Decimal(body.monthly_payment.replace(",", ".")) if body.monthly_payment else None
     liability.due_date = due
+    liability.end_date = end
     liability.interest_rate = Decimal(body.interest_rate.replace(",", ".")) if body.interest_rate else None
     liability.reminder_days = _clean_reminder_days(body.reminder_days)
     liability.notes = body.notes

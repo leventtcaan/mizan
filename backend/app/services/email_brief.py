@@ -88,7 +88,10 @@ async def _upcoming_liability_payments(
             continue
         if l.remaining_amount is not None and l.remaining_amount <= 0:
             continue
-        days_until = (_next_payment_date(l.due_date, today) - today).days
+        next_due = _next_payment_date(l.due_date, today)
+        if getattr(l, "end_date", None) is not None and next_due > l.end_date:
+            continue  # loan already paid off
+        days_until = (next_due - today).days
         if 0 <= days_until <= 7:
             out.append((l, days_until))
     out.sort(key=lambda x: x[1])

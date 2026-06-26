@@ -85,6 +85,9 @@ async def generate_for_user(user_id: uuid.UUID, lang: str, session: AsyncSession
     for l in liabilities:
         if l.monthly_payment and l.due_date:
             next_due = _next_payment_date(l.due_date, today)
+            # Don't warn for a loan that's already past its final payment month.
+            if getattr(l, "end_date", None) is not None and next_due > l.end_date:
+                continue
             days_until = (next_due - today).days
             # Per-liability reminder lead time (column default 7). The user picks how many
             # days before each payment they want to be warned.

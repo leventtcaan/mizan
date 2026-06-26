@@ -1210,6 +1210,7 @@ export interface LiabilityItem {
   remaining_amount: string;
   monthly_payment: string | null;
   due_date: string | null;
+  end_date: string | null;
   interest_rate: string | null;
   reminder_days: number;
   notes: string | null;
@@ -1357,7 +1358,7 @@ export async function getLiabilities(): Promise<LiabilityItem[]> {
 export async function createLiability(body: {
   name: string; liability_type: string; currency: string;
   total_amount: string; remaining_amount: string;
-  monthly_payment?: string; due_date?: string; interest_rate?: string; reminder_days?: number; notes?: string;
+  monthly_payment?: string; due_date?: string; end_date?: string; interest_rate?: string; reminder_days?: number; notes?: string;
 }): Promise<LiabilityItem> {
   const response = await fetch(`${API_BASE_URL}/networth/liabilities`, {
     method: "POST",
@@ -1374,7 +1375,7 @@ export async function createLiability(body: {
 export async function updateLiability(id: string, body: {
   name: string; liability_type: string; currency: string;
   total_amount: string; remaining_amount: string;
-  monthly_payment?: string; due_date?: string; interest_rate?: string; reminder_days?: number; notes?: string;
+  monthly_payment?: string; due_date?: string; end_date?: string; interest_rate?: string; reminder_days?: number; notes?: string;
 }): Promise<LiabilityItem> {
   const response = await fetch(`${API_BASE_URL}/networth/liabilities/${id}`, {
     method: "PUT",

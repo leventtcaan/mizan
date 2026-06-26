@@ -34,7 +34,10 @@ class Liability(Base):
     total_amount: Mapped[Decimal] = mapped_column(Numeric(18, 2), nullable=False)
     remaining_amount: Mapped[Decimal] = mapped_column(Numeric(18, 2), nullable=False)
     monthly_payment: Mapped[Decimal | None] = mapped_column(Numeric(18, 2), nullable=True)
+    # due_date acts as the monthly payment-day anchor (only its day-of-month is used).
     due_date: Mapped[date | None] = mapped_column(Date, nullable=True)
+    # Final month the recurring payment is due (loan payoff); null = open-ended.
+    end_date: Mapped[date | None] = mapped_column(Date, nullable=True)
     interest_rate: Mapped[Decimal | None] = mapped_column(Numeric(6, 2), nullable=True)
     # Days before the monthly due date to warn the user (notification lead time).
     reminder_days: Mapped[int] = mapped_column(Integer, nullable=False, default=7, server_default="7")
