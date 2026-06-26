@@ -8,7 +8,7 @@ import {
 } from "recharts";
 import {
   ShieldCheck, RefreshCw, Wallet, Send, Monitor,
-  CheckCircle, Sparkles, Zap, X as XIcon,
+  CheckCircle, Sparkles, Zap, X as XIcon, TrendingUp,
 } from "@/components/ui/Icons";
 import { useTheme } from "@/lib/theme";
 import {
@@ -22,6 +22,31 @@ import {
 
 const TEAL = "#176B5B";
 const PAGE = 50;
+
+// Financial model (mirrors backend pricing + the cost assumption in the strategy doc).
+const PLUS_USD = 9;          // Plus monthly list price
+const PRO_USD = 19;          // Pro monthly list price
+const COST_PER_ACTIVE = 0.40; // estimated cost per active user / month (LLM + infra)
+
+// Small ⓘ with a Turkish explanation on hover — used wherever an admin metric's
+// meaning isn't self-evident. Tooltip uses an explicit dark bg (the solid bg-<token>
+// utilities don't paint reliably for floating elements in this build).
+function InfoTip({ text, side = "top" }: { text: string; side?: "top" | "bottom" }) {
+  return (
+    <span className="relative inline-flex group align-middle">
+      <span
+        className="w-3.5 h-3.5 rounded-full border text-[9px] font-bold flex items-center justify-center cursor-help select-none leading-none"
+        style={{ borderColor: "rgb(var(--c-text-muted))", color: "rgb(var(--c-text-muted))" }}
+      >i</span>
+      <span
+        className={`pointer-events-none absolute left-1/2 -translate-x-1/2 ${side === "top" ? "bottom-full mb-1.5" : "top-full mt-1.5"} w-56 z-[60] opacity-0 group-hover:opacity-100 transition-opacity duration-150 rounded-lg px-2.5 py-1.5 text-[11px] leading-snug font-normal normal-case tracking-normal text-left shadow-xl`}
+        style={{ backgroundColor: "#1C1915", color: "#F5F3EF" }}
+      >
+        {text}
+      </span>
+    </span>
+  );
+}
 
 // ── format helpers ─────────────────────────────────────────────────────────────
 function fmtUsd(n: number | null | undefined): string {
@@ -197,11 +222,22 @@ function Dashboard({ o }: { o: AdminOverview | null }) {
 
   return (
     <div className="space-y-4">
+      {/* Revenue & cost — the financial picture */}
+      <Financials o={o} />
+
+      <div className="flex items-center gap-2 pt-1">
+        <span className="text-[11px] uppercase tracking-wider text-ink-mute font-semibold">Operations</span>
+        <span className="flex-1 h-px bg-line" />
+      </div>
+
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         <Kpi label="Total users" value={fmtNum(o.users_total)} sub={`+${o.users_new_7d} this week`} icon={<ShieldCheck size={16} />} />
-        <Kpi label="Paid users" value={fmtNum(paid)} sub={`${conv}% conversion`} icon={<Sparkles size={16} />} accent />
-        <Kpi label="MRR potential" value={fmtUsd(o.mrr_potential_usd)} sub={`${o.plan_plus} Plus · ${o.plan_pro} Pro`} icon={<Wallet size={16} />} accent />
-        <Kpi label="Active (7d)" value={fmtNum(o.active_7d)} sub={`${fmtNum(o.active_30d)} in 30d`} icon={<Zap size={16} />} />
+        <Kpi label="Paid users" value={fmtNum(paid)} sub={`${conv}% conversion`} icon={<Sparkles size={16} />} accent
+          tip="Plus + Pro abone sayısı. Dönüşüm = ücretli / toplam kullanıcı." />
+        <Kpi label="MRR potential" value={fmtUsd(o.mrr_potential_usd)} sub={`${o.plan_plus} Plus · ${o.plan_pro} Pro`} icon={<Wallet size={16} />} accent
+          tip="Aylık Tekrarlayan Gelir tahmini: ücretli kullanıcı × plan fiyatı (Plus $9, Pro $19). Herkesin aboneliğini sürdürdüğünü varsayar." />
+        <Kpi label="Active (7d)" value={fmtNum(o.active_7d)} sub={`${fmtNum(o.active_30d)} in 30d`} icon={<Zap size={16} />}
+          tip="Son 7 (ve 30) günde uygulamada işlem yapan kullanıcı sayısı." />
       </div>
 
       <Card title="Signups · last 30 days" subtitle={`${o.users_new_30d} new accounts`}>
@@ -236,17 +272,124 @@ function Dashboard({ o }: { o: AdminOverview | null }) {
 
         <Card title="Engagement" subtitle="How much the product is used">
           <div className="space-y-3 pt-1">
-            <Meter label="Onboarded" pct={onboardedRate} caption={`${fmtNum(o.users_onboarded)} / ${fmtNum(o.users_total)}`} />
-            <Meter label="Uploaded a statement" pct={uploadRate} caption={`${fmtNum(o.users_with_upload)} users`} />
-            <Meter label="Active last 7 days" pct={o.users_total ? Math.round((o.active_7d / o.users_total) * 100) : 0} caption={`${fmtNum(o.active_7d)} users`} />
+            <Meter label="Onboarded" pct={onboardedRate} caption={`${fmtNum(o.users_onboarded)} / ${fmtNum(o.users_total)}`}
+              tip="Kayıt sonrası karşılama akışını tamamlayan kullanıcıların oranı." />
+            <Meter label="Uploaded a statement" pct={uploadRate} caption={`${fmtNum(o.users_with_upload)} users`}
+              tip="En az bir ekstre yüklemiş kullanıcıların oranı. Ürünün ana 'aha' anı." />
+            <Meter label="Active last 7 days" pct={o.users_total ? Math.round((o.active_7d / o.users_total) * 100) : 0} caption={`${fmtNum(o.active_7d)} users`}
+              tip="Son 7 günde aktif olan kullanıcıların toplam kullanıcıya oranı." />
           </div>
           <div className="grid grid-cols-3 gap-2 mt-4 pt-3 border-t border-line">
             <MiniStat label="Transactions" value={fmtNum(o.transactions_total)} />
-            <MiniStat label="Statements" value={fmtNum(o.upload_batches)} />
-            <MiniStat label="Open items" value={fmtNum(o.reconciliation_open)} />
+            <MiniStat label="Statements" value={fmtNum(o.upload_batches)} tip="Yüklenen toplam ekstre (işlem grubu) sayısı." />
+            <MiniStat label="Open items" value={fmtNum(o.reconciliation_open)} tip="Çözülmemiş mutabakat kalemleri: mükerrer kayıt, eksik varlık, vadesi geçmiş alacak gibi sistemin işaretlediği konular." />
           </div>
         </Card>
       </div>
+    </div>
+  );
+}
+
+// ── Revenue & cost (site-wide financials, computed client-side from overview) ──
+function Financials({ o }: { o: AdminOverview }) {
+  // What-if: share of free users that upgrade (to Plus, the conservative baseline).
+  const [convPct, setConvPct] = useState(5);
+
+  const paid = o.plan_plus + o.plan_pro;
+  const mrr = o.mrr_potential_usd;
+  const cost = o.active_30d * COST_PER_ACTIVE;
+  const profit = mrr - cost;
+  const margin = mrr > 0 ? Math.round((profit / mrr) * 100) : null;
+
+  const pctOf = (n: number) => (o.users_total ? (n / o.users_total) * 100 : 0);
+  const paidConv = pctOf(paid);
+
+  const addlMrr = o.plan_free * (convPct / 100) * PLUS_USD;
+  const projMrr = mrr + addlMrr;
+  // Converting already-active free users adds little marginal cost → hold cost flat.
+  const projMargin = projMrr > 0 ? Math.round(((projMrr - cost) / projMrr) * 100) : null;
+
+  const PRESETS = [1, 3, 5, 10, 20];
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center gap-2">
+        <span className="text-[11px] uppercase tracking-wider text-ink-mute font-semibold">Revenue &amp; cost</span>
+        <span className="flex-1 h-px bg-line" />
+      </div>
+
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        <Kpi label="MRR" value={fmtUsd(mrr)} sub={`${fmtNum(paid)} paying`} icon={<Wallet size={16} />} accent
+          tip="Aylık Tekrarlayan Gelir tahmini: Plus ($9) ve Pro ($19) abone sayısı × fiyat. Herkesin aboneliğini sürdürdüğünü varsayar." />
+        <Kpi label="Est. cost / mo" value={fmtUsd(cost)} sub={`${fmtNum(o.active_30d)} active × $${COST_PER_ACTIVE.toFixed(2)}`} icon={<Zap size={16} />}
+          tip="Tahmini aylık maliyet: son 30 günde aktif kullanıcı sayısı × kullanıcı başına ~$0,40 (LLM + altyapı)." />
+        <Kpi label="Gross margin" value={margin === null ? "—" : `${margin}%`} sub={mrr > 0 ? `${fmtUsd(profit)} profit` : "no revenue yet"} icon={<TrendingUp size={16} />} accent
+          tip="Brüt kâr marjı = (Gelir − Maliyet) / Gelir. Gelirin maliyetten ne kadar fazla olduğunu gösterir; yüksek olması iyidir." />
+        <Kpi label="Paid conversion" value={`${paidConv.toFixed(1)}%`} sub={`${fmtNum(paid)} / ${fmtNum(o.users_total)}`} icon={<Sparkles size={16} />}
+          tip="Dönüşüm oranı = ücretli kullanıcı / toplam kullanıcı. Ücretsizden ücretliye geçiş başarısının ölçüsü." />
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        {/* Conversion breakdown */}
+        <Card title="Plan conversion" subtitle="Free → paid"
+          tip="Her planın kullanıcı sayısı ve toplam içindeki payı. Plus/Pro oranları dönüşümün nereye gittiğini gösterir.">
+          <PlanBar free={o.plan_free} plus={o.plan_plus} pro={o.plan_pro} />
+          <div className="space-y-2 mt-4">
+            <ConvRow dot="bg-ink-mute" label="Free" count={o.plan_free} pct={pctOf(o.plan_free)} />
+            <ConvRow dot="bg-[#176B5B]" label="Plus" count={o.plan_plus} pct={pctOf(o.plan_plus)}
+              tip="Toplam kullanıcının yüzde kaçı Plus'a geçti." />
+            <ConvRow dot="bg-amber-500" label="Pro" count={o.plan_pro} pct={pctOf(o.plan_pro)}
+              tip="Toplam kullanıcının yüzde kaçı Pro'ya geçti." />
+          </div>
+          <div className="mt-3 pt-3 border-t border-line flex items-center justify-between text-xs">
+            <span className="text-ink-soft inline-flex items-center gap-1">
+              Paid overall
+              <InfoTip text="Ücretli (Plus + Pro) kullanıcıların toplam kullanıcıya oranı." />
+            </span>
+            <span className="text-ink font-semibold tabular-nums">{paidConv.toFixed(1)}%</span>
+          </div>
+        </Card>
+
+        {/* Revenue potential what-if */}
+        <Card title="Revenue potential" subtitle="If free users upgraded"
+          tip="Ücretsiz kullanıcıların seçili yüzdesi Plus'a ($9/ay) geçerse aylık gelire eklenecek tutar. Senaryo aracı.">
+          <div className="flex gap-1.5 flex-wrap">
+            {PRESETS.map((p) => (
+              <button key={p} onClick={() => setConvPct(p)}
+                className={`px-2.5 py-1 rounded-lg text-xs font-semibold border transition-colors ${convPct === p ? "text-white border-transparent" : "border-line text-ink-soft hover:border-[#176B5B]/50"}`}
+                style={convPct === p ? { backgroundColor: TEAL } : undefined}>
+                {p}%
+              </button>
+            ))}
+          </div>
+          <div className="mt-4">
+            <p className="text-[11px] uppercase tracking-wide text-ink-mute">
+              Added MRR if {convPct}% of {fmtNum(o.plan_free)} free upgrade
+            </p>
+            <p className="text-3xl font-bold tabular-nums leading-none mt-1" style={{ color: TEAL }}>
+              +{fmtUsd(addlMrr)}<span className="text-sm text-ink-mute font-medium"> /mo</span>
+            </p>
+          </div>
+          <div className="grid grid-cols-2 gap-2 mt-4">
+            <MiniStat label="Projected MRR" value={fmtUsd(projMrr)}
+              tip="Mevcut MRR + bu senaryodan gelecek ek gelir." />
+            <MiniStat label="Projected margin" value={projMargin === null ? "—" : `${projMargin}%`}
+              tip="Senaryo gerçekleşirse brüt kâr marjı (maliyet sabit varsayılır)." />
+          </div>
+          <p className="text-[10px] text-ink-mute mt-2">Plus geçişi varsayar ($9/ay). Gerçek karışım daha yüksek olabilir.</p>
+        </Card>
+      </div>
+    </div>
+  );
+}
+
+function ConvRow({ dot, label, count, pct, tip }: { dot: string; label: string; count: number; pct: number; tip?: string }) {
+  return (
+    <div className="flex items-center justify-between text-xs">
+      <span className="inline-flex items-center gap-1.5 text-ink-soft">
+        <span className={`w-2 h-2 rounded-full ${dot}`} />{label}{tip && <InfoTip text={tip} />}
+      </span>
+      <span className="text-ink-mute tabular-nums">{fmtNum(count)} · {pct.toFixed(1)}%</span>
     </div>
   );
 }
@@ -442,6 +585,7 @@ function UserDetail({ profile, surfaceBg, onClose, onChanged }: {
               <Chip tone="mute">{p.account_type}</Chip>
               <Chip tone="mute">{p.display_currency} · {p.language.toUpperCase()}</Chip>
               {p.health?.score != null && <Chip tone="brand">Health {p.health.score}</Chip>}
+              {p.health?.score != null && <InfoTip text="Finansal sağlık skoru (0–100): tasarruf oranı, borç yükü, harcama disiplini ve net değer büyümesinden hesaplanır." />}
             </div>
 
             {/* Actions */}
@@ -458,7 +602,9 @@ function UserDetail({ profile, surfaceBg, onClose, onChanged }: {
                 <ActBtn onClick={toggleVerify} busy={busy} icon={<CheckCircle size={13} />}>{p.email_verified ? "Unverify" : "Verify email"}</ActBtn>
                 <ActBtn onClick={() => setMsgOpen((v) => !v)} icon={<Send size={13} />}>Message</ActBtn>
                 <ActBtn onClick={doImpersonate} icon={<Monitor size={13} />}>View as user</ActBtn>
+                <InfoTip text="Bu kullanıcı olarak uygulamaya giriş yap (impersonate). Kendi admin hesabına dönmek için çıkış yapıp tekrar giriş yap." />
                 <ActBtn onClick={softDelete} busy={busy} danger icon={<XIcon size={13} />}>Delete</ActBtn>
+                <InfoTip text="Yumuşak silme: kullanıcı artık giriş yapamaz ama verisi saklanır ve işlem denetim kaydına yazılır. Kalıcı silme değildir." />
               </div>
               {msgOpen && (
                 <div className="space-y-2 pt-1">
@@ -579,17 +725,18 @@ function System({ system, onJob }: { system: AdminSystem | null; onJob: (j: stri
     ["LLM configured", system.config.llm_configured],
   ];
   const jobs = [
-    { key: "reconciliation", label: "Reconciliation scan" },
-    { key: "daily_notifications", label: "Daily notifications" },
-    { key: "price_refresh", label: "Asset price refresh" },
-    { key: "email_briefs", label: "Weekly email briefs" },
+    { key: "reconciliation", label: "Reconciliation scan", tip: "Tutarsızlıkları (mükerrer kayıt, eksik varlık, vadesi geçmiş alacak) tarayan arka plan işi. Normalde 6 saatte bir çalışır." },
+    { key: "daily_notifications", label: "Daily notifications", tip: "Kullanıcılara günlük bildirimleri üreten iş (yaklaşan ödeme, bütçe uyarısı, günlük analiz). Her gün 09:00 UTC." },
+    { key: "price_refresh", label: "Asset price refresh", tip: "Kripto, altın, döviz ve hisse gibi varlıkların güncel fiyatlarını çeken iş. 12 saatte bir." },
+    { key: "email_briefs", label: "Weekly email briefs", tip: "Haftalık para özeti e-postasını gönderen iş. Pazar 09:00 UTC." },
   ];
   const next = system.scheduler.jobs || {};
   const last = system.scheduler.last_run || {};
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-      <Card title="API keys & config" subtitle={`Environment: ${system.environment}`}>
+      <Card title="API keys & config" subtitle={`Environment: ${system.environment}`}
+        tip="Sunucudaki entegrasyonların yapılandırılıp yapılandırılmadığı. 'Missing' olan bir anahtar o özelliğin (ör. AI, e-posta) çalışmadığı anlamına gelir.">{/* keys */}
         <div className="space-y-2.5 pt-1">
           {keys.map(([label, ok]) => (
             <div key={label} className="flex items-center justify-between">
@@ -606,12 +753,13 @@ function System({ system, onJob }: { system: AdminSystem | null; onJob: (j: stri
         </div>
       </Card>
 
-      <Card title="Scheduler & jobs" subtitle={system.scheduler.running ? "Running" : "Stopped"}>
+      <Card title="Scheduler & jobs" subtitle={system.scheduler.running ? "Running" : "Stopped"}
+        tip="Otomatik arka plan işleri. 'Run now' ile bir işi hemen elle çalıştırabilirsin; aksi halde programına göre çalışır.">{/* jobs */}
         <div className="space-y-2 pt-1">
           {jobs.map((j) => (
             <div key={j.key} className="flex items-center justify-between gap-3 py-1.5 border-b border-line last:border-0">
               <div className="min-w-0">
-                <p className="text-sm text-ink truncate">{j.label}</p>
+                <p className="text-sm text-ink truncate inline-flex items-center gap-1.5">{j.label}<InfoTip text={j.tip} /></p>
                 <p className="text-[11px] text-ink-mute">Next: {fmtUTC(next[j.key]?.next_run ?? null)} · Last: {fmtUTC(last[j.key] ?? null)}</p>
               </div>
               <button disabled={running === j.key} onClick={async () => { setRunning(j.key); await onJob(j.key); setTimeout(() => setRunning(null), 1400); }}
@@ -627,11 +775,11 @@ function System({ system, onJob }: { system: AdminSystem | null; onJob: (j: stri
 }
 
 // ── shared bits ─────────────────────────────────────────────────────────────
-function Card({ title, subtitle, children }: { title: string; subtitle?: string; children: ReactNode }) {
+function Card({ title, subtitle, children, tip }: { title: string; subtitle?: string; children: ReactNode; tip?: string }) {
   return (
     <div className="bg-surface border border-line rounded-2xl p-5">
       <div className="mb-3">
-        <h3 className="text-sm font-semibold text-ink">{title}</h3>
+        <h3 className="text-sm font-semibold text-ink inline-flex items-center gap-1.5">{title}{tip && <InfoTip text={tip} />}</h3>
         {subtitle && <p className="text-xs text-ink-mute mt-0.5">{subtitle}</p>}
       </div>
       {children}
@@ -639,11 +787,11 @@ function Card({ title, subtitle, children }: { title: string; subtitle?: string;
   );
 }
 
-function Kpi({ label, value, sub, icon, accent }: { label: string; value: string; sub: string; icon: ReactNode; accent?: boolean }) {
+function Kpi({ label, value, sub, icon, accent, tip }: { label: string; value: string; sub: string; icon: ReactNode; accent?: boolean; tip?: string }) {
   return (
     <div className={`rounded-2xl border p-4 ${accent ? "border-[#176B5B]/30 bg-[#176B5B]/[0.05]" : "border-line bg-surface"}`}>
       <div className="flex items-center justify-between mb-2">
-        <span className="text-[11px] uppercase tracking-wide text-ink-mute">{label}</span>
+        <span className="text-[11px] uppercase tracking-wide text-ink-mute inline-flex items-center gap-1">{label}{tip && <InfoTip text={tip} />}</span>
         <span className={accent ? "text-[#176B5B]" : "text-ink-mute"}>{icon}</span>
       </div>
       <p className="text-2xl font-bold text-ink tabular-nums leading-none">{value}</p>
@@ -652,23 +800,24 @@ function Kpi({ label, value, sub, icon, accent }: { label: string; value: string
   );
 }
 
-function MiniStat({ label, value, dot }: { label: string; value: string; dot?: string }) {
+function MiniStat({ label, value, dot, tip }: { label: string; value: string; dot?: string; tip?: string }) {
   return (
     <div className="rounded-lg bg-surface-2 px-2.5 py-2">
       <div className="flex items-center gap-1.5">
         {dot && <span className={`w-1.5 h-1.5 rounded-full ${dot}`} />}
         <span className="text-[10px] uppercase tracking-wide text-ink-mute truncate">{label}</span>
+        {tip && <InfoTip text={tip} />}
       </div>
       <p className="text-sm font-semibold text-ink tabular-nums mt-0.5">{value}</p>
     </div>
   );
 }
 
-function Meter({ label, pct, caption }: { label: string; pct: number; caption: string }) {
+function Meter({ label, pct, caption, tip }: { label: string; pct: number; caption: string; tip?: string }) {
   return (
     <div>
       <div className="flex items-center justify-between text-xs mb-1">
-        <span className="text-ink-soft">{label}</span>
+        <span className="text-ink-soft inline-flex items-center gap-1">{label}{tip && <InfoTip text={tip} />}</span>
         <span className="text-ink-mute tabular-nums">{pct}% · {caption}</span>
       </div>
       <div className="h-1.5 rounded-full bg-surface-2 overflow-hidden">
