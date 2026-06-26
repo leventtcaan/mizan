@@ -6,9 +6,10 @@ import PageLayout from "@/components/ui/PageLayout";
 import { FileText, ArrowRight, TrendingUp, TrendingDown, Calendar, ChevronDown } from "@/components/ui/Icons";
 import { useLanguage, getCurrentLang } from "@/lib/i18n";
 import { useTheme } from "@/lib/theme";
+import UpgradePrompt from "@/components/UpgradePrompt";
 import {
   getToken, getStoredUser, getDefaultCurrency, CURRENCY_CHANGE_EVENT,
-  getFinancialReport, downloadReportCsv, downloadReportXlsx, type FinancialReport,
+  getFinancialReport, downloadReportCsv, downloadReportXlsx, PaidFeatureError, type FinancialReport,
 } from "@/lib/api";
 
 // Periods grouped by how they're framed — to-date, rolling windows, completed periods.
@@ -66,6 +67,7 @@ export default function ReportsPage() {
   const [email, setEmail] = useState<string>("");
   const [period, setPeriod] = useState("this_month");
   const [report, setReport] = useState<FinancialReport | null>(null);
+  const [paywalled, setPaywalled] = useState(false);
   const [loading, setLoading] = useState(true);
   const [csvBusy, setCsvBusy] = useState(false);
   const [xlsxBusy, setXlsxBusy] = useState(false);
@@ -85,7 +87,10 @@ export default function ReportsPage() {
     // getCurrentLang() resolves the language synchronously, so even the first fetch
     // uses the real stored language (the hook's `lang` starts at the SSR-safe "tr");
     // `lang` stays in deps so a language toggle re-fetches.
-    getFinancialReport(period, ccy, getCurrentLang()).then(setReport).catch(() => setReport(null)).finally(() => setLoading(false));
+    getFinancialReport(period, ccy, getCurrentLang())
+      .then((r) => { setReport(r); setPaywalled(false); })
+      .catch((err) => { setReport(null); setPaywalled(err instanceof PaidFeatureError); })
+      .finally(() => setLoading(false));
   }, [period, ccy, lang]);
 
   const money = useCallback((n: number) => {
@@ -145,6 +150,7 @@ export default function ReportsPage() {
       }`}</style>
 
       {/* ── Controls (app-themed, not printed) ───────────────────────────── */}
+      {!paywalled && (
       <div className="no-print mb-6">
         <div className="flex flex-wrap items-center gap-3">
           <span className="w-10 h-10 rounded-xl bg-brand/10 flex items-center justify-center shrink-0">
@@ -171,8 +177,13 @@ export default function ReportsPage() {
         </div>
         {exportError && <p className="text-danger text-xs mt-2 text-right">{exportError}</p>}
       </div>
+      )}
 
-      {loading ? (
+      {paywalled ? (
+        <div className="py-10">
+          <UpgradePrompt feature="reports" icon={<FileText size={26} />} />
+        </div>
+      ) : loading ? (
         <div className="flex items-center justify-center gap-2 text-ink-mute py-24">
           <span className="w-5 h-5 border-2 border-line border-t-[#176B5B] rounded-full animate-spin" /> {t("report.building")}
         </div>

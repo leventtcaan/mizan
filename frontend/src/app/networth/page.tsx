@@ -40,6 +40,7 @@ import {
   getDefaultCurrency,
   CURRENCY_CHANGE_EVENT,
   getAccounts,
+  PaidFeatureError,
   type NetWorthAttribution,
   AssetItem,
   LiabilityItem,
@@ -299,6 +300,7 @@ export default function NetWorthPage() {
   const [displayCurrency, setDisplayCurrency] = useState<string>(() => getDefaultCurrency());
   const [guidance, setGuidance] = useState<GuidanceFinding[]>([]);
   const [guidanceLoading, setGuidanceLoading] = useState(true);
+  const [guidancePaywalled, setGuidancePaywalled] = useState(false);
   const [alertPct, setAlertPct] = useState(15);
   const alertsSectionRef = useRef<HTMLElement | null>(null);
   // Synchronous in-flight guard — prevents the manual button and the auto-refresh
@@ -440,8 +442,8 @@ export default function NetWorthPage() {
     // guidance even when the app is in English.
     setGuidanceLoading(true);
     getNetWorthGuidance(displayCurrency, getCurrentLang())
-      .then((g) => setGuidance(g.findings))
-      .catch(() => setGuidance([]))
+      .then((g) => { setGuidance(g.findings); setGuidancePaywalled(false); })
+      .catch((err) => { setGuidance([]); setGuidancePaywalled(err instanceof PaidFeatureError); })
       .finally(() => setGuidanceLoading(false));
     // Keep recording the daily snapshot so REAL history accrues over time (the
     // trajectory chart lives on the Progress page). We just don't render an
@@ -533,8 +535,8 @@ export default function NetWorthPage() {
   const reloadGuidance = useCallback(() => {
     setGuidanceLoading(true);
     getNetWorthGuidance(displayCurrency, getCurrentLang())
-      .then((g) => setGuidance(g.findings))
-      .catch(() => setGuidance([]))
+      .then((g) => { setGuidance(g.findings); setGuidancePaywalled(false); })
+      .catch((err) => { setGuidance([]); setGuidancePaywalled(err instanceof PaidFeatureError); })
       .finally(() => setGuidanceLoading(false));
   }, [displayCurrency, lang]);
 
@@ -1101,7 +1103,7 @@ export default function NetWorthPage() {
       )}
 
       {/* AI guidance — ranked, benchmarked, action-linked findings */}
-      <GuidancePanel findings={guidance} loading={guidanceLoading} onAction={handleGuidanceAction} t={t} />
+      <GuidancePanel findings={guidance} loading={guidanceLoading} paywalled={guidancePaywalled} onAction={handleGuidanceAction} t={t} />
 
       {/* Triggered wealth alerts */}
       {triggeredAlerts.length > 0 && (

@@ -4,6 +4,7 @@ import { useState } from "react";
 import type { GuidanceFinding } from "@/lib/api";
 import { ChevronDown, ChevronUp, ArrowRight, Bell, RefreshCw, Target, Plus } from "@/components/ui/Icons";
 import Mim from "@/components/companion/Mim";
+import UpgradePrompt from "@/components/UpgradePrompt";
 
 // Dots use literal hexes (tiny solid fills must paint reliably regardless of the
 // channel-token bg quirk); chips/borders use semantic tokens so they adapt to theme.
@@ -24,11 +25,13 @@ const ACTION_ICON: Record<string, React.ReactNode> = {
 export default function GuidancePanel({
   findings,
   loading,
+  paywalled = false,
   onAction,
   t,
 }: {
   findings: GuidanceFinding[];
   loading: boolean;
+  paywalled?: boolean;
   onAction: (f: GuidanceFinding) => void;
   t: (k: string) => string;
 }) {
@@ -36,6 +39,9 @@ export default function GuidancePanel({
 
   if (loading) {
     return <div className="mb-6 h-32 rounded-2xl bg-surface border border-line animate-pulse" />;
+  }
+  if (paywalled) {
+    return <div className="mb-6"><UpgradePrompt feature="guidance" variant="teaser" /></div>;
   }
   if (!findings || findings.length === 0) {
     return (

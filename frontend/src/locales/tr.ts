@@ -1317,6 +1317,42 @@ export const tr = {
     interestedCta: "Bu planla ilgileniyorum",
     interestedDone: "İlgini aldık, haber vereceğiz",
   },
+  upgradePrompt: {
+    badge: "Plus özelliği",
+    cta: "Planları gör",
+    teaserCta: "Plus ile aç",
+    note: "Plus ve Pro planlarına dahildir.",
+    reports: {
+      title: "Finansını teslim edebileceğin bir rapora dönüştür",
+      desc: "Okuyabileceğin, PDF olarak yazdırabileceğin ya da Excel ve CSV'ye aktarabileceğin, döneme göre düzenlenmiş net bir finansal tablo.",
+      features: [
+        "Net değer tablosu: açılış → kapanış, değişim açıklamasıyla",
+        "Nakit akışı: gelir, gider ve bunları yönlendiren kategoriler",
+        "Varlıklar, borçlar ve alacaklar satır satır",
+        "Dağılım ve döviz kırılımı, öncelik sıralı önerilerle",
+        "Tek tıkla PDF, Excel ve CSV dışa aktarma",
+      ],
+    },
+    simulator: {
+      title: "Karar vermeden önce geleceğini gör",
+      desc: "Herhangi bir para kararını tüm tablon üzerinde modelle; net değerin, nakdin ve borcunun ay ay nasıl tepki verdiğini izle.",
+      features: [
+        "Sade bir dille sor: \"Aylık 5.000 biriktirsem ne olur?\"",
+        "Abonelik iptali, zam, büyük harcama ve erken borç kapama senaryolarını dene",
+        "Mevcut durum ile senaryoyu yan yana, belirsizlik konisiyle gör",
+        "Borçtan tam olarak ne zaman kurtulacağını ve ne kadar faiz biriktireceğini gör",
+      ],
+    },
+    guidance: {
+      title: "En çok fark yaratacak tek hamleyi öğren",
+      desc: "Plus tüm net değerini okur ve önce neyi düzeltmen gerektiğini sıralar — borç yükü, acil durum fonu, yoğunlaşma riski ve daha fazlası.",
+      features: [
+        "Sıralı, kıyaslamalı bulgular — genel uyarılar değil",
+        "Her biri hemen atabileceğin bir adıma bağlı",
+        "Varlık ve borçların değiştikçe güncellenir",
+      ],
+    },
+  },
   chat: {
     title: "Finansal Koç",
     placeholder: "Mesajınızı yazın...",

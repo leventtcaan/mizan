@@ -1317,6 +1317,42 @@ export const en = {
     interestedCta: "I'm interested in this plan",
     interestedDone: "Got it — we'll be in touch",
   },
+  upgradePrompt: {
+    badge: "Plus feature",
+    cta: "See plans",
+    teaserCta: "Unlock with Plus",
+    note: "Included in Plus and Pro.",
+    reports: {
+      title: "Turn your finances into a report you can hand over",
+      desc: "A clean, period-scoped financial statement you can read, print to PDF, or export to Excel and CSV.",
+      features: [
+        "Net worth statement: opening → closing, with the change explained",
+        "Cash flow: income, expenses and the categories driving them",
+        "Holdings, debts and receivables laid out line by line",
+        "Allocation and currency mix, with ranked recommendations",
+        "One-click PDF, Excel and CSV export",
+      ],
+    },
+    simulator: {
+      title: "See the future before you commit to it",
+      desc: "Model any money decision across your whole picture and watch how net worth, cash and debt respond month by month.",
+      features: [
+        "Ask in plain language: \"What if I save 5,000 a month?\"",
+        "Test cancelling subscriptions, raises, big purchases and early debt payoff",
+        "Baseline vs scenario, side by side, with an uncertainty cone",
+        "See exactly when you'd be debt-free and how much interest you'd save",
+      ],
+    },
+    guidance: {
+      title: "Know the one move that matters most",
+      desc: "Plus reads your full net worth and ranks what to fix first — debt load, emergency fund, concentration risk and more.",
+      features: [
+        "Ranked, benchmarked findings — not generic warnings",
+        "Each one tied to an action you can take right now",
+        "Refreshes as your assets and debts change",
+      ],
+    },
+  },
   chat: {
     title: "Financial Coach",
     placeholder: "Type your message...",

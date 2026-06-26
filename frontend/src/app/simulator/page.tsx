@@ -8,13 +8,14 @@ import {
 } from "recharts";
 import PageLayout from "@/components/ui/PageLayout";
 import Mim from "@/components/companion/Mim";
+import UpgradePrompt from "@/components/UpgradePrompt";
 import {
   Sparkles, TrendingUp, TrendingDown, X as XIcon, Send, Brain,
 } from "@/components/ui/Icons";
 import { useLanguage } from "@/lib/i18n";
 import {
   getToken, getDefaultCurrency, CURRENCY_CHANGE_EVENT,
-  getSimulatorLevers, runSimulator, askSimulator,
+  getSimulatorLevers, runSimulator, askSimulator, PaidFeatureError,
   type SimLevers, type SimResult, type SimAction,
 } from "@/lib/api";
 
@@ -33,6 +34,7 @@ export default function SimulatorPage() {
   // client-only effect below, before the first levers fetch resolves.
   const [ccy, setCcy] = useState("TRY");
   const [levers, setLevers] = useState<SimLevers | null>(null);
+  const [paywalled, setPaywalled] = useState(false);
   const [actions, setActions] = useState<SimAction[]>([]);
   const [horizon, setHorizon] = useState(24);
   const [result, setResult] = useState<SimResult | null>(null);
@@ -54,7 +56,9 @@ export default function SimulatorPage() {
   }, [router]);
 
   useEffect(() => {
-    getSimulatorLevers(ccy).then(setLevers).catch(() => setLevers(null));
+    getSimulatorLevers(ccy)
+      .then((l) => { setLevers(l); setPaywalled(false); })
+      .catch((err) => { setLevers(null); setPaywalled(err instanceof PaidFeatureError); });
   }, [ccy]);
 
   // Auto-run (debounced) whenever the scenario or horizon changes.
@@ -189,7 +193,11 @@ export default function SimulatorPage() {
       subtitle={t("sim.subtitle")}
       maxWidth="lg"
     >
-      {noData ? (
+      {paywalled ? (
+        <div className="py-10">
+          <UpgradePrompt feature="simulator" icon={<Sparkles size={26} />} />
+        </div>
+      ) : noData ? (
         <div className="bg-surface border border-line rounded-2xl text-center py-12 px-6">
           <div className="w-14 h-14 rounded-2xl bg-brand/10 flex items-center justify-center mx-auto mb-4">
             <Sparkles size={26} className="text-brand" />

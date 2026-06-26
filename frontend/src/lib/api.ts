@@ -622,6 +622,23 @@ export class AssistantCapError extends Error {
   }
 }
 
+/** Thrown when a free user requests a paid-only feature (HTTP 403 `upgrade_required`)
+ *  — reports, simulator, net-worth guidance. Callers catch this to render an upgrade
+ *  prompt instead of a generic error/blank state. */
+export class PaidFeatureError extends Error {
+  constructor() {
+    super("upgrade_required");
+    this.name = "PaidFeatureError";
+  }
+}
+
+/** True when a fetch Response is a paid-feature 403. Reads the body once. */
+async function isUpgradeRequired(r: Response): Promise<boolean> {
+  if (r.status !== 403) return false;
+  const body = await r.clone().json().catch(() => null);
+  return (body as { detail?: string } | null)?.detail === "upgrade_required";
+}
+
 export async function uploadStatement(file: File): Promise<UploadResponse> {
   const form = new FormData();
   form.append("file", file);
@@ -716,7 +733,10 @@ export interface SimAskResponse { parsed: boolean; actions: SimAction[]; result:
 
 export async function getSimulatorLevers(displayCurrency = "TRY"): Promise<SimLevers> {
   const r = await fetch(`${API_BASE_URL}/simulator/levers?display_currency=${displayCurrency}`, { headers: authHeaders() });
-  if (!r.ok) throw new Error(`Failed to load levers: ${r.status}`);
+  if (!r.ok) {
+    if (await isUpgradeRequired(r)) throw new PaidFeatureError();
+    throw new Error(`Failed to load levers: ${r.status}`);
+  }
   return r.json() as Promise<SimLevers>;
 }
 
@@ -728,7 +748,10 @@ export async function runSimulator(
     headers: { ...authHeaders(), "Content-Type": "application/json" },
     body: JSON.stringify({ actions, horizon_months: horizonMonths }),
   });
-  if (!r.ok) throw new Error(`Simulation failed: ${r.status}`);
+  if (!r.ok) {
+    if (await isUpgradeRequired(r)) throw new PaidFeatureError();
+    throw new Error(`Simulation failed: ${r.status}`);
+  }
   return r.json() as Promise<SimResult>;
 }
 
@@ -740,7 +763,10 @@ export async function askSimulator(
     headers: { ...authHeaders(), "Content-Type": "application/json" },
     body: JSON.stringify({ question, horizon_months: horizonMonths }),
   });
-  if (!r.ok) throw new Error(`Simulation failed: ${r.status}`);
+  if (!r.ok) {
+    if (await isUpgradeRequired(r)) throw new PaidFeatureError();
+    throw new Error(`Simulation failed: ${r.status}`);
+  }
   return r.json() as Promise<SimAskResponse>;
 }
 
@@ -771,7 +797,10 @@ export async function getFinancialReport(period: string, displayCurrency = "TRY"
     `${API_BASE_URL}/reports/financial?period=${period}&display_currency=${displayCurrency}&lang=${lang}`,
     { headers: authHeaders() },
   );
-  if (!r.ok) throw new Error(`Failed to build report: ${r.status}`);
+  if (!r.ok) {
+    if (await isUpgradeRequired(r)) throw new PaidFeatureError();
+    throw new Error(`Failed to build report: ${r.status}`);
+  }
   return r.json() as Promise<FinancialReport>;
 }
 
@@ -1364,7 +1393,10 @@ export async function getNetWorthGuidance(displayCurrency = "TRY", lang = "tr"):
     `${API_BASE_URL}/networth/guidance?display_currency=${displayCurrency}&lang=${lang}`,
     { headers: authHeaders() },
   );
-  if (!response.ok) throw new Error(`Failed to fetch guidance: ${response.status}`);
+  if (!response.ok) {
+    if (await isUpgradeRequired(response)) throw new PaidFeatureError();
+    throw new Error(`Failed to fetch guidance: ${response.status}`);
+  }
   return response.json() as Promise<GuidanceResponse>;
 }
 
