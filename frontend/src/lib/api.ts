@@ -714,15 +714,16 @@ function triggerBlobDownload(blob: Blob, filename: string): void {
   }, 1500);
 }
 
-export async function downloadTransactionsCsv(period: string, displayCurrency = "TRY"): Promise<void> {
+export async function downloadReportCsv(period: string, displayCurrency = "TRY", lang = "tr"): Promise<void> {
+  // The full report (all sections), not just transactions — matches the PDF/Excel content.
   const r = await fetch(
-    `${API_BASE_URL}/reports/transactions.csv?period=${period}&display_currency=${displayCurrency}`,
+    `${API_BASE_URL}/reports/financial.csv?period=${period}&display_currency=${displayCurrency}&lang=${lang}`,
     { headers: authHeaders() },
   );
   if (!r.ok) throw new Error(`Failed to export CSV: ${r.status}`);
   // Tag the blob as CSV so the OS associates the right app.
   const blob = new Blob([await r.blob()], { type: "text/csv;charset=utf-8" });
-  triggerBlobDownload(blob, `mizan-transactions-${period}.csv`);
+  triggerBlobDownload(blob, `mizan-report-${period}.csv`);
 }
 
 export async function downloadReportXlsx(period: string, displayCurrency = "TRY", lang = "tr"): Promise<void> {

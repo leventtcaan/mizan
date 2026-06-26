@@ -330,7 +330,36 @@ def _exec_summary(lang, ccy, net_worth, nw_change, estimated, income, expense, n
     return s
 
 
-# ── CSV appendix ─────────────────────────────────────────────────────────────
+# ── shared: period transactions ──────────────────────────────────────────────
+
+async def _fetch_tx_rows(
+    user_id: uuid.UUID, session: AsyncSession, period_key: str, ccy: str,
+) -> list[list]:
+    """Period transactions as plain rows — shared by the CSV, full-report CSV and the
+    xlsx transactions sheet. Columns: date, description, type, amount, currency, category,
+    amount-in-display-currency."""
+    ccy = ccy.upper()
+    start, end, _ = resolve_period(period_key)
+    cache: dict[str, float] = {}
+    stmt = select(Transaction).where(Transaction.user_id == user_id, Transaction.transaction_date <= end)
+    if start is not None:
+        stmt = stmt.where(Transaction.transaction_date >= start)
+    stmt = stmt.order_by(Transaction.transaction_date.asc())
+    txs = (await session.execute(stmt)).scalars().all()
+    rows: list[list] = []
+    for t in txs:
+        f = await _factor(t.currency or ccy, ccy, cache)
+        rows.append([
+            t.transaction_date.isoformat(),
+            (t.description or "").replace("\n", " ").strip(),
+            t.transaction_type,
+            round(float(t.amount), 2),
+            t.currency or "",
+            t.category or "",
+            round(float(t.amount) * f, 2),
+        ])
+    return rows
+
 
 # ── Excel workbook ───────────────────────────────────────────────────────────
 
@@ -442,6 +471,13 @@ async def build_report_xlsx(
            [[c["name"], c["amount"], round(c["share"])] for c in cf["top_categories"]],
            [28, 18, 12], money_cols=(2,), pct_cols=(3,))
 
+    # ── Allocation ──
+    if report["allocation"]:
+        ws = wb.create_sheet("Allocation")
+        _table(ws, ["Type", f"Value ({ccy})", "Share %"],
+               [[a["name"], a["value"], round(a["share"])] for a in report["allocation"]],
+               [24, 20, 12], money_cols=(2,), pct_cols=(3,))
+
     # ── Currency mix ──
     if len(report["currency_mix"]) > 1:
         ws = wb.create_sheet("Currency Mix")
@@ -449,29 +485,33 @@ async def build_report_xlsx(
                [[c["code"], c["value"], round(c["share"])] for c in report["currency_mix"]],
                [14, 20, 12], money_cols=(2,), pct_cols=(3,))
 
+    # ── Net-worth trend ──
+    if report["trajectory"]:
+        ws = wb.create_sheet("Net Worth Trend")
+        _table(ws, ["Date", f"Net worth ({ccy})"],
+               [[p["date"], p["net_worth"]] for p in report["trajectory"]],
+               [14, 22], money_cols=(2,))
+
+    # ── Recommendations ──
+    ws = wb.create_sheet("Recommendations")
+    rec_rows = [[i, r["title"], r["detail"]] for i, r in enumerate(report["recommendations"], 1)]
+    if not rec_rows:
+        rec_rows = [["", "—", "Şu an öne çıkan bir öneri yok." if lang == "tr" else "No recommendations at this time."]]
+    _table(ws, ["#", "Title", "Detail"], rec_rows, [5, 30, 80])
+
+    # ── Assumptions ──
+    ws = wb.create_sheet("Assumptions")
+    ws["A1"] = "Assumptions"
+    ws["A1"].font = title_font
+    for note in report["assumptions"]:
+        ws.append([note])
+    ws.column_dimensions["A"].width = 100
+
     # ── Transactions appendix ──
-    start, end, _ = resolve_period(period_key)
-    cache: dict[str, float] = {}
-    stmt = select(Transaction).where(Transaction.user_id == user_id, Transaction.transaction_date <= end)
-    if start is not None:
-        stmt = stmt.where(Transaction.transaction_date >= start)
-    stmt = stmt.order_by(Transaction.transaction_date.asc())
-    txs = (await session.execute(stmt)).scalars().all()
-    tx_rows = []
-    for t in txs:
-        f = await _factor(t.currency or ccy, ccy, cache)
-        tx_rows.append([
-            t.transaction_date.isoformat(),
-            (t.description or "").replace("\n", " ").strip(),
-            t.transaction_type,
-            round(float(t.amount), 2),
-            t.currency or "",
-            t.category or "",
-            round(float(t.amount) * f, 2),
-        ])
     ws = wb.create_sheet("Transactions")
     _table(ws, ["Date", "Description", "Type", "Amount", "Currency", "Category", f"Amount ({ccy})"],
-           tx_rows, [12, 40, 10, 14, 10, 16, 16], money_cols=(4, 7))
+           await _fetch_tx_rows(user_id, session, period_key, ccy),
+           [12, 40, 10, 14, 10, 16, 16], money_cols=(4, 7))
 
     buf = io.BytesIO()
     wb.save(buf)
@@ -481,28 +521,125 @@ async def build_report_xlsx(
 async def build_transactions_csv(
     user_id: uuid.UUID, session: AsyncSession, period_key: str, ccy: str,
 ) -> str:
+    """Raw transaction appendix only (kept for the analyst endpoint)."""
     ccy = ccy.upper()
-    start, end, _ = resolve_period(period_key)
-    cache: dict[str, float] = {}
-
-    stmt = select(Transaction).where(Transaction.user_id == user_id, Transaction.transaction_date <= end)
-    if start is not None:
-        stmt = stmt.where(Transaction.transaction_date >= start)
-    stmt = stmt.order_by(Transaction.transaction_date.asc())
-    txs = (await session.execute(stmt)).scalars().all()
-
+    rows = await _fetch_tx_rows(user_id, session, period_key, ccy)
     buf = io.StringIO()
     w = csv.writer(buf)
     w.writerow(["Date", "Description", "Type", "Amount", "Currency", "Category", f"Amount ({ccy})"])
-    for t in txs:
-        f = await _factor(t.currency or ccy, ccy, cache)
-        w.writerow([
-            t.transaction_date.isoformat(),
-            (t.description or "").replace("\n", " ").strip(),
-            t.transaction_type,
-            f"{float(t.amount):.2f}",
-            t.currency or "",
-            t.category or "",
-            f"{float(t.amount) * f:.2f}",
-        ])
+    for r in rows:
+        w.writerow([r[0], r[1], r[2], f"{r[3]:.2f}", r[4], r[5], f"{r[6]:.2f}"])
+    return buf.getvalue()
+
+
+async def build_report_csv(
+    user_id: uuid.UUID, session: AsyncSession, period_key: str, ccy: str, lang: str,
+) -> str:
+    """The FULL financial report as a single structured CSV — same sections and data as the
+    PDF/Excel: net-worth summary, cash flow, top categories, assets, liabilities, receivables,
+    allocation, currency mix, recommendations, assumptions, and a transactions appendix.
+    Each section is introduced by a `[SECTION]` marker so it stays machine-parseable while
+    living in one file."""
+    report = await build_report(user_id, session, period_key, ccy, lang)
+    ccy = ccy.upper()
+    tr = lang == "tr"
+    nw, cf, meta = report["net_worth"], report["cash_flow"], report["meta"]
+
+    def L(t_: str, e: str) -> str:
+        return t_ if tr else e
+
+    amount_hdr = f"{L('Tutar', 'Amount')} ({ccy})"
+    share_hdr = L("Pay %", "Share %")
+
+    buf = io.StringIO()
+    w = csv.writer(buf)
+
+    def section(title: str) -> None:
+        w.writerow([])
+        w.writerow([f"[{title}]"])
+
+    # ── header block ──
+    w.writerow(["Mizan · " + L("Finansal Rapor", "Financial Report")])
+    w.writerow([L("Dönem", "Period"), meta["period_label"]])
+    w.writerow([L("Para birimi", "Currency"), ccy])
+    w.writerow([L("Oluşturuldu", "Generated"), meta["generated_at"][:10]])
+    w.writerow([L("Özet", "Summary"), report["summary"]])
+
+    # ── net worth summary ──
+    section(L("NET DEĞER ÖZETİ", "NET WORTH SUMMARY"))
+    w.writerow([L("Gösterge", "Metric"), amount_hdr])
+    w.writerow([L("Net değer", "Net worth"), nw["net_worth"]])
+    w.writerow([L("Toplam varlık", "Total assets"), nw["total_assets"]])
+    w.writerow([L("Toplam borç", "Total liabilities"), nw["total_liabilities"]])
+    w.writerow([L("Bekleyen alacaklar", "Pending receivables"), nw["pending_receivables"]])
+    if nw["opening"] is not None:
+        w.writerow([L("Açılış net değeri", "Opening net worth"), nw["opening"]])
+        w.writerow([L("Kapanış net değeri", "Closing net worth"), nw["closing"]])
+        w.writerow([L("Net değişim", "Net change"), nw["change"]])
+
+    # ── cash flow ──
+    section(L("NAKİT AKIŞI", "CASH FLOW"))
+    w.writerow([L("Gösterge", "Metric"), amount_hdr])
+    w.writerow([L("Gelir", "Income"), cf["income"]])
+    w.writerow([L("Gider", "Expenses"), cf["expenses"]])
+    w.writerow([L("Net", "Net"), cf["net"]])
+
+    # ── top categories ──
+    section(L("EN ÇOK HARCAMA KATEGORİLERİ", "TOP CATEGORIES"))
+    w.writerow([L("Kategori", "Category"), amount_hdr, share_hdr])
+    for c in cf["top_categories"]:
+        w.writerow([c["name"], c["amount"], c["share"]])
+
+    # ── assets ──
+    section(L("VARLIKLAR", "ASSETS"))
+    w.writerow([L("Ad", "Name"), L("Tür", "Type"), f"{L('Değer', 'Value')} ({ccy})"])
+    for a in report["assets"]:
+        w.writerow([a["name"], a["type"], a["value"]])
+
+    # ── liabilities ──
+    section(L("BORÇLAR", "LIABILITIES"))
+    w.writerow([L("Ad", "Name"), f"{L('Kalan', 'Remaining')} ({ccy})", f"{L('Aylık', 'Monthly')} ({ccy})", L("Oran %", "Rate %")])
+    for li in report["liabilities"]:
+        rate = li.get("rate")
+        w.writerow([li["name"], li["remaining"], li.get("monthly_payment") or 0, rate if rate is not None else ""])
+
+    # ── receivables ──
+    section(L("ALACAKLAR", "RECEIVABLES"))
+    w.writerow([L("Kişi", "From"), f"{L('Tutar', 'Amount')} ({ccy})", L("Beklenen tarih", "Expected date")])
+    for r in report["receivables"]:
+        w.writerow([r["from_person"], r["amount"], r.get("expected_date") or ""])
+
+    # ── allocation ──
+    section(L("VARLIK DAĞILIMI", "ALLOCATION"))
+    w.writerow([L("Tür", "Type"), f"{L('Değer', 'Value')} ({ccy})", share_hdr])
+    for a in report["allocation"]:
+        w.writerow([a["name"], a["value"], a["share"]])
+
+    # ── currency mix ──
+    if len(report["currency_mix"]) > 1:
+        section(L("PARA BİRİMİ DAĞILIMI", "CURRENCY MIX"))
+        w.writerow([L("Para birimi", "Currency"), f"{L('Değer', 'Value')} ({ccy})", share_hdr])
+        for c in report["currency_mix"]:
+            w.writerow([c["code"], c["value"], c["share"]])
+
+    # ── recommendations ──
+    section(L("ÖNERİLER", "RECOMMENDATIONS"))
+    if report["recommendations"]:
+        w.writerow([L("Başlık", "Title"), L("Detay", "Detail")])
+        for rec in report["recommendations"]:
+            w.writerow([rec["title"], rec["detail"]])
+    else:
+        w.writerow([L("Şu an öne çıkan bir öneri yok.", "No recommendations at this time.")])
+
+    # ── assumptions ──
+    section(L("VARSAYIMLAR", "ASSUMPTIONS"))
+    for note in report["assumptions"]:
+        w.writerow([note])
+
+    # ── transactions appendix ──
+    section(L("İŞLEMLER", "TRANSACTIONS"))
+    w.writerow(["Date", "Description", "Type", "Amount", "Currency", "Category", amount_hdr])
+    for r in await _fetch_tx_rows(user_id, session, period_key, ccy):
+        w.writerow([r[0], r[1], r[2], f"{r[3]:.2f}", r[4], r[5], f"{r[6]:.2f}"])
+
     return buf.getvalue()

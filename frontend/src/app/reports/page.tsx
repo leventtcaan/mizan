@@ -7,7 +7,7 @@ import { FileText, ArrowRight, TrendingUp, TrendingDown } from "@/components/ui/
 import { useLanguage, getCurrentLang } from "@/lib/i18n";
 import {
   getToken, getStoredUser, getDefaultCurrency, CURRENCY_CHANGE_EVENT,
-  getFinancialReport, downloadTransactionsCsv, downloadReportXlsx, type FinancialReport,
+  getFinancialReport, downloadReportCsv, downloadReportXlsx, type FinancialReport,
 } from "@/lib/api";
 
 const PERIODS = ["this_month", "last_month", "quarter", "ytd", "last_30", "all"];
@@ -79,7 +79,7 @@ export default function ReportsPage() {
   };
   const exportCsv = async () => {
     setExportError(null); setCsvBusy(true);
-    try { await downloadTransactionsCsv(period, ccy); }
+    try { await downloadReportCsv(period, ccy, getCurrentLang()); }
     catch { setExportError(t("report.exportError")); }
     finally { setCsvBusy(false); }
   };

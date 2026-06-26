@@ -16,7 +16,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.database import get_session
 from app.core.dependencies import get_current_user
 from app.models.user import User
-from app.services.report import build_report, build_report_xlsx, build_transactions_csv
+from app.services.report import (
+    build_report, build_report_csv, build_report_xlsx, build_transactions_csv,
+)
 
 _XLSX_MEDIA = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 
@@ -43,6 +45,24 @@ async def financial_report(
     return await build_report(current_user.id, session, _period(period), display_currency, lang)
 
 
+@router.get("/financial.csv", response_class=PlainTextResponse)
+async def financial_report_csv(
+    period: str = Query(default="this_month"),
+    display_currency: str = Query(default="TRY"),
+    lang: str = Query(default="tr"),
+    current_user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
+) -> PlainTextResponse:
+    """Full report as a single structured CSV — every section the PDF/Excel has."""
+    csv_text = await build_report_csv(current_user.id, session, _period(period), display_currency, lang)
+    filename = f"mizan-report-{_period(period)}.csv"
+    return PlainTextResponse(
+        content=csv_text,
+        media_type="text/csv",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
 @router.get("/transactions.csv", response_class=PlainTextResponse)
 async def transactions_csv(
     period: str = Query(default="this_month"),
@@ -50,7 +70,7 @@ async def transactions_csv(
     current_user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
 ) -> PlainTextResponse:
-    """Raw transaction appendix for analysts who want the underlying numbers."""
+    """Raw transaction appendix for analysts who want only the underlying numbers."""
     csv_text = await build_transactions_csv(current_user.id, session, _period(period), display_currency)
     filename = f"mizan-transactions-{_period(period)}.csv"
     return PlainTextResponse(
