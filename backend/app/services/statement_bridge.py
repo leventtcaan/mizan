@@ -34,12 +34,19 @@ logger = logging.getLogger(__name__)
 # never misclassified as a credit card. Multilingual (EN + TR).
 _CC_STRONG = (
     "minimum payment", "minimum amount due", "asgari ödeme", "asgari odeme", "asgari tutar",
+    "pagamento mínimo", "pagamento minimo", "pago mínimo", "pago minimo",  # PT/ES
+    "paiement minimum", "mindestbetrag",                                    # FR/DE
 )
 _CC_MARKERS = _CC_STRONG + (
     "credit limit", "kredi limiti", "kullanılabilir limit", "kullanilabilir limit",
     "available credit", "statement balance", "ekstre bakiyesi", "dönem borcu", "donem borcu",
     "son ödeme tarihi", "payment due date", "ekstre kesim", "credit card statement",
     "kredi kartı ekstre", "kredi karti ekstre",
+    # PT (fatura) / ES (tarjeta) / FR / DE
+    "limite de crédito", "limite de credito", "limite total", "total da fatura",
+    "vencimento da fatura", "fatura vencimento", "saldo devedor", "melhor dia de compra",
+    "límite de crédito", "limite de la tarjeta", "pago total", "fecha de vencimiento",
+    "limite de paiement", "kreditkarte", "kreditlimit",
 )
 
 # Labelled-balance keys for a DEPOSIT account (funds you HAVE), specific → generic.
@@ -48,16 +55,26 @@ _DEPOSIT_BALANCE_KEYS = (
     "new balance", "account balance",
     "kapanış bakiye", "kapanis bakiye", "kapanış bakiyesi", "kapanis bakiyesi",
     "kullanılabilir bakiye", "kullanilabilir bakiye", "güncel bakiye", "guncel bakiye",
-    "hesap bakiyesi", "son bakiye", "mevcut bakiye", "bakiye", "balance",
+    "hesap bakiyesi", "son bakiye", "mevcut bakiye",
+    # PT: saldo final/disponível/atual/em conta · ES: saldo · FR: solde · DE: kontostand
+    "saldo final", "saldo disponível", "saldo disponivel", "saldo atual", "saldo em conta",
+    "saldo da conta", "saldo anterior", "solde final", "solde disponible", "solde du compte",
+    "kontostand", "saldo", "solde", "bakiye", "balance",
 )
 # For a CREDIT CARD the relevant figure is the amount OWED.
 _OWED_BALANCE_KEYS = (
     "statement balance", "ekstre bakiyesi", "dönem borcu", "donem borcu",
     "current balance", "new balance", "güncel borç", "guncel borc",
-    "toplam borç", "toplam borc", "bakiye", "balance",
+    "toplam borç", "toplam borc",
+    # PT/ES total owed on a card statement
+    "total da fatura", "valor total da fatura", "saldo devedor", "pago total", "total a pagar",
+    "bakiye", "balance",
 )
 
-_BANK_MARKERS = ("bank", "banka", "bankası", "bankasi", "finansbank", "katılım", "katilim")
+_BANK_MARKERS = (
+    "bank", "banka", "bankası", "bankasi", "finansbank", "katılım", "katilim",
+    "banco", "banque",  # PT/ES/IT · FR
+)
 _DEPOSIT_ASSET_TYPES = ("cash", "bank_account", "foreign_currency")
 
 # A cell that IS a date (whole-cell), so it can't be mistaken for a numeric column value.
@@ -90,9 +107,18 @@ def _iso(c: object) -> str:
     return "" if c is None else str(c)
 
 
+# Trailing/leading isolated D / C after a number — the Brazilian (Itaú) & EU bank
+# convention for débito (negative) / crédito (positive). Sign is carried as a LETTER,
+# not a minus, so without this the amount column reads all-positive and the signed
+# running-balance check can never match a debit row.
+_SUFFIX_DEBIT_RE = re.compile(r"[\d)]\s*[Dd]\s*$")
+_SUFFIX_CREDIT_RE = re.compile(r"[\d)]\s*[Cc]\s*$")
+
+
 def _cell_num(v: object) -> float | None:
     """Numeric value of a cell (native Excel number OR a locale-formatted string), else
-    None. Dates and text reject to None so they can't pollute column detection."""
+    None. Dates and text reject to None so they can't pollute column detection. A trailing
+    'D'/'C' debit/credit marker (Brazilian/EU statements) is applied as the sign."""
     if isinstance(v, bool):
         return None
     if isinstance(v, (int, float)):
@@ -102,16 +128,23 @@ def _cell_num(v: object) -> float | None:
     s = str(v or "").strip()
     if not s or _DATE_CELL.match(s):
         return None
+
+    def _apply_suffix_sign(text: str, base: float) -> float:
+        # Only meaningful for an otherwise-unsigned magnitude; 'D' → negative.
+        if base >= 0 and _SUFFIX_DEBIT_RE.search(text) and not _SUFFIX_CREDIT_RE.search(text):
+            return -base
+        return base
+
     m = _AMOUNT_RE.search(s)               # a value with a 2-digit decimal
     if m:
         try:
-            return float(_normalise_amount(m.group(1)))
+            return _apply_suffix_sign(s, float(_normalise_amount(m.group(1))))
         except Exception:
             return None
     cleaned = s.replace(" ", "")           # a plain/grouped integer ("5000", "5.000")
     if re.fullmatch(r"[-(]?\d{1,3}(?:[.,]\d{3})*\)?", cleaned):
         try:
-            return float(_normalise_amount(cleaned))
+            return _apply_suffix_sign(s, float(_normalise_amount(cleaned)))
         except Exception:
             return None
     return None
@@ -153,12 +186,47 @@ def _load_grid(contents: bytes, content_type: str | None, filename: str):
     return str_rows, num_rows
 
 
-def _running_balance(num_rows: list[list[float | None]]) -> float | None:
-    """THE robust balance detector (no header keyword needed): find a column B and a signed
-    amount column A such that, row to row, B changes by exactly A — i.e. B is a running
-    balance. The DIRECTION of that relationship tells us which end is current:
+def _columns_descending(str_rows: list[list[str]] | None, n: int) -> bool:
+    """Is the statement ordered newest→oldest top-down? Picks the column with the most
+    parseable dates and compares its first vs last date. Default False (assume oldest first,
+    so current balance is the BOTTOM row) when there's no usable date column."""
+    if not str_rows:
+        return False
+    ncols = max((len(r) for r in str_rows), default=0)
+    best_col, best_count = None, 0
+    for c in range(ncols):
+        cnt = sum(
+            1 for i in range(len(str_rows))
+            if c < len(str_rows[i]) and _date_key(str_rows[i][c]) is not None
+        )
+        if cnt > best_count:
+            best_count, best_col = cnt, c
+    if best_col is None or best_count < 2:
+        return False
+    keys = [
+        _date_key(str_rows[i][best_col])
+        for i in range(len(str_rows)) if best_col < len(str_rows[i])
+    ]
+    keys = [k for k in keys if k]
+    return len(keys) >= 2 and keys[0] > keys[-1]
+
+
+def _running_balance(
+    num_rows: list[list[float | None]], str_rows: list[list[str]] | None = None
+) -> float | None:
+    """THE robust balance detector (no header keyword needed): find a column B and an amount
+    column A such that, row to row, B changes by A — i.e. B is a running balance.
+
+    Phase 1 (SIGNED, preferred): B[i] - B[neighbour] == A[i]. Because the sign only lines up
+    one way, the direction that matches tells us which end is current:
       - chronological (oldest→newest top-down): B[i] = B[i-1] + A[i]  → current = BOTTOM
       - reverse-chron (newest first, top-down):  B[i] = B[i+1] + A[i]  → current = TOP
+
+    Phase 2 (MAGNITUDE, fallback): many statements (e.g. Brazilian Itaú) carry the debit/
+    credit sign as a separate column or a 'D'/'C' letter, so the amount column reads
+    unsigned. Then only |B[i] - B[i-1]| == |A[i]| holds. Magnitude is direction-symmetric,
+    so the current end is taken from the DATE column order instead of the sign.
+
     Returns the current balance, or None if no running relationship is confidently found."""
     n = len(num_rows)
     if n < 3:
@@ -176,6 +244,11 @@ def _running_balance(num_rows: list[list[float | None]]) -> float | None:
         if sum(1 for i in range(n) if cell(i, c) is not None) >= max(3, n * 0.5)
     ]
 
+    def _end_value(B: int, from_bottom: bool) -> float | None:
+        rng = range(n - 1, -1, -1) if from_bottom else range(n)
+        return next((cell(i, B) for i in rng if cell(i, B) is not None), None)
+
+    # ── Phase 1: signed (unambiguous direction) ──────────────────────────────
     best: tuple[float, float] | None = None  # (confidence, current_value)
     for B in numeric_cols:
         for A in numeric_cols:
@@ -194,13 +267,37 @@ def _running_balance(num_rows: list[list[float | None]]) -> float | None:
                     if abs((bi - nb) - ai) <= max(0.02, abs(ai) * 0.02):
                         hits += 1
                 if comps >= 2 and hits >= 2 and hits / comps >= 0.6:
-                    if chron:  # current = bottom-most present value
-                        cur = next((cell(i, B) for i in range(n - 1, -1, -1) if cell(i, B) is not None), None)
-                    else:      # current = top-most present value
-                        cur = next((cell(i, B) for i in range(n) if cell(i, B) is not None), None)
+                    cur = _end_value(B, from_bottom=chron)
                     if cur is not None and (best is None or hits / comps > best[0]):
                         best = (hits / comps, cur)
-    return round(abs(best[1]), 2) if best else None
+    if best is not None:
+        return round(abs(best[1]), 2)
+
+    # ── Phase 2: magnitude (unsigned amount column); direction from date order ─
+    descending = _columns_descending(str_rows, n)
+    best_mag: tuple[float, float, float] | None = None  # (conf, mean_abs(B), current)
+    for B in numeric_cols:
+        b_abs = [abs(cell(i, B)) for i in range(n) if cell(i, B) is not None]
+        mean_abs = sum(b_abs) / len(b_abs) if b_abs else 0.0
+        for A in numeric_cols:
+            if A == B:
+                continue
+            hits = comps = 0
+            for i in range(1, n):
+                bi, ai, nb = cell(i, B), cell(i, A), cell(i - 1, B)
+                if bi is None or ai is None or nb is None:
+                    continue
+                comps += 1
+                if abs(abs(bi - nb) - abs(ai)) <= max(0.02, abs(ai) * 0.02):
+                    hits += 1
+            if comps >= 2 and hits >= 2 and hits / comps >= 0.6:
+                conf = hits / comps
+                cur = _end_value(B, from_bottom=not descending)
+                if cur is not None and (
+                    best_mag is None or (conf, mean_abs) > (best_mag[0], best_mag[1])
+                ):
+                    best_mag = (conf, mean_abs, cur)
+    return round(abs(best_mag[2]), 2) if best_mag else None
 
 
 def _date_key(v: object):
@@ -246,6 +343,53 @@ def _balance_by_header_order(str_rows: list[list[str]], num_rows: list[list[floa
     idx = present[0] if order_desc else present[-1]
     cur = num_rows[idx][bcol]
     return round(abs(cur), 2) if cur is not None else None
+
+
+def _running_balance_from_text(lines: list[str]) -> float | None:
+    """Running-balance detection for PDF text (no positional grid). Most statement layouts
+    end each transaction line with '… amount  balance', so we pair the last two amounts on
+    every line and validate that balance moves by amount across consecutive lines. Signed
+    first; magnitude fallback (current = last line, the usual chronological order). Purely
+    numeric — works regardless of language."""
+    seq: list[tuple[float, float]] = []  # (amount, balance) per transaction line
+    for ln in lines:
+        amts = _AMOUNT_RE.findall(ln)
+        if len(amts) < 2:
+            continue
+        try:
+            a = float(_normalise_amount(amts[-2]))
+            b = float(_normalise_amount(amts[-1]))
+        except Exception:
+            continue
+        seq.append((a, b))
+    if len(seq) < 3:
+        return None
+    amounts = [a for a, _ in seq]
+    bals = [b for _, b in seq]
+    m = len(seq)
+
+    def score(signed: bool, chron: bool) -> tuple[int, int]:
+        hits = comps = 0
+        for i in range(m):
+            j = i - 1 if chron else i + 1
+            if not (0 <= j < m):
+                continue
+            comps += 1
+            delta, tgt = bals[i] - bals[j], amounts[i]
+            ok = (abs(delta - tgt) if signed else abs(abs(delta) - abs(tgt))) <= max(0.02, abs(tgt) * 0.02)
+            if ok:
+                hits += 1
+        return hits, comps
+
+    for chron in (True, False):  # signed: direction known from which way the sign lines up
+        h, c = score(True, chron)
+        if c >= 2 and h >= 2 and h / c >= 0.6:
+            return round(abs(bals[-1] if chron else bals[0]), 2)
+    for chron in (True, False):  # magnitude fallback: assume chronological → current = last
+        h, c = score(False, chron)
+        if c >= 2 and h >= 2 and h / c >= 0.6:
+            return round(abs(bals[-1]), 2)
+    return None
 
 
 def _find_balance(lines_lower: list[str], keys: tuple) -> float | None:
@@ -319,7 +463,10 @@ def detect_statement_metadata(contents: bytes, content_type: str | None, filenam
             # Deposit: prefer the running-balance column (self-validating, order-aware),
             # then a header-named balance column by date order, then a labelled line.
             if num_rows:
-                balance = _running_balance(num_rows) or _balance_by_header_order(str_rows, num_rows)
+                balance = _running_balance(num_rows, str_rows) or _balance_by_header_order(str_rows, num_rows)
+            if balance is None and is_pdf:
+                # PDF has no positional grid — scan the '… amount  balance' line layout.
+                balance = _running_balance_from_text(lines)
             if balance is None:
                 balance = _find_balance(lines_lower, _DEPOSIT_BALANCE_KEYS)
 
