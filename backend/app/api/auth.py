@@ -244,7 +244,10 @@ async def register(
     WHY: Logging in right after registering is the expected UX — avoids an extra round-trip.
     BREAKS IF REMOVED: New users can't create accounts.
     """
-    existing = await session.execute(select(User).where(User.email == body.email))
+    # Normalize email — lowercase + strip — so "User@X.com" and "user@x.com" are one
+    # account, and lookups (here + at login) compare consistently.
+    email = body.email.strip().lower()
+    existing = await session.execute(select(User).where(User.email == email))
     if existing.scalar_one_or_none() is not None:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
@@ -264,7 +267,7 @@ async def register(
             detail="You must accept the Terms of Service and Privacy Policy.",
         )
 
-    user = User(email=body.email, password_hash=hash_password(body.password))
+    user = User(email=email, password_hash=hash_password(body.password))
     # Honor browser-detected preferences when valid; otherwise the User model
     # defaults (tr/TRY) apply.
     if body.language in ("tr", "en"):
@@ -320,7 +323,7 @@ async def login(
          prevents email enumeration (attacker can't tell which case applies).
     BREAKS IF REMOVED: Existing users can't obtain tokens to access protected endpoints.
     """
-    result = await session.execute(select(User).where(User.email == body.email))
+    result = await session.execute(select(User).where(User.email == body.email.strip().lower()))
     user = result.scalar_one_or_none()
 
     invalid = HTTPException(
@@ -390,7 +393,7 @@ async def resend_verification(
          generic response whether or not the email exists / is already verified, so
          it can't be used to enumerate accounts.
     """
-    user = (await session.execute(select(User).where(User.email == body.email))).scalar_one_or_none()
+    user = (await session.execute(select(User).where(User.email == body.email.strip().lower()))).scalar_one_or_none()
     if user is not None and not user.is_deleted and not user.email_verified:
         await _send_verification(user)
     return {"message": "If that account exists and is unverified, a new link is on its way."}

@@ -16,7 +16,7 @@ from pydantic import BaseModel
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.dependencies import get_current_user
+from app.core.dependencies import get_verified_user
 from app.core.database import get_session
 from app.models.user import User
 from app.models.app_notification import AppNotification
@@ -66,7 +66,7 @@ def _resp(n: AppNotification) -> NotificationResponse:
 
 @router.get("", response_model=list[NotificationResponse])
 async def list_notifications(
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_verified_user),
     session: AsyncSession = Depends(get_session),
 ) -> list[NotificationResponse]:
     result = await session.execute(
@@ -80,7 +80,7 @@ async def list_notifications(
 
 @router.get("/unread-count")
 async def unread_count(
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_verified_user),
     session: AsyncSession = Depends(get_session),
 ) -> dict:
     result = await session.execute(
@@ -96,7 +96,7 @@ async def unread_count(
 @router.patch("/{notification_id}/read", response_model=NotificationResponse)
 async def mark_read(
     notification_id: str,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_verified_user),
     session: AsyncSession = Depends(get_session),
 ) -> NotificationResponse:
     try:
@@ -126,7 +126,7 @@ async def mark_read(
 async def respond_to_action(
     notification_id: str,
     body: ActionRequest,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_verified_user),
     session: AsyncSession = Depends(get_session),
 ) -> NotificationResponse:
     """Answer a proactive notification ('yes'/'no'). Dispatches to the action handler —
@@ -155,7 +155,7 @@ async def respond_to_action(
 
 @router.post("/mark-all-read")
 async def mark_all_read(
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_verified_user),
     session: AsyncSession = Depends(get_session),
 ) -> dict:
     await session.execute(
@@ -170,7 +170,7 @@ async def mark_all_read(
 @router.post("/generate-daily")
 async def generate_daily(
     lang: str = "en",
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_verified_user),
     session: AsyncSession = Depends(get_session),
 ) -> dict:
     """
@@ -184,7 +184,7 @@ async def generate_daily(
 
 @router.post("/send-email-brief")
 async def send_email_briefs(
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_verified_user),
 ) -> dict:
     """
     Sends the weekly "money brief" email to every opted-in, due user. Manual trigger that

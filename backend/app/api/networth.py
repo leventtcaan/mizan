@@ -1,3 +1,4 @@
+import asyncio
 import hashlib
 import json
 import logging
@@ -13,7 +14,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
 from app.core.database import get_session
-from app.core.dependencies import get_current_user
+from app.core.dependencies import get_current_user, get_paid_user
 from app.models.asset import Asset, ASSET_TYPES
 from app.models.financial_event import FinancialEvent
 from app.models.liability import Liability, LIABILITY_TYPES
@@ -1059,11 +1060,20 @@ USER'S FINANCIAL SNAPSHOT:
 
     try:
         provider = get_provider()
-        reply = await provider.complete(
-            system_prompt=system,
-            user_message=body.message,
-            temperature=0.3,
-        )
+        # provider.complete() injects the categorizer system prompt; for a free-form
+        # system+user analysis we call the underlying client directly (the pattern used
+        # across the services), off the event loop since it's a blocking HTTP call.
+        def _run() -> str:
+            resp = provider.client.chat.completions.create(
+                model=provider.model,
+                messages=[
+                    {"role": "system", "content": system},
+                    {"role": "user", "content": body.message},
+                ],
+                temperature=0.3,
+            )
+            return resp.choices[0].message.content or ""
+        reply = await asyncio.to_thread(_run)
         return AnalyzeResponse(reply=reply or "I could not generate an analysis. Please try again.")
     except Exception:
         return AnalyzeResponse(reply="Analysis unavailable right now. Please try again.")
@@ -1346,7 +1356,7 @@ def _guidance_cache_key(user_id: uuid.UUID, asset_ids: list[str], liability_ids:
 async def get_guidance(
     display_currency: str = "TRY",
     lang: str = "tr",
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_paid_user),
     session: AsyncSession = Depends(get_session),
 ) -> GuidanceResponse:
     """

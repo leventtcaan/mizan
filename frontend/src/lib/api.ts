@@ -1985,6 +1985,8 @@ export async function rejectAssistantAction(actionId: string): Promise<void> {
 // Every endpoint is admin-gated server-side (403 for non-admins). The frontend
 // uses is_admin only to decide what to *show*; the backend is the real guard.
 
+export interface AdminSignupPoint { date: string; count: number; }
+
 export interface AdminOverview {
   users_total: number;
   users_admins: number;
@@ -2001,6 +2003,14 @@ export interface AdminOverview {
   reconciliation_open: number;
   notifications_total: number;
   notifications_unread: number;
+  plan_free: number;
+  plan_plus: number;
+  plan_pro: number;
+  mrr_potential_usd: number;
+  active_7d: number;
+  active_30d: number;
+  users_with_upload: number;
+  signups_30d: AdminSignupPoint[];
   founder_user_id: string | null;
   generated_at: string;
 }
@@ -2010,13 +2020,20 @@ export interface AdminUserRow {
   email: string;
   is_admin: boolean;
   onboarding_completed: boolean;
+  email_verified: boolean;
   language: string;
   display_currency: string;
   plan: string;
   created_at: string;
+  last_activity: string | null;
   last_email_brief_sent: string | null;
   transaction_count: number;
   asset_count: number;
+  statement_count: number;
+  message_count: number;
+  net_worth_usd: number | null;
+  assets_usd: number | null;
+  liabilities_usd: number | null;
 }
 
 export interface AdminUserList {
@@ -2092,13 +2109,21 @@ export function getAdminUser(id: string): Promise<AdminUserDetail> {
 
 export function updateAdminUser(
   id: string,
-  patch: { is_admin?: boolean; onboarding_completed?: boolean; plan?: string },
+  patch: { is_admin?: boolean; onboarding_completed?: boolean; plan?: string; email_verified?: boolean },
 ): Promise<AdminUserDetail> {
   return adminFetch<AdminUserDetail>(`/users/${id}`, { method: "PATCH", body: JSON.stringify(patch) });
 }
 
-export function deleteAdminUser(id: string): Promise<void> {
-  return adminFetch<void>(`/users/${id}`, { method: "DELETE" });
+export function deleteAdminUser(id: string, hard = false): Promise<void> {
+  return adminFetch<void>(`/users/${id}${hard ? "?hard=true" : ""}`, { method: "DELETE" });
+}
+
+export function sendAdminMessage(id: string, title: string, body: string): Promise<{ ok: boolean }> {
+  return adminFetch<{ ok: boolean }>(`/users/${id}/message`, { method: "POST", body: JSON.stringify({ title, body }) });
+}
+
+export function impersonateUser(id: string): Promise<{ access_token: string; email: string }> {
+  return adminFetch<{ access_token: string; email: string }>(`/users/${id}/impersonate`, { method: "POST" });
 }
 
 export function getAdminSystem(): Promise<AdminSystem> {
@@ -2156,9 +2181,19 @@ export interface AdminHealth {
   currency: string | null;
 }
 
+export interface AdminNetWorthPoint { date: string; net_worth_usd: number; assets_usd: number; liabilities_usd: number; }
+export interface AdminPlanHistory { at: string; old_plan: string | null; new_plan: string | null; admin_email: string | null; }
+
 export interface AdminUserProfile {
   id: string;
   email: string;
+  full_name: string | null;
+  account_type: string;
+  company_name: string | null;
+  industry: string | null;
+  team_size: string | null;
+  phone: string | null;
+  country: string | null;
   is_admin: boolean;
   is_founder: boolean;
   onboarding_completed: boolean;
@@ -2177,11 +2212,14 @@ export interface AdminUserProfile {
   liability_count: number;
   receivable_count: number;
   reconciliation_open: number;
+  message_count: number;
   health: AdminHealth | null;
   statements: AdminStatement[];
   assets: AdminAsset[];
   liabilities: AdminLiability[];
   receivables: AdminReceivable[];
+  networth_history: AdminNetWorthPoint[];
+  plan_history: AdminPlanHistory[];
 }
 
 export interface AdminTxn {

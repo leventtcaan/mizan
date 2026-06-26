@@ -1,659 +1,759 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import PageLayout from "@/components/ui/PageLayout";
 import {
-  ShieldCheck, RefreshCw, TrendingUp, TrendingDown, Wallet, Scale, Bell, Zap,
-  X as XIcon, FileText, Calendar, Target, ArrowRight,
+  AreaChart, Area, LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid,
+} from "recharts";
+import {
+  ShieldCheck, RefreshCw, Wallet, Send, Monitor,
+  CheckCircle, Sparkles, Zap, X as XIcon,
 } from "@/components/ui/Icons";
-import { CATEGORY_LABELS } from "@/lib/categories";
 import { useTheme } from "@/lib/theme";
 import {
-  getToken, getStoredUser,
+  getToken, getStoredUser, setToken, setStoredUser,
   getAdminOverview, getAdminSystem, getAdminUsers,
   getAdminUserProfile, getAdminUserTransactions,
-  updateAdminUser, deleteAdminUser, runAdminJob,
+  updateAdminUser, deleteAdminUser, runAdminJob, sendAdminMessage, impersonateUser,
   type AdminOverview, type AdminSystem, type AdminUserRow,
   type AdminUserProfile, type AdminTxn,
 } from "@/lib/api";
 
+const TEAL = "#176B5B";
+const PAGE = 50;
+
 // ── format helpers ─────────────────────────────────────────────────────────────
+function fmtUsd(n: number | null | undefined): string {
+  if (n === null || n === undefined) return "—";
+  const a = Math.abs(n), sign = n < 0 ? "-" : "";
+  if (a >= 1e6) return `${sign}$${(a / 1e6).toFixed(1)}M`;
+  if (a >= 1e3) return `${sign}$${(a / 1e3).toFixed(1)}k`;
+  return `${sign}$${Math.round(a)}`;
+}
+function fmtNum(n: number): string { return new Intl.NumberFormat().format(n); }
 function fmtDate(iso: string | null): string {
   if (!iso) return "—";
-  try { return new Date(iso).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" }); }
-  catch { return iso; }
+  try { return new Date(iso).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" }); } catch { return iso; }
 }
-function fmtDateTime(iso: string | null): string {
+function relTime(iso: string | null): string {
   if (!iso) return "—";
-  try { return new Date(iso).toLocaleString(undefined, { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" }); }
-  catch { return iso; }
+  const diff = Date.now() - new Date(iso).getTime();
+  if (diff < 0) return fmtDate(iso);
+  const m = Math.floor(diff / 60000);
+  if (m < 60) return m <= 1 ? "now" : `${m}m`;
+  const h = Math.floor(m / 60);
+  if (h < 24) return `${h}h`;
+  const d = Math.floor(h / 24);
+  if (d < 30) return `${d}d`;
+  return `${Math.floor(d / 30)}mo`;
 }
-// Scheduler runs on UTC cron — render its instants explicitly in UTC with a label so
-// the "next run" date is correct and unambiguous regardless of the admin's timezone.
-function fmtDateTimeUTC(iso: string | null): string {
+function fmtUTC(iso: string | null): string {
   if (!iso) return "—";
   try {
-    return new Date(iso).toLocaleString(undefined, {
-      month: "short", day: "numeric", hour: "2-digit", minute: "2-digit", hour12: false, timeZone: "UTC",
-    }) + " UTC";
+    return new Date(iso).toLocaleString(undefined, { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit", hour12: false, timeZone: "UTC" }) + " UTC";
   } catch { return iso; }
 }
-function relativeTime(iso: string | null): string {
-  if (!iso) return "never";
-  const then = new Date(iso).getTime();
-  if (isNaN(then)) return "—";
-  const mins = Math.round((Date.now() - then) / 60000);
-  if (mins < 1) return "just now";
-  if (mins < 60) return `${mins}m ago`;
-  const hrs = Math.round(mins / 60);
-  if (hrs < 24) return `${hrs}h ago`;
-  const days = Math.round(hrs / 24);
-  if (days < 30) return `${days}d ago`;
-  return fmtDate(iso);
-}
-function num(n: number): string { return new Intl.NumberFormat(undefined).format(n); }
-function money(v: string, ccy: string): string {
-  const n = parseFloat(v);
-  if (!isFinite(n)) return `${v} ${ccy}`;
-  try { return new Intl.NumberFormat(undefined, { style: "currency", currency: ccy, maximumFractionDigits: 2 }).format(n); }
-  catch { return `${new Intl.NumberFormat(undefined, { maximumFractionDigits: 2 }).format(n)} ${ccy}`; }
-}
-function slug(s: string): string { return s.replace(/_/g, " "); }
 
-const PAGE_SIZE = 25;
-const TX_PAGE = 25;
-
-const BAND_COLOR: Record<string, string> = {
-  strong: "text-pos", steady: "text-brand", fragile: "text-warn", at_risk: "text-neg",
-};
-
-const JOBS: { key: string; label: string; schedJobId: string }[] = [
-  { key: "reconciliation", label: "Reconciliation scan", schedJobId: "reconciliation_all_users" },
-  { key: "daily_notifications", label: "Daily notifications", schedJobId: "daily_notifications_all_users" },
-  { key: "price_refresh", label: "Price refresh + snapshot", schedJobId: "price_refresh_all_users" },
-  { key: "email_briefs", label: "Weekly email briefs", schedJobId: "email_briefs_all_users" },
-];
-
-// ── small UI atoms ──────────────────────────────────────────────────────────────
-function Metric({ label, value, sub, icon, accent = "text-ink" }: {
-  label: string; value: string; sub?: string; icon?: React.ReactNode; accent?: string;
-}) {
-  return (
-    <div className="rounded-xl bg-surface border border-line p-4">
-      <div className="flex items-center gap-1.5 text-ink-mute text-[11px] uppercase tracking-wide mb-2">{icon}{label}</div>
-      <p className={`text-2xl font-bold tabular-nums ${accent}`}>{value}</p>
-      {sub && <p className="text-ink-mute text-xs mt-1">{sub}</p>}
-    </div>
-  );
-}
-function Chip({ ok, label }: { ok: boolean; label: string }) {
-  return (
-    <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border ${
-      ok ? "bg-pos/10 border-pos/30 text-pos" : "bg-danger/10 border-danger/30 text-danger"
-    }`}>
-      <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: ok ? "#1F7A5C" : "#C03131" }} />{label}
-    </span>
-  );
-}
-function Badge({ tone, children }: { tone: "founder" | "admin" | "ok" | "muted"; children: React.ReactNode }) {
-  const cls = {
-    founder: "bg-warn/10 text-warn border-warn/30",
-    admin: "bg-brand/10 text-brand border-brand/30",
-    ok: "bg-pos/10 text-pos border-pos/30",
-    muted: "bg-surface-2 text-ink-mute border-line",
-  }[tone];
-  return <span className={`px-2 py-0.5 rounded text-[10px] font-medium border ${cls}`}>{children}</span>;
-}
+type Tab = "dashboard" | "users" | "system";
 
 export default function AdminPage() {
   const router = useRouter();
-  // Explicit theme-resolved fills for floating overlays (modals must never be
-  // see-through — solid bg-<token> utilities don't always paint at runtime).
   const { resolved } = useTheme();
-  const canvasBg = resolved === "dark" ? "#11100E" : "#F6F4EF";
   const surfaceBg = resolved === "dark" ? "#1C1915" : "#FFFFFF";
-  const [authorized, setAuthorized] = useState<boolean | null>(null);
+
+  const [tab, setTab] = useState<Tab>("dashboard");
+  const [forbidden, setForbidden] = useState(false);
+
   const [overview, setOverview] = useState<AdminOverview | null>(null);
   const [system, setSystem] = useState<AdminSystem | null>(null);
-  const [error, setError] = useState<string | null>(null);
 
-  // users list
   const [users, setUsers] = useState<AdminUserRow[]>([]);
-  const [usersTotal, setUsersTotal] = useState(0);
-  const [search, setSearch] = useState("");
+  const [total, setTotal] = useState(0);
   const [offset, setOffset] = useState(0);
+  const [search, setSearch] = useState("");
   const [usersLoading, setUsersLoading] = useState(false);
 
-  // profile view
-  const [profileId, setProfileId] = useState<string | null>(null);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
   const [profile, setProfile] = useState<AdminUserProfile | null>(null);
-  const [profileLoading, setProfileLoading] = useState(false);
-  const [txns, setTxns] = useState<AdminTxn[]>([]);
-  const [txTotal, setTxTotal] = useState(0);
-  const [txOffset, setTxOffset] = useState(0);
-  const [txLoading, setTxLoading] = useState(false);
 
-  // mutations + jobs
-  const [busy, setBusy] = useState(false);
-  const [jobMsg, setJobMsg] = useState<Record<string, string>>({});
-
-  // delete confirmation (typed email)
-  const [deleteTarget, setDeleteTarget] = useState<{ id: string; email: string } | null>(null);
-  const [deleteText, setDeleteText] = useState("");
-  const [deleting, setDeleting] = useState(false);
-
-  const meId = getStoredUser()?.id ?? "";
-  const founderId = overview?.founder_user_id ?? null;
-
-  const loadOverview = useCallback(() => {
-    getAdminOverview().then(setOverview).catch((e) => {
-      if (e instanceof Error && e.message === "forbidden") router.replace("/home");
-    });
-  }, [router]);
-  const loadSystem = useCallback(() => { getAdminSystem().then(setSystem).catch(() => {}); }, []);
-  const loadUsers = useCallback((term: string, off: number) => {
-    setUsersLoading(true);
-    getAdminUsers(term, PAGE_SIZE, off)
-      .then((res) => { setUsers(res.users); setUsersTotal(res.total); })
-      .catch(() => setUsers([]))
-      .finally(() => setUsersLoading(false));
-  }, []);
-
-  // auth gate — server is source of truth (403 → home)
+  // guard
   useEffect(() => {
     if (!getToken() || !getStoredUser()) { router.replace("/login"); return; }
-    Promise.all([getAdminOverview(), getAdminSystem()])
-      .then(([o, s]) => { setOverview(o); setSystem(s); setAuthorized(true); loadUsers("", 0); })
-      .catch((e) => {
-        if (e instanceof Error && e.message === "forbidden") { router.replace("/home"); return; }
-        setAuthorized(true); setError("Couldn't load admin data.");
-      });
-  }, [router, loadUsers]);
+    if (!getStoredUser()?.is_admin) { router.replace("/home"); return; }
+  }, [router]);
 
-  // debounced search
-  const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  useEffect(() => {
-    if (authorized !== true) return;
-    if (searchTimer.current) clearTimeout(searchTimer.current);
-    searchTimer.current = setTimeout(() => { setOffset(0); loadUsers(search, 0); }, 300);
-    return () => { if (searchTimer.current) clearTimeout(searchTimer.current); };
-  }, [search, authorized, loadUsers]);
-
-  // ── profile open / load ──
-  const loadTxns = useCallback((id: string, off: number) => {
-    setTxLoading(true);
-    getAdminUserTransactions(id, TX_PAGE, off)
-      .then((res) => { setTxns(res.transactions); setTxTotal(res.total); })
-      .catch(() => setTxns([]))
-      .finally(() => setTxLoading(false));
+  const loadDashboard = useCallback(async () => {
+    try { setOverview(await getAdminOverview()); }
+    catch (e) { if (e instanceof Error && e.message === "forbidden") setForbidden(true); }
+  }, []);
+  const loadSystem = useCallback(async () => {
+    try { setSystem(await getAdminSystem()); } catch { /* */ }
+  }, []);
+  const loadUsers = useCallback(async (s: string, off: number) => {
+    setUsersLoading(true);
+    try {
+      const r = await getAdminUsers(s, PAGE, off);
+      setUsers(r.users); setTotal(r.total); setOffset(off);
+    } catch (e) { if (e instanceof Error && e.message === "forbidden") setForbidden(true); }
+    finally { setUsersLoading(false); }
   }, []);
 
-  const openProfile = useCallback((id: string) => {
-    setProfileId(id); setProfile(null); setProfileLoading(true);
-    setTxns([]); setTxTotal(0); setTxOffset(0);
-    getAdminUserProfile(id).then(setProfile).catch(() => setProfile(null)).finally(() => setProfileLoading(false));
-    loadTxns(id, 0);
-  }, [loadTxns]);
+  useEffect(() => { void loadDashboard(); }, [loadDashboard]);
+  useEffect(() => { if (tab === "users") void loadUsers(search, offset); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [tab]);
+  useEffect(() => { if (tab === "system") void loadSystem(); }, [tab, loadSystem]);
 
-  const closeProfile = useCallback(() => { setProfileId(null); setProfile(null); }, []);
+  const openUser = useCallback(async (id: string) => {
+    setSelectedId(id); setProfile(null);
+    try { setProfile(await getAdminUserProfile(id)); } catch { /* */ }
+  }, []);
 
-  // ── mutations ──
-  const patchUser = useCallback(async (id: string, patch: { is_admin?: boolean; onboarding_completed?: boolean; plan?: string }) => {
-    setBusy(true);
-    try {
-      await updateAdminUser(id, patch);
-      setUsers((prev) => prev.map((x) => (x.id === id ? { ...x, ...patch } : x)));
-      setProfile((p) => (p && p.id === id ? { ...p, ...patch } : p));
-      loadOverview();
-    } catch (e) { alert(e instanceof Error ? e.message : "Failed"); }
-    finally { setBusy(false); }
-  }, [loadOverview]);
+  const refreshSelected = useCallback(async () => {
+    if (selectedId) { try { setProfile(await getAdminUserProfile(selectedId)); } catch { /* */ } }
+  }, [selectedId]);
 
-  const confirmDelete = useCallback(async () => {
-    if (!deleteTarget || deleteText !== deleteTarget.email) return;
-    setDeleting(true);
-    try {
-      await deleteAdminUser(deleteTarget.id);
-      setUsers((prev) => prev.filter((x) => x.id !== deleteTarget.id));
-      setUsersTotal((n) => Math.max(0, n - 1));
-      if (profileId === deleteTarget.id) closeProfile();
-      setDeleteTarget(null); setDeleteText("");
-      loadOverview();
-    } catch (e) { alert(e instanceof Error ? e.message : "Failed"); }
-    finally { setDeleting(false); }
-  }, [deleteTarget, deleteText, profileId, closeProfile, loadOverview]);
-
-  const triggerJob = useCallback(async (key: string) => {
-    setJobMsg((m) => ({ ...m, [key]: "starting…" }));
-    try {
-      await runAdminJob(key);
-      setJobMsg((m) => ({ ...m, [key]: "started ✓" }));
-      setTimeout(() => { loadSystem(); setJobMsg((m) => { const n = { ...m }; delete n[key]; return n; }); }, 4000);
-    } catch (e) { setJobMsg((m) => ({ ...m, [key]: e instanceof Error ? e.message : "failed" })); }
-  }, [loadSystem]);
-
-  // ── render ──
-  if (authorized === null) {
+  if (forbidden) {
     return (
-      <PageLayout maxWidth="xl">
-        <div className="h-[40vh] flex items-center justify-center">
-          <span className="w-6 h-6 border-2 border-line border-t-brand rounded-full animate-spin" />
+      <PageLayout title="Command Center" maxWidth="md">
+        <div className="bg-surface border border-line rounded-2xl p-10 text-center text-ink-mute">
+          You don&apos;t have access to this area.
         </div>
       </PageLayout>
     );
   }
 
-  const onboardPct = overview && overview.users_total > 0
-    ? Math.round((overview.users_onboarded / overview.users_total) * 100) : 0;
-  const iAmFounder = Boolean(founderId && meId && founderId === meId);
+  return (
+    <PageLayout maxWidth="xl">
+      {/* Header */}
+      <div className="flex items-center justify-between gap-4 mb-6 flex-wrap">
+        <div className="flex items-center gap-3 min-w-0">
+          <span className="w-10 h-10 rounded-xl flex items-center justify-center text-white shrink-0" style={{ backgroundColor: TEAL }}>
+            <ShieldCheck size={20} />
+          </span>
+          <div className="min-w-0">
+            <h1 className="text-xl font-bold text-ink leading-tight">Command Center</h1>
+            <p className="text-xs text-ink-mute">Full visibility &amp; control · {overview ? `${fmtNum(overview.users_total)} users` : "…"}</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          {system && (
+            <span className="text-[10px] uppercase tracking-wider px-2 py-1 rounded-full bg-surface-2 text-ink-mute font-semibold">
+              {system.environment}
+            </span>
+          )}
+          <button onClick={() => { void loadDashboard(); if (tab === "users") void loadUsers(search, offset); if (tab === "system") void loadSystem(); }}
+            className="p-2 rounded-lg border border-line text-ink-mute hover:text-ink hover:border-[#176B5B]/50 transition-colors">
+            <RefreshCw size={15} />
+          </button>
+        </div>
+      </div>
 
-  const refreshAction = (
-    <button onClick={() => { loadOverview(); loadSystem(); loadUsers(search, offset); }}
-      className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-line hover:border-line-strong hover:bg-surface text-sm text-ink-mute hover:text-ink-soft transition-colors">
-      <RefreshCw size={14} /> Refresh
-    </button>
+      {/* Tabs */}
+      <div className="inline-flex rounded-xl border border-line p-1 mb-6 bg-surface">
+        {(["dashboard", "users", "system"] as Tab[]).map((tb) => (
+          <button key={tb} onClick={() => setTab(tb)}
+            className={`px-4 py-1.5 rounded-lg text-sm font-medium capitalize transition-colors ${tab === tb ? "text-white" : "text-ink-mute hover:text-ink-soft"}`}
+            style={tab === tb ? { backgroundColor: TEAL } : undefined}>
+            {tb}
+          </button>
+        ))}
+      </div>
+
+      {tab === "dashboard" && <Dashboard o={overview} />}
+      {tab === "users" && (
+        <Users
+          users={users} total={total} offset={offset} loading={usersLoading} search={search}
+          onSearch={(s) => { setSearch(s); void loadUsers(s, 0); }}
+          onPage={(off) => void loadUsers(search, off)}
+          onOpen={openUser}
+          founderId={overview?.founder_user_id ?? null}
+        />
+      )}
+      {tab === "system" && <System system={system} onJob={async (j) => { await runAdminJob(j); setTimeout(() => void loadSystem(), 1200); }} />}
+
+      {/* User detail slide-over */}
+      {selectedId && (
+        <UserDetail
+          profile={profile}
+          surfaceBg={surfaceBg}
+          onClose={() => { setSelectedId(null); setProfile(null); }}
+          onChanged={() => { void refreshSelected(); if (tab === "users") void loadUsers(search, offset); void loadDashboard(); }}
+        />
+      )}
+    </PageLayout>
   );
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// DASHBOARD
+// ════════════════════════════════════════════════════════════════════════════
+function Dashboard({ o }: { o: AdminOverview | null }) {
+  if (!o) return <SkeletonGrid />;
+  const paid = o.plan_plus + o.plan_pro;
+  const conv = o.users_total ? Math.round((paid / o.users_total) * 100) : 0;
+  const uploadRate = o.users_total ? Math.round((o.users_with_upload / o.users_total) * 100) : 0;
+  const onboardedRate = o.users_total ? Math.round((o.users_onboarded / o.users_total) * 100) : 0;
+  const chart = o.signups_30d.map((p) => ({ d: p.date.slice(5), v: p.count }));
 
   return (
-    <PageLayout
-      title="Admin"
-      titleBadge={
-        <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold border ${
-          iAmFounder ? "bg-warn/10 border-warn/30 text-warn" : "bg-brand/10 border-brand/30 text-brand"
-        }`}>
-          <ShieldCheck size={11} /> {iAmFounder ? "founder" : "admin"}
-        </span>
-      }
-      subtitle={overview ? `System snapshot · ${fmtDateTime(overview.generated_at)}` : "System overview & management"}
-      action={refreshAction}
-      maxWidth="xl"
-    >
-      {error && <div className="mb-6 bg-danger/10 border border-danger/30 rounded-xl p-4 text-danger text-sm">{error}</div>}
+    <div className="space-y-4">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        <Kpi label="Total users" value={fmtNum(o.users_total)} sub={`+${o.users_new_7d} this week`} icon={<ShieldCheck size={16} />} />
+        <Kpi label="Paid users" value={fmtNum(paid)} sub={`${conv}% conversion`} icon={<Sparkles size={16} />} accent />
+        <Kpi label="MRR potential" value={fmtUsd(o.mrr_potential_usd)} sub={`${o.plan_plus} Plus · ${o.plan_pro} Pro`} icon={<Wallet size={16} />} accent />
+        <Kpi label="Active (7d)" value={fmtNum(o.active_7d)} sub={`${fmtNum(o.active_30d)} in 30d`} icon={<Zap size={16} />} />
+      </div>
 
-      {/* GROWTH */}
-      {overview && (
-        <>
-          <p className="text-[11px] font-bold tracking-widest text-ink-mute uppercase mb-3">Growth</p>
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 mb-8">
-            <Metric label="Total users" value={num(overview.users_total)} icon={<TrendingUp size={12} />}
-              sub={`${num(overview.users_admins)} admin${overview.users_admins === 1 ? "" : "s"}`} />
-            <Metric label="New · 24h" value={num(overview.users_new_24h)} accent="text-pos" />
-            <Metric label="New · 7d" value={num(overview.users_new_7d)} accent="text-pos" />
-            <Metric label="New · 30d" value={num(overview.users_new_30d)} accent="text-pos" />
-            <Metric label="Onboarded" value={`${onboardPct}%`} sub={`${num(overview.users_onboarded)} of ${num(overview.users_total)}`} />
-            <Metric label="Weekly email" value={num(overview.users_weekly_email_optin)} sub="opted in" icon={<Bell size={12} />} />
-          </div>
+      <Card title="Signups · last 30 days" subtitle={`${o.users_new_30d} new accounts`}>
+        <div className="h-52">
+          <ResponsiveContainer width="100%" height="100%">
+            <AreaChart data={chart} margin={{ top: 8, right: 8, left: -18, bottom: 0 }}>
+              <defs>
+                <linearGradient id="adminSignups" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor={TEAL} stopOpacity={0.35} />
+                  <stop offset="100%" stopColor={TEAL} stopOpacity={0} />
+                </linearGradient>
+              </defs>
+              <CartesianGrid strokeDasharray="3 3" stroke="rgb(var(--c-line))" vertical={false} />
+              <XAxis dataKey="d" tick={{ fill: "rgb(var(--c-text-muted))", fontSize: 10 }} axisLine={false} tickLine={false} minTickGap={28} />
+              <YAxis allowDecimals={false} tick={{ fill: "rgb(var(--c-text-muted))", fontSize: 10 }} axisLine={false} tickLine={false} width={32} />
+              <Tooltip contentStyle={{ backgroundColor: "rgb(var(--c-surface))", border: "1px solid rgb(var(--c-line))", borderRadius: 8, fontSize: 12 }} />
+              <Area type="monotone" dataKey="v" stroke={TEAL} strokeWidth={2} fill="url(#adminSignups)" />
+            </AreaChart>
+          </ResponsiveContainer>
+        </div>
+      </Card>
 
-          {/* ACTIVITY */}
-          <p className="text-[11px] font-bold tracking-widest text-ink-mute uppercase mb-3">Activity</p>
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 mb-8">
-            <Metric label="Transactions" value={num(overview.transactions_total)} icon={<Wallet size={12} />} sub={`+${num(overview.transactions_new_7d)} this week`} />
-            <Metric label="Statements" value={num(overview.upload_batches)} sub="upload batches" />
-            <Metric label="Assets" value={num(overview.assets_total)} icon={<Scale size={12} />} />
-            <Metric label="Liabilities" value={num(overview.liabilities_total)} />
-            <Metric label="Open reconciliations" value={num(overview.reconciliation_open)} accent={overview.reconciliation_open > 0 ? "text-warn" : "text-ink"} />
-            <Metric label="Notifications" value={num(overview.notifications_total)} sub={`${num(overview.notifications_unread)} unread`} />
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <Card title="Plan mix" subtitle="Free vs paid">
+          <PlanBar free={o.plan_free} plus={o.plan_plus} pro={o.plan_pro} />
+          <div className="grid grid-cols-3 gap-2 mt-4">
+            <MiniStat label="Free" value={fmtNum(o.plan_free)} dot="bg-ink-mute" />
+            <MiniStat label="Plus" value={fmtNum(o.plan_plus)} dot="bg-[#176B5B]" />
+            <MiniStat label="Pro" value={fmtNum(o.plan_pro)} dot="bg-amber-500" />
           </div>
-        </>
-      )}
+        </Card>
 
-      {/* SYSTEM + JOBS */}
-      {system && (
-        <div className="mb-8 rounded-xl bg-surface border border-line p-5">
-          <div className="flex items-center justify-between mb-4">
-            <p className="text-[11px] font-bold tracking-widest text-ink-mute uppercase">System</p>
-            <span className="text-xs text-ink-mute">
-              env: <span className="text-ink-soft font-medium">{system.environment}</span> · scheduler:{" "}
-              <span className={system.scheduler.running ? "text-pos" : "text-neg"}>{system.scheduler.running ? "running" : "stopped"}</span>
-            </span>
+        <Card title="Engagement" subtitle="How much the product is used">
+          <div className="space-y-3 pt-1">
+            <Meter label="Onboarded" pct={onboardedRate} caption={`${fmtNum(o.users_onboarded)} / ${fmtNum(o.users_total)}`} />
+            <Meter label="Uploaded a statement" pct={uploadRate} caption={`${fmtNum(o.users_with_upload)} users`} />
+            <Meter label="Active last 7 days" pct={o.users_total ? Math.round((o.active_7d / o.users_total) * 100) : 0} caption={`${fmtNum(o.active_7d)} users`} />
           </div>
-          <div className="flex flex-wrap gap-2 mb-5">
-            <Chip ok={system.config.llm_configured} label="LLM" />
-            <Chip ok={system.config.deepseek_api_key} label="DeepSeek" />
-            <Chip ok={system.config.openai_api_key} label="OpenAI" />
-            <Chip ok={system.config.resend_api_key} label="Resend email" />
+          <div className="grid grid-cols-3 gap-2 mt-4 pt-3 border-t border-line">
+            <MiniStat label="Transactions" value={fmtNum(o.transactions_total)} />
+            <MiniStat label="Statements" value={fmtNum(o.upload_batches)} />
+            <MiniStat label="Open items" value={fmtNum(o.reconciliation_open)} />
           </div>
-          <div className="space-y-2">
-            {JOBS.map((j) => {
-              const next = system.scheduler.jobs[j.schedJobId]?.next_run ?? null;
-              const last = system.scheduler.last_run[j.key] ?? null;
-              return (
-                <div key={j.key} className="flex items-center gap-3 p-3 rounded-lg bg-canvas border border-line">
-                  <Zap size={15} className="text-brand shrink-0" />
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm text-ink-soft">{j.label}</p>
-                    <p className="text-xs text-ink-mute">last run: {fmtDateTimeUTC(last)} · next: {fmtDateTimeUTC(next)}</p>
-                  </div>
-                  {jobMsg[j.key] && <span className="text-xs text-pos shrink-0">{jobMsg[j.key]}</span>}
-                  <button onClick={() => triggerJob(j.key)} disabled={Boolean(jobMsg[j.key])}
-                    className="shrink-0 px-3 py-1.5 rounded-lg text-xs font-medium bg-surface-2 hover:bg-surface-3 text-ink-soft transition-colors disabled:opacity-50">Run now</button>
-                </div>
-              );
-            })}
+        </Card>
+      </div>
+    </div>
+  );
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// USERS
+// ════════════════════════════════════════════════════════════════════════════
+function Users({ users, total, offset, loading, search, onSearch, onPage, onOpen, founderId }: {
+  users: AdminUserRow[]; total: number; offset: number; loading: boolean; search: string;
+  onSearch: (s: string) => void; onPage: (off: number) => void; onOpen: (id: string) => void; founderId: string | null;
+}) {
+  const [q, setQ] = useState(search);
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center justify-between gap-3 flex-wrap">
+        <form onSubmit={(e) => { e.preventDefault(); onSearch(q.trim()); }} className="flex-1 min-w-[220px]">
+          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search by email…"
+            className="w-full bg-canvas border border-line rounded-lg px-3 py-2 text-sm text-ink placeholder:text-ink-mute focus:outline-none focus:border-[#176B5B] focus:ring-2 focus:ring-[#176B5B]/20" />
+        </form>
+        <span className="text-xs text-ink-mute">{fmtNum(total)} users</span>
+      </div>
+
+      <div className="bg-surface border border-line rounded-2xl overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm min-w-[920px]">
+            <thead>
+              <tr className="text-left text-[11px] uppercase tracking-wide text-ink-mute border-b border-line">
+                <th className="px-4 py-2.5 font-semibold">User</th>
+                <th className="px-3 py-2.5 font-semibold">Plan</th>
+                <th className="px-3 py-2.5 font-semibold">Joined</th>
+                <th className="px-3 py-2.5 font-semibold">Active</th>
+                <th className="px-3 py-2.5 font-semibold text-right">Net worth</th>
+                <th className="px-3 py-2.5 font-semibold text-right">Assets</th>
+                <th className="px-3 py-2.5 font-semibold text-right">Debts</th>
+                <th className="px-3 py-2.5 font-semibold text-right">Stmts</th>
+                <th className="px-3 py-2.5 font-semibold text-right">Msgs</th>
+              </tr>
+            </thead>
+            <tbody>
+              {loading && users.length === 0 && (
+                <tr><td colSpan={9} className="px-4 py-10 text-center text-ink-mute">Loading…</td></tr>
+              )}
+              {!loading && users.length === 0 && (
+                <tr><td colSpan={9} className="px-4 py-10 text-center text-ink-mute">No users found.</td></tr>
+              )}
+              {users.map((u) => (
+                <tr key={u.id} onClick={() => onOpen(u.id)}
+                  className="border-b border-line last:border-0 hover:bg-surface-2/50 cursor-pointer transition-colors">
+                  <td className="px-4 py-3">
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <span className="w-8 h-8 rounded-full text-white text-xs font-semibold flex items-center justify-center shrink-0" style={{ backgroundColor: TEAL }}>
+                        {u.email[0]?.toUpperCase()}
+                      </span>
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-ink truncate max-w-[200px]">{u.email}</span>
+                          {u.email_verified
+                            ? <CheckCircle size={13} className="text-pos shrink-0" />
+                            : <span className="w-1.5 h-1.5 rounded-full bg-warn shrink-0" title="unverified" />}
+                          {u.id === founderId && <span className="text-[9px] uppercase px-1 rounded bg-amber-500/15 text-amber-600 font-bold shrink-0">Founder</span>}
+                          {u.is_admin && u.id !== founderId && <span className="text-[9px] uppercase px-1 rounded bg-[#176B5B]/15 text-[#176B5B] font-bold shrink-0">Admin</span>}
+                        </div>
+                        <span className="text-[11px] text-ink-mute">{u.transaction_count} txns · {u.asset_count} assets</span>
+                      </div>
+                    </div>
+                  </td>
+                  <td className="px-3 py-3"><PlanBadge plan={u.plan} /></td>
+                  <td className="px-3 py-3 text-ink-mute text-xs whitespace-nowrap">{fmtDate(u.created_at)}</td>
+                  <td className="px-3 py-3 text-ink-mute text-xs">{relTime(u.last_activity)}</td>
+                  <td className="px-3 py-3 text-right tabular-nums text-ink font-medium">{fmtUsd(u.net_worth_usd)}</td>
+                  <td className="px-3 py-3 text-right tabular-nums text-pos">{fmtUsd(u.assets_usd)}</td>
+                  <td className="px-3 py-3 text-right tabular-nums text-neg">{fmtUsd(u.liabilities_usd)}</td>
+                  <td className="px-3 py-3 text-right tabular-nums text-ink-mute">{u.statement_count}</td>
+                  <td className="px-3 py-3 text-right tabular-nums text-ink-mute">{u.message_count}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {total > PAGE && (
+        <div className="flex items-center justify-between text-xs text-ink-mute">
+          <span>{offset + 1}–{Math.min(offset + PAGE, total)} of {fmtNum(total)}</span>
+          <div className="flex gap-2">
+            <button disabled={offset === 0} onClick={() => onPage(Math.max(0, offset - PAGE))}
+              className="px-3 py-1.5 rounded-lg border border-line disabled:opacity-40 hover:border-[#176B5B]/50 transition-colors">Prev</button>
+            <button disabled={offset + PAGE >= total} onClick={() => onPage(offset + PAGE)}
+              className="px-3 py-1.5 rounded-lg border border-line disabled:opacity-40 hover:border-[#176B5B]/50 transition-colors">Next</button>
           </div>
         </div>
       )}
+    </div>
+  );
+}
 
-      {/* USERS */}
-      <div className="flex items-center justify-between mb-3">
-        <p className="text-[11px] font-bold tracking-widest text-ink-mute uppercase">Users</p>
-        <span className="text-xs text-ink-mute">{num(usersTotal)} total</span>
+// ════════════════════════════════════════════════════════════════════════════
+// USER DETAIL (slide-over)
+// ════════════════════════════════════════════════════════════════════════════
+function UserDetail({ profile, surfaceBg, onClose, onChanged }: {
+  profile: AdminUserProfile | null; surfaceBg: string; onClose: () => void; onChanged: () => void;
+}) {
+  const [busy, setBusy] = useState(false);
+  const [msgOpen, setMsgOpen] = useState(false);
+  const [msgTitle, setMsgTitle] = useState("");
+  const [msgBody, setMsgBody] = useState("");
+  const [toast, setToast] = useState<string | null>(null);
+  const [txns, setTxns] = useState<AdminTxn[] | null>(null);
+  const [txnTotal, setTxnTotal] = useState(0);
+
+  const flash = (m: string) => { setToast(m); setTimeout(() => setToast(null), 1800); };
+
+  const p = profile;
+  const setPlan = async (plan: string) => {
+    if (!p || busy) return; setBusy(true);
+    try { await updateAdminUser(p.id, { plan }); flash(`Plan → ${plan}`); onChanged(); } catch { flash("Failed"); } finally { setBusy(false); }
+  };
+  const toggleVerify = async () => {
+    if (!p || busy) return; setBusy(true);
+    try { await updateAdminUser(p.id, { email_verified: !p.email_verified }); flash(p.email_verified ? "Unverified" : "Verified"); onChanged(); } catch { flash("Failed"); } finally { setBusy(false); }
+  };
+  const doImpersonate = async () => {
+    if (!p) return;
+    if (!confirm(`View the app as ${p.email}?\n\nYou'll be signed in as this user. Log out and sign back in to return to your admin account.`)) return;
+    try {
+      const res = await impersonateUser(p.id);
+      const adminTok = getToken();
+      if (adminTok) localStorage.setItem("mizan_admin_token", adminTok);
+      setToken(res.access_token);
+      setStoredUser({
+        id: p.id, email: p.email, onboarding_completed: p.onboarding_completed,
+        language: p.language, display_currency: p.display_currency, plan: p.plan,
+        is_admin: false, email_verified: p.email_verified,
+        display_name: p.full_name ?? undefined,
+        account_type: (p.account_type as "personal" | "business") ?? "personal",
+      });
+      window.location.href = "/home";
+    } catch { flash("Failed"); }
+  };
+  const sendMsg = async () => {
+    if (!p || !msgBody.trim() || busy) return; setBusy(true);
+    try { await sendAdminMessage(p.id, msgTitle.trim() || "Message", msgBody.trim()); setMsgOpen(false); setMsgTitle(""); setMsgBody(""); flash("Message sent"); } catch { flash("Failed"); } finally { setBusy(false); }
+  };
+  const softDelete = async () => {
+    if (!p || busy) return;
+    if (!confirm(`Soft-delete ${p.email}? They can no longer log in; data is kept and the action is logged.`)) return;
+    setBusy(true);
+    try { await deleteAdminUser(p.id, false); flash("Deleted"); onChanged(); onClose(); } catch { flash("Failed"); } finally { setBusy(false); }
+  };
+  const loadTxns = useCallback(async () => {
+    if (!p) return;
+    try { const r = await getAdminUserTransactions(p.id, 50, 0); setTxns(r.transactions); setTxnTotal(r.total); } catch { /* */ }
+  }, [p]);
+
+  const nwChart = (p?.networth_history ?? []).map((x) => ({ d: x.date.slice(5), v: Math.round(x.net_worth_usd) }));
+
+  return (
+    <div className="fixed inset-0 z-50 flex justify-end bg-black/40" onClick={onClose}>
+      <div className="w-full max-w-3xl h-full overflow-y-auto border-l border-line shadow-2xl" style={{ backgroundColor: surfaceBg }} onClick={(e) => e.stopPropagation()}>
+        {toast && (
+          <div className="fixed top-5 right-6 z-50 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-white text-xs shadow-lg" style={{ backgroundColor: TEAL }}>
+            <CheckCircle size={13} /> {toast}
+          </div>
+        )}
+
+        {!p ? (
+          <div className="p-10 text-center text-ink-mute">Loading…</div>
+        ) : (
+          <div className="p-6 space-y-5">
+            {/* Header */}
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex items-center gap-3 min-w-0">
+                <span className="w-12 h-12 rounded-full text-white text-lg font-semibold flex items-center justify-center shrink-0" style={{ backgroundColor: TEAL }}>
+                  {(p.full_name?.[0] ?? p.email[0])?.toUpperCase()}
+                </span>
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <h2 className="text-ink font-semibold truncate">{p.full_name || p.email}</h2>
+                    {p.is_founder && <span className="text-[9px] uppercase px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-600 font-bold">Founder</span>}
+                    {p.is_admin && !p.is_founder && <span className="text-[9px] uppercase px-1.5 py-0.5 rounded bg-[#176B5B]/15 text-[#176B5B] font-bold">Admin</span>}
+                  </div>
+                  <p className="text-ink-mute text-xs truncate">{p.email}</p>
+                </div>
+              </div>
+              <button onClick={onClose} className="p-2 rounded-lg text-ink-mute hover:text-ink hover:bg-surface-2 transition-colors"><XIcon size={18} /></button>
+            </div>
+
+            {/* Status chips */}
+            <div className="flex flex-wrap gap-2">
+              <PlanBadge plan={p.plan} />
+              <Chip tone={p.email_verified ? "pos" : "warn"}>{p.email_verified ? "Verified" : "Unverified"}</Chip>
+              <Chip tone={p.onboarding_completed ? "pos" : "mute"}>{p.onboarding_completed ? "Onboarded" : "Not onboarded"}</Chip>
+              <Chip tone="mute">{p.account_type}</Chip>
+              <Chip tone="mute">{p.display_currency} · {p.language.toUpperCase()}</Chip>
+              {p.health?.score != null && <Chip tone="brand">Health {p.health.score}</Chip>}
+            </div>
+
+            {/* Actions */}
+            <div className="rounded-xl border border-line p-3 space-y-3">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-[11px] uppercase tracking-wide text-ink-mute mr-1">Plan</span>
+                {["free", "plus", "pro"].map((pl) => (
+                  <button key={pl} disabled={busy} onClick={() => setPlan(pl)}
+                    className={`px-3 py-1 rounded-lg text-xs font-medium border transition-colors ${p.plan === pl ? "text-white border-transparent" : "border-line text-ink-soft hover:border-[#176B5B]/50"}`}
+                    style={p.plan === pl ? { backgroundColor: TEAL } : undefined}>{pl}</button>
+                ))}
+              </div>
+              <div className="flex items-center gap-2 flex-wrap">
+                <ActBtn onClick={toggleVerify} busy={busy} icon={<CheckCircle size={13} />}>{p.email_verified ? "Unverify" : "Verify email"}</ActBtn>
+                <ActBtn onClick={() => setMsgOpen((v) => !v)} icon={<Send size={13} />}>Message</ActBtn>
+                <ActBtn onClick={doImpersonate} icon={<Monitor size={13} />}>View as user</ActBtn>
+                <ActBtn onClick={softDelete} busy={busy} danger icon={<XIcon size={13} />}>Delete</ActBtn>
+              </div>
+              {msgOpen && (
+                <div className="space-y-2 pt-1">
+                  <input value={msgTitle} onChange={(e) => setMsgTitle(e.target.value)} placeholder="Title"
+                    className="w-full bg-canvas border border-line rounded-lg px-3 py-2 text-sm text-ink placeholder:text-ink-mute focus:outline-none focus:border-[#176B5B]" />
+                  <textarea value={msgBody} onChange={(e) => setMsgBody(e.target.value)} placeholder="Write a message that lands in their notifications…" rows={3}
+                    className="w-full bg-canvas border border-line rounded-lg px-3 py-2 text-sm text-ink placeholder:text-ink-mute focus:outline-none focus:border-[#176B5B] resize-none" />
+                  <button disabled={busy || !msgBody.trim()} onClick={sendMsg}
+                    className="px-3 py-1.5 rounded-lg text-white text-xs font-semibold disabled:opacity-50" style={{ backgroundColor: TEAL }}>Send</button>
+                </div>
+              )}
+            </div>
+
+            {/* Snapshot KPIs */}
+            <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
+              <MiniStat label="Net worth" value={fmtUsd(p.networth_history.at(-1)?.net_worth_usd ?? null)} />
+              <MiniStat label="Assets" value={fmtNum(p.asset_count)} />
+              <MiniStat label="Debts" value={fmtNum(p.liability_count)} />
+              <MiniStat label="Txns" value={fmtNum(p.transaction_count)} />
+              <MiniStat label="Stmts" value={fmtNum(p.upload_batches)} />
+              <MiniStat label="Msgs" value={fmtNum(p.message_count)} />
+            </div>
+
+            {/* Net worth history */}
+            {nwChart.length >= 2 && (
+              <Card title="Net worth (USD)" subtitle={`${nwChart.length} snapshots · last active ${relTime(p.last_activity)}`}>
+                <div className="h-40">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <LineChart data={nwChart} margin={{ top: 6, right: 8, left: -14, bottom: 0 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="rgb(var(--c-line))" vertical={false} />
+                      <XAxis dataKey="d" tick={{ fill: "rgb(var(--c-text-muted))", fontSize: 10 }} axisLine={false} tickLine={false} minTickGap={24} />
+                      <YAxis tick={{ fill: "rgb(var(--c-text-muted))", fontSize: 10 }} axisLine={false} tickLine={false} width={40} tickFormatter={(v: number) => fmtUsd(v)} />
+                      <Tooltip contentStyle={{ backgroundColor: "rgb(var(--c-surface))", border: "1px solid rgb(var(--c-line))", borderRadius: 8, fontSize: 12 }} formatter={(v: number) => [fmtUsd(v), "Net worth"]} />
+                      <Line type="monotone" dataKey="v" stroke={TEAL} strokeWidth={2} dot={false} />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </div>
+              </Card>
+            )}
+
+            {/* Business identity */}
+            {p.account_type === "business" && (p.company_name || p.industry || p.team_size) && (
+              <Card title="Business">
+                <DefList rows={[["Company", p.company_name], ["Industry", p.industry], ["Team size", p.team_size], ["Phone", p.phone], ["Country", p.country]]} />
+              </Card>
+            )}
+
+            {/* Financial life */}
+            {p.assets.length > 0 && (
+              <MiniTable title="Assets" cols={["Name", "Type", "Value"]} rows={p.assets.map((a) => [a.name, a.asset_type, `${a.current_value} ${a.currency}`])} />
+            )}
+            {p.liabilities.length > 0 && (
+              <MiniTable title="Liabilities" cols={["Name", "Type", "Owed"]} rows={p.liabilities.map((l) => [l.name, l.liability_type, `${l.remaining_amount} ${l.currency}`])} />
+            )}
+            {p.receivables.length > 0 && (
+              <MiniTable title="Receivables" cols={["From", "Status", "Amount"]} rows={p.receivables.map((r) => [r.from_person, r.status, `${r.amount} ${r.currency}`])} />
+            )}
+            {p.statements.length > 0 && (
+              <MiniTable title="Statements uploaded" cols={["Uploaded", "Count", "Period"]} rows={p.statements.map((s) => [fmtDate(s.uploaded_at), `${s.transaction_count} txns`, `${s.min_date.slice(0, 10)} → ${s.max_date.slice(0, 10)}`])} />
+            )}
+
+            {/* Plan history */}
+            {p.plan_history.length > 0 && (
+              <Card title="Plan history">
+                <div className="space-y-1.5 pt-1">
+                  {p.plan_history.map((h, i) => (
+                    <div key={i} className="flex items-center justify-between text-xs">
+                      <span className="text-ink-soft">{h.old_plan ?? "?"} → <span className="font-semibold">{h.new_plan ?? "?"}</span></span>
+                      <span className="text-ink-mute">{fmtDate(h.at)} · {h.admin_email}</span>
+                    </div>
+                  ))}
+                </div>
+              </Card>
+            )}
+
+            {/* Transactions (lazy) */}
+            <Card title="Transactions" subtitle={`${fmtNum(p.transaction_count)} total`}>
+              {txns === null ? (
+                <button onClick={() => void loadTxns()} className="text-sm text-[#176B5B] font-medium hover:underline">Load recent transactions →</button>
+              ) : txns.length === 0 ? (
+                <p className="text-ink-mute text-sm">No transactions.</p>
+              ) : (
+                <div className="overflow-x-auto -mx-1">
+                  <table className="w-full text-xs">
+                    <tbody>
+                      {txns.map((t) => (
+                        <tr key={t.id} className="border-b border-line last:border-0">
+                          <td className="py-1.5 pr-2 text-ink-mute whitespace-nowrap">{t.transaction_date.slice(0, 10)}</td>
+                          <td className="py-1.5 pr-2 text-ink truncate max-w-[260px]">{t.description}</td>
+                          <td className={`py-1.5 text-right tabular-nums ${t.transaction_type === "credit" ? "text-pos" : "text-neg"}`}>
+                            {t.transaction_type === "credit" ? "+" : "−"}{t.amount} {t.currency}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                  {txnTotal > txns.length && <p className="text-[11px] text-ink-mute mt-2">Showing {txns.length} of {fmtNum(txnTotal)}</p>}
+                </div>
+              )}
+            </Card>
+          </div>
+        )}
       </div>
-      <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search by email…"
-        className="w-full mb-3 bg-surface border border-line rounded-lg px-3 py-2 text-sm text-ink placeholder:text-ink-mute focus:outline-none focus:border-[#176B5B]" />
+    </div>
+  );
+}
 
-      <div className="overflow-x-auto rounded-xl border border-line">
-        <table className="w-full text-sm min-w-[720px]">
+// ════════════════════════════════════════════════════════════════════════════
+// SYSTEM
+// ════════════════════════════════════════════════════════════════════════════
+function System({ system, onJob }: { system: AdminSystem | null; onJob: (j: string) => Promise<void>; }) {
+  const [running, setRunning] = useState<string | null>(null);
+  if (!system) return <SkeletonGrid />;
+  const keys: [string, boolean][] = [
+    ["DeepSeek", system.config.deepseek_api_key],
+    ["OpenAI", system.config.openai_api_key],
+    ["Resend", system.config.resend_api_key],
+    ["LLM configured", system.config.llm_configured],
+  ];
+  const jobs = [
+    { key: "reconciliation", label: "Reconciliation scan" },
+    { key: "daily_notifications", label: "Daily notifications" },
+    { key: "price_refresh", label: "Asset price refresh" },
+    { key: "email_briefs", label: "Weekly email briefs" },
+  ];
+  const next = system.scheduler.jobs || {};
+  const last = system.scheduler.last_run || {};
+
+  return (
+    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      <Card title="API keys & config" subtitle={`Environment: ${system.environment}`}>
+        <div className="space-y-2.5 pt-1">
+          {keys.map(([label, ok]) => (
+            <div key={label} className="flex items-center justify-between">
+              <span className="text-sm text-ink-soft">{label}</span>
+              <span className={`flex items-center gap-1.5 text-xs font-medium ${ok ? "text-pos" : "text-neg"}`}>
+                <span className={`w-2 h-2 rounded-full ${ok ? "bg-pos" : "bg-neg"}`} />{ok ? "Configured" : "Missing"}
+              </span>
+            </div>
+          ))}
+          <div className="flex items-center justify-between pt-2 border-t border-line">
+            <span className="text-sm text-ink-soft">Frontend URL</span>
+            <span className="text-xs text-ink-mute truncate max-w-[200px]">{system.config.frontend_url || "—"}</span>
+          </div>
+        </div>
+      </Card>
+
+      <Card title="Scheduler & jobs" subtitle={system.scheduler.running ? "Running" : "Stopped"}>
+        <div className="space-y-2 pt-1">
+          {jobs.map((j) => (
+            <div key={j.key} className="flex items-center justify-between gap-3 py-1.5 border-b border-line last:border-0">
+              <div className="min-w-0">
+                <p className="text-sm text-ink truncate">{j.label}</p>
+                <p className="text-[11px] text-ink-mute">Next: {fmtUTC(next[j.key]?.next_run ?? null)} · Last: {fmtUTC(last[j.key] ?? null)}</p>
+              </div>
+              <button disabled={running === j.key} onClick={async () => { setRunning(j.key); await onJob(j.key); setTimeout(() => setRunning(null), 1400); }}
+                className="shrink-0 flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-line text-xs font-medium text-ink-soft hover:border-[#176B5B]/50 transition-colors disabled:opacity-50">
+                <Zap size={12} />{running === j.key ? "…" : "Run now"}
+              </button>
+            </div>
+          ))}
+        </div>
+      </Card>
+    </div>
+  );
+}
+
+// ── shared bits ─────────────────────────────────────────────────────────────
+function Card({ title, subtitle, children }: { title: string; subtitle?: string; children: ReactNode }) {
+  return (
+    <div className="bg-surface border border-line rounded-2xl p-5">
+      <div className="mb-3">
+        <h3 className="text-sm font-semibold text-ink">{title}</h3>
+        {subtitle && <p className="text-xs text-ink-mute mt-0.5">{subtitle}</p>}
+      </div>
+      {children}
+    </div>
+  );
+}
+
+function Kpi({ label, value, sub, icon, accent }: { label: string; value: string; sub: string; icon: ReactNode; accent?: boolean }) {
+  return (
+    <div className={`rounded-2xl border p-4 ${accent ? "border-[#176B5B]/30 bg-[#176B5B]/[0.05]" : "border-line bg-surface"}`}>
+      <div className="flex items-center justify-between mb-2">
+        <span className="text-[11px] uppercase tracking-wide text-ink-mute">{label}</span>
+        <span className={accent ? "text-[#176B5B]" : "text-ink-mute"}>{icon}</span>
+      </div>
+      <p className="text-2xl font-bold text-ink tabular-nums leading-none">{value}</p>
+      <p className="text-[11px] text-ink-mute mt-1.5">{sub}</p>
+    </div>
+  );
+}
+
+function MiniStat({ label, value, dot }: { label: string; value: string; dot?: string }) {
+  return (
+    <div className="rounded-lg bg-surface-2 px-2.5 py-2">
+      <div className="flex items-center gap-1.5">
+        {dot && <span className={`w-1.5 h-1.5 rounded-full ${dot}`} />}
+        <span className="text-[10px] uppercase tracking-wide text-ink-mute truncate">{label}</span>
+      </div>
+      <p className="text-sm font-semibold text-ink tabular-nums mt-0.5">{value}</p>
+    </div>
+  );
+}
+
+function Meter({ label, pct, caption }: { label: string; pct: number; caption: string }) {
+  return (
+    <div>
+      <div className="flex items-center justify-between text-xs mb-1">
+        <span className="text-ink-soft">{label}</span>
+        <span className="text-ink-mute tabular-nums">{pct}% · {caption}</span>
+      </div>
+      <div className="h-1.5 rounded-full bg-surface-2 overflow-hidden">
+        <div className="h-full rounded-full" style={{ width: `${Math.min(100, pct)}%`, backgroundColor: TEAL }} />
+      </div>
+    </div>
+  );
+}
+
+function PlanBar({ free, plus, pro }: { free: number; plus: number; pro: number }) {
+  const total = Math.max(1, free + plus + pro);
+  return (
+    <div className="h-3 rounded-full overflow-hidden flex bg-surface-2">
+      <div style={{ width: `${(free / total) * 100}%`, backgroundColor: "rgb(var(--c-text-muted))" }} />
+      <div style={{ width: `${(plus / total) * 100}%`, backgroundColor: TEAL }} />
+      <div style={{ width: `${(pro / total) * 100}%`, backgroundColor: "#F59E0B" }} />
+    </div>
+  );
+}
+
+function PlanBadge({ plan }: { plan: string }) {
+  const map: Record<string, string> = {
+    free: "text-ink-mute bg-surface-2",
+    plus: "text-[#176B5B] bg-[#176B5B]/10",
+    pro: "text-amber-600 bg-amber-500/15",
+  };
+  return <span className={`text-[10px] uppercase tracking-wide font-bold px-2 py-0.5 rounded-full ${map[plan] ?? map.free}`}>{plan}</span>;
+}
+
+function Chip({ children, tone }: { children: ReactNode; tone: "pos" | "warn" | "mute" | "brand" }) {
+  const map = { pos: "bg-pos/10 text-pos", warn: "bg-warn/10 text-warn", mute: "bg-surface-2 text-ink-mute", brand: "bg-[#176B5B]/10 text-[#176B5B]" };
+  return <span className={`text-[11px] font-medium px-2 py-0.5 rounded-full ${map[tone]}`}>{children}</span>;
+}
+
+function ActBtn({ children, onClick, icon, danger, busy }: { children: ReactNode; onClick: () => void; icon: ReactNode; danger?: boolean; busy?: boolean }) {
+  return (
+    <button disabled={busy} onClick={onClick}
+      className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-xs font-medium transition-colors disabled:opacity-50 ${danger ? "border-line text-ink-soft hover:text-danger hover:border-danger/40" : "border-line text-ink-soft hover:text-ink hover:border-[#176B5B]/50"}`}>
+      {icon}{children}
+    </button>
+  );
+}
+
+function DefList({ rows }: { rows: [string, string | null][] }) {
+  return (
+    <div className="space-y-1.5 pt-1">
+      {rows.filter(([, v]) => v).map(([k, v]) => (
+        <div key={k} className="flex items-center justify-between text-xs">
+          <span className="text-ink-mute">{k}</span>
+          <span className="text-ink-soft font-medium">{v}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function MiniTable({ title, cols, rows }: { title: string; cols: string[]; rows: (string | null)[][] }) {
+  return (
+    <Card title={title} subtitle={`${rows.length} ${rows.length === 1 ? "item" : "items"}`}>
+      <div className="overflow-x-auto -mx-1">
+        <table className="w-full text-xs">
           <thead>
-            <tr className="bg-surface text-left text-ink-mute text-xs">
-              <th className="px-3 py-2.5 font-medium">User</th>
-              <th className="px-3 py-2.5 font-medium">Joined</th>
-              <th className="px-3 py-2.5 font-medium text-right">Txns</th>
-              <th className="px-3 py-2.5 font-medium text-right">Assets</th>
-              <th className="px-3 py-2.5 font-medium">Locale</th>
-              <th className="px-3 py-2.5 font-medium">Status</th>
-              <th className="px-3 py-2.5 font-medium text-right">Actions</th>
+            <tr className="text-left text-[10px] uppercase tracking-wide text-ink-mute border-b border-line">
+              {cols.map((c, i) => <th key={c} className={`py-1.5 px-1 font-semibold ${i === cols.length - 1 ? "text-right" : ""}`}>{c}</th>)}
             </tr>
           </thead>
           <tbody>
-            {usersLoading && users.length === 0 && <tr><td colSpan={7} className="px-3 py-8 text-center text-ink-mute">Loading…</td></tr>}
-            {!usersLoading && users.length === 0 && <tr><td colSpan={7} className="px-3 py-8 text-center text-ink-mute">No users found.</td></tr>}
-            {users.map((u) => (
-              <tr key={u.id} className="border-t border-line bg-canvas hover:bg-surface-2 transition-colors">
-                <td className="px-3 py-2.5">
-                  <button onClick={() => openProfile(u.id)} className="text-left group inline-flex items-center gap-1.5">
-                    <span className="text-ink-soft group-hover:text-brand transition-colors truncate block max-w-[220px]">{u.email}</span>
-                    <ArrowRight size={12} className="text-ink-mute group-hover:text-brand transition-colors shrink-0" />
-                  </button>
-                  {u.id === meId && <span className="block text-[10px] text-ink-mute">you</span>}
-                </td>
-                <td className="px-3 py-2.5 text-ink-mute text-xs whitespace-nowrap">{fmtDate(u.created_at)}</td>
-                <td className="px-3 py-2.5 text-right tabular-nums text-ink-soft">{num(u.transaction_count)}</td>
-                <td className="px-3 py-2.5 text-right tabular-nums text-ink-soft">{num(u.asset_count)}</td>
-                <td className="px-3 py-2.5 text-ink-mute text-xs whitespace-nowrap">{u.language.toUpperCase()} · {u.display_currency}</td>
-                <td className="px-3 py-2.5">
-                  <div className="flex flex-wrap gap-1">
-                    {u.id === founderId ? <Badge tone="founder">founder</Badge> : u.is_admin ? <Badge tone="admin">admin</Badge> : null}
-                    <Badge tone={u.onboarding_completed ? "ok" : "muted"}>{u.onboarding_completed ? "onboarded" : "new"}</Badge>
-                    {u.plan !== "free" && <Badge tone="admin">{u.plan}</Badge>}
-                  </div>
-                </td>
-                <td className="px-3 py-2.5">
-                  <div className="flex items-center justify-end gap-1.5">
-                    <button onClick={() => patchUser(u.id, { is_admin: !u.is_admin })}
-                      disabled={busy || (u.id === meId && u.is_admin)} title={u.is_admin ? "Revoke admin" : "Make admin"}
-                      className="px-2 py-1 rounded-md text-[11px] font-medium border border-line hover:bg-surface-2 text-ink-soft transition-colors disabled:opacity-40 whitespace-nowrap">
-                      {u.is_admin ? "Revoke" : "Make admin"}
-                    </button>
-                    <button onClick={() => setDeleteTarget({ id: u.id, email: u.email })}
-                      disabled={u.id === meId} title="Delete user"
-                      className="px-2 py-1 rounded-md text-[11px] font-medium border border-danger/30 text-danger hover:bg-danger/10 transition-colors disabled:opacity-30">Delete</button>
-                  </div>
-                </td>
+            {rows.slice(0, 30).map((r, ri) => (
+              <tr key={ri} className="border-b border-line last:border-0">
+                {r.map((cell, ci) => (
+                  <td key={ci} className={`py-1.5 px-1 ${ci === r.length - 1 ? "text-right tabular-nums text-ink font-medium whitespace-nowrap" : "text-ink-soft truncate max-w-[180px]"}`}>{cell || "—"}</td>
+                ))}
               </tr>
             ))}
           </tbody>
         </table>
       </div>
+    </Card>
+  );
+}
 
-      {usersTotal > PAGE_SIZE && (
-        <div className="flex items-center justify-between mt-3 text-sm">
-          <button disabled={offset === 0} onClick={() => { const o = Math.max(0, offset - PAGE_SIZE); setOffset(o); loadUsers(search, o); }}
-            className="px-3 py-1.5 rounded-lg border border-line text-ink-mute hover:bg-surface disabled:opacity-40 transition-colors">Previous</button>
-          <span className="text-ink-mute text-xs">{offset + 1}–{Math.min(offset + PAGE_SIZE, usersTotal)} of {num(usersTotal)}</span>
-          <button disabled={offset + PAGE_SIZE >= usersTotal} onClick={() => { const o = offset + PAGE_SIZE; setOffset(o); loadUsers(search, o); }}
-            className="px-3 py-1.5 rounded-lg border border-line text-ink-mute hover:bg-surface disabled:opacity-40 transition-colors">Next</button>
-        </div>
-      )}
-
-      {/* ── FULL USER PROFILE OVERLAY ── */}
-      {profileId && (
-        <div className="fixed inset-0 z-50 overflow-y-auto" onClick={closeProfile}>
-          <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" />
-          <div onClick={(e) => e.stopPropagation()}
-            className="relative max-w-4xl mx-auto my-6 border border-line rounded-2xl shadow-2xl shadow-black/40" style={{ backgroundColor: canvasBg }}>
-            {/* sticky header */}
-            <div className="sticky top-0 z-10 flex items-center justify-between gap-4 px-6 py-4 border-b border-line rounded-t-2xl" style={{ backgroundColor: canvasBg }}>
-              <p className="text-[11px] font-bold tracking-widest text-ink-mute uppercase">User profile</p>
-              <button onClick={closeProfile} className="text-ink-mute hover:text-ink-soft transition-colors"><XIcon size={18} /></button>
-            </div>
-
-            <div className="p-6">
-              {profileLoading && <p className="text-ink-mute text-sm py-10 text-center">Loading profile…</p>}
-              {!profileLoading && !profile && <p className="text-neg text-sm py-10 text-center">Couldn&apos;t load this user.</p>}
-
-              {profile && (
-                <div className="space-y-8">
-                  {/* identity header */}
-                  <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
-                    <div className="flex items-start gap-3 min-w-0">
-                      <div className="w-12 h-12 rounded-full bg-[#176B5B] text-white text-lg font-semibold flex items-center justify-center shrink-0">
-                        {profile.email[0]?.toUpperCase() ?? "?"}
-                      </div>
-                      <div className="min-w-0">
-                        <p className="text-ink font-semibold text-lg break-all">{profile.email}</p>
-                        <p className="text-ink-mute text-xs mt-0.5 font-mono break-all">{profile.id}</p>
-                        <div className="flex flex-wrap gap-1.5 mt-2">
-                          {profile.is_founder ? <Badge tone="founder">founder</Badge> : profile.is_admin ? <Badge tone="admin">admin</Badge> : null}
-                          <Badge tone={profile.onboarding_completed ? "ok" : "muted"}>{profile.onboarding_completed ? "onboarded" : "not onboarded"}</Badge>
-                          <Badge tone="muted">{profile.language.toUpperCase()} · {profile.display_currency}</Badge>
-                          <Badge tone={profile.email_weekly_enabled ? "ok" : "muted"}>weekly email {profile.email_weekly_enabled ? "on" : "off"}</Badge>
-                          <Badge tone={profile.plan === "free" ? "muted" : "admin"}>{profile.plan}</Badge>
-                          <Badge tone={profile.email_verified ? "ok" : "muted"}>{profile.email_verified ? "verified" : "unverified"}</Badge>
-                        </div>
-                      </div>
-                    </div>
-                    {/* actions */}
-                    <div className="flex flex-wrap gap-2 shrink-0">
-                      <button onClick={() => patchUser(profile.id, { is_admin: !profile.is_admin })}
-                        disabled={busy || (profile.id === meId && profile.is_admin)}
-                        className="px-3 py-1.5 rounded-lg text-xs font-medium border border-line hover:bg-surface text-ink-soft transition-colors disabled:opacity-40">
-                        {profile.is_admin ? "Revoke admin" : "Make admin"}
-                      </button>
-                      <button onClick={() => patchUser(profile.id, { onboarding_completed: !profile.onboarding_completed })} disabled={busy}
-                        className="px-3 py-1.5 rounded-lg text-xs font-medium border border-line hover:bg-surface text-ink-soft transition-colors disabled:opacity-40">
-                        {profile.onboarding_completed ? "Reset onboarding" : "Mark onboarded"}
-                      </button>
-                      {/* Plan: free / plus / pro — active tier highlighted */}
-                      <div className="flex items-center rounded-lg border border-line overflow-hidden text-xs font-medium">
-                        <span className="px-2 py-1.5 text-ink-mute border-r border-line">plan</span>
-                        {(["free", "plus", "pro"] as const).map((p) => (
-                          <button
-                            key={p}
-                            onClick={() => patchUser(profile.id, { plan: p })}
-                            disabled={busy || profile.plan === p}
-                            className={`px-2.5 py-1.5 transition-colors ${
-                              profile.plan === p ? "bg-[#176B5B] text-white" : "text-ink-soft hover:bg-surface"
-                            } disabled:opacity-60`}
-                          >
-                            {p}
-                          </button>
-                        ))}
-                      </div>
-                      <button onClick={() => setDeleteTarget({ id: profile.id, email: profile.email })} disabled={profile.id === meId}
-                        className="px-3 py-1.5 rounded-lg text-xs font-medium border border-danger/30 text-danger hover:bg-danger/10 transition-colors disabled:opacity-30">Delete</button>
-                    </div>
-                  </div>
-
-                  {/* health + timeline strip */}
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                    <div className="rounded-xl bg-surface border border-line p-4 col-span-2 sm:col-span-1">
-                      <div className="flex items-center gap-1.5 text-ink-mute text-[11px] uppercase tracking-wide mb-2"><Target size={12} /> Health</div>
-                      {profile.health && profile.health.has_data && profile.health.score != null ? (
-                        <>
-                          <p className={`text-2xl font-bold tabular-nums ${BAND_COLOR[profile.health.band ?? ""] ?? "text-ink"}`}>
-                            {profile.health.score}<span className="text-ink-mute text-sm font-normal"> / 100</span>
-                          </p>
-                          <p className="text-ink-mute text-xs mt-1 capitalize">{slug(profile.health.band ?? "")}</p>
-                        </>
-                      ) : <p className="text-ink-mute text-sm mt-1">Not enough data</p>}
-                    </div>
-                    <Metric label="Last activity" value={relativeTime(profile.last_activity)} sub={fmtDateTime(profile.last_activity)} icon={<Calendar size={12} />} />
-                    <Metric label="Joined" value={fmtDate(profile.created_at)} sub={relativeTime(profile.created_at)} />
-                    <Metric label="Last brief" value={profile.last_email_brief_sent ? fmtDate(profile.last_email_brief_sent) : "never"} icon={<Bell size={12} />} />
-                  </div>
-
-                  {/* count strip */}
-                  <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
-                    <Metric label="Transactions" value={num(profile.transaction_count)} />
-                    <Metric label="Statements" value={num(profile.upload_batches)} />
-                    <Metric label="Assets" value={num(profile.asset_count)} />
-                    <Metric label="Liabilities" value={num(profile.liability_count)} />
-                    <Metric label="Open recon." value={num(profile.reconciliation_open)} accent={profile.reconciliation_open > 0 ? "text-warn" : "text-ink"} />
-                  </div>
-
-                  {/* statements */}
-                  <section>
-                    <p className="flex items-center gap-1.5 text-[11px] font-bold tracking-widest text-ink-mute uppercase mb-3"><FileText size={12} /> Statements ({profile.statements.length})</p>
-                    {profile.statements.length === 0 ? <p className="text-ink-mute text-sm">No statements uploaded.</p> : (
-                      <div className="space-y-1.5">
-                        {profile.statements.map((s) => (
-                          <div key={s.batch_id} className="flex items-center justify-between gap-3 p-3 rounded-lg bg-surface border border-line text-sm">
-                            <div className="min-w-0">
-                              <p className="text-ink-soft">{fmtDate(s.min_date)} – {fmtDate(s.max_date)}</p>
-                              <p className="text-ink-mute text-xs">uploaded {fmtDateTime(s.uploaded_at)}</p>
-                            </div>
-                            <span className="text-ink-mute tabular-nums shrink-0">{num(s.transaction_count)} txns</span>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </section>
-
-                  {/* assets + liabilities side by side */}
-                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                    <section>
-                      <p className="flex items-center gap-1.5 text-[11px] font-bold tracking-widest text-ink-mute uppercase mb-3"><Scale size={12} /> Assets ({profile.assets.length})</p>
-                      {profile.assets.length === 0 ? <p className="text-ink-mute text-sm">No assets.</p> : (
-                        <div className="space-y-1.5">
-                          {profile.assets.map((a) => (
-                            <div key={a.id} className="flex items-center justify-between gap-3 p-3 rounded-lg bg-surface border border-line text-sm">
-                              <div className="min-w-0">
-                                <p className="text-ink-soft truncate">{a.name}</p>
-                                <p className="text-ink-mute text-xs capitalize">{slug(a.asset_type)}</p>
-                              </div>
-                              <span className="text-pos tabular-nums shrink-0">{money(a.current_value, a.currency)}</span>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </section>
-                    <section>
-                      <p className="flex items-center gap-1.5 text-[11px] font-bold tracking-widest text-ink-mute uppercase mb-3"><TrendingDown size={12} /> Liabilities ({profile.liabilities.length})</p>
-                      {profile.liabilities.length === 0 ? <p className="text-ink-mute text-sm">No liabilities.</p> : (
-                        <div className="space-y-1.5">
-                          {profile.liabilities.map((li) => (
-                            <div key={li.id} className="flex items-center justify-between gap-3 p-3 rounded-lg bg-surface border border-line text-sm">
-                              <div className="min-w-0">
-                                <p className="text-ink-soft truncate">{li.name}</p>
-                                <p className="text-ink-mute text-xs capitalize">{slug(li.liability_type)}{li.interest_rate ? ` · ${li.interest_rate}%` : ""}</p>
-                              </div>
-                              <span className="text-neg tabular-nums shrink-0">{money(li.remaining_amount, li.currency)}</span>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </section>
-                  </div>
-
-                  {/* receivables (only if any) */}
-                  {profile.receivables.length > 0 && (
-                    <section>
-                      <p className="flex items-center gap-1.5 text-[11px] font-bold tracking-widest text-ink-mute uppercase mb-3"><Wallet size={12} /> Receivables ({profile.receivables.length})</p>
-                      <div className="space-y-1.5">
-                        {profile.receivables.map((r) => (
-                          <div key={r.id} className="flex items-center justify-between gap-3 p-3 rounded-lg bg-surface border border-line text-sm">
-                            <div className="min-w-0">
-                              <p className="text-ink-soft truncate">{r.from_person}</p>
-                              <p className="text-ink-mute text-xs">{r.status}{r.expected_date ? ` · due ${fmtDate(r.expected_date)}` : ""}</p>
-                            </div>
-                            <span className="text-ink-soft tabular-nums shrink-0">{money(r.amount, r.currency)}</span>
-                          </div>
-                        ))}
-                      </div>
-                    </section>
-                  )}
-
-                  {/* transactions (paginated) */}
-                  <section>
-                    <p className="flex items-center gap-1.5 text-[11px] font-bold tracking-widest text-ink-mute uppercase mb-3"><Wallet size={12} /> Transactions ({num(txTotal)})</p>
-                    {txTotal === 0 && !txLoading ? <p className="text-ink-mute text-sm">No transactions.</p> : (
-                      <>
-                        <div className="overflow-x-auto rounded-xl border border-line">
-                          <table className="w-full text-sm min-w-[560px]">
-                            <thead>
-                              <tr className="bg-surface text-left text-ink-mute text-xs">
-                                <th className="px-3 py-2 font-medium">Date</th>
-                                <th className="px-3 py-2 font-medium">Description</th>
-                                <th className="px-3 py-2 font-medium">Category</th>
-                                <th className="px-3 py-2 font-medium text-right">Amount</th>
-                              </tr>
-                            </thead>
-                            <tbody>
-                              {txLoading && <tr><td colSpan={4} className="px-3 py-6 text-center text-ink-mute">Loading…</td></tr>}
-                              {!txLoading && txns.map((t) => (
-                                <tr key={t.id} className="border-t border-line bg-canvas">
-                                  <td className="px-3 py-2 text-ink-mute text-xs whitespace-nowrap">{fmtDate(t.transaction_date)}</td>
-                                  <td className="px-3 py-2 text-ink-soft truncate max-w-[260px]" title={t.description}>{t.description}</td>
-                                  <td className="px-3 py-2 text-ink-mute text-xs">{t.category ? (CATEGORY_LABELS[t.category] || t.category) : "—"}</td>
-                                  <td className={`px-3 py-2 text-right tabular-nums whitespace-nowrap ${t.transaction_type === "credit" ? "text-pos" : "text-ink-soft"}`}>
-                                    {t.transaction_type === "credit" ? "+" : "−"}{money(t.amount, t.currency)}
-                                  </td>
-                                </tr>
-                              ))}
-                            </tbody>
-                          </table>
-                        </div>
-                        {txTotal > TX_PAGE && (
-                          <div className="flex items-center justify-between mt-3 text-sm">
-                            <button disabled={txOffset === 0 || txLoading}
-                              onClick={() => { const o = Math.max(0, txOffset - TX_PAGE); setTxOffset(o); loadTxns(profile.id, o); }}
-                              className="px-3 py-1.5 rounded-lg border border-line text-ink-mute hover:bg-surface disabled:opacity-40 transition-colors">Previous</button>
-                            <span className="text-ink-mute text-xs">{txOffset + 1}–{Math.min(txOffset + TX_PAGE, txTotal)} of {num(txTotal)}</span>
-                            <button disabled={txOffset + TX_PAGE >= txTotal || txLoading}
-                              onClick={() => { const o = txOffset + TX_PAGE; setTxOffset(o); loadTxns(profile.id, o); }}
-                              className="px-3 py-1.5 rounded-lg border border-line text-ink-mute hover:bg-surface disabled:opacity-40 transition-colors">Next</button>
-                          </div>
-                        )}
-                      </>
-                    )}
-                  </section>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ── DELETE CONFIRMATION (typed email) ── */}
-      {deleteTarget && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4" onClick={() => { if (!deleting) { setDeleteTarget(null); setDeleteText(""); } }}>
-          <div className="absolute inset-0 bg-black/75 backdrop-blur-sm" />
-          <div onClick={(e) => e.stopPropagation()} className="relative w-full max-w-md border border-danger/30 rounded-2xl shadow-2xl shadow-black/40 p-6" style={{ backgroundColor: surfaceBg }}>
-            <div className="flex items-center gap-2 mb-3">
-              <span className="w-8 h-8 rounded-full bg-danger/10 border border-danger/30 flex items-center justify-center text-danger text-lg font-bold">!</span>
-              <h2 className="text-ink font-semibold">Delete this user?</h2>
-            </div>
-            <p className="text-ink-mute text-sm leading-relaxed mb-4">
-              This permanently deletes <span className="text-ink-soft font-medium break-all">{deleteTarget.email}</span> and{" "}
-              <span className="text-neg">all of their data</span> — transactions, statements, assets, liabilities. This cannot be undone.
-            </p>
-            <label className="block text-xs text-ink-mute mb-1.5">Type the email to confirm</label>
-            <input autoFocus value={deleteText} onChange={(e) => setDeleteText(e.target.value)}
-              placeholder={deleteTarget.email}
-              className="w-full mb-4 bg-canvas border border-line rounded-lg px-3 py-2 text-sm text-ink placeholder:text-ink-mute focus:outline-none focus:border-danger" />
-            <div className="flex gap-3">
-              <button onClick={() => { setDeleteTarget(null); setDeleteText(""); }} disabled={deleting}
-                className="flex-1 py-2.5 rounded-xl bg-surface-2 hover:bg-surface-3 text-ink-soft text-sm font-medium transition-colors disabled:opacity-50">Cancel</button>
-              <button onClick={confirmDelete} disabled={deleting || deleteText !== deleteTarget.email}
-                className="flex-1 py-2.5 rounded-xl bg-red-600 hover:bg-red-500 text-white text-sm font-semibold transition-colors disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2">
-                {deleting ? <><span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> Deleting…</> : "Delete permanently"}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-    </PageLayout>
+function SkeletonGrid() {
+  return (
+    <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+      {[1, 2, 3, 4].map((i) => <div key={i} className="h-24 rounded-2xl bg-surface-2 animate-pulse" />)}
+    </div>
   );
 }

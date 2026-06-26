@@ -6,6 +6,7 @@ must produce identical notifications. DRY: this service holds the logic; the
 endpoint and the scheduler both call generate_for_user().
 """
 
+import asyncio
 import calendar
 import json
 import logging
@@ -371,11 +372,19 @@ async def generate_for_user(user_id: uuid.UUID, lang: str, session: AsyncSession
 - {len(liabilities)} liabilities tracked
 {lang_line} Be specific and actionable, not generic."""
 
-        llm_tip = await provider.complete(
-            system_prompt="You are a personal finance assistant giving a daily briefing.",
-            user_message=prompt,
-            temperature=0.5,
-        )
+        # Direct client call (provider.complete() would inject the categorizer prompt);
+        # run off the event loop since the HTTP call is blocking.
+        def _gen() -> str:
+            resp = provider.client.chat.completions.create(
+                model=provider.model,
+                messages=[
+                    {"role": "system", "content": "You are a personal finance assistant giving a daily briefing."},
+                    {"role": "user", "content": prompt},
+                ],
+                temperature=0.5,
+            )
+            return resp.choices[0].message.content or ""
+        llm_tip = await asyncio.to_thread(_gen)
         if llm_tip:
             notifications.append({
                 "title": "Daily Insight" if lang == "en" else "Günlük Analiz",

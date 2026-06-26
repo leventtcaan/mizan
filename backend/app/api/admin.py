@@ -26,11 +26,16 @@ from app.core.config import settings
 from app.models.admin_audit_log import AdminAuditLog
 from app.models.app_notification import AppNotification
 from app.models.asset import Asset
+from app.models.conversation import ConversationMessage
 from app.models.liability import Liability
+from app.models.networth_snapshot import NetworthSnapshot
 from app.models.reconciliation_item import ReconciliationItem
 from app.models.receivable import Receivable
 from app.models.transaction import Transaction
 from app.models.user import User
+
+# Monthly USD list prices (mirrors the pricing page) — drives MRR-potential.
+_PLAN_PRICE_USD = {"plus": 7.0, "pro": 12.0}
 
 logger = logging.getLogger(__name__)
 
@@ -38,6 +43,11 @@ router = APIRouter(prefix="/admin", tags=["admin"])
 
 
 # ── schemas ──────────────────────────────────────────────────────────────────
+
+class SignupPoint(BaseModel):
+    date: str
+    count: int
+
 
 class OverviewResponse(BaseModel):
     users_total: int
@@ -55,6 +65,15 @@ class OverviewResponse(BaseModel):
     reconciliation_open: int
     notifications_total: int
     notifications_unread: int
+    # ── dashboard: plans, revenue, engagement, growth ──
+    plan_free: int
+    plan_plus: int
+    plan_pro: int
+    mrr_potential_usd: float
+    active_7d: int
+    active_30d: int
+    users_with_upload: int
+    signups_30d: list[SignupPoint]
     # The "founder": the longest-standing admin (earliest-created admin account),
     # falling back to the first registered user. Drives the founder badge — never
     # hardcoded. None only if there are somehow no users.
@@ -67,13 +86,20 @@ class AdminUserRow(BaseModel):
     email: str
     is_admin: bool
     onboarding_completed: bool
+    email_verified: bool
     language: str
     display_currency: str
     plan: str
     created_at: str
+    last_activity: str | None
     last_email_brief_sent: str | None
     transaction_count: int
     asset_count: int
+    statement_count: int
+    message_count: int
+    net_worth_usd: float | None
+    assets_usd: float | None
+    liabilities_usd: float | None
 
 
 class AdminUserListResponse(BaseModel):
@@ -148,11 +174,32 @@ class AdminHealth(BaseModel):
     currency: str | None
 
 
+class NetWorthPoint(BaseModel):
+    date: str
+    net_worth_usd: float
+    assets_usd: float
+    liabilities_usd: float
+
+
+class PlanHistoryItem(BaseModel):
+    at: str
+    old_plan: str | None
+    new_plan: str | None
+    admin_email: str | None
+
+
 class AdminUserProfile(BaseModel):
     """Everything about one user, in one payload — the full profile view."""
     # identity + status
     id: str
     email: str
+    full_name: str | None
+    account_type: str
+    company_name: str | None
+    industry: str | None
+    team_size: str | None
+    phone: str | None
+    country: str | None
     is_admin: bool
     is_founder: bool
     onboarding_completed: bool
@@ -172,12 +219,15 @@ class AdminUserProfile(BaseModel):
     liability_count: int
     receivable_count: int
     reconciliation_open: int
+    message_count: int
     # the financial life
     health: AdminHealth | None
     statements: list[AdminStatement]
     assets: list[AdminAsset]
     liabilities: list[AdminLiability]
     receivables: list[AdminReceivable]
+    networth_history: list[NetWorthPoint]
+    plan_history: list[PlanHistoryItem]
 
 
 class AdminTxn(BaseModel):
@@ -203,6 +253,17 @@ class UpdateUserRequest(BaseModel):
     is_admin: bool | None = None
     onboarding_completed: bool | None = None
     plan: str | None = None  # "free" | "plus" | "pro"
+    email_verified: bool | None = None
+
+
+class SendMessageRequest(BaseModel):
+    title: str
+    body: str
+
+
+class ImpersonateResponse(BaseModel):
+    access_token: str
+    email: str
 
 
 class SystemResponse(BaseModel):
@@ -224,6 +285,41 @@ def _iso(dt: datetime | None) -> str | None:
 
 async def _scalar(session: AsyncSession, stmt) -> int:
     return int((await session.execute(stmt)).scalar() or 0)
+
+
+async def _latest_snapshots(session: AsyncSession, ids) -> dict:
+    """uid → (net_worth_usd, assets_usd, liabilities_usd) from each user's latest snapshot."""
+    if not ids:
+        return {}
+    sub = (
+        select(
+            NetworthSnapshot.user_id,
+            func.max(NetworthSnapshot.recorded_at).label("mx"),
+        )
+        .where(NetworthSnapshot.user_id.in_(ids))
+        .group_by(NetworthSnapshot.user_id)
+        .subquery()
+    )
+    rows = (await session.execute(
+        select(
+            NetworthSnapshot.user_id,
+            NetworthSnapshot.net_worth_usd,
+            NetworthSnapshot.assets_usd,
+            NetworthSnapshot.liabilities_usd,
+        ).join(
+            sub,
+            (NetworthSnapshot.user_id == sub.c.user_id) & (NetworthSnapshot.recorded_at == sub.c.mx),
+        )
+    )).all()
+    return {uid: (float(nw), float(a), float(li)) for uid, nw, a, li in rows}
+
+
+async def _grouped_count(session: AsyncSession, col, group_col, ids, *where) -> dict:
+    """{group_col value → count(col)} for the given ids, with optional extra filters."""
+    if not ids:
+        return {}
+    stmt = select(group_col, func.count(col)).where(group_col.in_(ids), *where).group_by(group_col)
+    return {uid: int(c) for uid, c in (await session.execute(stmt)).all()}
 
 
 # ── overview ─────────────────────────────────────────────────────────────────
@@ -251,6 +347,31 @@ async def overview(
             select(User.id).where(active).order_by(User.created_at.asc()).limit(1)
         )).scalar_one_or_none()
 
+    # Plan breakdown (raw plan column — what's set, including manual grants).
+    plan_free = await _scalar(session, select(func.count(User.id)).where(User.plan == "free", active))
+    plan_plus = await _scalar(session, select(func.count(User.id)).where(User.plan == "plus", active))
+    plan_pro = await _scalar(session, select(func.count(User.id)).where(User.plan == "pro", active))
+    mrr = plan_plus * _PLAN_PRICE_USD["plus"] + plan_pro * _PLAN_PRICE_USD["pro"]
+
+    # Engagement: distinct users who recorded a transaction in the window.
+    active_7d = await _scalar(session, select(func.count(func.distinct(Transaction.user_id))).where(Transaction.created_at >= d7))
+    active_30d = await _scalar(session, select(func.count(func.distinct(Transaction.user_id))).where(Transaction.created_at >= d30))
+    users_with_upload = await _scalar(
+        session, select(func.count(func.distinct(Transaction.user_id))).where(Transaction.upload_batch_id.is_not(None))
+    )
+
+    # Growth: daily signups over the last 30 days, zero-filled.
+    from collections import Counter
+    signup_dates = (await session.execute(
+        select(User.created_at).where(User.created_at >= d30, active)
+    )).scalars().all()
+    counts = Counter(dt.date().isoformat() for dt in signup_dates)
+    signups = [
+        SignupPoint(date=(now - timedelta(days=i)).date().isoformat(),
+                    count=counts.get((now - timedelta(days=i)).date().isoformat(), 0))
+        for i in range(29, -1, -1)
+    ]
+
     return OverviewResponse(
         users_total=await _scalar(session, select(func.count(User.id)).where(active)),
         users_admins=await _scalar(session, select(func.count(User.id)).where(User.is_admin.is_(True), active)),
@@ -274,6 +395,14 @@ async def overview(
         notifications_unread=await _scalar(
             session, select(func.count(AppNotification.id)).where(AppNotification.is_read.is_(False))
         ),
+        plan_free=plan_free,
+        plan_plus=plan_plus,
+        plan_pro=plan_pro,
+        mrr_potential_usd=round(mrr, 2),
+        active_7d=active_7d,
+        active_30d=active_30d,
+        users_with_upload=users_with_upload,
+        signups_30d=signups,
         founder_user_id=str(founder_id) if founder_id else None,
         generated_at=now.isoformat(),
     )
@@ -305,37 +434,49 @@ async def list_users(
     )).scalars().all())
 
     ids = [u.id for u in page]
-    tx_counts: dict[uuid.UUID, int] = {}
-    asset_counts: dict[uuid.UUID, int] = {}
+    tx_counts = await _grouped_count(session, Transaction.id, Transaction.user_id, ids)
+    asset_counts = await _grouped_count(session, Asset.id, Asset.user_id, ids)
+    msg_counts = await _grouped_count(session, ConversationMessage.id, ConversationMessage.user_id, ids, ConversationMessage.role == "user")
+    snapshots = await _latest_snapshots(session, ids)
+    # statement count (distinct upload batches) + last activity (latest tx) per user
+    stmt_counts: dict[uuid.UUID, int] = {}
+    last_active: dict[uuid.UUID, datetime] = {}
     if ids:
-        # Grouped counts for just this page — avoids an N+1 per user.
         for uid, c in (await session.execute(
-            select(Transaction.user_id, func.count(Transaction.id))
+            select(Transaction.user_id, func.count(func.distinct(Transaction.upload_batch_id)))
+            .where(Transaction.user_id.in_(ids), Transaction.upload_batch_id.is_not(None))
+            .group_by(Transaction.user_id)
+        )).all():
+            stmt_counts[uid] = int(c)
+        for uid, mx in (await session.execute(
+            select(Transaction.user_id, func.max(Transaction.created_at))
             .where(Transaction.user_id.in_(ids)).group_by(Transaction.user_id)
         )).all():
-            tx_counts[uid] = int(c)
-        for uid, c in (await session.execute(
-            select(Asset.user_id, func.count(Asset.id))
-            .where(Asset.user_id.in_(ids)).group_by(Asset.user_id)
-        )).all():
-            asset_counts[uid] = int(c)
+            last_active[uid] = mx
 
-    rows = [
-        AdminUserRow(
+    rows = []
+    for u in page:
+        snap = snapshots.get(u.id)
+        rows.append(AdminUserRow(
             id=str(u.id),
             email=u.email,
             is_admin=u.is_admin,
             onboarding_completed=u.onboarding_completed,
+            email_verified=u.email_verified,
             language=u.language,
             display_currency=u.display_currency,
             plan=u.plan,
             created_at=u.created_at.isoformat(),
+            last_activity=_iso(last_active.get(u.id)),
             last_email_brief_sent=_iso(u.last_email_brief_sent),
             transaction_count=tx_counts.get(u.id, 0),
             asset_count=asset_counts.get(u.id, 0),
-        )
-        for u in page
-    ]
+            statement_count=stmt_counts.get(u.id, 0),
+            message_count=msg_counts.get(u.id, 0),
+            net_worth_usd=snap[0] if snap else None,
+            assets_usd=snap[1] if snap else None,
+            liabilities_usd=snap[2] if snap else None,
+        ))
     return AdminUserListResponse(users=rows, total=total, limit=limit, offset=offset)
 
 
@@ -493,9 +634,59 @@ async def user_profile(
     candidates = [d for d in (last_tx, last_asset, user.created_at) if d is not None]
     last_activity = max(candidates).isoformat() if candidates else None
 
+    # net-worth history — last ~60 snapshots, oldest→newest, in USD (chart source of truth)
+    snap_rows = list((await session.execute(
+        select(NetworthSnapshot)
+        .where(NetworthSnapshot.user_id == uid)
+        .order_by(NetworthSnapshot.recorded_at.desc())
+        .limit(60)
+    )).scalars().all())
+    snap_rows.reverse()
+    networth_history = [
+        NetWorthPoint(
+            date=s.recorded_at.date().isoformat(),
+            net_worth_usd=float(s.net_worth_usd),
+            assets_usd=float(s.assets_usd),
+            liabilities_usd=float(s.liabilities_usd),
+        )
+        for s in snap_rows
+    ]
+
+    # plan history — from the immutable admin audit trail (newest first)
+    plan_logs = list((await session.execute(
+        select(AdminAuditLog)
+        .where(AdminAuditLog.target_user_id == uid, AdminAuditLog.action == "plan_changed")
+        .order_by(AdminAuditLog.created_at.desc())
+    )).scalars().all())
+    plan_history: list[PlanHistoryItem] = []
+    for log in plan_logs:
+        d = {}
+        try:
+            d = json.loads(log.detail) if log.detail else {}
+        except Exception:
+            d = {}
+        plan_history.append(PlanHistoryItem(
+            at=log.created_at.isoformat(),
+            old_plan=d.get("old_plan"),
+            new_plan=d.get("new_plan"),
+            admin_email=log.admin_email,
+        ))
+
+    message_count = await _scalar(
+        session, select(func.count(ConversationMessage.id))
+        .where(ConversationMessage.user_id == uid, ConversationMessage.role == "user")
+    )
+
     return AdminUserProfile(
         id=str(uid),
         email=user.email,
+        full_name=user.full_name,
+        account_type=user.account_type or "personal",
+        company_name=user.company_name,
+        industry=user.industry,
+        team_size=user.team_size,
+        phone=user.phone,
+        country=user.country,
         is_admin=user.is_admin,
         is_founder=await _is_founder(uid, session),
         onboarding_completed=user.onboarding_completed,
@@ -518,11 +709,14 @@ async def user_profile(
             select(func.count(ReconciliationItem.id))
             .where(ReconciliationItem.user_id == uid).where(ReconciliationItem.status == "open"),
         ),
+        message_count=message_count,
         health=health,
         statements=statements,
         assets=assets,
         liabilities=liabilities,
         receivables=receivables,
+        networth_history=networth_history,
+        plan_history=plan_history,
     )
 
 
@@ -580,6 +774,10 @@ async def update_user(
         user.is_admin = body.is_admin
     if body.onboarding_completed is not None:
         user.onboarding_completed = body.onboarding_completed
+    if body.email_verified is not None:
+        if body.email_verified != user.email_verified:
+            _audit(admin, "email_verified_set", user, session, value=body.email_verified)
+        user.email_verified = body.email_verified
     if body.plan is not None:
         from app.core.plans import VALID_PLANS
         if body.plan not in VALID_PLANS:
@@ -610,6 +808,54 @@ def _audit(admin: User, action: str, target: User, session: AsyncSession, **deta
         detail=json.dumps(detail) if detail else None,
         created_at=datetime.now(timezone.utc),
     ))
+
+
+@router.post("/users/{user_id}/message", status_code=status.HTTP_201_CREATED)
+async def send_user_message(
+    user_id: str,
+    body: SendMessageRequest,
+    admin: User = Depends(get_admin_user),
+    session: AsyncSession = Depends(get_session),
+) -> dict:
+    """Drop a message into a user's in-app notification feed (from the founder)."""
+    user = await _load_user(user_id, session)
+    title = (body.title or "").strip()[:200] or "Message"
+    msg = (body.body or "").strip()
+    if not msg:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Message body is required.")
+    session.add(AppNotification(
+        id=uuid.uuid4(),
+        user_id=user.id,
+        title=title,
+        message=msg[:2000],
+        type="info",
+        is_read=False,
+        created_at=datetime.now(timezone.utc),
+    ))
+    _audit(admin, "message_sent", user, session, title=title)
+    await session.commit()
+    logger.info("Admin %s messaged user %s", admin.id, user.id)
+    return {"ok": True}
+
+
+@router.post("/users/{user_id}/impersonate", response_model=ImpersonateResponse)
+async def impersonate(
+    user_id: str,
+    admin: User = Depends(get_admin_user),
+    session: AsyncSession = Depends(get_session),
+) -> ImpersonateResponse:
+    """Mint a normal access token FOR a target user so the founder can view the app
+    exactly as that user sees it. The action is audited. Soft-deleted users can't be
+    impersonated (they can't log in)."""
+    from app.core.security import create_access_token
+
+    user = await _load_user(user_id, session)
+    if user.is_deleted:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Can't impersonate a deleted user.")
+    _audit(admin, "impersonate", user, session)
+    await session.commit()
+    logger.info("Admin %s impersonating user %s (%s)", admin.id, user.id, user.email)
+    return ImpersonateResponse(access_token=create_access_token(str(user.id)), email=user.email)
 
 
 @router.delete("/users/{user_id}", status_code=status.HTTP_204_NO_CONTENT)

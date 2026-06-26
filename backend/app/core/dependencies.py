@@ -74,6 +74,27 @@ async def get_verified_user(
     return current_user
 
 
+async def get_paid_user(
+    current_user: User = Depends(get_verified_user),
+) -> User:
+    """
+    WHAT: Like get_verified_user, but additionally requires an active paid plan (plus/pro).
+    WHY: Premium surfaces (reports, simulator, net-worth guidance) are paid features. A
+         verified free user gets 403 `upgrade_required` — distinct from the verification
+         403 — so the frontend can show an upgrade prompt instead of a verify prompt.
+         Uses effective_plan via is_paid(), so a lapsed paid plan is treated as free.
+    BREAKS IF REMOVED: Free accounts could use paid-only features.
+    """
+    from app.core.plans import is_paid
+
+    if not is_paid(current_user):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="upgrade_required",
+        )
+    return current_user
+
+
 async def get_admin_user(
     current_user: User = Depends(get_current_user),
 ) -> User:

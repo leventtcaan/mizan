@@ -22,7 +22,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
 from app.core.database import get_session
-from app.core.dependencies import get_current_user, get_verified_user
+from app.core.dependencies import get_verified_user
 from app.core.plans import FREE_MONTHLY_UPLOAD_CAP, effective_plan, vision_enabled
 from app.core.rate_limiter import upload_ip_limiter, upload_user_limiter
 from app.models.progress_insight import ProgressInsight
@@ -568,7 +568,7 @@ def _row_out(t: Transaction) -> ReviewTransactionOut:
 @router.get("/review/{batch_id}", response_model=list[ReviewTransactionOut])
 async def get_review_batch(
     batch_id: str,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_verified_user),
     session: AsyncSession = Depends(get_session),
 ) -> list[ReviewTransactionOut]:
     """Current transactions for one upload batch, oldest-first, for the review table."""
@@ -580,7 +580,7 @@ async def get_review_batch(
 async def save_review_batch(
     batch_id: str,
     body: ReviewRequest,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_verified_user),
     session: AsyncSession = Depends(get_session),
 ) -> list[ReviewTransactionOut]:
     """
