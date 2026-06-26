@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { Bell } from "@/components/ui/Icons";
 import {
   AppNotification,
@@ -36,6 +37,26 @@ const TYPE_DOT: Record<string, string> = {
   info: "bg-brand",
 };
 
+// Where a notification leads when clicked. Proactive notifications carry an explicit
+// action_type; the daily/free-tier ones don't, so fall back to matching the (localized
+// TR/EN) title. Sensible default is /home.
+function routeFor(n: ActionNotif): string {
+  switch (n.action_type) {
+    case "liability_payment_followup": return "/networth";
+    case "remind_receivable": return "/networth";
+    case "set_savings": return "/networth";
+    case "upload_statement": return "/upload";
+  }
+  const title = (n.title || "").toLowerCase();
+  if (/insight|analiz/.test(title)) return "/home";        // Daily Insight / Günlük Analiz
+  if (/receivable|alacak/.test(title)) return "/networth"; // Overdue Receivable / Vadesi Geçmiş Alacak
+  if (/payment|ödeme/.test(title)) return "/networth";     // Upcoming Payment / Yaklaşan Ödeme
+  if (/wealth|varlık/.test(title)) return "/networth";     // Wealth Alert / Varlık Alarmı
+  if (/budget|bütçe/.test(title)) return "/transactions";  // Budget Alert / Bütçe Uyarısı
+  if (/upload|ekstre/.test(title)) return "/upload";       // statement reminder
+  return "/home";
+}
+
 function timeAgo(iso: string): string {
   const diff = Date.now() - new Date(iso).getTime();
   const min = Math.floor(diff / 60000);
@@ -51,6 +72,7 @@ interface Props {
 }
 
 export default function NotificationDropdown({ onCountChange }: Props) {
+  const router = useRouter();
   const { t, lang } = useLanguage();
   // Explicit theme-resolved background — solid `bg-<token>` utilities don't paint opaquely
   // for floating overlays in this build, so the panel goes see-through in light mode.
@@ -133,6 +155,15 @@ export default function NotificationDropdown({ onCountChange }: Props) {
     });
   };
 
+  // Clicking a notification's body navigates somewhere relevant, marks it read, and
+  // closes the dropdown. (The Yes/No action buttons sit outside this area and act on
+  // their own.)
+  const handleNavigate = (n: ActionNotif) => {
+    if (!n.is_read) handleMarkRead(n);
+    setOpen(false);
+    router.push(routeFor(n));
+  };
+
   const handleMarkRead = async (n: AppNotification) => {
     if (n.is_read) return;
     try {
@@ -201,8 +232,8 @@ export default function NotificationDropdown({ onCountChange }: Props) {
                   <div className="flex items-start gap-2.5">
                     <span className={`w-2 h-2 rounded-full shrink-0 mt-1.5 ${TYPE_DOT[n.type] ?? "bg-gray-500"} ${n.is_read ? "opacity-0" : ""}`} />
                     <div
-                      className={`flex-1 min-w-0 ${actionable ? "" : "cursor-pointer"}`}
-                      onClick={() => { if (!actionable) handleMarkRead(n); }}
+                      className="flex-1 min-w-0 cursor-pointer"
+                      onClick={() => handleNavigate(n)}
                     >
                       <div className="flex items-center justify-between gap-2">
                         <p className="text-ink text-xs font-medium truncate">{n.title}</p>

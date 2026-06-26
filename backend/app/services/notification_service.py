@@ -358,41 +358,43 @@ async def generate_for_user(user_id: uuid.UUID, lang: str, session: AsyncSession
             "type": "alert",
         })
 
-    # 5. LLM-generated insight (best-effort, once per day)
-    try:
-        from app.services.llm_provider import get_provider
-        provider = get_provider()
-        assets_r = await session.execute(select(Asset).where(Asset.user_id == user_id))
-        asset_count = len(assets_r.scalars().all())
+    # 5. LLM-generated insight (best-effort, once per day) — PAID TIER ONLY.
+    #    Free users never trigger the LLM call; the daily insight is a plus/pro feature.
+    if paid:
+        try:
+            from app.services.llm_provider import get_provider
+            provider = get_provider()
+            assets_r = await session.execute(select(Asset).where(Asset.user_id == user_id))
+            asset_count = len(assets_r.scalars().all())
 
-        lang_line = f"Respond in {lang}." if lang else "Respond in English."
-        prompt = f"""Give ONE short financial health observation (max 2 sentences) based on this summary:
+            lang_line = f"Respond in {lang}." if lang else "Respond in English."
+            prompt = f"""Give ONE short financial health observation (max 2 sentences) based on this summary:
 - {len(notifications)} alerts generated today
 - {asset_count} assets tracked
 - {len(liabilities)} liabilities tracked
 {lang_line} Be specific and actionable, not generic."""
 
-        # Direct client call (provider.complete() would inject the categorizer prompt);
-        # run off the event loop since the HTTP call is blocking.
-        def _gen() -> str:
-            resp = provider.client.chat.completions.create(
-                model=provider.model,
-                messages=[
-                    {"role": "system", "content": "You are a personal finance assistant giving a daily briefing."},
-                    {"role": "user", "content": prompt},
-                ],
-                temperature=0.5,
-            )
-            return resp.choices[0].message.content or ""
-        llm_tip = await asyncio.to_thread(_gen)
-        if llm_tip:
-            notifications.append({
-                "title": "Daily Insight" if lang == "en" else "Günlük Analiz",
-                "message": llm_tip,
-                "type": "info",
-            })
-    except Exception:
-        pass
+            # Direct client call (provider.complete() would inject the categorizer prompt);
+            # run off the event loop since the HTTP call is blocking.
+            def _gen() -> str:
+                resp = provider.client.chat.completions.create(
+                    model=provider.model,
+                    messages=[
+                        {"role": "system", "content": "You are a personal finance assistant giving a daily briefing."},
+                        {"role": "user", "content": prompt},
+                    ],
+                    temperature=0.5,
+                )
+                return resp.choices[0].message.content or ""
+            llm_tip = await asyncio.to_thread(_gen)
+            if llm_tip:
+                notifications.append({
+                    "title": "Daily Insight" if lang == "en" else "Günlük Analiz",
+                    "message": llm_tip,
+                    "type": "info",
+                })
+        except Exception:
+            pass
 
     # 6. Proactive "Mim" triggers (paid tier only) — smart, actionable questions.
     if paid:
