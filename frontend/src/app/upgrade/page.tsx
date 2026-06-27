@@ -42,6 +42,8 @@ export default function UpgradePage() {
           if (u) setStoredUser({ ...u, plan: me.plan });
           setActivating(false);
           setNotice(t("upgrade.activated"));
+          // Let Clar reappear with a "you unlocked X" welcome for the new plan.
+          window.dispatchEvent(new Event("clar-plan-changed"));
           return;
         }
       } catch { /* keep polling */ }

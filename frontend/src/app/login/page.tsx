@@ -126,8 +126,8 @@ export default function LoginPage() {
   const isRegister = mode === "register";
   const mimLine = isRegister
     ? (lang === "tr"
-        ? "Merhaba, ben Mim. Paranı tek bir yerde toplamana yardım edeceğim. Önce hesabını oluşturalım."
-        : "Hi, I'm Mim. I'll help you see all your money in one place. First, let's create your account.")
+        ? "Merhaba, ben Clar. Paranı tek bir yerde toplamana yardım edeceğim. Önce hesabını oluşturalım."
+        : "Hi, I'm Clar. I'll help you see all your money in one place. First, let's create your account.")
     : (lang === "tr"
         ? "Tekrar hoş geldin. Kaldığın yerden devam edelim."
         : "Welcome back. Let's pick up where you left off.");

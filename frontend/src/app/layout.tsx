@@ -3,6 +3,7 @@ import { Inter } from "next/font/google";
 import "./globals.css";
 import Navbar from "@/components/ui/Navbar";
 import GlobalAssistant from "@/components/GlobalAssistant";
+import ClarTour from "@/components/ClarTour";
 import HtmlLangSync from "@/components/HtmlLangSync";
 import { THEME_BOOTSTRAP } from "@/lib/theme";
 
@@ -29,6 +30,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <Navbar />
         {children}
         <GlobalAssistant />
+        <ClarTour />
       </body>
     </html>
   );

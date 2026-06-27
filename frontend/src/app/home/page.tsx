@@ -276,7 +276,7 @@ export default function HomePage() {
               </span>
             </div>
             <span className="block text-center text-ink-mute text-[11px] mt-2 group-hover:text-[#176B5B] transition-colors">
-              {lang === "tr" ? "Sormak için dokun" : "Tap to ask Mim"}
+              {lang === "tr" ? "Sormak için dokun" : "Tap to ask Clar"}
             </span>
           </button>
         </div>
