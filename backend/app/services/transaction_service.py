@@ -213,26 +213,48 @@ async def bust_insight_cache(user_id: uuid.UUID, session: AsyncSession) -> None:
 
 def dedup_transactions_orm(transactions: list[Transaction]) -> list[Transaction]:
     """
-    WHAT: Deduplicates ORM Transaction rows using (transaction_date, amount, FULL description).
-    WHY: Users may upload the same statement twice or upload overlapping date ranges.
-         The progress page aggregates across ALL batches, so without dedup each overlap
-         is counted twice — inflating spending totals and poisoning coaching insights.
+    WHAT: Removes duplicate transactions that appear ACROSS different upload batches —
+          NEVER within a single batch.
+    WHY: Users may re-upload the same statement or upload overlapping date ranges, so the
+         same transaction can show up in two batches; aggregating across ALL batches would
+         then double-count it. BUT a single real statement legitimately contains identical
+         consecutive rows (same date, amount, description) — those are DISTINCT real
+         transactions and must be kept. So we only collapse cross-batch repetition: for
+         each (date, amount, FULL description) key we keep as many occurrences as the ONE
+         batch that contains the most of them — i.e. max-per-batch, not the sum across
+         batches. This never reduces a key below the count it has inside any single batch.
+
          Keys on the FULL normalised description (collapse whitespace + casefold), NOT a
-         30-char prefix — same fix as pdf_parser._deduplicate(): statement rows routinely
-         share a long generic prefix with the distinguishing merchant only after ~30 chars,
-         so a prefix key wrongly merged distinct same-day same-amount purchases.
+         30-char prefix — same as pdf_parser._deduplicate(): statement rows routinely share
+         a long generic prefix with the distinguishing merchant only after ~30 chars.
     """
-    seen: set[tuple] = set()
+    def _key(t: Transaction) -> tuple:
+        norm_desc = re.sub(r"\s+", " ", t.description or "").strip().casefold()
+        return (str(t.transaction_date), str(t.amount), norm_desc)
+
+    # Count each key's occurrences PER batch (manual entries have upload_batch_id=None,
+    # which is treated as its own batch). The true count for a key is the most any single
+    # batch has — duplication beyond that comes from overlapping/re-uploaded batches.
+    per_batch: dict[tuple, dict[Any, int]] = {}
+    for t in transactions:
+        k = _key(t)
+        b = t.upload_batch_id
+        per_batch.setdefault(k, {})
+        per_batch[k][b] = per_batch[k].get(b, 0) + 1
+    max_per_key = {k: max(counts.values()) for k, counts in per_batch.items()}
+
+    # Emit up to max_per_key occurrences of each key across the whole list. Within-batch
+    # duplicates always survive because that batch's own count never exceeds the max.
+    emitted: dict[tuple, int] = {}
     result: list[Transaction] = []
     for t in transactions:
-        norm_desc = re.sub(r"\s+", " ", t.description or "").strip().casefold()
-        key = (str(t.transaction_date), str(t.amount), norm_desc)
-        if key not in seen:
-            seen.add(key)
+        k = _key(t)
+        if emitted.get(k, 0) < max_per_key[k]:
+            emitted[k] = emitted.get(k, 0) + 1
             result.append(t)
     removed = len(transactions) - len(result)
     if removed:
-        logger.info("Progress: removed %d duplicate transaction(s) across batches", removed)
+        logger.info("Progress: removed %d cross-batch duplicate transaction(s)", removed)
     return result
 
 
