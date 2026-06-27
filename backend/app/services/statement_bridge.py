@@ -210,12 +210,11 @@ def _load_grid(contents: bytes, content_type: str | None, filename: str):
     return str_rows, num_rows
 
 
-def _columns_descending(str_rows: list[list[str]] | None, n: int) -> bool:
-    """Is the statement ordered newest→oldest top-down? Picks the column with the most
-    parseable dates and compares its first vs last date. Default False (assume oldest first,
-    so current balance is the BOTTOM row) when there's no usable date column."""
+def _best_date_col(str_rows: list[list[str]] | None, n: int) -> int | None:
+    """Index of the column that parses as a date most often (needs ≥2 dated rows), else None.
+    This is the column whose ordering tells us which transaction is the most recent."""
     if not str_rows:
-        return False
+        return None
     ncols = max((len(r) for r in str_rows), default=0)
     best_col, best_count = None, 0
     for c in range(ncols):
@@ -225,14 +224,50 @@ def _columns_descending(str_rows: list[list[str]] | None, n: int) -> bool:
         )
         if cnt > best_count:
             best_count, best_col = cnt, c
-    if best_col is None or best_count < 2:
+    return best_col if (best_col is not None and best_count >= 2) else None
+
+
+def _columns_descending(str_rows: list[list[str]] | None, n: int) -> bool:
+    """Is the statement ordered newest→oldest top-down? Compares the date column's first vs
+    last value. Default False (assume oldest first, so current balance is the BOTTOM row)
+    when there's no usable date column."""
+    col = _best_date_col(str_rows, n)
+    if col is None or not str_rows:
         return False
     keys = [
-        _date_key(str_rows[i][best_col])
-        for i in range(len(str_rows)) if best_col < len(str_rows[i])
+        _date_key(str_rows[i][col])
+        for i in range(len(str_rows)) if col < len(str_rows[i])
     ]
     keys = [k for k in keys if k]
     return len(keys) >= 2 and keys[0] > keys[-1]
+
+
+def _balance_at_latest_date(
+    B: int, str_rows: list[list[str]] | None, num_rows: list[list[float | None]]
+) -> float | None:
+    """Value of balance column B on the row adjacent to the MOST RECENT transaction by date —
+    THE correct current/closing balance. Considers ONLY rows that have both a parseable date
+    and a value in B, so dateless footer/total rows can't win and out-of-order rows don't
+    fool a top/bottom heuristic. Same-day ties resolve to the end-of-day balance: the last
+    such row when the statement is chronological (oldest→newest), the first when reversed."""
+    dcol = _best_date_col(str_rows, len(num_rows))
+    if dcol is None or not str_rows:
+        return None
+    dated: list[tuple[tuple, int, float]] = []  # (date_key, doc_index, value)
+    for i in range(len(num_rows)):
+        if i >= len(str_rows) or dcol >= len(str_rows[i]):
+            continue
+        dk = _date_key(str_rows[i][dcol])
+        v = num_rows[i][B] if B < len(num_rows[i]) else None
+        if dk is not None and v is not None:
+            dated.append((dk, i, v))
+    if len(dated) < 2:
+        return None
+    chronological = dated[0][0] <= dated[-1][0]
+    max_dk = max(d[0] for d in dated)
+    latest = [d for d in dated if d[0] == max_dk]
+    chosen = latest[-1] if chronological else latest[0]
+    return chosen[2]
 
 
 def _running_balance(
@@ -272,8 +307,8 @@ def _running_balance(
         rng = range(n - 1, -1, -1) if from_bottom else range(n)
         return next((cell(i, B) for i in rng if cell(i, B) is not None), None)
 
-    # ── Phase 1: signed (unambiguous direction) ──────────────────────────────
-    best: tuple[float, float] | None = None  # (confidence, current_value)
+    # ── Phase 1: signed (the delta relationship identifies the balance column) ─
+    best: tuple[float, int, bool] | None = None  # (confidence, balance_col B, chron)
     for B in numeric_cols:
         for A in numeric_cols:
             if A == B:
@@ -291,15 +326,22 @@ def _running_balance(
                     if abs((bi - nb) - ai) <= max(0.02, abs(ai) * 0.02):
                         hits += 1
                 if comps >= 2 and hits >= 2 and hits / comps >= 0.6:
-                    cur = _end_value(B, from_bottom=chron)
-                    if cur is not None and (best is None or hits / comps > best[0]):
-                        best = (hits / comps, cur)
+                    if best is None or hits / comps > best[0]:
+                        best = (hits / comps, B, chron)
     if best is not None:
-        return round(abs(best[1]), 2)
+        _, B, chron = best
+        # THE current balance is the one adjacent to the most recent transaction by date.
+        # Fall back to the sign-inferred end only when there's no usable date column.
+        cur = _balance_at_latest_date(B, str_rows, num_rows)
+        if cur is None:
+            cur = _end_value(B, from_bottom=chron)
+        if cur is not None:
+            return round(abs(cur), 2)
 
-    # ── Phase 2: magnitude (unsigned amount column); direction from date order ─
+    # ── Phase 2: magnitude (unsigned amount column) — pick the balance column, then
+    #    read it at the most recent date (date order from the date column). ──
     descending = _columns_descending(str_rows, n)
-    best_mag: tuple[float, float, float] | None = None  # (conf, mean_abs(B), current)
+    best_mag: tuple[float, float, int] | None = None  # (conf, mean_abs(B), balance_col B)
     for B in numeric_cols:
         b_abs = [abs(cell(i, B)) for i in range(n) if cell(i, B) is not None]
         mean_abs = sum(b_abs) / len(b_abs) if b_abs else 0.0
@@ -316,12 +358,17 @@ def _running_balance(
                     hits += 1
             if comps >= 2 and hits >= 2 and hits / comps >= 0.6:
                 conf = hits / comps
-                cur = _end_value(B, from_bottom=not descending)
-                if cur is not None and (
-                    best_mag is None or (conf, mean_abs) > (best_mag[0], best_mag[1])
-                ):
-                    best_mag = (conf, mean_abs, cur)
-    return round(abs(best_mag[2]), 2) if best_mag else None
+                if best_mag is None or (conf, mean_abs) > (best_mag[0], best_mag[1]):
+                    best_mag = (conf, mean_abs, B)
+    if best_mag is None:
+        return None
+    B = best_mag[2]
+    # THE current balance is adjacent to the most recent transaction by date; fall back to
+    # the date-order end (top for reverse-chron, bottom for chronological) only if needed.
+    cur = _balance_at_latest_date(B, str_rows, num_rows)
+    if cur is None:
+        cur = _end_value(B, from_bottom=not descending)
+    return round(abs(cur), 2) if cur is not None else None
 
 
 def _date_key(v: object):
