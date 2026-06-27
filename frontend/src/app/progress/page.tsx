@@ -103,9 +103,15 @@ export default function ProgressPage() {
     return filtered.length >= 2 ? filtered : pts;
   }, [data, range]);
 
+  // An ESTIMATED trajectory is reconstructed backwards from cash flow and anchored to the
+  // current net worth. When current net worth is low (e.g. right after onboarding), that
+  // reconstruction can dip below zero for past months — a math artifact, not real debt —
+  // which renders as a wrong-signed "-TRY". Floor estimated points at 0. REAL snapshot data
+  // (including a genuinely negative net worth) is always shown as-is.
+  const estimated = data?.trajectory_estimated ?? false;
   const chartData = trajectory.map((p) => ({
     label: fmtDate(p.date),
-    value: Math.round(p.net_worth),
+    value: estimated ? Math.max(0, Math.round(p.net_worth)) : Math.round(p.net_worth),
   }));
 
   // The 0-100 score is only honest once at least two pillars carry REAL data.
