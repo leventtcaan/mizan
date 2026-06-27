@@ -355,7 +355,7 @@ def _llm_insight(provider, cat: str, last: Decimal, this: Decimal, pct: float, t
                 {
                     "role": "system",
                     "content": (
-                        "You are Mizan, a global personal finance coach. "
+                        "You are Clarifin, a global personal finance coach. "
                         "Write one short, warm sentence in the user's language when clear; otherwise use simple English. "
                         "Be curious, not judgmental."
                     ),

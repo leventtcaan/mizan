@@ -102,18 +102,18 @@ def _subject(lang: str, spend_var: float, nw_pct: float | None, currency: str) -
     if lang == "tr":
         if nw_pct is not None and abs(nw_pct) >= _MEANINGFUL_PCT:
             dir_ = "arttı" if nw_pct > 0 else "azaldı"
-            return f"Mizan · Net değerin %{abs(nw_pct):.0f} {dir_}"
+            return f"Clarifin · Net değerin %{abs(nw_pct):.0f} {dir_}"
         if abs(spend_var) >= _MEANINGFUL_PCT:
             dir_ = "arttı" if spend_var > 0 else "azaldı"
-            return f"Mizan · Harcaman %{abs(spend_var):.0f} {dir_}"
-        return "Mizan · Bu haftaki para brifing'in"
+            return f"Clarifin · Harcaman %{abs(spend_var):.0f} {dir_}"
+        return "Clarifin · Bu haftaki para brifing'in"
     if nw_pct is not None and abs(nw_pct) >= _MEANINGFUL_PCT:
         dir_ = "up" if nw_pct > 0 else "down"
-        return f"Mizan · Your net worth is {dir_} {abs(nw_pct):.0f}%"
+        return f"Clarifin · Your net worth is {dir_} {abs(nw_pct):.0f}%"
     if abs(spend_var) >= _MEANINGFUL_PCT:
         dir_ = "up" if spend_var > 0 else "down"
-        return f"Mizan · Your spending is {dir_} {abs(spend_var):.0f}%"
-    return "Mizan · Your money brief this week"
+        return f"Clarifin · Your spending is {dir_} {abs(spend_var):.0f}%"
+    return "Clarifin · Your money brief this week"
 
 
 def _template_headline(lang: str, income: float, expenses: float, net: float, currency: str) -> str:

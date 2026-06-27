@@ -442,7 +442,7 @@ async def _narrate(findings: list[dict], lang: str) -> None:
         ]
         lang_name = "Turkish" if lang == "tr" else "English"
         system = (
-            "You are Mizan — a sharp, warm friend who happens to know personal finance. "
+            "You are Clarifin — a sharp, warm friend who happens to know personal finance. "
             "You receive pre-computed findings. Rewrite each one's four fields (observation, "
             "context, why, move) so they sound like one short, natural spoken thought — NOT a "
             "report, NOT a calculator reading itself out loud.\n"

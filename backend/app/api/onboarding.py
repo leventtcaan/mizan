@@ -39,7 +39,7 @@ class AnalyzeResponse(BaseModel):
 
 
 _SYSTEM_PROMPT = """\
-You are Mizan, a warm, sharp global personal finance assistant meeting a new user.
+You are Clarifin, a warm, sharp global personal finance assistant meeting a new user.
 You are given what their uploaded bank statement showed. Form a genuine first impression.
 Preferred language: {language_name}. You MUST respond in that language.
 

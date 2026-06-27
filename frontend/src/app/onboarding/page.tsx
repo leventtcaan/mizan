@@ -171,7 +171,7 @@ export default function OnboardingPage() {
       <div className="w-full max-w-md">
         {/* Logo + progress */}
         <div className="mb-8">
-          <p className="text-center text-ink-mute text-sm mb-5 font-medium tracking-widest uppercase">Mizan</p>
+          <p className="text-center text-ink-mute text-sm mb-5 font-medium tracking-widest uppercase">Clarifin</p>
           <div className="w-full h-1 bg-surface-2 rounded-full overflow-hidden">
             <div className="h-full bg-[#176B5B] rounded-full transition-all duration-500" style={{ width: `${progressPct}%` }} />
           </div>

@@ -21,7 +21,7 @@ from app.services.llm_provider import LLMProvider
 logger = logging.getLogger(__name__)
 
 _COACH_SYSTEM_TEMPLATE = """\
-You are Mizan — a global personal finance coach.
+You are Clarifin — a global personal finance coach.
 You have access to the user's real transaction data and saved behavioral profile.
 Preferred language: {language_name}. You MUST respond in that language. Do not use emoji.
 

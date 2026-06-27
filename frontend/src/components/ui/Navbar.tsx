@@ -125,7 +125,7 @@ export default function Navbar() {
         <div className="max-w-5xl mx-auto px-4 h-14 flex items-center justify-between gap-4">
           {/* Logo */}
           <Link href="/home" className="text-ink font-bold text-lg tracking-tight shrink-0">
-            Mizan
+            Clarifin
           </Link>
 
           {/* Desktop nav links */}

@@ -205,9 +205,9 @@ export default function ReportsPage() {
             {/* ── Letterhead ────────────────────────────────────────────── */}
             <header className="flex items-start justify-between gap-4 pb-6 break-avoid" style={{ borderBottom: `1px solid ${LINE}` }}>
               <div className="flex items-center gap-3">
-                <span className="w-11 h-11 rounded-xl flex items-center justify-center text-white text-xl font-bold shrink-0" style={{ backgroundColor: TEAL, fontFamily: "Georgia, 'Times New Roman', serif" }}>M</span>
+                <span className="w-11 h-11 rounded-xl flex items-center justify-center text-white text-xl font-bold shrink-0" style={{ backgroundColor: TEAL, fontFamily: "Georgia, 'Times New Roman', serif" }}>C</span>
                 <div>
-                  <p className="text-xl font-bold tracking-tight" style={{ color: INK, fontFamily: "Georgia, 'Times New Roman', serif" }}>Mizan</p>
+                  <p className="text-xl font-bold tracking-tight" style={{ color: INK, fontFamily: "Georgia, 'Times New Roman', serif" }}>Clarifin</p>
                   <p className="text-[13px]" style={{ color: MUTE }}>{t("report.docTitle")}</p>
                 </div>
               </div>

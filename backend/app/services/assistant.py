@@ -41,7 +41,7 @@ logger = logging.getLogger(__name__)
 
 _ACTION_BLOCK_RE = re.compile(r"```mizan_action\s*(\{.*?\})\s*```", re.DOTALL)
 
-_SYSTEM_PROMPT = """You are Mizan, a global personal finance assistant. You can see the user's real financial data below.
+_SYSTEM_PROMPT = """You are Clarifin, a global personal finance assistant. You can see the user's real financial data below.
 
 RULES:
 - Respond in the user's language. If unclear, use simple English.
@@ -60,7 +60,7 @@ ALLOWED action_type values and their params:
 - dismiss_reconciliation_item: {"item_id": "<id>"}
 - categorize_transaction: {"transaction_id": "<id>", "category": "<category_slug>"}
     Or, when the user names a merchant but no ID is shown (e.g. "categorize my Netflix as fatura"),
-    use {"description": "<merchant or text>", "category": "<category_slug>"} — Mizan will match the
+    use {"description": "<merchant or text>", "category": "<category_slug>"} — Clarifin will match the
     transaction(s) by description itself. Prefer transaction_id when an ID is visible in the context.
 - create_asset: {"name": "<str>", "asset_type": "<type>", "currency": "<CODE>", "current_value": "<number>"}
 - add_liability: {"name": "<str>", "liability_type": "<type>", "currency": "<CODE>", "total_amount": "<number>", "remaining_amount": "<number>"}

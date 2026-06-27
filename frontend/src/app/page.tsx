@@ -112,7 +112,7 @@ export default function LandingPage() {
       <nav className="flex items-center justify-between gap-4 px-6 py-4 max-w-6xl mx-auto">
         {/* Logo — clean wordmark, clickable (→ / when logged out, /home when in) */}
         <Link href={logoHref} className="text-lg font-bold tracking-tight text-ink hover:text-[#176B5B] transition-colors">
-          Mizan
+          Clarifin
         </Link>
 
         <div className="flex items-center gap-2 sm:gap-3">
@@ -226,7 +226,7 @@ export default function LandingPage() {
                 <span className="w-3 h-3 rounded-full bg-line-strong" />
                 <div className="ml-3 flex-1 max-w-[300px]">
                   <div className="h-6 rounded-md bg-surface border border-line flex items-center px-2.5 text-[11px] text-ink-mute">
-                    mizan.app/home
+                    clarifin.app/home
                   </div>
                 </div>
               </div>

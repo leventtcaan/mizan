@@ -85,9 +85,9 @@ async def weekly_send(
         import resend  # local import — only needed when actually sending
         resend.api_key = settings.RESEND_API_KEY
         response = resend.Emails.send({
-            "from": "Mizan <noreply@mizan.app>",
+            "from": "Clarifin <noreply@clarifin.app>",
             "to": [current_user.email],
-            "subject": "Haftalık Finansal Özet — Mizan",
+            "subject": "Haftalık Finansal Özet — Clarifin",
             "html": html,
         })
         return response.get("id", "") if isinstance(response, dict) else str(response)
@@ -132,7 +132,7 @@ def _render_brief_html(brief: dict) -> str:
       <table width="560" cellpadding="0" cellspacing="0" style="max-width:560px;width:100%;">
 
         <tr><td style="padding:0 0 20px;text-align:center;">
-          <span style="font-size:22px;font-weight:800;color:#ffffff;letter-spacing:-0.5px;">⚖ Mizan</span>
+          <span style="font-size:22px;font-weight:800;color:#ffffff;letter-spacing:-0.5px;">⚖ Clarifin</span>
         </td></tr>
 
         <tr><td style="background:#1A1A1A;border:1px solid #2A2A2A;border-radius:16px;padding:28px;">
@@ -145,7 +145,7 @@ def _render_brief_html(brief: dict) -> str:
 
         <tr><td style="padding:20px 8px 0;text-align:center;">
           <p style="margin:0;font-size:12px;color:#6b7280;line-height:1.6;">
-            Mizan · Settings → Weekly Money Brief to turn this off.
+            Clarifin · Settings → Weekly Money Brief to turn this off.
           </p>
         </td></tr>
 
@@ -159,7 +159,7 @@ def _render_brief_html(brief: dict) -> str:
 def _render_brief_text(brief: dict) -> str:
     lines = [brief["headline"], ""]
     lines += [f"- {b}" for b in brief.get("bullets", [])]
-    lines += ["", f"{brief['cta_label']} {brief['cta_url']}", "", "Mizan"]
+    lines += ["", f"{brief['cta_label']} {brief['cta_url']}", "", "Clarifin"]
     return "\n".join(lines)
 
 
@@ -167,9 +167,9 @@ def _render_verification_html(verify_url: str, lang: str) -> str:
     tr = lang == "tr"
     headline = "E-postanı doğrula" if tr else "Verify your email"
     body = (
-        "Mizan hesabını etkinleştirmek için aşağıdaki butona tıkla. Bu bağlantı 24 saat geçerlidir."
+        "Clarifin hesabını etkinleştirmek için aşağıdaki butona tıkla. Bu bağlantı 24 saat geçerlidir."
         if tr else
-        "Tap the button below to activate your Mizan account. This link is valid for 24 hours."
+        "Tap the button below to activate your Clarifin account. This link is valid for 24 hours."
     )
     cta = "E-postamı doğrula" if tr else "Verify my email"
     ignore = (
@@ -184,7 +184,7 @@ def _render_verification_html(verify_url: str, lang: str) -> str:
     <tr><td align="center" style="padding:40px 16px;">
       <table width="560" cellpadding="0" cellspacing="0" style="max-width:560px;width:100%;">
         <tr><td style="padding:0 0 20px;text-align:center;">
-          <span style="font-size:22px;font-weight:800;color:#ffffff;letter-spacing:-0.5px;">⚖ Mizan</span>
+          <span style="font-size:22px;font-weight:800;color:#ffffff;letter-spacing:-0.5px;">⚖ Clarifin</span>
         </td></tr>
         <tr><td style="background:#1A1A1A;border:1px solid #2A2A2A;border-radius:16px;padding:28px;">
           <p style="margin:0 0 12px;font-size:18px;font-weight:700;color:#f3f4f6;">{headline}</p>
@@ -212,7 +212,7 @@ async def send_verification_email(to_email: str, verify_url: str, lang: str = "t
         raise RuntimeError("RESEND_API_KEY not configured")
 
     html = _render_verification_html(verify_url, lang)
-    subject = "Mizan — E-postanı doğrula" if lang == "tr" else "Mizan — Verify your email"
+    subject = "Clarifin — E-postanı doğrula" if lang == "tr" else "Clarifin — Verify your email"
 
     def _send() -> str:
         import resend  # local import — only when actually sending

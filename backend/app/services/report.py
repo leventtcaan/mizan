@@ -431,7 +431,7 @@ async def build_report_xlsx(
     nw, cf, meta = report["net_worth"], report["cash_flow"], report["meta"]
     ws = wb.active
     ws.title = "Summary"
-    ws["A1"] = "Mizan · Financial Report"
+    ws["A1"] = "Clarifin · Financial Report"
     ws["A1"].font = title_font
     ws["A2"] = meta["period_label"]
     ws["A3"] = f"Currency: {ccy}   ·   Generated: {meta['generated_at'][:10]}"
@@ -575,7 +575,7 @@ async def build_report_csv(
         w.writerow([f"[{title}]"])
 
     # ── header block ──
-    w.writerow(["Mizan · " + L("Finansal Rapor", "Financial Report")])
+    w.writerow(["Clarifin · " + L("Finansal Rapor", "Financial Report")])
     w.writerow([L("Dönem", "Period"), meta["period_label"]])
     w.writerow([L("Para birimi", "Currency"), ccy])
     w.writerow([L("Oluşturuldu", "Generated"), meta["generated_at"][:10]])

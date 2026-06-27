@@ -30,7 +30,7 @@ _CAT_DISPLAY: dict[str, str] = {
 }
 
 _INSIGHT_SYSTEM = """\
-You are Mizan, a global personal finance coach. Write short, warm, practical feedback.
+You are Clarifin, a global personal finance coach. Write short, warm, practical feedback.
 """
 
 _INSIGHT_USER = """\
@@ -325,7 +325,7 @@ def render_email(summary: dict, user_email: str) -> str:
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>Haftalık Finansal Özet — Mizan</title>
+  <title>Haftalık Finansal Özet — Clarifin</title>
 </head>
 <body style="margin:0;padding:0;background:#f9fafb;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;">
   <table width="100%" cellpadding="0" cellspacing="0" style="background:#f9fafb;">
@@ -336,7 +336,7 @@ def render_email(summary: dict, user_email: str) -> str:
           <!-- Header -->
           <tr>
             <td style="background:#4f46e5;border-radius:12px 12px 0 0;padding:32px 32px 24px;text-align:center;">
-              <div style="font-size:28px;font-weight:800;color:#ffffff;letter-spacing:-1px;">⚖ Mizan</div>
+              <div style="font-size:28px;font-weight:800;color:#ffffff;letter-spacing:-1px;">⚖ Clarifin</div>
               <div style="font-size:13px;color:#c7d2fe;margin-top:6px;">Haftalık Finansal Özet · {week_label}</div>
             </td>
           </tr>
@@ -370,7 +370,7 @@ def render_email(summary: dict, user_email: str) -> str:
               <div style="text-align:center;margin-bottom:32px;">
                 <a href="http://localhost:3000/transactions"
                    style="display:inline-block;background:#4f46e5;color:#ffffff;text-decoration:none;padding:14px 32px;border-radius:10px;font-weight:700;font-size:15px;">
-                  Mizan'ı Aç →
+                  Clarifin'ı Aç →
                 </a>
               </div>
 

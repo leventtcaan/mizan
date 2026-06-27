@@ -72,7 +72,7 @@ function VerifyInner() {
     <main className="min-h-screen bg-canvas text-ink flex flex-col items-center justify-center px-4 py-12">
       <div className="w-full max-w-sm">
         <div className="text-center mb-6">
-          <Link href="/" className="text-ink-mute text-sm hover:text-ink-soft transition-colors">← Mizan</Link>
+          <Link href="/" className="text-ink-mute text-sm hover:text-ink-soft transition-colors">← Clarifin</Link>
         </div>
 
         {/* Mim guides the moment */}

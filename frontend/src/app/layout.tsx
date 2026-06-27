@@ -9,9 +9,9 @@ import { THEME_BOOTSTRAP } from "@/lib/theme";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "Mizan",
+  title: "Clarifin",
   description: "Harcama davranışını anla.",
-  // Explicit so the tab/favicon resolves to the app's "M" monogram (src/app/icon.svg).
+  // Explicit so the tab/favicon resolves to the app's "C" monogram (src/app/icon.svg).
   icons: { icon: "/icon.svg" },
 };
 
