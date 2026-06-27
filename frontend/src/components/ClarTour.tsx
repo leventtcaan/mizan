@@ -6,6 +6,7 @@ import Link from "next/link";
 import Mim from "@/components/companion/Mim";
 import { Home, BarChart2, Scale, FileText, Sparkles, ArrowRight, X as XIcon, CheckCircle } from "@/components/ui/Icons";
 import { useLanguage } from "@/lib/i18n";
+import { useTheme } from "@/lib/theme";
 import { getStoredUser } from "@/lib/api";
 
 /**
@@ -38,6 +39,11 @@ export default function ClarTour() {
   const router = useRouter();
   const pathname = usePathname();
   const tr = lang === "tr";
+  // Explicit theme-resolved background — solid `bg-<token>` utilities don't paint
+  // opaquely for floating overlays in this build, so the cards go see-through in light
+  // mode. Same fix as the app's other overlays (NotificationDropdown / CurrencyMenu / …).
+  const { resolved } = useTheme();
+  const surfaceBg = resolved === "dark" ? "#1C1915" : "#FFFFFF";
 
   const [mode, setMode] = useState<Mode>(null);
   const [plan, setPlan] = useState<Plan>("free");
@@ -113,7 +119,7 @@ export default function ClarTour() {
     return (
       <div className="fixed z-[70] bottom-4 right-4 left-4 sm:left-auto sm:max-w-sm" style={{ animation: "clarIn .35s ease both" }}>
         <Style />
-        <div className="rounded-2xl border border-line bg-surface shadow-2xl shadow-black/20 p-4">
+        <div className="rounded-2xl border border-line shadow-2xl shadow-black/20 p-4" style={{ backgroundColor: surfaceBg }}>
           <div className="flex items-start gap-3">
             <div className="relative shrink-0">
               <span className="absolute inset-0 rounded-full" style={{ background: "radial-gradient(circle, rgba(23,107,91,0.25), transparent 70%)", transform: "scale(1.5)" }} />
@@ -156,7 +162,7 @@ export default function ClarTour() {
     const planName = plan.charAt(0).toUpperCase() + plan.slice(1);
 
     return (
-      <Backdrop onClose={dismissUnlock}>
+      <Backdrop onClose={dismissUnlock} surfaceBg={surfaceBg}>
         <div className="text-center">
           <ClarHead mood="happy" />
           <h2 className="text-xl font-bold text-ink mt-4">
@@ -195,7 +201,7 @@ export default function ClarTour() {
   const last = step === sections.length - 1;
 
   return (
-    <Backdrop onClose={finishTour}>
+    <Backdrop onClose={finishTour} surfaceBg={surfaceBg}>
       <button onClick={finishTour} aria-label="Skip" className="absolute top-3.5 right-3.5 text-ink-mute hover:text-ink-soft transition-colors">
         <XIcon size={18} />
       </button>
@@ -262,13 +268,13 @@ export default function ClarTour() {
 }
 
 // ── shared bits ──────────────────────────────────────────────────────────────
-function Backdrop({ children, onClose }: { children: React.ReactNode; onClose: () => void }) {
+function Backdrop({ children, onClose, surfaceBg }: { children: React.ReactNode; onClose: () => void; surfaceBg: string }) {
   return (
     <div className="fixed inset-0 z-[70] flex items-center justify-center px-4 bg-black/40 backdrop-blur-[2px]" style={{ animation: "clarFade .25s ease both" }} onClick={onClose}>
       <Style />
       <div
-        className="relative w-full max-w-md rounded-2xl border border-line bg-surface shadow-2xl shadow-black/30 p-6"
-        style={{ animation: "clarPop .3s ease both" }}
+        className="relative w-full max-w-md rounded-2xl border border-line shadow-2xl shadow-black/30 p-6"
+        style={{ animation: "clarPop .3s ease both", backgroundColor: surfaceBg }}
         onClick={(e) => e.stopPropagation()}
       >
         {children}
