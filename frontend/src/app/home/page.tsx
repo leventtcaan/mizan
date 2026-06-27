@@ -246,7 +246,7 @@ export default function HomePage() {
       <div className="flex flex-col gap-10 pt-2 pb-10">
 
         {/* 1 — Mim greets you, front and center, and says the one thing that matters */}
-        <div className={`flex flex-col items-center text-center ${reveal()}`}>
+        <div data-tour="home" className={`flex flex-col items-center text-center ${reveal()}`}>
           <Mim mood={mimMood} size={92} speaking className="mb-5" />
           <p className="text-ink-mute text-base mb-2">
             {greeting}{displayName ? `, ${displayName}` : ""}

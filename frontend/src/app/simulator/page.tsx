@@ -212,7 +212,7 @@ export default function SimulatorPage() {
       ) : (
         <div className="flex flex-col gap-4">
           {/* ── Ask hero — the differentiator, front and center ── */}
-          <section className="relative overflow-hidden bg-surface border border-line rounded-2xl p-5 sm:p-6 shadow-sm">
+          <section data-tour="simulator" className="relative overflow-hidden bg-surface border border-line rounded-2xl p-5 sm:p-6 shadow-sm">
             <div className="pointer-events-none absolute inset-x-0 top-0 h-24" style={{ background: "radial-gradient(120% 100% at 30% 0%, rgba(23,107,91,0.08), transparent 70%)" }} />
             <div className="relative">
               <div className="flex items-center gap-2 mb-3">

@@ -224,6 +224,7 @@ export default function GlobalAssistant() {
             </div>
           )}
           <button
+            data-tour="assistant"
             onClick={() => { setScope(null); setOpen(true); }}
             className="flex items-center justify-center transition-transform hover:scale-110"
             title={t("assistant.askMizan")}

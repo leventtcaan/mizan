@@ -989,7 +989,7 @@ export default function NetWorthPage() {
         ) : (
           <div className="relative">
             {/* Number + trend */}
-            <div className="text-center">
+            <div data-tour="networth" className="text-center">
               <p className="text-ink-mute text-xs font-medium uppercase tracking-wider mb-2">{t("nw.netWorth")}</p>
               <p className={`text-5xl sm:text-6xl font-bold tabular-nums leading-none ${netPositive ? "text-ink" : "text-neg"} ${summaryLoading ? "opacity-50" : ""}`}>
                 {summary ? fmt(summary.net_worth_try, displayCurrency) : "—"}
