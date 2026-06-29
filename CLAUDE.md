@@ -594,12 +594,52 @@ Systematic audit + fixes across the whole app. Highlights:
 - [x] **Grouped period picker** (To date / Rolling / Completed + All) with live date-range hint; added last_quarter/last_year/last_90/last_12_months (backend resolve_period). **Download filenames carry the real date range** + localized word: `mizan-report-2026-05-23-2026-06-23.csv` / `mizan-rapor-…xlsx`.
 - [x] **CSV + Excel now match the PDF**: net worth, cash flow, top categories, assets, liabilities, receivables, allocation, currency mix, recommendations, assumptions, transactions. CSV = one structured file w/ `[SECTION]` markers; Excel = multi-sheet. Hydration fix: reports currency lazy-init → SSR-safe "TRY" then useEffect.
 
+### Phase 106 — Paddle billing integration (2026-06-27) [migration 0044]
+- [x] **Paddle = Merchant of Record** (handles tax + compliance; we never touch card data). `services/paddle.py`: HMAC-SHA256 `Paddle-Signature` verify (`ts:body`, constant-time, **fails closed** when secret unset), price-id→plan map (custom_data.plan preferred, price fallback), `cancel_subscription` / `get_subscription` (sandbox/prod host switch).
+- [x] **Webhook** `POST /webhooks/paddle` (`api/webhooks.py`): verify sig (401 if bad) → resolve user (custom_data.user_id → stored sub id → customer id) → `subscription.activated/created/updated` sets plan + `plan_expires_at`; `subscription.canceled` → free. 200 for accepted-unhandled so Paddle stops retrying.
+- [x] **Billing API** (`api/billing.py`): `GET /billing/subscription` (plan, expires, next_renewal, manageable — DB-derived, kept in sync by webhook); `POST /billing/cancel` (cancels at period end via Paddle API; downgrade lands via webhook). Both `get_verified_user`.
+- [x] **migration 0044**: `users` += `paddle_subscription_id` + `paddle_customer_id` (idempotent, revises 0043).
+- [x] **Frontend**: `lib/paddle.ts` lazy-loads Paddle.js v2, `openCheckout()` passes `customData {user_id, plan}`. Upgrade page = real checkout (Plus/Pro × monthly/yearly price IDs), polls `/auth/me` post-`checkout.completed` until plan flips. Settings = next-renewal + Cancel button. `config.py` + `.env.example` (root/backend/frontend) document `PADDLE_*` / `NEXT_PUBLIC_PADDLE_*` (env, webhook secret, API key, 4 price IDs, client token).
+
+### Phase 107 — Production deploy (2026-06-28)
+- [x] **Contabo VPS** (31.220.90.52, 4 vCPU / 8GB RAM, **Ubuntu 24.04**). Stack = **Docker Compose** (postgres + redis + backend + frontend) behind **Nginx** reverse proxy. **Let's Encrypt** SSL (certbot, auto-renew). `alembic upgrade head` (→0044) on cold start. SECRET_KEY / RESEND_API_KEY / REDIS_URL / PADDLE_* via server env.
+
+### Phase 108 — Domain clarifin.xyz (2026-06-28)
+- [x] **clarifin.xyz** registered at **Namecheap**. DNS A-records → 31.220.90.52 (apex + www). SSL active (Let's Encrypt). Live at **https://clarifin.xyz**.
+
+### Phase 109 — Resend domain verify (2026-06-28)
+- [x] **clarifin.xyz verified in Resend** (SPF/DKIM/DMARC). Outbound email now reaches **all users** (was sandbox-only to account owner). `RESEND_FROM_EMAIL` → verified-domain sender. Verification + weekly-brief + proactive emails all live.
+
+### Phase 110 — Rebrand Mizan → Clarifin (2026-06-26 → 27)
+- [x] **Product: Mizan → Clarifin** across ALL user-facing text — page titles, navbar logo, landing, login/register, email templates, reports, locale files (tr.ts/en.ts), LLM persona prompts ("You are Clarifin"). Variable/file/table/endpoint names + comments unchanged. Favicon "M" → "C" monogram (teal). Email domain → `@clarifin.xyz`.
+- [x] **AI companion: Mim → Clar** (displayed name only). Component/var/file names (`Mim`, `MimGuide`, `AskMim`, `MimMood`) UNCHANGED — only shown strings: greetings, "Ask Clar", "Clar's tip", "Proactive Clar alerts", onboarding/login lines, the 6 locale entries each in en/tr.
+
+### Phase 111 — ClarTour: real interactive product tour (2026-06-28)
+- [x] **Intercom/Appcues-style** walkthrough (`components/ClarTour.tsx`, mounted in root layout so it survives the navigations it drives). Replaces the static text-bubble version.
+- [x] **Engine**: each step has a `route` (tour `router.push`es to it) + a `target` selector → polls for the element (pages load async), `scrollIntoView`, measures, draws a **spotlight** (full-screen dim with a box-shadow hole + teal ring + radar pulse) and an **anchored tooltip** (auto-flip above/below, viewport-clamped, arrow → target) with Clar avatar, title, body, **action chip** ("Click here to upload"), Back/Next/Skip, progress bar. Transparent click-blocker. Robust centered-card fallback when a target isn't found.
+- [x] **Flow**: Welcome → Home → Money Flow → Upload → Net Worth → Reports → Simulator → Progress → Assistant → Summary. **Plan-tailored**: Reports/Simulator carry a Pro badge → non-Pro users get an upgrade nudge (real control spotlit for Pro). Summary CTA = Upgrade (free) / Start exploring (paid). Kept the corner **offer** (post-onboarding) + **unlock** celebration (on upgrade, via `clar-plan-changed` event). Theme-resolved inline bg (overlay paint quirk). `data-tour` anchors added: home hero, NW number, simulator ask, assistant FAB (+ navbar href targets).
+
+### Phase 112 — Bug-fix batch (2026-06-27 → 28)
+- [x] **Cross-batch dedup fix** (`transaction_service.dedup_transactions_orm`): was collapsing identical real rows WITHIN one statement. Now keys per-batch and keeps, per `(date, amount, full-desc)`, the max count from any single batch — only cross-batch repetition (re-uploads / overlapping ranges) is removed; within-batch identical txns survive.
+- [x] **Upload loading overlay** (`app/upload/page.tsx`): animated "what Clar is doing" screen (Clar haloed by pulsing rings, step checklist Reading→Extracting→Categorizing→Recurring→Brief with active/done states, shimmer progress bar) replaces the bare spinner while a statement processes. Pure SVG/CSS, multi-file aware.
+- [x] **Statement bridge balance — date-aware everywhere** (`statement_bridge.py`): grid path (`_running_balance` phase 1+2) now reads the balance column on the row adjacent to the MOST RECENT transaction by date (`_balance_at_latest_date` + `_best_date_col`), not the sign/order-inferred top/bottom end. Fixes dateless footer/total rows + out-of-order rows being picked. PDF-text path already date-aware.
+- [x] **Onboarding fixes**: (1) completes onto **/home**, not a goal page (goal step removed → single upload step → review→brief or home); (2) Progress **trajectory chart sign** — estimated (reconstructed) points floored at 0 (the math artifact showed misleading "-TRY" for low-NW users; real snapshot data shown as-is); (3) **default currency** = the uploaded statement's currency, else **USD** (never the TRY backend default) — now persisted via `updatePreferences` + `setDefaultCurrencyLocal`.
+
 ---
 
 ## Current Status
 
-**Phases 1–105 complete. Alembic head = 0042.**
-**Since 98: admin command-center (99), liability living-obligation + proactive Mim triggers 0039–0041 (100), user profile + business fields 0042 (101), settings read-only redesign (102), security fixes — Next 14.2.35 / /chat removed / plan gates / email normalize (103), statement bridge multilingual date-aware balance (104), reports period picker + full CSV/Excel (105). Pending: audit fixes (below), automated tests, Stripe billing, deploy.**
+**Phases 1–112 complete. Alembic head = 0044. LIVE IN PRODUCTION at https://clarifin.xyz.**
+**Since 105: Paddle billing — webhook + billing API + checkout + 0044 (106), production deploy on Contabo VPS / Docker / Nginx / Let's Encrypt (107), domain clarifin.xyz via Namecheap + SSL (108), Resend clarifin.xyz verified → email to all users (109), rebrand Mizan→Clarifin + companion Mim→Clar (110), ClarTour real interactive tour (111), bug-fix batch — dedup / upload overlay / statement-bridge date-aware balance / onboarding (112). Pending: automated tests, post-launch monitoring/iteration.**
+
+### Production (LIVE since 2026-06-28)
+- **URL**: https://clarifin.xyz
+- **Server**: Contabo VPS **31.220.90.52**, 4 vCPU / 8GB RAM, **Ubuntu 24.04**
+- **Stack**: Docker Compose (postgres + redis + backend + frontend) · **Nginx** reverse proxy · **Let's Encrypt** SSL (auto-renew). `alembic upgrade head` (→0044) on cold start.
+- **Paddle**: production keys active, webhook `→ /webhooks/paddle`, **4 price IDs** configured (Plus/Pro × monthly/yearly).
+- **Resend**: **clarifin.xyz verified** (SPF/DKIM/DMARC) — outbound email to all users.
+- **Domain**: clarifin.xyz @ Namecheap, DNS A → 31.220.90.52, SSL active.
+- **Env on server**: SECRET_KEY · DATABASE_URL · REDIS_URL · RESEND_API_KEY · DEEPSEEK/OPENAI keys · PADDLE_* (env=production, webhook secret, API key, 4 price IDs) · NEXT_PUBLIC_PADDLE_* (client token, 4 price IDs).
 
 ### Design system (Phase 82, established)
 - **Light mode default**, dark toggle (Light/Dark/System) in navbar. Token system: `:root` (light) / `[data-theme="dark"]` (dark) channel CSS vars; Tailwind semantic colors.
@@ -608,11 +648,11 @@ Systematic audit + fixes across the whole app. Highlights:
 - Font: Inter. `tabular-nums` on all financial figures (body-level).
 - **⚠ Runtime quirk (untraced)**: solid `bg-<token>` utilities don't always paint at runtime (text/border tokens do). Overlays (modals/dropdowns) + selected-state fills use **explicit theme-resolved inline colors** (`useTheme` → hex) as the mitigation. Fix the bg-token CSS layer later.
 
-### Pricing (Phases 83/85, established — billing NOT yet integrated)
-- **Free**: ₺0 / $0 — manual entry, 1 statement upload/month, vision disabled.
-- **Plus**: **₺199/ay · ₺1.690/yıl** / **$7/mo · $59/yr** — unlimited uploads, brief, categorization, recurring, weekly email.
-- **Pro**: **₺349/ay · ₺2.990/yıl** / **$12/mo · $99/yr** — everything + simulator, unlimited assistant, reports, guidance.
-- Yearly ≈28–30% off monthly×12 (keeps "%28 tasarruf" chip honest). Plan changes admin-only until billing exists; `/upgrade` captures interest in localStorage only.
+### Pricing (current — billing LIVE via Paddle, Phase 106)
+- **Free**: ₺0 / $0 — manual entry, 1 AI-processed statement/month, 3 assistant msgs/day, vision disabled.
+- **Plus**: **₺249/ay · ₺2.090/yıl** / **$9/mo · $79/yr** — unlimited uploads, brief, categorization, recurring, weekly email, 30 assistant msgs/day.
+- **Pro**: **₺449/ay · ₺3.790/yıl** / **$19/mo · $169/yr** — everything + simulator, reports, net-worth guidance, proactive Clar, unlimited assistant.
+- **Plan gating**: `is_paid` (plus∪pro) vs `is_pro` (pro-only). `get_pro_user` gates simulator/reports/guidance/proactive-Clar; `get_paid_user` gates uploads/vision/brief. **Paddle checkout live** — webhook sets `plan`/`plan_expires_at`; 4 price IDs (Plus/Pro × monthly/yearly).
 
 ### IMPORTANT — Cash flow ↔ net worth bridge (Phase 94 — IMPLEMENTED, needs live testing)
 - **Ekstre→varlık: DONE.** `services/statement_bridge.py` detects a statement's closing/account balance (running-balance-column delta detection + direction → current end; header+date-order + labelled-footer fallbacks; PDF/CSV/XLSX) and kind (deposit vs credit_card via structural markers). Propose→confirm via `NetworthSuggestion` (no silent overwrite): deposit→**asset** (bank_account), credit card→**liability** (balance owed). Global, no Turkish hardcoding. Surfaced on Brief (post-review) + Net Worth Smart Suggestions.
@@ -641,7 +681,7 @@ Systematic audit + fixes across the whole app. Highlights:
 
 Full stack: register/login → JWT → upload (rate-limited, busts caches) → 3-layer OCR → LLM extract → OCR cleanup → dedup → zero-amount filter → persist → LLM categorize (13 categories) → insight cache → globalized LLM coach with corrections+notes injected → spending chart + progress page (LineChart 3-month trend + cross-batch-deduped category comparison + LLM one-liners, 24h cached) → PersonalityCard (5 types, cached per batch) → AlertsPanel (3 algorithmic detectors, dismiss persisted, stale dismissals auto-cleaned) → GoalsPanel (monthly budget vs actual) → ChatPanel (globalized conversational coaching, behavioral profile memory, voice input, chat-based tx entry with confirmation card, sessionStorage prefill from alerts) → weekly email summary (Resend HTML, preferences toggle) → inflation-adjusted analysis (TUFE 2023-2026, real vs nominal per category, ProgressInsight cache) → net worth asset subtype capture (all asset types have specific fields; crypto/fiat/commodity live picker; gold unit picker; stock/fund code fields; manual categories store structured metadata in `Asset.source_detail` JSON) → net worth display currency searchable via live `CurrencySelect` → receivable collection creates linked cash asset, repeated collection is idempotent, delete/write-off removes linked asset → stale received receivables and processed suggestions are hidden/cleaned after 30 days → onboarding accepts any institution/export source instead of hardcoded Turkish banks → financial event log + reconciliation item backend skeleton exists → net worth page shows Action Queue with open reconciliation items and recent financial events → reconciliation producers (overdue receivables, missing receivable assets, cross-batch duplicate detection) → Action Queue real action handlers per issue_type → net worth history AreaChart (daily USD snapshots, converted to display currency) → asset allocation donut PieChart (5 groups, click to highlight) → proactive threshold alerts (WealthAlert model, asset_price_drop / net_worth_drop / payment_coverage_risk, bell icon on auto-priced asset cards, triggered alerts banner).
 
-### Migrations (head = 0042)
+### Migrations (head = 0044)
 | Migration | What |
 |---|---|
 | 0001 | CREATE users + transactions |
@@ -686,6 +726,8 @@ Full stack: register/login → JWT → upload (rate-limited, busts caches) → 3
 | 0040 | ADD end_date to liabilities (recurring payoff bound) |
 | 0041 | ADD action_type + action_data + action_state to app_notifications (proactive Mim actions) |
 | 0042 | ADD account_type + company_name + industry + team_size + phone + timezone to users |
+| 0043 | ALTER assets.source_detail String(500) → Text (price metadata + subtype JSON outgrew 500) |
+| 0044 | ADD paddle_subscription_id + paddle_customer_id to users (Paddle billing) |
 
 ### Known Issues (open)
 - **PDF extraction not perfect** — scanned/image PDFs hit inherent OCR limits. Vision LLM (gpt-4o-mini, Phase 59) + strip tiling fixed column/sign/format errors and gets income exact on the Ziraat scan, but residual amount/count drift remains = pixel-level digit misreads on poor scans. gpt-4o is more accurate (swap `_VISION_MODEL`) at ~10x cost.
@@ -1500,18 +1542,18 @@ Full stack: register/login → JWT → upload (rate-limited, busts caches) → 3
 
 ## Next Session — Start Here
 
-**Phases 1–105 complete. Alembic head = 0042.** Shipped since 98: admin command-center (99), liability living-obligation + proactive Mim triggers — migrations 0039–0041 (100), user profile + business fields — 0042 (101), settings read-only redesign (102), security fixes — Next 14.2.35 / /chat removed / LLM provider fix / plan gates / email normalize (103), statement bridge multilingual date-aware balance (104), reports period picker + full CSV/Excel (105).
+**Phases 1–112 complete. Alembic head = 0044. LIVE at https://clarifin.xyz.** Shipped since 105: Paddle billing + 0044 (106), production deploy — Contabo VPS / Docker / Nginx / Let's Encrypt (107), domain clarifin.xyz + SSL (108), Resend clarifin.xyz verified (109), rebrand Mizan→Clarifin / Mim→Clar (110), ClarTour interactive tour (111), bug-fix batch (112). **Now LIVE in production — focus shifts to monitoring + iteration.**
 
-### Pending (from audit — fix next)
-1. **Account ownership validation** — networth.py: account UUID stored without checking it belongs to the user. Validate ownership.
-2. **Category list unification** — `egitim` is in upload.py's allowed list but not in categorizer.py / transactions.py. Make ONE shared constant across all three.
-3. **Cross-batch dedup fix** — transaction_service.py uses `description[:30]`; match full description like pdf_parser.py does.
-4. **Upgrade page honest copy** — trust line "No credit card. Cancel anytime." promises a subscription that doesn't exist yet. Make honest.
-5. **Hardcoded Turkish warnings** — networth.py net-worth warning text is TR-only; use the user's `lang`.
-6. **Reports currency default** — defaults to TRY; use the user's stored `display_currency`.
-7. **Automated tests** — none yet; add backend + critical-path coverage.
-8. **Stripe payment integration** — `/upgrade` captures interest in localStorage only; wire checkout → webhook sets `plan`/`plan_expires_at`.
-9. **Deploy** — Railway backend + Vercel frontend; SECRET_KEY + RESEND_API_KEY + REDIS_URL via env; `alembic upgrade head` (→0042) on cold start; Resend domain verify.
+### DONE (audit fixes 1–6, deploy, billing — all shipped)
+- ✅ Account ownership validation · category list unified (`core/categories.py`) · **cross-batch dedup fixed** (Phase 112) · upgrade-page honest copy · TR warnings now lang-aware · reports currency = user's `display_currency`.
+- ✅ **Billing**: Paddle (not Stripe) — webhook + checkout + cancel live (Phase 106).
+- ✅ **Deploy**: Contabo VPS + Docker + Nginx + Let's Encrypt; Resend domain verified (Phases 107–109).
+
+### Pending (next)
+1. **Automated tests** — still none; add backend + critical-path coverage (highest priority now that we're live).
+2. **Post-launch monitoring** — error tracking, uptime, Paddle webhook delivery + DB backups on the VPS.
+3. **Statement-bridge ekstre↔varlık auto-match** — verify on real statements across banks/formats (Phase 94 still flagged "needs live testing"; balance detection improved in 112).
+4. **Scheduled proactive alerts** — wealth alerts still only check on page load; cron/scheduler for push.
 
 ### Next session setup:
 - Use claude-opus-4-8 model
