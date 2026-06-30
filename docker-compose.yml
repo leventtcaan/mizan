@@ -9,8 +9,10 @@ services:
       POSTGRES_USER: mizan
       POSTGRES_PASSWORD: password
       POSTGRES_DB: mizan
+    # WHY 127.0.0.1 bind: Postgres must NEVER be reachable from the public internet.
+    # Only the host (and other containers via Docker's internal network) need access.
     ports:
-      - "5434:5432"
+      - "127.0.0.1:5434:5432"
     # WHY named volume: data survives `docker compose down`. Anonymous volumes are
     # deleted on `down --volumes`. Named volumes persist until explicitly removed.
     volumes:
@@ -34,8 +36,10 @@ services:
     # WHY appendonly: persist the limiter state across container restarts so a
     # restart doesn't reset everyone's window to zero.
     command: ["redis-server", "--appendonly", "yes"]
+    # WHY 127.0.0.1 bind: Redis has no auth here and must never be exposed publicly.
+    # Containers reach it via the internal Docker network (redis://redis:6379).
     ports:
-      - "6379:6379"
+      - "127.0.0.1:6379:6379"
     volumes:
       - redis_data:/data
     healthcheck:
@@ -51,8 +55,10 @@ services:
   # ─────────────────────────────────────────────────────────────────────────────
   backend:
     build: ./backend
+    # WHY 127.0.0.1 bind: Nginx proxies to the backend locally on the same host,
+    # so the port only needs to be reachable from localhost — not the public internet.
     ports:
-      - "8000:8000"
+      - "127.0.0.1:8000:8000"
     env_file:
       - .env
     environment:
@@ -82,8 +88,10 @@ services:
   # ─────────────────────────────────────────────────────────────────────────────
   frontend:
     build: ./frontend
+    # WHY 127.0.0.1 bind: Nginx proxies to the frontend locally on the same host,
+    # so the port only needs to be reachable from localhost — not the public internet.
     ports:
-      - "3000:3000"
+      - "127.0.0.1:3000:3000"
     depends_on:
       backend:
         condition: service_healthy
