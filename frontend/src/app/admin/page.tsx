@@ -19,6 +19,7 @@ import {
   type AdminOverview, type AdminSystem, type AdminUserRow,
   type AdminUserProfile, type AdminTxn,
   getFeedbackList, type FeedbackItem,
+  getAdminReferrals, type ReferralStats,
 } from "@/lib/api";
 
 const TEAL = "#176B5B";
@@ -185,7 +186,7 @@ export default function AdminPage() {
         ))}
       </div>
 
-      {tab === "dashboard" && <Dashboard o={overview} />}
+      {tab === "dashboard" && (<><Dashboard o={overview} /><ReferralsCard /></>)}
       {tab === "users" && (
         <Users
           users={users} total={total} offset={offset} loading={usersLoading} search={search}
@@ -964,6 +965,41 @@ function FeedbackTab() {
                 <span className="text-ink-mute text-[11px] ml-auto">{new Date(f.created_at).toLocaleString()}</span>
               </div>
               <p className="text-ink text-sm whitespace-pre-wrap leading-relaxed">{f.message}</p>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+
+// ── Referral program stats — total referred signups + top referrers ──────────
+function ReferralsCard() {
+  const [stats, setStats] = useState<ReferralStats | null>(null);
+
+  useEffect(() => {
+    getAdminReferrals().then(setStats).catch(() => null);
+  }, []);
+
+  if (!stats) return null;
+  return (
+    <div className="mt-6 bg-surface border border-line rounded-2xl p-5">
+      <div className="flex items-center justify-between mb-3">
+        <h3 className="text-ink text-sm font-semibold">Referrals</h3>
+        <span className="text-ink-mute text-xs">
+          {stats.total_referred} referred signup(s) · {stats.referrers} referrer(s)
+        </span>
+      </div>
+      {stats.top.length === 0 ? (
+        <p className="text-ink-mute text-sm">No referred signups yet.</p>
+      ) : (
+        <div className="space-y-1.5">
+          {stats.top.map((r) => (
+            <div key={r.user_id} className="flex items-center justify-between gap-3 text-sm">
+              <span className="text-ink-soft truncate">{r.email ?? "deleted user"}</span>
+              <span className="text-ink-mute text-xs shrink-0">{r.referral_code ?? "—"}</span>
+              <span className="font-semibold tabular-nums shrink-0" style={{ color: TEAL }}>{r.referred_count}</span>
             </div>
           ))}
         </div>

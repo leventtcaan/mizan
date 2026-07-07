@@ -90,6 +90,16 @@ class User(Base):
         nullable=True,
     )
 
+    # WHY: Referral program. Every account owns a short shareable code
+    # (clarifin.xyz/join?ref=CODE); referred_by records who brought this user in.
+    # Nullable — existing accounts get a code lazily on first read.
+    referral_code: Mapped[str | None] = mapped_column(
+        String(12), nullable=True, unique=True, index=True,
+    )
+    referred_by: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), nullable=True, index=True,
+    )
+
     # WHY: Paddle subscription + customer identifiers. The subscription id (sub_…) is
     # needed to cancel via the Paddle API and to correlate webhook updates back to this
     # user; the customer id (ctm_…) lets us look the account up across events. Nullable —

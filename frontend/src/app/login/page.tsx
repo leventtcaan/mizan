@@ -93,6 +93,7 @@ export default function LoginPage() {
             timezone: detectTimezone(),
           });
       setToken(result.access_token);
+      if (mode === "register") localStorage.removeItem("mizan_ref"); // referral consumed
       const resolvedLang: Lang = (result.language === "tr" || result.language === "en")
         ? result.language
         : detectBrowserLang();

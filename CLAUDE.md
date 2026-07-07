@@ -682,11 +682,18 @@ Systematic audit + fixes across the whole app. Highlights:
 - [x] **Landing navbar mobile**: TR/EN + theme toggles hidden on mobile → moved into a new hamburger menu (☰, theme-resolved bg) with Fiyatlar + Dil + Görünüm rows. Mobile shows logo · Giriş yap · Ücretsiz başla · ☰. CTAs px-3 + nowrap.
 - [x] **Feedback loop**: `Feedback` model + **migration 0046** (user_id FK SET NULL — survives account purge). `POST /feedback` (signed-in, 5/h limiter, category bug|suggestion|other, msg ≤2000, optional reply-to email; best-effort Resend notification to `FEEDBACK_NOTIFY_EMAIL` config default ceylanleventcan@gmail.com) + `GET /feedback` (admin, category filter, account emails resolved). Floating "Geri bildirim" button bottom-LEFT (assistant FAB owns bottom-right) on all app pages (hidden on landing/login/verify/reset/terms/privacy/onboarding/brief), modal w/ category chips + textarea + optional email + thanks state. Admin panel gains a **Feedback tab** (All/bug/suggestion/other filter). `feedback.*` locale TR+EN.
 
+### Phase 125 — Referral program (2026-07-07) [migration 0047]
+- [x] **Migration 0047**: users += `referral_code` (varchar12, unique idx, nullable — lazy backfill) + `referred_by` (plain UUID idx, no FK — stat survives referrer deletion).
+- [x] **Codes**: 8-char unambiguous alphabet (no 0/O/1/I/L), generated at registration; existing accounts get one on first `GET /auth/referral` read (`ensure_referral_code`).
+- [x] **Rewards** (`_grant_pro`): referred signup → new user **7d Pro trial**, referrer **+30d Pro** (extends future pro expiry, never touches open-ended paid plans). Applied in register when `referral_code` valid (deleted referrers excluded).
+- [x] **Flow**: `/join?ref=CODE` page stashes code in localStorage `mizan_ref` → redirects to register; `register()` sends it; consumed (removed) on successful signup. Navbar hidden on /join.
+- [x] **Surfaces**: Settings "Arkadaşını davet et" section (link + copy button + "{n} friends joined" count; `settings.refer*` TR/EN); Admin Dashboard **Referrals card** via `GET /admin/referrals` (total referred + top-20 referrers w/ email+code+count).
+
 ---
 
 ## Current Status
 
-**Phases 1–124 complete. Alembic head = 0046. LIVE IN PRODUCTION at https://clarifin.xyz.**
+**Phases 1–125 complete. Alembic head = 0047. LIVE IN PRODUCTION at https://clarifin.xyz.**
 **Since 112 (single 2026-07-07 session): credit-card variable-balance rework (113), onboarding overlay + stock name-search (114), critical bugs — .xls/currency/register-flash/sender (115), notification redesign (116), monetization audit (117), Progress slim + SimulatorBridge (118), infra+auth — restart policies/deploy webhook/forgot password/account deletion + **0045** (119), SEO/OG/Plausible + real legal pages (120), business experience + polish (121), fix batch — CC revert / snapshot staleness / notification lang (122). Pending: automated tests, VPS webhook one-time setup, `alembic upgrade head` (→0045) + `pip install xlrd` on deploy, verify server env `RESEND_FROM_EMAIL`/`FRONTEND_URL=https://clarifin.xyz`.**
 
 ### Production (LIVE since 2026-06-28)
@@ -738,7 +745,7 @@ Systematic audit + fixes across the whole app. Highlights:
 
 Full stack: register/login → JWT → upload (rate-limited, busts caches) → 3-layer OCR → LLM extract → OCR cleanup → dedup → zero-amount filter → persist → LLM categorize (13 categories) → insight cache → globalized LLM coach with corrections+notes injected → spending chart + progress page (LineChart 3-month trend + cross-batch-deduped category comparison + LLM one-liners, 24h cached) → PersonalityCard (5 types, cached per batch) → AlertsPanel (3 algorithmic detectors, dismiss persisted, stale dismissals auto-cleaned) → GoalsPanel (monthly budget vs actual) → ChatPanel (globalized conversational coaching, behavioral profile memory, voice input, chat-based tx entry with confirmation card, sessionStorage prefill from alerts) → weekly email summary (Resend HTML, preferences toggle) → inflation-adjusted analysis (TUFE 2023-2026, real vs nominal per category, ProgressInsight cache) → net worth asset subtype capture (all asset types have specific fields; crypto/fiat/commodity live picker; gold unit picker; stock/fund code fields; manual categories store structured metadata in `Asset.source_detail` JSON) → net worth display currency searchable via live `CurrencySelect` → receivable collection creates linked cash asset, repeated collection is idempotent, delete/write-off removes linked asset → stale received receivables and processed suggestions are hidden/cleaned after 30 days → onboarding accepts any institution/export source instead of hardcoded Turkish banks → financial event log + reconciliation item backend skeleton exists → net worth page shows Action Queue with open reconciliation items and recent financial events → reconciliation producers (overdue receivables, missing receivable assets, cross-batch duplicate detection) → Action Queue real action handlers per issue_type → net worth history AreaChart (daily USD snapshots, converted to display currency) → asset allocation donut PieChart (5 groups, click to highlight) → proactive threshold alerts (WealthAlert model, asset_price_drop / net_worth_drop / payment_coverage_risk, bell icon on auto-priced asset cards, triggered alerts banner).
 
-### Migrations (head = 0046)
+### Migrations (head = 0047)
 | Migration | What |
 |---|---|
 | 0001 | CREATE users + transactions |
@@ -787,6 +794,7 @@ Full stack: register/login → JWT → upload (rate-limited, busts caches) → 3
 | 0044 | ADD paddle_subscription_id + paddle_customer_id to users (Paddle billing) |
 | 0045 | ADD deleted_at to users (GDPR 30-day deletion window + daily purge job) |
 | 0046 | CREATE feedback (user feedback inbox; user_id FK SET NULL) |
+| 0047 | ADD referral_code + referred_by to users (referral program) |
 
 ### Known Issues (open)
 - **PDF extraction not perfect** — scanned/image PDFs hit inherent OCR limits. Vision LLM (gpt-4o-mini, Phase 59) + strip tiling fixed column/sign/format errors and gets income exact on the Ziraat scan, but residual amount/count drift remains = pixel-level digit misreads on poor scans. gpt-4o is more accurate (swap `_VISION_MODEL`) at ~10x cost.
@@ -1601,10 +1609,10 @@ Full stack: register/login → JWT → upload (rate-limited, busts caches) → 3
 
 ## Next Session — Start Here
 
-**Phases 1–124 complete. Alembic head = 0046. LIVE at https://clarifin.xyz.** 2026-07-07 mega-session (113–121): credit-card variable-balance rework · onboarding processing overlay + stock name-search · .xls support (xlrd) · TRY/USD currency-persist fix · register-flash fix · Clarifin sender guard · notification redesign (expand + real outcomes) · monetization audit (copy honesty + vision upsells + weekly-brief paid gate) · Progress slimmed + Simulator in main nav · restart policies + deploy webhook · forgot password · GDPR account deletion (0045 + purge job) · SEO/OG/Plausible · real ToS/Privacy · business framing + Clar business persona.
+**Phases 1–125 complete. Alembic head = 0047. LIVE at https://clarifin.xyz.** 2026-07-07 mega-session (113–121): credit-card variable-balance rework · onboarding processing overlay + stock name-search · .xls support (xlrd) · TRY/USD currency-persist fix · register-flash fix · Clarifin sender guard · notification redesign (expand + real outcomes) · monetization audit (copy honesty + vision upsells + weekly-brief paid gate) · Progress slimmed + Simulator in main nav · restart policies + deploy webhook · forgot password · GDPR account deletion (0045 + purge job) · SEO/OG/Plausible · real ToS/Privacy · business framing + Clar business persona.
 
 ### DEPLOY CHECKLIST for next release (new since 112)
-1. `docker compose exec backend alembic upgrade head` → must say **0046**.
+1. `docker compose exec backend alembic upgrade head` → must say **0047**.
 2. Backend image rebuild required (**requirements += xlrd==2.0.1**).
 3. VPS one-time: install deploy webhook (see `deploy/README.md`) — systemd unit + nginx `/deploy-hook` + GitHub webhook secret.
 4. Verify server env: `FRONTEND_URL=https://clarifin.xyz` (reset/verify links!) and `RESEND_FROM_EMAIL` address (display name now forced to "Clarifin" in code either way).

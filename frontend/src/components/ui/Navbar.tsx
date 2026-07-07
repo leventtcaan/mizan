@@ -18,7 +18,7 @@ const THEME_OPTS: { value: ThemePref; Icon: typeof Sun; label: string }[] = [
 
 // "/" (landing) has its own header, so the global navbar stays hidden there —
 // otherwise a logged-in visitor to the landing page sees two navbars.
-const HIDDEN_PATHS = ["/", "/login", "/onboarding", "/brief", "/verify", "/reset-password"];
+const HIDDEN_PATHS = ["/", "/login", "/onboarding", "/brief", "/verify", "/reset-password", "/join"];
 
 function PieChartMini() {
   return (

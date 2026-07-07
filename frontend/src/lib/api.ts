@@ -550,6 +550,8 @@ export async function register(email: string, password: string, opts: RegisterOp
       team_size: opts.team_size,
       phone: opts.phone,
       timezone: opts.timezone ?? detectTimezone(),
+      // Referral code captured by /join?ref=… (if any) rides along transparently.
+      referral_code: typeof window !== "undefined" ? localStorage.getItem("mizan_ref") || undefined : undefined,
     }),
   });
   if (!response.ok) {
@@ -1809,6 +1811,32 @@ export async function getFeedbackList(category?: string): Promise<FeedbackItem[]
   const response = await fetch(`${API_BASE_URL}/feedback${q}`, { headers: authHeaders() });
   if (!response.ok) throw new Error(`Failed to load feedback: ${response.status}`);
   return response.json() as Promise<FeedbackItem[]>;
+}
+
+// --- Referral program ---
+
+export interface ReferralInfo {
+  code: string;
+  link: string;
+  referred_count: number;
+}
+
+export async function getReferralInfo(): Promise<ReferralInfo> {
+  const response = await fetch(`${API_BASE_URL}/auth/referral`, { headers: authHeaders() });
+  if (!response.ok) throw new Error(`Failed to load referral info: ${response.status}`);
+  return response.json() as Promise<ReferralInfo>;
+}
+
+export interface ReferralStats {
+  total_referred: number;
+  referrers: number;
+  top: { user_id: string; email: string | null; referral_code: string | null; referred_count: number }[];
+}
+
+export async function getAdminReferrals(): Promise<ReferralStats> {
+  const response = await fetch(`${API_BASE_URL}/admin/referrals`, { headers: authHeaders() });
+  if (!response.ok) throw new Error(`Failed to load referral stats: ${response.status}`);
+  return response.json() as Promise<ReferralStats>;
 }
 
 // --- Reconciliation ---

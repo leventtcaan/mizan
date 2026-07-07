@@ -9,6 +9,7 @@ import { LogOut, Sparkles, ArrowRight, Settings, Mail, ShieldCheck, CheckCircle,
 import { useLanguage, type Lang } from "@/lib/i18n";
 import {
   getToken, getStoredUser, setStoredUser, clearToken, getMe, updatePreferences, deleteMyAccount,
+  getReferralInfo, type ReferralInfo,
   getDefaultCurrency, setDefaultCurrencyLocal, changePassword, INDUSTRIES, TEAM_SIZES,
   getBillingSubscription, cancelSubscription, type BillingSubscription,
 } from "@/lib/api";
@@ -221,6 +222,14 @@ export default function SettingsPage() {
 
   const handleLogout = () => { clearToken(); router.push("/login"); };
 
+  // Referral program — code + share link + how many friends joined.
+  const [referral, setReferral] = useState<ReferralInfo | null>(null);
+  const [refCopied, setRefCopied] = useState(false);
+  useEffect(() => {
+    if (!getToken()) return;
+    getReferralInfo().then(setReferral).catch(() => null);
+  }, []);
+
   // Danger zone — account deletion (password re-entry required; 30-day recovery window).
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deletePassword, setDeletePassword] = useState("");
@@ -291,6 +300,38 @@ export default function SettingsPage() {
               )}
             </div>
           )}
+        </Section>
+
+        {/* ── Invite a friend — referral program ── */}
+        <Section icon={<Mail size={16} />} title={t("settings.referTitle")} hint={t("settings.referHint")}>
+          <div className="py-4">
+            {referral ? (
+              <>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <code className="flex-1 min-w-0 truncate px-3 py-2.5 rounded-lg bg-canvas border border-line text-sm text-ink-soft">
+                    {referral.link}
+                  </code>
+                  <button
+                    onClick={() => {
+                      navigator.clipboard?.writeText(referral.link).then(() => {
+                        setRefCopied(true);
+                        setTimeout(() => setRefCopied(false), 2000);
+                      }).catch(() => null);
+                    }}
+                    className="shrink-0 px-4 py-2.5 rounded-lg text-white text-sm font-semibold shadow-sm transition-colors"
+                    style={{ backgroundColor: TEAL }}
+                  >
+                    {refCopied ? t("settings.referCopied") : t("settings.referCopy")}
+                  </button>
+                </div>
+                <p className="text-ink-mute text-xs mt-3">
+                  {t("settings.referCount").replace("{n}", String(referral.referred_count))}
+                </p>
+              </>
+            ) : (
+              <div className="h-10 rounded-lg bg-surface-2 animate-pulse" />
+            )}
+          </div>
         </Section>
 
         {/* ── Profile (read-only by default, Edit toggles the form) ── */}

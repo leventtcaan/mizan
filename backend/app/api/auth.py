@@ -7,7 +7,7 @@ BREAKS IF REMOVED: No way to create accounts or obtain tokens; entire auth flow 
 
 import logging
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from jose import JWTError
@@ -52,6 +52,46 @@ VALID_TEAM_SIZES = {"solo", "2-10", "11-50", "51-200", "200+"}
 # User-initiated deletion keeps the account recoverable for this many days before the
 # daily purge job erases it permanently (GDPR erasure with a grace period).
 ACCOUNT_RECOVERY_DAYS = 30
+
+# Referral rewards: the referrer earns a month of Pro per signup; the new user
+# starts with a Pro trial week.
+REFERRER_REWARD_DAYS = 30
+REFEREE_TRIAL_DAYS = 7
+
+# Unambiguous alphabet (no 0/O, 1/I/L) for short shareable codes.
+_REF_ALPHABET = "23456789ABCDEFGHJKMNPQRSTUVWXYZ"
+
+
+def _new_referral_code() -> str:
+    import secrets
+    return "".join(secrets.choice(_REF_ALPHABET) for _ in range(8))
+
+
+async def ensure_referral_code(user: User, session: AsyncSession) -> str:
+    """Return the user's referral code, generating one on first read (existing accounts
+    predate the column). Retries on the (astronomically unlikely) collision."""
+    if user.referral_code:
+        return user.referral_code
+    for _ in range(5):
+        code = _new_referral_code()
+        clash = await session.execute(select(User.id).where(User.referral_code == code))
+        if clash.scalar_one_or_none() is None:
+            user.referral_code = code
+            session.add(user)
+            await session.commit()
+            return code
+    raise HTTPException(status_code=500, detail="Could not generate referral code")
+
+
+def _grant_pro(user: User, days: int) -> None:
+    """Extend (or start) a Pro grant: expiry = max(now, current expiry) + days.
+    A lifetime plan (paid, no expiry) is never downgraded by a referral grant."""
+    now = datetime.now(timezone.utc)
+    if user.plan in ("plus", "pro") and user.plan_expires_at is None:
+        return  # open-ended paid plan — nothing to extend
+    base = user.plan_expires_at if (user.plan == "pro" and user.plan_expires_at and user.plan_expires_at > now) else now
+    user.plan = "pro"
+    user.plan_expires_at = base + timedelta(days=days)
 
 
 def _clean_account_type(value: str | None) -> str:
@@ -105,6 +145,8 @@ class RegisterRequest(BaseModel):
     team_size: str | None = None
     phone: str | None = None
     timezone: str | None = None
+    # Referral code from a clarifin.xyz/join?ref=… link (optional).
+    referral_code: str | None = None
 
 
 class LoginRequest(BaseModel):
@@ -323,6 +365,28 @@ async def register(
         user.phone = body.phone.strip()[:40] or None
     if body.timezone:
         user.timezone = body.timezone.strip()[:60] or None
+
+    # Every new account owns a shareable referral code from day one.
+    for _ in range(5):
+        code = _new_referral_code()
+        clash = await session.execute(select(User.id).where(User.referral_code == code))
+        if clash.scalar_one_or_none() is None:
+            user.referral_code = code
+            break
+
+    # Referred signup: link to the referrer and grant both sides their reward.
+    # (A code can't be the new user's own — the account doesn't exist yet.)
+    if body.referral_code:
+        ref_code = body.referral_code.strip().upper()[:12]
+        referrer = (await session.execute(
+            select(User).where(User.referral_code == ref_code, User.is_deleted.is_(False))
+        )).scalar_one_or_none()
+        if referrer is not None:
+            user.referred_by = referrer.id
+            _grant_pro(user, REFEREE_TRIAL_DAYS)       # new user: 7-day Pro trial
+            _grant_pro(referrer, REFERRER_REWARD_DAYS)  # referrer: +1 month Pro
+            session.add(referrer)
+            logger.info("Referred signup — referrer=%s code=%s", referrer.id, ref_code)
 
     session.add(user)
     await session.commit()
@@ -585,6 +649,29 @@ async def get_me(
     current_user: User = Depends(get_current_user),
 ) -> UserResponse:
     return _user_response(current_user)
+
+
+class ReferralInfoResponse(BaseModel):
+    code: str
+    link: str
+    referred_count: int
+
+
+@router.get("/referral", response_model=ReferralInfoResponse)
+async def referral_info(
+    current_user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
+) -> ReferralInfoResponse:
+    """The user's shareable referral code + how many signups it brought in.
+    Generates the code on first read for accounts that predate the column."""
+    from sqlalchemy import func
+
+    code = await ensure_referral_code(current_user, session)
+    count = (await session.execute(
+        select(func.count(User.id)).where(User.referred_by == current_user.id)
+    )).scalar() or 0
+    base = (settings.FRONTEND_URL or "https://clarifin.xyz").rstrip("/")
+    return ReferralInfoResponse(code=code, link=f"{base}/join?ref={code}", referred_count=int(count))
 
 
 @router.post("/preferences", response_model=UserResponse)

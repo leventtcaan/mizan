@@ -322,6 +322,59 @@ async def _grouped_count(session: AsyncSession, col, group_col, ids, *where) -> 
     return {uid: int(c) for uid, c in (await session.execute(stmt)).all()}
 
 
+# ── referrals ────────────────────────────────────────────────────────────────
+
+class ReferrerRow(BaseModel):
+    user_id: str
+    email: str | None
+    referral_code: str | None
+    referred_count: int
+
+
+class ReferralStatsResponse(BaseModel):
+    total_referred: int
+    referrers: int
+    top: list[ReferrerRow]
+
+
+@router.get("/referrals", response_model=ReferralStatsResponse)
+async def referral_stats(
+    _: User = Depends(get_admin_user),
+    session: AsyncSession = Depends(get_session),
+) -> ReferralStatsResponse:
+    """Referral program at a glance: total referred signups + top referrers."""
+    total = (await session.execute(
+        select(func.count(User.id)).where(User.referred_by.isnot(None))
+    )).scalar() or 0
+
+    rows = (await session.execute(
+        select(User.referred_by, func.count(User.id))
+        .where(User.referred_by.isnot(None))
+        .group_by(User.referred_by)
+        .order_by(func.count(User.id).desc())
+        .limit(20)
+    )).all()
+
+    ref_ids = [r[0] for r in rows]
+    info: dict = {}
+    if ref_ids:
+        res = await session.execute(
+            select(User.id, User.email, User.referral_code).where(User.id.in_(ref_ids))
+        )
+        info = {row[0]: (row[1], row[2]) for row in res.all()}
+
+    top = [
+        ReferrerRow(
+            user_id=str(uid),
+            email=info.get(uid, (None, None))[0],
+            referral_code=info.get(uid, (None, None))[1],
+            referred_count=int(cnt),
+        )
+        for uid, cnt in rows
+    ]
+    return ReferralStatsResponse(total_referred=int(total), referrers=len(rows), top=top)
+
+
 # ── overview ─────────────────────────────────────────────────────────────────
 
 @router.get("/overview", response_model=OverviewResponse)
