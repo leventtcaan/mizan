@@ -5,7 +5,7 @@ import Link from "next/link";
 import { getToken, getStoredUser, postAuthRoute } from "@/lib/api";
 import {
   Brain, Scale, Sparkles, Mail, ShieldCheck, FileText, MessageCircle,
-  ArrowRight, TrendingUp, CheckCircle, CreditCard, Sun, Moon, Monitor,
+  ArrowRight, TrendingUp, CheckCircle, CreditCard, Sun, Moon, Monitor, Menu, X,
 } from "@/components/ui/Icons";
 import { useLanguage } from "@/lib/i18n";
 import { useTheme, type ThemePref } from "@/lib/theme";
@@ -19,7 +19,9 @@ const SPARK_MONTHS_EN = ["Oct", "Nov", "Dec", "Jan", "Feb", "Mar", "Apr", "May",
 
 export default function LandingPage() {
   const { t, tList, lang, setLanguage } = useLanguage();
-  const { pref: themePref, setTheme } = useTheme();
+  const { pref: themePref, setTheme, resolved } = useTheme();
+  const menuBg = resolved === "dark" ? "#1C1915" : "#FFFFFF";
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [userEmail, setUserEmail] = useState<string | null>(null);
   const [annual, setAnnual] = useState(true);
   const howRef = useRef<HTMLElement>(null);
@@ -109,7 +111,7 @@ export default function LandingPage() {
       {/* Nav — everything on one baseline (items-center), consistent h-9 controls.
           Teal accents are the literal brand teal #176B5B in BOTH themes (the
           theme `action` token lightens in dark mode; the spec wants it fixed). */}
-      <nav className="flex items-center justify-between gap-4 px-6 py-4 max-w-6xl mx-auto">
+      <nav className="relative flex items-center justify-between gap-3 px-4 sm:px-6 py-4 max-w-6xl mx-auto">
         {/* Logo — clean wordmark, clickable (→ / when logged out, /home when in) */}
         <Link href={logoHref} className="text-lg font-bold tracking-tight text-ink hover:text-[#176B5B] transition-colors">
           Clarifin
@@ -124,8 +126,8 @@ export default function LandingPage() {
             {t("pricing.navLink")}
           </button>
 
-          {/* Language toggle — two buttons; active filled teal, inactive outline */}
-          <div className="flex items-center gap-1.5">
+          {/* Language toggle — desktop only; lives in the hamburger menu on mobile */}
+          <div className="hidden sm:flex items-center gap-1.5">
             {(["tr", "en"] as const).map((l) => (
               <button
                 key={l}
@@ -142,8 +144,8 @@ export default function LandingPage() {
             ))}
           </div>
 
-          {/* Theme toggle — segmented sun/moon/monitor; click switches instantly */}
-          <div className="inline-flex items-center h-9 gap-0.5 rounded-lg border border-ink/35 bg-surface px-0.5">
+          {/* Theme toggle — desktop only; lives in the hamburger menu on mobile */}
+          <div className="hidden sm:inline-flex items-center h-9 gap-0.5 rounded-lg border border-ink/35 bg-surface px-0.5">
             {([
               { value: "light", Icon: Sun },
               { value: "dark", Icon: Moon },
@@ -169,7 +171,7 @@ export default function LandingPage() {
           {!isLoggedIn && (
             <Link
               href="/login"
-              className="inline-flex items-center h-9 px-4 rounded-lg border border-ink/30 hover:border-ink/55 text-sm font-medium text-ink transition-colors"
+              className="inline-flex items-center h-9 px-3 sm:px-4 rounded-lg border border-ink/30 hover:border-ink/55 text-sm font-medium text-ink transition-colors whitespace-nowrap"
             >
               {t("landing.signIn")}
             </Link>
@@ -178,11 +180,79 @@ export default function LandingPage() {
           {/* Primary CTA — solid teal #176B5B, white text, never transparent */}
           <Link
             href={startHref}
-            className="inline-flex items-center h-9 px-4 rounded-lg bg-[#176B5B] hover:bg-[#125848] text-white text-sm font-semibold shadow-sm transition-colors"
+            className="inline-flex items-center h-9 px-3 sm:px-4 rounded-lg bg-[#176B5B] hover:bg-[#125848] text-white text-sm font-semibold shadow-sm transition-colors whitespace-nowrap"
           >
             {isLoggedIn ? t("landing.continue") : t("landing.ctaPrimary")}
           </Link>
+
+          {/* Mobile hamburger — holds Pricing + language + theme (hidden on desktop) */}
+          <button
+            onClick={() => setMobileMenuOpen((v) => !v)}
+            aria-label="Menu"
+            aria-expanded={mobileMenuOpen}
+            className="sm:hidden inline-flex items-center justify-center w-9 h-9 rounded-lg border border-ink/30 text-ink-soft hover:text-ink hover:border-ink/55 transition-colors shrink-0"
+          >
+            {mobileMenuOpen ? <X size={18} /> : <Menu size={18} />}
+          </button>
         </div>
+
+        {/* Mobile menu panel */}
+        {mobileMenuOpen && (
+          <div
+            className="sm:hidden absolute left-4 right-4 top-full mt-1 z-50 rounded-2xl border border-line shadow-2xl shadow-black/20 overflow-hidden"
+            style={{ backgroundColor: menuBg }}
+          >
+            <button
+              onClick={() => { setMobileMenuOpen(false); pricingRef.current?.scrollIntoView({ behavior: "smooth" }); }}
+              className="w-full text-left px-4 py-3.5 text-sm font-medium text-ink hover:bg-surface-2 transition-colors border-b border-line"
+            >
+              {t("pricing.navLink")}
+            </button>
+
+            <div className="flex items-center justify-between px-4 py-3 border-b border-line">
+              <span className="text-sm text-ink-soft">{lang === "tr" ? "Dil" : "Language"}</span>
+              <div className="flex items-center gap-1.5">
+                {(["tr", "en"] as const).map((l) => (
+                  <button
+                    key={l}
+                    onClick={() => setLanguage(l)}
+                    aria-pressed={lang === l}
+                    className={`inline-flex items-center h-8 px-3 rounded-lg text-xs font-semibold transition-colors ${
+                      lang === l
+                        ? "bg-[#176B5B] text-white border border-[#176B5B]"
+                        : "bg-transparent text-ink-soft border border-ink/35"
+                    }`}
+                  >
+                    {l.toUpperCase()}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="flex items-center justify-between px-4 py-3">
+              <span className="text-sm text-ink-soft">{lang === "tr" ? "Görünüm" : "Theme"}</span>
+              <div className="inline-flex items-center h-8 gap-0.5 rounded-lg border border-ink/35 px-0.5">
+                {([
+                  { value: "light", Icon: Sun },
+                  { value: "dark", Icon: Moon },
+                  { value: "system", Icon: Monitor },
+                ] as { value: ThemePref; Icon: typeof Sun }[]).map(({ value, Icon }) => (
+                  <button
+                    key={value}
+                    onClick={() => setTheme(value)}
+                    aria-label={value}
+                    aria-pressed={themePref === value}
+                    className={`inline-flex items-center justify-center w-7 h-7 rounded-md transition-colors ${
+                      themePref === value ? "bg-[#176B5B] text-white" : "text-ink-soft"
+                    }`}
+                  >
+                    <Icon size={15} />
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
       </nav>
 
       {/* Hero */}

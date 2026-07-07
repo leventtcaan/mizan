@@ -46,12 +46,12 @@
 ## Current Position
 
 - Part: 1 - Fikirden Ilk Calisan Sisteme
-- Spiral: 1 - Urun fikri ve MVP refleksi
-- Node: 2.7 - Clarifin kus bakisi
+- Spiral: 3 - Ilk Vertical Slice Mantigi
+- Node: 3.1 - Vertical slice nedir?
 - Status: Not started
-- Last completed: Node 2.6 - API nedir?
-- Last permanent idea: API, iki yazilim parcasi arasindaki sozlesmedir. Frontend backend'in ic kodunu bilmez; hangi endpoint'e hangi method/body/header ile gidecegini ve hangi response shape'i alacagini bilir. Clarifin'de `frontend/src/lib/api.ts` bu sozlesmenin frontend temsilidir, FastAPI route'lari backend temsilidir.
-- Next: Node 2.7 ile devam et; Clarifin'i kus bakisi dosya/katman haritasi olarak anlat, frontend app/components/lib ile backend api/services/models/core ayrimini ve api -> services -> models dependency direction kuralini goster.
+- Last completed: Node 2.7 - Clarifin kus bakisi
+- Last permanent idea: Clarifin repo'su kavramsal katmanlara bolunmustur: frontend `app/components/lib/locales`, backend `api/services/models/core`. Frontend kullanici deneyimini ve API client'i tasir; backend request, business logic, data model ve core altyapiyi ayirir. Backend dependency direction kuralı `api -> services -> models` olmalidir.
+- Next: Spiral 3 / Node 3.1 ile devam et; vertical slice kavramini sifirdan anlat, neden katman katman devasa sistem kurmak yerine kucuk ama uctan uca calisan akis kuruldugunu Clarifin'in ilk `/health` + frontend fetch ornegiyle bagla.
 
 ## Not Formatı
 
