@@ -933,13 +933,13 @@ Full stack: register/login → JWT → upload (rate-limited, busts caches) → 3
 
 ## Next Session — Start Here
 
-**Phases 1–122 complete. Alembic head = 0045. LIVE IN PRODUCTION at https://clarifin.xyz.** Phase 122: CC variable-balance REVERTED (normal liability again); snapshot re-upsert on asset/liability mutations (stale negative NW fix); notifications always use user.language (client ?lang=en param removed). (Older notes below are historical — CLAUDE.md is authoritative; see its Phases 113–121 for the 2026-07-07 mega-session: credit-card variable-balance rework (113), onboarding overlay + stock name-search (114), .xls/currency/register-flash/sender bug batch (115), notification redesign (116), monetization audit (117), Progress slim + SimulatorBridge (118), restart policies + deploy webhook + forgot password + GDPR deletion w/ migration 0045 (119), SEO/OG/Plausible + real legal (120), business experience (121).) **Deploy checklist: alembic → 0045, backend rebuild (xlrd added), VPS webhook one-time setup (deploy/README.md), verify FRONTEND_URL + RESEND_FROM_EMAIL env.**
+**Phases 1–127 complete. Alembic head = 0047. LIVE IN PRODUCTION at https://clarifin.xyz.** (Older notes below are historical — CLAUDE.md is authoritative.) Since 112: pre-marketing polish — GDPR deletion, forgot password, SEO, auto-restart, webhook deploy, business experience, notifications, Excel support, CC logic revert (122) · mobile navbar hamburger (123) · user feedback — modal/backend/admin/migration 0046 (124) · referral system — codes, 7-day trial, 1-month reward, migration 0047 (125) · referral visibility (126) · navbar icons + tx edit/delete + manual price + empty states (127). **Production: auto-deploy webhook ACTIVE (GitHub → clarifin.xyz/deploy-hook), SSH key on server for git pull, migrations current head=0047, Dockerfile = production build (npm run build + npm start).** **Pending: (1) email onboarding series (3–5 day welcome sequence), (2) family/team plan (future monetization), (3) learning session continuation — Katman 2/9, Madde 6/38 (Linux processes).**
 
 Pre-flight (if docker was restarted):
 ```bash
 docker compose up -d
 docker compose exec backend alembic upgrade head
-docker compose exec backend alembic current   # must say 0038 (head)
+docker compose exec backend alembic current   # must say 0047 (head)
 ```
 
 ### Immediate fixes (do first, in order):
