@@ -558,6 +558,13 @@ export default function LandingPage() {
             })}
           </div>
 
+          {/* Referral note — Pro is also earnable, not only buyable */}
+          <div className="mt-10 max-w-xl mx-auto rounded-2xl border border-[#176B5B]/25 px-5 py-4 text-center"
+            style={{ background: "linear-gradient(120deg, rgba(23,107,91,0.08), rgba(23,107,91,0.02) 70%)" }}>
+            <p className="text-ink text-sm font-semibold">{t("pricing.referralTitle")}</p>
+            <p className="text-ink-soft text-sm mt-1">{t("pricing.referralNote")}</p>
+          </div>
+
           {/* Trust signals */}
           <div className="mt-12 flex flex-wrap items-center justify-center gap-x-8 gap-y-3">
             {TRUST.map((item) => (

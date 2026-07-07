@@ -386,6 +386,19 @@ async def register(
             _grant_pro(user, REFEREE_TRIAL_DAYS)       # new user: 7-day Pro trial
             _grant_pro(referrer, REFERRER_REWARD_DAYS)  # referrer: +1 month Pro
             session.add(referrer)
+            # Tell the referrer their reward landed (in THEIR language).
+            from app.models.app_notification import AppNotification
+            rtr = (referrer.language or "tr") != "en"
+            session.add(AppNotification(
+                user_id=referrer.id,
+                title="Bir arkadaşın Clarifin'e katıldı!" if rtr else "A friend just joined Clarifin!",
+                message=(
+                    "Davet bağlantınla yeni bir üye geldi — hesabına 1 ay Pro eklendi."
+                    if rtr else
+                    "Someone signed up with your invite link — a month of Pro was added to your account."
+                ),
+                type="info",
+            ))
             logger.info("Referred signup — referrer=%s code=%s", referrer.id, ref_code)
 
     session.add(user)

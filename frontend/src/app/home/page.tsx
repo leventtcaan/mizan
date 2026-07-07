@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import PageLayout from "@/components/ui/PageLayout";
 import AddTransactionModal from "@/components/AddTransactionModal";
+import ReferralCard, { heroReferralDismissed } from "@/components/ReferralCard";
 import {
   ArrowRight, Upload, Plus, Scale, Sparkles, Wallet, CheckCircle,
   Calendar, ChevronDown, ChevronUp, Send,
@@ -69,6 +70,8 @@ export default function HomePage() {
   const [recon, setRecon] = useState<ReconciliationItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [txModalOpen, setTxModalOpen] = useState(false);
+  // Post-onboarding referral reward — shown once, dismissible.
+  const [showReferral, setShowReferral] = useState(() => !heroReferralDismissed());
   const [calendarOpen, setCalendarOpen] = useState(false);
 
   useEffect(() => {
@@ -280,6 +283,13 @@ export default function HomePage() {
             </span>
           </button>
         </div>
+
+        {/* Referral reward — appears once after onboarding, until used/dismissed */}
+        {showReferral && (
+          <div className={reveal()} style={{ transitionDelay: "60ms" }}>
+            <ReferralCard variant="hero" onDismiss={() => setShowReferral(false)} />
+          </div>
+        )}
 
         {/* 2 — What needs you, plus the upcoming calendar (collapsible) */}
         <div className={reveal()} style={{ transitionDelay: "80ms" }}>

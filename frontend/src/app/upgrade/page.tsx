@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import PageLayout from "@/components/ui/PageLayout";
+import ReferralCard from "@/components/ReferralCard";
 import { CheckCircle, Sparkles, ShieldCheck } from "@/components/ui/Icons";
 import { useLanguage } from "@/lib/i18n";
 import { getToken, getStoredUser, setStoredUser, getMe } from "@/lib/api";
@@ -223,6 +224,11 @@ export default function UpgradePage() {
             </div>
           );
         })}
+      </div>
+
+      {/* The no-payment path: referrals. Every invited friend = a month of Pro. */}
+      <div className="mt-8 max-w-2xl mx-auto">
+        <ReferralCard variant="upgrade" />
       </div>
 
       {/* Trust line */}

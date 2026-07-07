@@ -689,11 +689,18 @@ Systematic audit + fixes across the whole app. Highlights:
 - [x] **Flow**: `/join?ref=CODE` page stashes code in localStorage `mizan_ref` → redirects to register; `register()` sends it; consumed (removed) on successful signup. Navbar hidden on /join.
 - [x] **Surfaces**: Settings "Arkadaşını davet et" section (link + copy button + "{n} friends joined" count; `settings.refer*` TR/EN); Admin Dashboard **Referrals card** via `GET /admin/referrals` (total referred + top-20 referrers w/ email+code+count).
 
+### Phase 126 — Referral visibility (2026-07-07)
+- [x] **Shared `ReferralCard`** (variants hero/upgrade/settings; native share w/ copy fallback; honest copy: referrer +1 ay, friend 7 gün). `referral.*` locale TR/EN.
+- [x] **Home hero prompt** — shown once post-onboarding (teal gradient reward card, reward chips, dismiss × or copy sets `mizan_ref_prompt_done`).
+- [x] **Upgrade page** — "Ödeme yapmadan Pro dene" referral panel under the plans (3 arkadaş = 3 ay framing).
+- [x] **Referrer notification** — referred signup writes an AppNotification in the REFERRER's language ("Bir arkadaşın Clarifin'e katıldı! … 1 ay Pro eklendi").
+- [x] **Settings** — Section swapped for the prominent gradient ReferralCard (count line / zero-state nudge). **Landing** — "Ya da ödemeden Pro kazan" note under pricing.
+
 ---
 
 ## Current Status
 
-**Phases 1–125 complete. Alembic head = 0047. LIVE IN PRODUCTION at https://clarifin.xyz.**
+**Phases 1–126 complete. Alembic head = 0047. LIVE IN PRODUCTION at https://clarifin.xyz.**
 **Since 112 (single 2026-07-07 session): credit-card variable-balance rework (113), onboarding overlay + stock name-search (114), critical bugs — .xls/currency/register-flash/sender (115), notification redesign (116), monetization audit (117), Progress slim + SimulatorBridge (118), infra+auth — restart policies/deploy webhook/forgot password/account deletion + **0045** (119), SEO/OG/Plausible + real legal pages (120), business experience + polish (121), fix batch — CC revert / snapshot staleness / notification lang (122). Pending: automated tests, VPS webhook one-time setup, `alembic upgrade head` (→0045) + `pip install xlrd` on deploy, verify server env `RESEND_FROM_EMAIL`/`FRONTEND_URL=https://clarifin.xyz`.**
 
 ### Production (LIVE since 2026-06-28)
@@ -1609,7 +1616,7 @@ Full stack: register/login → JWT → upload (rate-limited, busts caches) → 3
 
 ## Next Session — Start Here
 
-**Phases 1–125 complete. Alembic head = 0047. LIVE at https://clarifin.xyz.** 2026-07-07 mega-session (113–121): credit-card variable-balance rework · onboarding processing overlay + stock name-search · .xls support (xlrd) · TRY/USD currency-persist fix · register-flash fix · Clarifin sender guard · notification redesign (expand + real outcomes) · monetization audit (copy honesty + vision upsells + weekly-brief paid gate) · Progress slimmed + Simulator in main nav · restart policies + deploy webhook · forgot password · GDPR account deletion (0045 + purge job) · SEO/OG/Plausible · real ToS/Privacy · business framing + Clar business persona.
+**Phases 1–126 complete. Alembic head = 0047. LIVE at https://clarifin.xyz.** 2026-07-07 mega-session (113–121): credit-card variable-balance rework · onboarding processing overlay + stock name-search · .xls support (xlrd) · TRY/USD currency-persist fix · register-flash fix · Clarifin sender guard · notification redesign (expand + real outcomes) · monetization audit (copy honesty + vision upsells + weekly-brief paid gate) · Progress slimmed + Simulator in main nav · restart policies + deploy webhook · forgot password · GDPR account deletion (0045 + purge job) · SEO/OG/Plausible · real ToS/Privacy · business framing + Clar business persona.
 
 ### DEPLOY CHECKLIST for next release (new since 112)
 1. `docker compose exec backend alembic upgrade head` → must say **0047**.
