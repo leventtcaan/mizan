@@ -651,7 +651,7 @@ Systematic audit + fixes across the whole app. Highlights:
 
 ### Phase 118 — Progress slim + Simulator surfacing (2026-07-07)
 - [x] **Progress page cut**: AlertsPanel (present-moment noise; duplicated notifications/recurring) + PersonalityCard (LLM gimmick, no action) REMOVED (8.6→6.4kB). Page = verdict → pillars → trajectory → drivers → milestones → streaks/goals → **SimulatorBridge** (the only outbound push: "test your next move").
-- [x] **Simulator in main nav** (Sparkles icon, between Net Worth and Reports); removed from account dropdown. Free users hitting it see the existing Pro UpgradePrompt (conversion moment, not a wall).
+- [x] **Simulator discovery**: SimulatorBridge on Progress is the discovery path. (Was briefly promoted to the main nav, then REVERTED same session — 5-item nav stays uncrowded: Home · Money · Net Worth · Reports · Progress; Simulator lives in the avatar dropdown + mobile menu.) Free users hitting it see the existing Pro UpgradePrompt.
 
 ### Phase 119 — Infra + auth hardening (2026-07-07) [migration 0045]
 - [x] **docker-compose**: `restart: unless-stopped` on all 4 services (VPS reboot-safe).
@@ -672,7 +672,7 @@ Systematic audit + fixes across the whole app. Highlights:
 ## Current Status
 
 **Phases 1–121 complete. Alembic head = 0045. LIVE IN PRODUCTION at https://clarifin.xyz.**
-**Since 112 (single 2026-07-07 session): credit-card variable-balance rework (113), onboarding overlay + stock name-search (114), critical bugs — .xls/currency/register-flash/sender (115), notification redesign (116), monetization audit (117), Progress slim + Simulator in nav (118), infra+auth — restart policies/deploy webhook/forgot password/account deletion + **0045** (119), SEO/OG/Plausible + real legal pages (120), business experience + polish (121). Pending: automated tests, VPS webhook one-time setup, `alembic upgrade head` (→0045) + `pip install xlrd` on deploy, verify server env `RESEND_FROM_EMAIL`/`FRONTEND_URL=https://clarifin.xyz`.**
+**Since 112 (single 2026-07-07 session): credit-card variable-balance rework (113), onboarding overlay + stock name-search (114), critical bugs — .xls/currency/register-flash/sender (115), notification redesign (116), monetization audit (117), Progress slim + SimulatorBridge (118), infra+auth — restart policies/deploy webhook/forgot password/account deletion + **0045** (119), SEO/OG/Plausible + real legal pages (120), business experience + polish (121). Pending: automated tests, VPS webhook one-time setup, `alembic upgrade head` (→0045) + `pip install xlrd` on deploy, verify server env `RESEND_FROM_EMAIL`/`FRONTEND_URL=https://clarifin.xyz`.**
 
 ### Production (LIVE since 2026-06-28)
 - **URL**: https://clarifin.xyz

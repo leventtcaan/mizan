@@ -52,7 +52,6 @@ export default function Navbar() {
     { href: "/home", label: t("nav.home"), icon: <Home size={16} />, match: ["/home"] },
     { href: "/transactions", label: t("nav.money"), icon: <PieChartMini />, match: MONEY_PATHS },
     { href: "/networth", label: t("nav.networth"), icon: <Scale size={16} />, match: ["/networth"] },
-    { href: "/simulator", label: t("nav.simulator"), icon: <Sparkles size={16} />, match: ["/simulator"] },
     { href: "/reports", label: t("report.title"), icon: <FileText size={16} />, match: ["/reports"] },
     { href: "/progress", label: t("nav.progress"), icon: <BarChart2 size={16} />, match: ["/progress"] },
   ];
@@ -213,8 +212,12 @@ export default function Navbar() {
                     </div>
                   </div>
 
-                  {/* Links — Simulator moved to the main nav (it was buried here) */}
+                  {/* Links — Simulator lives here (5-item main nav stays uncrowded;
+                      the Progress page's SimulatorBridge card handles discovery) */}
                   <div className="p-1.5">
+                    <Link href="/simulator" className="flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-sm text-ink-soft hover:bg-surface-2 transition-colors">
+                      <Sparkles size={15} className="text-ink-mute" /> {t("nav.simulator")}
+                    </Link>
                     <Link href="/settings" className="flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-sm text-ink-soft hover:bg-surface-2 transition-colors">
                       <Settings size={15} className="text-ink-mute" /> {t("settings.title")}
                     </Link>
