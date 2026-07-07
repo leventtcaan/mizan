@@ -559,6 +559,58 @@ export async function register(email: string, password: string, opts: RegisterOp
   return response.json() as Promise<TokenResponse>;
 }
 
+// Forgot/reset password — both endpoints are unauthenticated (the signed token is the proof).
+export async function forgotPassword(email: string): Promise<void> {
+  const response = await fetch(`${API_BASE_URL}/auth/forgot-password`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email }),
+  });
+  if (!response.ok) {
+    const body = await response.json().catch(() => null);
+    throw new Error(extractErrorMessage(body, "Request failed"));
+  }
+}
+
+export async function resetPassword(token: string, newPassword: string): Promise<void> {
+  const response = await fetch(`${API_BASE_URL}/auth/reset-password`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ token, new_password: newPassword }),
+  });
+  if (!response.ok) {
+    const body = await response.json().catch(() => null);
+    throw new Error(extractErrorMessage(body, "Reset failed"));
+  }
+}
+
+// User account deletion (GDPR, 30-day recovery window) + restore within the window.
+// (deleteAccount() further down is the BANK-account entity delete — unrelated.)
+export async function deleteMyAccount(password: string): Promise<void> {
+  const response = await fetch(`${API_BASE_URL}/auth/delete-account`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...authHeaders() },
+    body: JSON.stringify({ password }),
+  });
+  if (!response.ok) {
+    const body = await response.json().catch(() => null);
+    throw new Error(extractErrorMessage(body, "Deletion failed"));
+  }
+}
+
+export async function restoreAccount(email: string, password: string): Promise<TokenResponse> {
+  const response = await fetch(`${API_BASE_URL}/auth/restore-account`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email, password }),
+  });
+  if (!response.ok) {
+    const body = await response.json().catch(() => null);
+    throw new Error(extractErrorMessage(body, "Restore failed"));
+  }
+  return response.json() as Promise<TokenResponse>;
+}
+
 export async function login(email: string, password: string): Promise<TokenResponse> {
   const response = await fetch(`${API_BASE_URL}/auth/login`, {
     method: "POST",
@@ -869,7 +921,7 @@ export async function downloadReportCsv(period: string, displayCurrency = "TRY",
   // another Blob (new Blob([await r.blob()], …)) is the bug we're avoiding.
   const text = await r.text();
   const blob = new Blob([text], { type: "text/csv;charset=utf-8" });
-  triggerBlobDownload(blob, filename ?? `mizan-report-${period}.csv`);
+  triggerBlobDownload(blob, filename ?? `clarifin-report-${period}.csv`);
 }
 
 export async function downloadReportXlsx(period: string, displayCurrency = "TRY", lang = "tr", filename?: string): Promise<void> {
@@ -879,7 +931,7 @@ export async function downloadReportXlsx(period: string, displayCurrency = "TRY"
   );
   if (!r.ok) throw new Error(`Failed to export Excel: ${r.status}`);
   const blob = await r.blob();
-  triggerBlobDownload(blob, filename ?? `mizan-report-${period}.xlsx`);
+  triggerBlobDownload(blob, filename ?? `clarifin-report-${period}.xlsx`);
 }
 
 export async function getBatches(): Promise<BatchSummary[]> {
@@ -1679,6 +1731,22 @@ export async function getMarketQuote(symbol: string, exchange = "AUTO"): Promise
   const response = await fetch(url);
   if (!response.ok) throw new Error(`Failed to fetch quote: ${response.status}`);
   return response.json() as Promise<MarketQuote>;
+}
+
+// Symbol search by company/fund name — "Apple" → Apple Inc. (AAPL).
+export interface MarketSearchResult {
+  symbol: string;
+  name: string;
+  exchange: string;
+  type: string;
+}
+
+export async function searchMarketSymbols(q: string): Promise<MarketSearchResult[]> {
+  const url = `${API_BASE_URL}/currency/search?q=${encodeURIComponent(q)}`;
+  const response = await fetch(url);
+  if (!response.ok) return [];
+  const data = (await response.json()) as { results?: MarketSearchResult[] };
+  return data.results ?? [];
 }
 
 // --- Reconciliation ---

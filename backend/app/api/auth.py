@@ -18,11 +18,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import settings
 from app.core.database import get_session
 from app.core.dependencies import get_current_user
-from app.core.rate_limiter import resend_verification_limiter
+from app.core.rate_limiter import password_reset_limiter, resend_verification_limiter
 from app.core.security import (
     create_access_token,
     create_email_verification_token,
+    create_password_reset_token,
     decode_email_verification_token,
+    decode_password_reset_token,
     hash_password,
     verify_password,
 )
@@ -46,6 +48,10 @@ VALID_INDUSTRIES = {
     "healthcare", "education", "ecommerce", "realestate", "creative", "finance", "other",
 }
 VALID_TEAM_SIZES = {"solo", "2-10", "11-50", "51-200", "200+"}
+
+# User-initiated deletion keeps the account recoverable for this many days before the
+# daily purge job erases it permanently (GDPR erasure with a grace period).
+ACCOUNT_RECOVERY_DAYS = 30
 
 
 def _clean_account_type(value: str | None) -> str:
@@ -177,6 +183,24 @@ class VerifyEmailRequest(BaseModel):
 
 class ResendVerificationRequest(BaseModel):
     email: EmailStr
+
+
+class ForgotPasswordRequest(BaseModel):
+    email: EmailStr
+
+
+class DeleteAccountRequest(BaseModel):
+    password: str
+
+
+class RestoreAccountRequest(BaseModel):
+    email: EmailStr
+    password: str
+
+
+class ResetPasswordRequest(BaseModel):
+    token: str
+    new_password: str
 
 
 def _user_response(user: User) -> UserResponse:
@@ -333,12 +357,24 @@ async def login(
         headers={"WWW-Authenticate": "Bearer"},
     )
 
-    # A soft-deleted account is treated exactly like a non-existent one (same generic
-    # 401), so it can't log in and the response doesn't reveal that it ever existed.
-    if user is None or user.password_hash is None or user.is_deleted:
+    if user is None or user.password_hash is None:
         raise invalid
 
     if not verify_password(body.password, user.password_hash):
+        raise invalid
+
+    if user.is_deleted:
+        # User-initiated deletion within the 30-day window: the caller has just proven
+        # the credentials, so it's safe to reveal recoverability (403 + machine code —
+        # the frontend offers "restore my account"). Anything else (admin-deactivated,
+        # or past the window awaiting purge) behaves like a non-existent account.
+        if user.deleted_at is not None:
+            days = (datetime.now(timezone.utc) - user.deleted_at).days
+            if days <= ACCOUNT_RECOVERY_DAYS:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="account_deleted_recoverable",
+                )
         raise invalid
 
     logger.info("User logged in — id=%s", user.id)
@@ -406,6 +442,142 @@ async def resend_verification(
     if user is not None and not user.is_deleted and not user.email_verified:
         await _send_verification(user)
     return {"message": "If that account exists and is unverified, a new link is on its way."}
+
+
+@router.post("/forgot-password", status_code=200)
+async def forgot_password(
+    body: ForgotPasswordRequest,
+    session: AsyncSession = Depends(get_session),
+) -> dict:
+    """
+    WHAT: Emails a signed 1-hour reset link for the account.
+    WHY: Same anti-enumeration contract as resend-verification — the response is
+         identical whether or not the account exists. Throttled per email.
+    """
+    email = body.email.strip().lower()
+    if not password_reset_limiter.is_allowed(email, max_calls=3, window_seconds=3600):
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="Too many reset emails requested. Please try again later.",
+        )
+    user = (await session.execute(select(User).where(User.email == email))).scalar_one_or_none()
+    if user is not None and not user.is_deleted:
+        token = create_password_reset_token(str(user.id), user.password_hash)
+        base = (settings.FRONTEND_URL or "").rstrip("/")
+        reset_url = f"{base}/reset-password?token={token}"
+        try:
+            from app.api.email import send_password_reset_email
+            await send_password_reset_email(user.email, reset_url, user.language)
+        except Exception as exc:
+            # Best-effort — never leak whether the account exists via an error.
+            logger.warning("Password-reset email not sent to %s: %s", user.email, exc)
+    return {"message": "If that account exists, a reset link is on its way."}
+
+
+@router.post("/reset-password", status_code=200)
+async def reset_password(
+    body: ResetPasswordRequest,
+    session: AsyncSession = Depends(get_session),
+) -> dict:
+    """
+    WHAT: Consumes a reset token and sets the new password.
+    WHY: The token is bound to the current password hash (pwv claim), so each link
+         works at most once and dies the moment the password changes. Proving control
+         of the inbox also implies the email is verified.
+    """
+    if len(body.new_password) < 8:
+        raise HTTPException(status_code=422, detail="Password must be at least 8 characters.")
+
+    # Decode WITHOUT the hash binding first to find the user, then validate fully.
+    try:
+        from jose import jwt as _jwt
+        payload = _jwt.get_unverified_claims(body.token)
+        user_id = uuid.UUID(str(payload.get("sub")))
+    except Exception:
+        raise HTTPException(status_code=400, detail="Reset link is invalid or has expired.")
+
+    user = (await session.execute(select(User).where(User.id == user_id))).scalar_one_or_none()
+    if user is None or user.is_deleted:
+        raise HTTPException(status_code=400, detail="Reset link is invalid or has expired.")
+
+    try:
+        decode_password_reset_token(body.token, user.password_hash)
+    except JWTError:
+        raise HTTPException(status_code=400, detail="Reset link is invalid or has expired.")
+
+    user.password_hash = hash_password(body.new_password)
+    # Clicking the emailed link proves inbox control — count it as verification too.
+    user.email_verified = True
+    session.add(user)
+    await session.commit()
+    logger.info("Password reset — user=%s", user.id)
+    return {"message": "Password updated. You can now log in."}
+
+
+@router.post("/delete-account", status_code=200)
+async def delete_account(
+    body: DeleteAccountRequest,
+    current_user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
+) -> dict:
+    """
+    WHAT: User-initiated account deletion (GDPR). Soft-deletes with a 30-day recovery
+          window; the daily purge job erases everything permanently afterwards.
+    WHY: Password re-entry blocks a stolen-session deletion; soft-first gives a
+         change-of-heart path while still honoring erasure (nothing is accessible
+         meanwhile — login is blocked and every authed endpoint rejects the account).
+    """
+    if not current_user.password_hash or not verify_password(body.password, current_user.password_hash):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Password is incorrect.")
+
+    current_user.is_deleted = True
+    current_user.deleted_at = datetime.now(timezone.utc)
+    session.add(current_user)
+
+    # Best-effort: stop billing immediately so a deleted account is never charged.
+    if getattr(current_user, "paddle_subscription_id", None):
+        try:
+            from app.services.paddle import cancel_subscription
+            await cancel_subscription(current_user.paddle_subscription_id)
+        except Exception as exc:
+            logger.warning("Paddle cancel on delete failed — user=%s: %s", current_user.id, exc)
+
+    await session.commit()
+    logger.info("Account deletion requested — user=%s (purge after %dd)", current_user.id, ACCOUNT_RECOVERY_DAYS)
+    return {"message": "Account scheduled for deletion.", "recovery_days": ACCOUNT_RECOVERY_DAYS}
+
+
+@router.post("/restore-account", response_model=TokenResponse)
+async def restore_account(
+    body: RestoreAccountRequest,
+    session: AsyncSession = Depends(get_session),
+) -> TokenResponse:
+    """
+    WHAT: Reverses a user-initiated deletion within the recovery window and logs in.
+    WHY: Credentials are the proof of ownership; outside the window (or for
+         admin-deactivated accounts) this behaves like a failed login.
+    """
+    invalid = HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Invalid email or password.",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+    email = body.email.strip().lower()
+    user = (await session.execute(select(User).where(User.email == email))).scalar_one_or_none()
+    if user is None or user.password_hash is None or not verify_password(body.password, user.password_hash):
+        raise invalid
+    if not user.is_deleted or user.deleted_at is None:
+        raise invalid
+    if (datetime.now(timezone.utc) - user.deleted_at).days > ACCOUNT_RECOVERY_DAYS:
+        raise invalid
+
+    user.is_deleted = False
+    user.deleted_at = None
+    session.add(user)
+    await session.commit()
+    logger.info("Account restored — user=%s", user.id)
+    token = create_access_token(str(user.id))
+    return _token_response(user, token)
 
 
 @router.get("/me", response_model=UserResponse)

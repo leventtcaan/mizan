@@ -299,8 +299,11 @@ function BriefContent() {
           {bridge && bridgeDone !== "skipped" && (() => {
             const bt = bridge.suggestion_type;
             const isLiab = bt === "statement_liability";
-            const isUpdate = bt === "asset_balance_update";
-            const desc = isUpdate ? t("bridge.descUpdate") : isLiab ? t("bridge.descLiability") : t("bridge.descAsset");
+            // A card statement matching a tracked card updates its balance in place
+            // (revolving debt) — accepted server-side, no liability form needed.
+            const isLiabUpdate = bt === "liability_balance_update";
+            const isUpdate = bt === "asset_balance_update" || isLiabUpdate;
+            const desc = isLiabUpdate ? t("bridge.descLiabilityUpdate") : isUpdate ? t("bridge.descUpdate") : isLiab ? t("bridge.descLiability") : t("bridge.descAsset");
             const acceptLabel = isUpdate ? t("bridge.updateBalance") : isLiab ? t("bridge.addLiability") : t("bridge.addAsset");
             const successLabel = isUpdate ? t("bridge.updated") : isLiab ? t("bridge.addedLiability") : t("bridge.addedAsset");
             const amt = parseFloat(bridge.suggested_change) || 0;
@@ -308,8 +311,8 @@ function BriefContent() {
               <div className={`bg-surface border border-line rounded-2xl p-6 shadow-sm ${beatCls}`} style={beatStyle(5)}>
                 <BeatHead
                   title={t("bridge.title")}
-                  tint={isLiab ? "bg-neg/10" : "bg-[#176B5B]/10"}
-                  icon={isLiab ? <TrendingDown size={16} className="text-neg" /> : <Scale size={16} className="text-[#176B5B]" />}
+                  tint={isLiab || isLiabUpdate ? "bg-neg/10" : "bg-[#176B5B]/10"}
+                  icon={isLiab || isLiabUpdate ? <TrendingDown size={16} className="text-neg" /> : <Scale size={16} className="text-[#176B5B]" />}
                 />
                 {bridgeDone === "added" ? (
                   <p className="text-pos text-sm font-medium flex items-center gap-1.5"><CheckCircle size={16} /> {successLabel}</p>

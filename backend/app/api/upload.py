@@ -57,7 +57,7 @@ ALLOWED_CONTENT_TYPES = {
 }
 
 # Accept by extension too — browsers/OSes sometimes send xlsx/csv as octet-stream.
-ALLOWED_EXTENSIONS = (".pdf", ".csv", ".xlsx")
+ALLOWED_EXTENSIONS = (".pdf", ".csv", ".xlsx", ".xls")
 
 
 class SuggestionOut(BaseModel):
@@ -210,7 +210,7 @@ async def upload_statement(
     ):
         raise HTTPException(
             status_code=415,
-            detail=f"Unsupported file type: {file.content_type}. Upload a PDF, CSV or XLSX.",
+            detail=f"Unsupported file type: {file.content_type}. Upload a PDF, CSV or Excel file.",
         )
 
     contents = await file.read()

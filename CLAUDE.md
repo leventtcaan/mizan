@@ -625,12 +625,54 @@ Systematic audit + fixes across the whole app. Highlights:
 - [x] **Statement bridge balance — date-aware everywhere** (`statement_bridge.py`): grid path (`_running_balance` phase 1+2) now reads the balance column on the row adjacent to the MOST RECENT transaction by date (`_balance_at_latest_date` + `_best_date_col`), not the sign/order-inferred top/bottom end. Fixes dateless footer/total rows + out-of-order rows being picked. PDF-text path already date-aware.
 - [x] **Onboarding fixes**: (1) completes onto **/home**, not a goal page (goal step removed → single upload step → review→brief or home); (2) Progress **trajectory chart sign** — estimated (reconstructed) points floored at 0 (the math artifact showed misleading "-TRY" for low-NW users; real snapshot data shown as-is); (3) **default currency** = the uploaded statement's currency, else **USD** (never the TRY backend default) — now persisted via `updatePreferences` + `setDefaultCurrencyLocal`.
 
+### Phase 113 — Credit card = variable-balance debt (2026-07-07)
+- [x] **AddLiabilityModal**: type=credit_card → NO monthly-payment fork/fields; amount = **"Current balance"** (`nw.ccCurrentBalance` + hint); original-amount detail hidden; submit sends total=remaining=balance, no recurring fields.
+- [x] **Calendar/reminders**: `cashflow._liability_items` + notification follow-up/upcoming loops + email_brief upcoming-payments all SKIP `credit_card` (revolving balance ≠ fixed monthly payment; stale rows can't fire fake reminders).
+- [x] **Statement bridge CC match**: card statement fuzzy-matches existing credit_card liability (institution ≥0.6, same matcher as deposits) → new suggestion type **`liability_balance_update`** (liability id rides `source_detail`; asset_id FK can't hold it). Accept in networth.py SETs remaining+total to statement balance, ownership-checked. No match → old create path. Brief renders it as an update card (accept-in-place, `bridge.descLiabilityUpdate`); NW suggestions route via generic accept.
+
+### Phase 114 — Onboarding overlay + stock search (2026-07-07)
+- [x] **ProcessingOverlay extracted** to `components/ProcessingOverlay.tsx` (was private in upload/page.tsx — onboarding never had it). Onboarding renders it while uploading (replaces MimGuide+form → no dual Clar); dead inline "uploading…" removed.
+- [x] **Stock/fund search-by-name**: `search_stock_symbols()` (Yahoo /v1/finance/search, EQUITY/ETF/MUTUALFUND/INDEX, 10-min cache) + public `GET /currency/search?q=`. MarketAssetForm: 350ms-debounced dropdown ("Apple" → Apple Inc. (AAPL) · NASDAQ → pick fills+quotes); hint line `assetForm.tickerExamples` (AAPL for Apple, THYAO.IS for THY); label "Ticker or company name". `.IS` auto-suffix already existed (AUTO tries bare→.IS; BIST forces).
+
+### Phase 115 — Critical bug batch (2026-07-07)
+- [x] **Legacy .xls accepted**: pickers+backend accept `.xls`; `parse_xls()` sniffs the real container — ZIP magic → xlsx reader, HTML `<table>` (common bank disguise) → `_read_html_table_rows`, OLE2/BIFF → **xlrd** (requirements += `xlrd==2.0.1`), plain text → CSV fallback. Shared `_rows_to_parse_result()` refactored out of parse_xlsx.
+- [x] **TRY→USD default-currency bug FIXED** (root cause): when currency detection failed, `result.currency` echoed the account default (browser-seeded USD) and onboarding persisted it. Now onboarding trusts only `currency_detected===true`; review confirm (onboarding) persists the dominant user-confirmed row currency — the authoritative point.
+- [x] **Landing→register flash**: login read `?mode` in a post-paint useEffect → visible login-tab frame. Now `useLayoutEffect` (flips before paint on client-side nav; no hydration mismatch).
+- [x] **Email sender**: `clarifin_from()` forces display name "Clarifin" regardless of env (stale `RESEND_FROM_EMAIL="Mizan <…>"` on the server was the leak); wrong hardcoded `clarifin.app` domain removed; all 3 send sites use it.
+
+### Phase 116 — Notification experience redesign (2026-07-07)
+- [x] Tap = **expand in place** (full message, no truncation; marks read optimistically); navigation only via explicit "Open →" chip; pending Yes/No questions always fully expanded. Backend `/action` response now carries **`result_message`** (real outcome: "Logged a 5,000 TRY payment…") — UI shows it instead of a canned line; `mizan-data-changed` dispatched on yes.
+- [x] Panel: 380px, unread pill, per-type left accent bar (danger/warn/teal), localized relative timestamps (`notifications.minAgo` etc.), warm empty state, design tokens (no raw red-950/amber-950).
+
+### Phase 117 — Monetization/gating audit (2026-07-07)
+- [x] **Copy honesty**: Plus feature "Recurring payment tracking" → "Automatic recurring detection on every statement" (the /recurring engine itself is ungated; Plus buys unlimited statements that keep it current).
+- [x] **Weekly brief email now paid-gated** in `run_email_briefs` (was sent to free users despite being sold under Plus) + never to deleted accounts.
+- [x] **Vision upsell moments (honest, shown at the pain)**: upload page — free user's scanned/OCR-failed file gets "Plus reads scanned PDFs with AI vision" link; review page — free user with garbled-OCR rows gets a banner tied to the rows they can SEE. Recurring page free-tier footer nudge. Reports/Simulator already had UpgradePrompt on 403.
+
+### Phase 118 — Progress slim + Simulator surfacing (2026-07-07)
+- [x] **Progress page cut**: AlertsPanel (present-moment noise; duplicated notifications/recurring) + PersonalityCard (LLM gimmick, no action) REMOVED (8.6→6.4kB). Page = verdict → pillars → trajectory → drivers → milestones → streaks/goals → **SimulatorBridge** (the only outbound push: "test your next move").
+- [x] **Simulator in main nav** (Sparkles icon, between Net Worth and Reports); removed from account dropdown. Free users hitting it see the existing Pro UpgradePrompt (conversion moment, not a wall).
+
+### Phase 119 — Infra + auth hardening (2026-07-07) [migration 0045]
+- [x] **docker-compose**: `restart: unless-stopped` on all 4 services (VPS reboot-safe).
+- [x] **Deploy webhook** (`deploy/`): stdlib `webhook.py` on the HOST (127.0.0.1:9000, GitHub HMAC-SHA256 verified, main-only) → `deploy.sh` (git reset --hard origin/main, compose build+up, alembic upgrade; single-flight lock, logs to /var/log/clarifin-deploy.log) + systemd unit + README (nginx /deploy-hook + GitHub webhook setup). **Needs one-time VPS setup.**
+- [x] **Forgot password**: `create/decode_password_reset_token` (1h, `typ=password_reset`, **`pwv` bound to current hash** → link dies on password change), `POST /auth/forgot-password` (non-enumerating, 3/h limiter) + `POST /auth/reset-password` (min 8, also sets email_verified); reset email template; login page inline "Forgot?" panel; `/reset-password` page (navbar hidden).
+- [x] **Account deletion (GDPR)**: migration **0045** `users.deleted_at`. `POST /auth/delete-account` (password re-entry, best-effort Paddle cancel) → soft-delete + 30d window; login within window → 403 `account_deleted_recoverable` → frontend restore prompt → `POST /auth/restore-account` (creds-verified, logs in). Daily 03:00 UTC **purge job** hard-deletes past-window rows (audit row first). Settings danger zone (password-confirmed). Scheduler `_all_user_ids` now excludes deleted users (no background processing post-deletion).
+
+### Phase 120 — SEO + legal (2026-07-07)
+- [x] **Metadata**: metadataBase clarifin.xyz, title template, real description, OG/Twitter cards, **generated `opengraph-image.tsx`** (edge ImageResponse brand card), `robots.ts` (app routes disallowed) + `sitemap.ts` (public pages). **Plausible** script in layout (cookieless, no banner needed).
+- [x] **Real ToS/Privacy** (TR+EN): what the service is, not-financial-advice, AI sub-processors named (DeepSeek/OpenAI, no-training note), EU (Germany) hosting, Paddle MoR, Resend+Plausible, 30-day deletion window, GDPR/KVKK rights, support/privacy @clarifin.xyz.
+
+### Phase 121 — Business experience + polish (2026-07-07)
+- [x] **Business framing** (account_type=business): NW page "Business Position / Business Assets / Business Liabilities / Client Receivables" (`…Biz` locale-variant pattern + `bt()` helper), upload "Upload Statements & Exports · bank statements, invoice exports, expense reports", report doc title "Business Financial Report". **Clar's LLM persona** gets a business framing block (revenue/expenses/clients, company name injected). Home receivables-first + onboarding business lines already existed (92/101).
+- [x] **Email polish**: weekly-brief template accents indigo→teal. **Export filenames** mizan-→clarifin- (localStorage keys unchanged — renaming would log everyone out).
+
 ---
 
 ## Current Status
 
-**Phases 1–112 complete. Alembic head = 0044. LIVE IN PRODUCTION at https://clarifin.xyz.**
-**Since 105: Paddle billing — webhook + billing API + checkout + 0044 (106), production deploy on Contabo VPS / Docker / Nginx / Let's Encrypt (107), domain clarifin.xyz via Namecheap + SSL (108), Resend clarifin.xyz verified → email to all users (109), rebrand Mizan→Clarifin + companion Mim→Clar (110), ClarTour real interactive tour (111), bug-fix batch — dedup / upload overlay / statement-bridge date-aware balance / onboarding (112). Pending: automated tests, post-launch monitoring/iteration.**
+**Phases 1–121 complete. Alembic head = 0045. LIVE IN PRODUCTION at https://clarifin.xyz.**
+**Since 112 (single 2026-07-07 session): credit-card variable-balance rework (113), onboarding overlay + stock name-search (114), critical bugs — .xls/currency/register-flash/sender (115), notification redesign (116), monetization audit (117), Progress slim + Simulator in nav (118), infra+auth — restart policies/deploy webhook/forgot password/account deletion + **0045** (119), SEO/OG/Plausible + real legal pages (120), business experience + polish (121). Pending: automated tests, VPS webhook one-time setup, `alembic upgrade head` (→0045) + `pip install xlrd` on deploy, verify server env `RESEND_FROM_EMAIL`/`FRONTEND_URL=https://clarifin.xyz`.**
 
 ### Production (LIVE since 2026-06-28)
 - **URL**: https://clarifin.xyz
@@ -681,7 +723,7 @@ Systematic audit + fixes across the whole app. Highlights:
 
 Full stack: register/login → JWT → upload (rate-limited, busts caches) → 3-layer OCR → LLM extract → OCR cleanup → dedup → zero-amount filter → persist → LLM categorize (13 categories) → insight cache → globalized LLM coach with corrections+notes injected → spending chart + progress page (LineChart 3-month trend + cross-batch-deduped category comparison + LLM one-liners, 24h cached) → PersonalityCard (5 types, cached per batch) → AlertsPanel (3 algorithmic detectors, dismiss persisted, stale dismissals auto-cleaned) → GoalsPanel (monthly budget vs actual) → ChatPanel (globalized conversational coaching, behavioral profile memory, voice input, chat-based tx entry with confirmation card, sessionStorage prefill from alerts) → weekly email summary (Resend HTML, preferences toggle) → inflation-adjusted analysis (TUFE 2023-2026, real vs nominal per category, ProgressInsight cache) → net worth asset subtype capture (all asset types have specific fields; crypto/fiat/commodity live picker; gold unit picker; stock/fund code fields; manual categories store structured metadata in `Asset.source_detail` JSON) → net worth display currency searchable via live `CurrencySelect` → receivable collection creates linked cash asset, repeated collection is idempotent, delete/write-off removes linked asset → stale received receivables and processed suggestions are hidden/cleaned after 30 days → onboarding accepts any institution/export source instead of hardcoded Turkish banks → financial event log + reconciliation item backend skeleton exists → net worth page shows Action Queue with open reconciliation items and recent financial events → reconciliation producers (overdue receivables, missing receivable assets, cross-batch duplicate detection) → Action Queue real action handlers per issue_type → net worth history AreaChart (daily USD snapshots, converted to display currency) → asset allocation donut PieChart (5 groups, click to highlight) → proactive threshold alerts (WealthAlert model, asset_price_drop / net_worth_drop / payment_coverage_risk, bell icon on auto-priced asset cards, triggered alerts banner).
 
-### Migrations (head = 0044)
+### Migrations (head = 0045)
 | Migration | What |
 |---|---|
 | 0001 | CREATE users + transactions |
@@ -728,6 +770,7 @@ Full stack: register/login → JWT → upload (rate-limited, busts caches) → 3
 | 0042 | ADD account_type + company_name + industry + team_size + phone + timezone to users |
 | 0043 | ALTER assets.source_detail String(500) → Text (price metadata + subtype JSON outgrew 500) |
 | 0044 | ADD paddle_subscription_id + paddle_customer_id to users (Paddle billing) |
+| 0045 | ADD deleted_at to users (GDPR 30-day deletion window + daily purge job) |
 
 ### Known Issues (open)
 - **PDF extraction not perfect** — scanned/image PDFs hit inherent OCR limits. Vision LLM (gpt-4o-mini, Phase 59) + strip tiling fixed column/sign/format errors and gets income exact on the Ziraat scan, but residual amount/count drift remains = pixel-level digit misreads on poor scans. gpt-4o is more accurate (swap `_VISION_MODEL`) at ~10x cost.
@@ -1542,7 +1585,13 @@ Full stack: register/login → JWT → upload (rate-limited, busts caches) → 3
 
 ## Next Session — Start Here
 
-**Phases 1–112 complete. Alembic head = 0044. LIVE at https://clarifin.xyz.** Shipped since 105: Paddle billing + 0044 (106), production deploy — Contabo VPS / Docker / Nginx / Let's Encrypt (107), domain clarifin.xyz + SSL (108), Resend clarifin.xyz verified (109), rebrand Mizan→Clarifin / Mim→Clar (110), ClarTour interactive tour (111), bug-fix batch (112). **Now LIVE in production — focus shifts to monitoring + iteration.**
+**Phases 1–121 complete. Alembic head = 0045. LIVE at https://clarifin.xyz.** 2026-07-07 mega-session (113–121): credit-card variable-balance rework · onboarding processing overlay + stock name-search · .xls support (xlrd) · TRY/USD currency-persist fix · register-flash fix · Clarifin sender guard · notification redesign (expand + real outcomes) · monetization audit (copy honesty + vision upsells + weekly-brief paid gate) · Progress slimmed + Simulator in main nav · restart policies + deploy webhook · forgot password · GDPR account deletion (0045 + purge job) · SEO/OG/Plausible · real ToS/Privacy · business framing + Clar business persona.
+
+### DEPLOY CHECKLIST for next release (new since 112)
+1. `docker compose exec backend alembic upgrade head` → must say **0045**.
+2. Backend image rebuild required (**requirements += xlrd==2.0.1**).
+3. VPS one-time: install deploy webhook (see `deploy/README.md`) — systemd unit + nginx `/deploy-hook` + GitHub webhook secret.
+4. Verify server env: `FRONTEND_URL=https://clarifin.xyz` (reset/verify links!) and `RESEND_FROM_EMAIL` address (display name now forced to "Clarifin" in code either way).
 
 ### DONE (audit fixes 1–6, deploy, billing — all shipped)
 - ✅ Account ownership validation · category list unified (`core/categories.py`) · **cross-batch dedup fixed** (Phase 112) · upgrade-page honest copy · TR warnings now lang-aware · reports currency = user's `display_currency`.

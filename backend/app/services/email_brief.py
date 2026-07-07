@@ -84,6 +84,9 @@ async def _upcoming_liability_payments(
     )
     out: list[tuple[Liability, int]] = []
     for l in result.scalars().all():
+        # Credit cards have no fixed monthly payment (revolving balance) — skip.
+        if l.liability_type == "credit_card":
+            continue
         if not l.monthly_payment or l.monthly_payment <= 0 or not l.due_date:
             continue
         if l.remaining_amount is not None and l.remaining_amount <= 0:
@@ -368,6 +371,12 @@ async def run_email_briefs() -> dict:
                 user = await session.get(User, uid)
                 if user is None:
                     logger.info("Email brief skipped — user=%s no longer exists", uid)
+                    skipped += 1
+                    continue
+                # Weekly brief is a PAID feature (sold under Plus) — and deleted
+                # accounts must never receive mail.
+                from app.core.plans import is_paid
+                if user.is_deleted or not is_paid(user):
                     skipped += 1
                     continue
                 due = due_for_brief(user, now)

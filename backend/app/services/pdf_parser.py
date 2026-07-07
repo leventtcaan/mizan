@@ -1456,17 +1456,22 @@ def parse_xlsx(contents: bytes) -> ParseResult:
     if rows is None:
         # Neither openpyxl nor the raw zip reader could read the file.
         return ParseResult([], 1, 0, "xlsx-error", status="failed", reason="parse_error")
+    return _rows_to_parse_result(rows, "xlsx")
+
+
+def _rows_to_parse_result(rows: list[tuple], source_type: str) -> ParseResult:
+    """Shared grid→transactions pipeline for Excel-family files (xlsx, xls, HTML tables)."""
     if not rows:
-        return ParseResult([], 1, 0, "xlsx", status="empty", reason="unrecognized_format")
+        return ParseResult([], 1, 0, source_type, status="empty", reason="unrecognized_format")
 
     header_idx, date_idx, desc_idx, amount_idx = _find_xlsx_table(rows)
     if date_idx is None or amount_idx is None:
-        logger.warning("XLSX: could not identify date/amount columns")
-        return ParseResult([], 1, 0, "xlsx", status="empty", reason="unrecognized_format")
+        logger.warning("%s: could not identify date/amount columns", source_type.upper())
+        return ParseResult([], 1, 0, source_type, status="empty", reason="unrecognized_format")
 
     logger.info(
-        "XLSX: header row=%d, columns date=%s desc=%s amount=%s",
-        header_idx, date_idx, desc_idx, amount_idx,
+        "%s: header row=%d, columns date=%s desc=%s amount=%s",
+        source_type.upper(), header_idx, date_idx, desc_idx, amount_idx,
     )
 
     transactions: list[RawTransaction] = []
@@ -1501,18 +1506,98 @@ def parse_xlsx(contents: bytes) -> ParseResult:
 
     transactions = _deduplicate(transactions)
     transactions = _filter_zero_amount(transactions)
-    logger.info("XLSX parse complete — %d transactions", len(transactions))
+    logger.info("%s parse complete — %d transactions", source_type.upper(), len(transactions))
 
     if transactions:
         return ParseResult(
             transactions=transactions, page_count=1, raw_row_count=len(rows),
-            source_type="xlsx", status="success",
+            source_type=source_type, status="success",
             detected_currency=_dominant_currency(transactions),
         )
     return ParseResult(
         transactions=[], page_count=1, raw_row_count=len(rows),
-        source_type="xlsx", status="empty", reason="unrecognized_format",
+        source_type=source_type, status="empty", reason="unrecognized_format",
     )
+
+
+# ─── Legacy .xls support ──────────────────────────────────────────────────────
+# Many banks still export "Excel" as legacy .xls — and often it isn't even BIFF:
+# it's a real xlsx (zip) or an HTML table renamed .xls. Sniff magic bytes and route.
+
+_OLE2_MAGIC = b"\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1"
+
+
+def _read_html_table_rows(contents: bytes) -> list[tuple]:
+    """Rows from an HTML <table> disguised as an Excel file (common bank export)."""
+    import html as _html
+    try:
+        text = contents.decode("utf-8")
+    except UnicodeDecodeError:
+        text = contents.decode("latin-1", errors="replace")
+    rows: list[tuple] = []
+    for tr in re.findall(r"<tr[^>]*>(.*?)</tr>", text, re.I | re.S):
+        cells = re.findall(r"<t[dh][^>]*>(.*?)</t[dh]>", tr, re.I | re.S)
+        vals = []
+        for c in cells:
+            c = re.sub(r"<[^>]+>", " ", c)
+            c = re.sub(r"\s+", " ", _html.unescape(c)).strip()
+            vals.append(c or None)
+        if vals:
+            rows.append(tuple(vals))
+    return rows
+
+
+def _read_xls_rows(contents: bytes) -> list[tuple] | None:
+    """Rows from a '.xls' file, whatever it really is: xlsx-in-disguise (zip magic),
+    HTML table, or genuine BIFF (via xlrd). None → unreadable."""
+    if contents[:4] == b"PK\x03\x04":
+        return _read_xlsx_rows(contents)
+
+    head = contents[:4096].lstrip().lower()
+    if head.startswith(b"<") or b"<table" in head:
+        return _read_html_table_rows(contents)
+
+    if contents[:8] == _OLE2_MAGIC:
+        try:
+            import xlrd
+        except ImportError:
+            logger.warning("XLS: xlrd not installed — cannot read legacy BIFF .xls")
+            return None
+        try:
+            book = xlrd.open_workbook(file_contents=contents)
+            sheet = book.sheet_by_index(0)
+            rows = []
+            for r in range(sheet.nrows):
+                vals = []
+                for c in range(sheet.ncols):
+                    cell = sheet.cell(r, c)
+                    if cell.ctype == xlrd.XL_CELL_DATE:
+                        try:
+                            vals.append(xlrd.xldate.xldate_as_datetime(cell.value, book.datemode))
+                        except Exception:
+                            vals.append(cell.value)
+                    elif cell.ctype == xlrd.XL_CELL_EMPTY:
+                        vals.append(None)
+                    else:
+                        vals.append(cell.value)
+                rows.append(tuple(vals))
+            return rows
+        except Exception as exc:
+            logger.warning("XLS read failed: %s", exc)
+            return None
+
+    return None  # unknown container — caller may fall back to CSV/text
+
+
+def parse_xls(contents: bytes) -> ParseResult:
+    """Legacy .xls entry point — sniffs the real container and routes accordingly."""
+    rows = _read_xls_rows(contents)
+    if rows is not None:
+        return _rows_to_parse_result(rows, "xls")
+    # Not zip/HTML/BIFF — could be plain CSV/TSV text renamed .xls; let the CSV path try.
+    if b"\x00" not in contents[:2048]:
+        return _parse_csv(contents)
+    return ParseResult([], 1, 0, "xls-error", status="failed", reason="parse_error")
 
 
 # ─── Public entry point ───────────────────────────────────────────────────────
@@ -1545,6 +1630,10 @@ def parse_statement(
     # xlsx as application/octet-stream, so extension is the reliable signal).
     if fn.endswith(".xlsx") or content_type == _XLSX_MIME:
         return parse_xlsx(contents)
+
+    # Legacy .xls (often an xlsx or HTML table in disguise — parse_xls sniffs the container).
+    if fn.endswith(".xls") or content_type == "application/vnd.ms-excel":
+        return parse_xls(contents)
 
     if not is_pdf:
         return _parse_csv(contents)

@@ -154,3 +154,5 @@ assistant_limiter = _make_limiter("assistant")
 # WHY: Throttle verification-email resends so the endpoint can't be used to spam an
 # inbox or hammer the email provider — max 3 per hour per email address.
 resend_verification_limiter = _make_limiter("resend_verification")
+# WHY: Same protection for password-reset requests — max 3 per hour per email address.
+password_reset_limiter = _make_limiter("password_reset")

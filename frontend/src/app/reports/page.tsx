@@ -110,12 +110,12 @@ export default function ReportsPage() {
     requestAnimationFrame(() => { try { window.print(); } catch { setExportError(t("report.exportError")); } });
   };
   // Distinguishable, localized file name carrying the actual date range, e.g.
-  // mizan-report-2026-05-23-2026-06-23.csv  /  mizan-rapor-all-2026-06-23.xlsx
+  // clarifin-report-2026-05-23-2026-06-23.csv  /  clarifin-rapor-all-2026-06-23.xlsx
   const exportFilename = (ext: string): string => {
     const word = lang === "tr" ? "rapor" : "report";
     const s = report?.meta.start, e = report?.meta.end;
     const span = s && e ? `${s}-${e}` : e ? `${lang === "tr" ? "tum" : "all"}-${e}` : period;
-    return `mizan-${word}-${span}.${ext}`;
+    return `clarifin-${word}-${span}.${ext}`;
   };
   const exportCsv = async () => {
     setExportError(null); setCsvBusy(true);
@@ -158,7 +158,7 @@ export default function ReportsPage() {
           </span>
           <div className="min-w-0">
             <h1 className="text-xl font-bold text-ink leading-tight">{t("report.title")}</h1>
-            <p className="text-xs text-ink-mute">{t("report.docTitle")} · {ccy}</p>
+            <p className="text-xs text-ink-mute">{(getStoredUser()?.account_type === "business" && t("report.docTitleBiz") !== "report.docTitleBiz") ? t("report.docTitleBiz") : t("report.docTitle")} · {ccy}</p>
           </div>
           <div className="flex-1" />
           <PeriodPicker value={period} onChange={setPeriod} lang={lang} t={t} />
@@ -208,7 +208,7 @@ export default function ReportsPage() {
                 <span className="w-11 h-11 rounded-xl flex items-center justify-center text-white text-xl font-bold shrink-0" style={{ backgroundColor: TEAL, fontFamily: "Georgia, 'Times New Roman', serif" }}>C</span>
                 <div>
                   <p className="text-xl font-bold tracking-tight" style={{ color: INK, fontFamily: "Georgia, 'Times New Roman', serif" }}>Clarifin</p>
-                  <p className="text-[13px]" style={{ color: MUTE }}>{t("report.docTitle")}</p>
+                  <p className="text-[13px]" style={{ color: MUTE }}>{(getStoredUser()?.account_type === "business" && t("report.docTitleBiz") !== "report.docTitleBiz") ? t("report.docTitleBiz") : t("report.docTitle")}</p>
                 </div>
               </div>
               <div className="text-right text-[12px] leading-relaxed">

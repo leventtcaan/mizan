@@ -1155,6 +1155,27 @@ async def accept_suggestion(
             asset.updated_at = now
             logger.info("Bridge accepted — asset %s balance set to %s", asset.id, value)
 
+    elif stype == "liability_balance_update":
+        # Credit-card statement matching a tracked card: SET its balance to the statement's
+        # (revolving debt — the balance changes every month; replace, never add).
+        liab = None
+        liab_id = detail.get("matched_liability_id")
+        if liab_id:
+            try:
+                liab = (await session.execute(
+                    select(Liability).where(
+                        Liability.id == uuid.UUID(liab_id),
+                        Liability.user_id == current_user.id,
+                    )
+                )).scalar_one_or_none()
+            except ValueError:
+                liab = None
+        if liab:
+            liab.remaining_amount = value
+            # A card's "total" is its current balance, not an original loan amount.
+            liab.total_amount = value
+            logger.info("Bridge accepted — liability %s balance set to %s", liab.id, value)
+
     elif stype == "statement_liability":
         # Credit-card statement → a liability (balance owed).
         session.add(Liability(

@@ -38,6 +38,9 @@ class NotificationResponse(BaseModel):
     action_type: str | None = None
     action_state: str = "none"
     action_data: dict | None = None
+    # What actually happened when a Yes/No was answered ("Logged a 5,000 TRY payment…") —
+    # only populated on the /action response so the UI can show the real outcome.
+    result_message: str | None = None
 
 
 class ActionRequest(BaseModel):
@@ -149,8 +152,10 @@ async def respond_to_action(
         raise HTTPException(status_code=400, detail="Notification is not actionable")
 
     lang = current_user.language or "tr"
-    await resolve_notification_action(notif, body.answer, lang, session)
-    return _resp(notif)
+    outcome = await resolve_notification_action(notif, body.answer, lang, session)
+    resp = _resp(notif)
+    resp.result_message = outcome.get("message")
+    return resp
 
 
 @router.post("/mark-all-read")

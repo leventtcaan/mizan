@@ -1,0 +1,14 @@
+[Unit]
+Description=Clarifin git-push deploy webhook
+After=network.target docker.service
+
+[Service]
+Type=simple
+Environment=WEBHOOK_SECRET=CHANGE_ME
+Environment=DEPLOY_SCRIPT=/opt/mizan/deploy/deploy.sh
+ExecStart=/usr/bin/python3 /opt/mizan/deploy/webhook.py
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

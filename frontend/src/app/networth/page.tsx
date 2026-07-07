@@ -11,6 +11,7 @@ import AddReceivableModal from "@/components/AddReceivableModal";
 import CurrencySelect from "@/components/CurrencySelect";
 import {
   getToken,
+  getStoredUser,
   getCurrencyRates,
   getNetWorthGuidance,
   getNetWorthSummary,
@@ -286,6 +287,15 @@ function Toast({ message, onDismiss }: { message: string; onDismiss: () => void 
 export default function NetWorthPage() {
   const { t, lang } = useLanguage();
   const router = useRouter();
+  // Business accounts see business framing ("Business Assets", "Client Receivables")
+  // wherever a business variant key (…Biz) exists; personal accounts keep the default.
+  const isBusiness = typeof window !== "undefined" && getStoredUser()?.account_type === "business";
+  const bt = (key: string): string => {
+    if (!isBusiness) return t(key);
+    const bizKey = `${key}Biz`;
+    const v = t(bizKey);
+    return v !== bizKey ? v : t(key);
+  };
   // Explicit theme-resolved colors for cases the channel-token bg utilities don't
   // paint reliably at runtime: floating overlays (alert modal) and solid in-flow
   // fills (liability progress bar). text-/border- tokens are fine; only solid
@@ -888,8 +898,8 @@ export default function NetWorthPage() {
 
   return (
     <PageLayout
-      title={t("nw.title")}
-      subtitle={t("nw.subtitle")}
+      title={bt("nw.title")}
+      subtitle={bt("nw.subtitle")}
       maxWidth="lg"
       action={
         <div className="flex items-center gap-2">
@@ -1024,14 +1034,14 @@ export default function NetWorthPage() {
               <div className="rounded-xl bg-surface-2 border border-line/60 p-4">
                 <div className="flex items-center gap-2 mb-1.5">
                   <span className="w-6 h-6 rounded-lg bg-pos/15 flex items-center justify-center"><TrendingUp size={13} className="text-pos" /></span>
-                  <span className="text-xs text-ink-mute font-medium">{t("nw.assets")}</span>
+                  <span className="text-xs text-ink-mute font-medium">{bt("nw.assets")}</span>
                 </div>
                 <p className="text-pos text-lg font-bold tabular-nums">{summary ? fmt(summary.total_assets_try, displayCurrency) : "—"}</p>
               </div>
               <div className="rounded-xl bg-surface-2 border border-line/60 p-4">
                 <div className="flex items-center gap-2 mb-1.5">
                   <span className="w-6 h-6 rounded-lg bg-neg/15 flex items-center justify-center"><TrendingDown size={13} className="text-neg" /></span>
-                  <span className="text-xs text-ink-mute font-medium">{t("nw.liabilities")}</span>
+                  <span className="text-xs text-ink-mute font-medium">{bt("nw.liabilities")}</span>
                 </div>
                 <p className="text-neg text-lg font-bold tabular-nums">{summary ? fmt(summary.total_liabilities_try, displayCurrency) : "—"}</p>
               </div>
@@ -1039,7 +1049,7 @@ export default function NetWorthPage() {
                 <div className="rounded-xl bg-surface-2 border border-line/60 p-4">
                   <div className="flex items-center gap-2 mb-1.5">
                     <span className="w-6 h-6 rounded-lg bg-warn/15 flex items-center justify-center"><DollarSign size={13} className="text-warn" /></span>
-                    <span className="text-xs text-ink-mute font-medium">{t("nw.receivables")}</span>
+                    <span className="text-xs text-ink-mute font-medium">{bt("nw.receivables")}</span>
                   </div>
                   <p className="text-warn text-lg font-bold tabular-nums">{fmt(summary.pending_receivables_try, displayCurrency)}</p>
                 </div>
@@ -1137,7 +1147,7 @@ export default function NetWorthPage() {
       {/* Assets */}
       <section className="mb-8">
         <SectionHeader
-          label={t("nw.assets")}
+          label={bt("nw.assets")}
           icon={<TrendingUp size={18} className="text-pos" />}
           iconTint="bg-pos/15"
           total={summary?.total_assets_try}
@@ -1275,7 +1285,7 @@ export default function NetWorthPage() {
       {/* Liabilities */}
       <section className="mb-8">
         <SectionHeader
-          label={t("nw.liabilities")}
+          label={bt("nw.liabilities")}
           icon={<TrendingDown size={18} className="text-neg" />}
           iconTint="bg-neg/15"
           total={summary?.total_liabilities_try}
@@ -1352,7 +1362,7 @@ export default function NetWorthPage() {
       {/* Receivables */}
       <section className="mb-8">
         <SectionHeader
-          label={t("nw.receivables")}
+          label={bt("nw.receivables")}
           icon={<Scale size={18} className="text-warn" />}
           iconTint="bg-warn/15"
           total={summary?.pending_receivables_try}

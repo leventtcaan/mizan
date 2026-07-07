@@ -8,7 +8,7 @@ import CurrencySelect from "@/components/CurrencySelect";
 import { LogOut, Sparkles, ArrowRight, Settings, Mail, ShieldCheck, CheckCircle, Briefcase } from "@/components/ui/Icons";
 import { useLanguage, type Lang } from "@/lib/i18n";
 import {
-  getToken, getStoredUser, setStoredUser, clearToken, getMe, updatePreferences,
+  getToken, getStoredUser, setStoredUser, clearToken, getMe, updatePreferences, deleteMyAccount,
   getDefaultCurrency, setDefaultCurrencyLocal, changePassword, INDUSTRIES, TEAM_SIZES,
   getBillingSubscription, cancelSubscription, type BillingSubscription,
 } from "@/lib/api";
@@ -220,6 +220,25 @@ export default function SettingsPage() {
   };
 
   const handleLogout = () => { clearToken(); router.push("/login"); };
+
+  // Danger zone — account deletion (password re-entry required; 30-day recovery window).
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deletePassword, setDeletePassword] = useState("");
+  const [deleteBusy, setDeleteBusy] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const handleDeleteAccount = async () => {
+    if (!deletePassword || deleteBusy) return;
+    setDeleteBusy(true);
+    setDeleteError(null);
+    try {
+      await deleteMyAccount(deletePassword);
+      clearToken();
+      router.push("/");
+    } catch (err) {
+      setDeleteError(err instanceof Error ? err.message : t("common.error"));
+      setDeleteBusy(false);
+    }
+  };
 
   const isPaid = plan !== "free";
   const planName = plan === "free" ? t("pricing.freeName") : plan.charAt(0).toUpperCase() + plan.slice(1);
@@ -451,11 +470,43 @@ export default function SettingsPage() {
 
         {/* ── Account ── */}
         <Section icon={<ShieldCheck size={16} />} title={t("settings.account")}>
-          <div className="py-4">
+          <div className="py-4 space-y-4">
             <button onClick={handleLogout}
               className="w-full sm:w-auto flex items-center justify-center gap-2 px-4 py-2 rounded-lg border border-line text-ink-soft hover:text-danger hover:border-danger/40 text-sm font-medium transition-colors">
               <LogOut size={15} /> {t("settings.logout")}
             </button>
+
+            {/* Danger zone — GDPR deletion with a 30-day recovery window */}
+            <div className="border-t border-line pt-4">
+              {!deleteOpen ? (
+                <button onClick={() => setDeleteOpen(true)}
+                  className="text-danger text-xs font-medium hover:underline">
+                  {t("settings.deleteAccount")}
+                </button>
+              ) : (
+                <div className="rounded-xl border border-danger/30 bg-danger/5 p-4 space-y-3">
+                  <p className="text-ink text-sm font-semibold">{t("settings.deleteTitle")}</p>
+                  <p className="text-ink-soft text-xs leading-relaxed">{t("settings.deleteExplain")}</p>
+                  <input
+                    type="password" autoComplete="current-password" value={deletePassword}
+                    onChange={(e) => setDeletePassword(e.target.value)}
+                    placeholder={t("settings.deletePasswordPh")}
+                    className="w-full bg-canvas border border-line rounded-lg px-3 py-2 text-sm text-ink placeholder:text-ink-mute focus:outline-none focus:border-danger"
+                  />
+                  {deleteError && <p className="text-danger text-xs">{deleteError}</p>}
+                  <div className="flex gap-2">
+                    <button onClick={handleDeleteAccount} disabled={!deletePassword || deleteBusy}
+                      className="px-4 py-2 rounded-lg bg-danger text-white text-xs font-semibold hover:opacity-90 transition-opacity disabled:opacity-50">
+                      {deleteBusy ? "…" : t("settings.deleteConfirm")}
+                    </button>
+                    <button onClick={() => { setDeleteOpen(false); setDeletePassword(""); setDeleteError(null); }}
+                      className="px-4 py-2 rounded-lg border border-line text-ink-soft text-xs font-medium hover:bg-surface-2 transition-colors">
+                      {t("common.cancel")}
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
         </Section>
       </div>

@@ -34,18 +34,60 @@ LAST_RUN: dict[str, str | None] = {
     "daily_notifications": None,
     "price_refresh": None,
     "email_briefs": None,
+    "account_purge": None,
 }
 
 JOB_RECONCILIATION = "reconciliation_all_users"
 JOB_NOTIFICATIONS = "daily_notifications_all_users"
 JOB_PRICE_REFRESH = "price_refresh_all_users"
 JOB_EMAIL_BRIEFS = "email_briefs_all_users"
+JOB_ACCOUNT_PURGE = "account_purge"
 
 
 async def _all_user_ids() -> list:
+    # Deleted/deactivated accounts get NO background processing — no notifications,
+    # no emails, no scans. (GDPR: a deletion request stops all processing immediately.)
     async with AsyncSessionLocal() as session:
-        result = await session.execute(select(User.id))
+        result = await session.execute(select(User.id).where(User.is_deleted.is_(False)))
         return [row[0] for row in result.all()]
+
+
+async def run_account_purge() -> None:
+    """Permanently erase accounts whose 30-day recovery window has passed.
+
+    User-initiated deletions are soft (is_deleted + deleted_at). This daily job is the
+    GDPR erasure: past the window the row is hard-deleted and every FK cascade wipes
+    the user's data. A no-FK audit row is written FIRST so the trail survives."""
+    from datetime import timedelta
+
+    from app.api.auth import ACCOUNT_RECOVERY_DAYS
+    from app.models.admin_audit_log import AdminAuditLog
+
+    cutoff = datetime.now(timezone.utc) - timedelta(days=ACCOUNT_RECOVERY_DAYS)
+    purged = 0
+    async with AsyncSessionLocal() as session:
+        result = await session.execute(
+            select(User).where(
+                User.is_deleted.is_(True),
+                User.deleted_at.isnot(None),
+                User.deleted_at < cutoff,
+            )
+        )
+        for user in result.scalars().all():
+            session.add(AdminAuditLog(
+                admin_user_id=user.id,  # self-initiated — the actor is the user
+                admin_email=user.email,
+                action="user_purged_gdpr",
+                target_user_id=user.id,
+                target_email=user.email,
+                detail=f'{{"deleted_at": "{user.deleted_at.isoformat()}"}}',
+            ))
+            await session.delete(user)
+            purged += 1
+        await session.commit()
+    LAST_RUN["account_purge"] = datetime.now(timezone.utc).isoformat()
+    if purged:
+        logger.info("Account purge: %d accounts permanently erased", purged)
 
 
 async def run_reconciliation_for_all_users() -> None:
@@ -166,6 +208,14 @@ def start_scheduler() -> None:
         coalesce=True,
         max_instances=1,
     )
+    scheduler.add_job(
+        run_account_purge,
+        trigger=CronTrigger(hour=3, minute=0),  # 03:00 UTC daily — GDPR erasure
+        id=JOB_ACCOUNT_PURGE,
+        replace_existing=True,
+        coalesce=True,
+        max_instances=1,
+    )
     scheduler.start()
     logger.info("Scheduler started — reconciliation 6h, notifications 09:00 UTC, price refresh 12h, email briefs Sun 09:00 UTC.")
 
@@ -179,7 +229,7 @@ def shutdown_scheduler() -> None:
 def scheduler_status() -> dict:
     """Snapshot for the dev status endpoint."""
     jobs = {}
-    for job_id in (JOB_RECONCILIATION, JOB_NOTIFICATIONS, JOB_PRICE_REFRESH, JOB_EMAIL_BRIEFS):
+    for job_id in (JOB_RECONCILIATION, JOB_NOTIFICATIONS, JOB_PRICE_REFRESH, JOB_EMAIL_BRIEFS, JOB_ACCOUNT_PURGE):
         job = scheduler.get_job(job_id)
         jobs[job_id] = {
             "next_run": job.next_run_time.isoformat() if job and job.next_run_time else None,

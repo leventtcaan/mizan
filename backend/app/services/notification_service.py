@@ -152,6 +152,9 @@ async def _proactive_triggers(
 
     # ── 1. Liability payment follow-up: the payment day just passed (0–2 days ago) ──
     for l in liabilities:
+        # Credit cards have no fixed monthly payment (revolving balance) — never remind.
+        if l.liability_type == "credit_card":
+            continue
         if not l.monthly_payment or l.monthly_payment <= 0 or not l.due_date:
             continue
         if l.remaining_amount is not None and l.remaining_amount <= 0:
@@ -292,6 +295,9 @@ async def generate_for_user(user_id: uuid.UUID, lang: str, session: AsyncSession
     )
     liabilities = liab_result.scalars().all()
     for l in liabilities:
+        # Credit cards have no fixed monthly payment (revolving balance) — skip.
+        if l.liability_type == "credit_card":
+            continue
         if l.monthly_payment and l.due_date:
             next_due = _next_payment_date(l.due_date, today)
             # Don't warn for a loan that's already past its final payment month.

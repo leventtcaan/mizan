@@ -10,7 +10,7 @@ from datetime import date, timedelta
 import httpx
 from fastapi import APIRouter
 
-from app.services.asset_prices import fetch_stock_quote
+from app.services.asset_prices import fetch_stock_quote, search_stock_symbols
 from app.services.currency import (
     get_fiat_list,
     get_crypto_list,
@@ -154,3 +154,16 @@ async def currency_quote(symbol: str, exchange: str = "AUTO") -> dict:
         "currency": result["currency"],
         "name": result["name"],
     }
+
+
+@router.get("/search")
+async def currency_search(q: str, limit: int = 8) -> dict:
+    """
+    Search stocks/funds by NAME or partial ticker via Yahoo Finance — for users who
+    don't know ticker codes ("Apple" → Apple Inc. (AAPL)).
+    No auth required — used by the add-asset modal.
+
+    Returns {"results": [{"symbol", "name", "exchange", "type"}]} — empty on failure.
+    """
+    results = await search_stock_symbols(q, limit=max(1, min(limit, 15)))
+    return {"results": results}

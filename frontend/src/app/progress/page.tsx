@@ -12,9 +12,7 @@ import {
 } from "@/lib/api";
 import PageLayout from "@/components/ui/PageLayout";
 import GoalsPanel from "@/components/GoalsPanel";
-import AlertsPanel from "@/components/AlertsPanel";
-import PersonalityCard from "@/components/PersonalityCard";
-import { ChevronDown, ChevronUp, Upload, Plus, TrendingUp, TrendingDown, Flame } from "@/components/ui/Icons";
+import { ChevronDown, ChevronUp, Upload, Plus, TrendingUp, TrendingDown, Flame, Sparkles, ArrowRight } from "@/components/ui/Icons";
 import { useLanguage } from "@/lib/i18n";
 
 type LoadState = "loading" | "ready" | "error";
@@ -65,7 +63,6 @@ export default function ProgressPage() {
   const [ccy, setCcy] = useState(() => getDefaultCurrency());
   const [range, setRange] = useState<Range>("6m");
   const [manageGoals, setManageGoals] = useState(false);
-  const [showBehavior, setShowBehavior] = useState(false);
 
   useEffect(() => {
     setCcy(getDefaultCurrency());
@@ -194,19 +191,9 @@ export default function ProgressPage() {
             setManageGoals={setManageGoals}
           />
 
-          <AlertsPanel />
-
-          {/* Demoted: financial personality as an opt-in footnote */}
-          <div className="bg-surface border border-line rounded-xl">
-            <button
-              onClick={() => setShowBehavior((v) => !v)}
-              className="w-full flex items-center justify-between px-5 py-4 text-sm text-ink-mute hover:text-ink-soft transition-colors"
-            >
-              <span>{t("progress.personality")}</span>
-              {showBehavior ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
-            </button>
-            {showBehavior && <div className="px-1 pb-1"><PersonalityCard /></div>}
-          </div>
+          {/* The natural next step after seeing your trajectory: test the move that
+              would bend it. This is the page's only outbound push — to the Simulator. */}
+          <SimulatorBridge t={t} />
         </div>
       )}
     </PageLayout>
@@ -570,5 +557,28 @@ function Streaks({
 
       {manageGoals && <div className="mt-3"><GoalsPanel /></div>}
     </div>
+  );
+}
+
+// ── Simulator bridge — the one outbound push on this page ────────────────────
+// Progress answers "am I getting better?"; the Simulator answers "what happens
+// if I change something?". Trajectory → test the move is the natural handoff.
+function SimulatorBridge({ t }: { t: (k: string) => string }) {
+  return (
+    <Link
+      href="/simulator"
+      className="group relative overflow-hidden flex items-center justify-between gap-4 rounded-2xl border border-[#176B5B]/30 bg-[#176B5B]/[0.06] px-5 py-4 transition-colors hover:bg-[#176B5B]/[0.1]"
+    >
+      <div className="flex items-center gap-3.5 min-w-0">
+        <span className="w-10 h-10 rounded-xl bg-[#176B5B]/12 flex items-center justify-center shrink-0">
+          <Sparkles size={18} className="text-[#176B5B]" />
+        </span>
+        <div className="min-w-0">
+          <p className="text-ink text-sm font-semibold">{t("scorecard.simBridgeTitle")}</p>
+          <p className="text-ink-mute text-xs mt-0.5">{t("scorecard.simBridgeSub")}</p>
+        </div>
+      </div>
+      <ArrowRight size={18} className="text-[#176B5B] shrink-0 transition-transform group-hover:translate-x-0.5" />
+    </Link>
   );
 }

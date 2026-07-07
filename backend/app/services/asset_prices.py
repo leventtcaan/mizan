@@ -38,9 +38,13 @@ logger = logging.getLogger(__name__)
 # --- Cache TTLs ---
 _CRYPTO_TTL = 900    # 15 minutes
 _STOCK_TTL = 3600    # 1 hour
+_SEARCH_TTL = 600    # 10 minutes
 
 # Per-ticker stock price cache: {TICKER: (price_usd, fetched_at)}
 _stock_cache: dict[str, tuple[float, float]] = {}
+
+# Per-query symbol search cache: {query: (results, fetched_at)}
+_search_cache: dict[str, tuple[list[dict], float]] = {}
 
 # Asset types that can be auto-refreshed
 LIVE_VALUE_TYPES = {"crypto", "gold", "foreign_currency", "commodity"}
@@ -183,6 +187,56 @@ async def fetch_stock_quote(
             return {**result, "yahoo_symbol": candidate}
 
     return None
+
+
+async def search_stock_symbols(query: str, limit: int = 8) -> list[dict]:
+    """
+    Search Yahoo Finance by company/fund NAME (or partial ticker) so users who don't
+    know ticker codes can find them ("Apple" → AAPL, "Türk Hava" → THYAO.IS).
+    Returns [{"symbol", "name", "exchange", "type"}] — empty list on any failure.
+    Cached per query for _SEARCH_TTL.
+    """
+    q = query.strip()
+    if len(q) < 2:
+        return []
+
+    key = q.lower()
+    cached = _search_cache.get(key)
+    if cached and (time.time() - cached[1]) < _SEARCH_TTL:
+        return cached[0][:limit]
+
+    results: list[dict] = []
+    try:
+        async with httpx.AsyncClient(
+            timeout=8.0,
+            headers={"User-Agent": "Mozilla/5.0 (compatible; Mizan/1.0)"},
+            follow_redirects=True,
+        ) as client:
+            resp = await client.get(
+                "https://query1.finance.yahoo.com/v1/finance/search",
+                params={"q": q, "quotesCount": max(limit, 8), "newsCount": 0, "listsCount": 0},
+            )
+            if resp.status_code == 200:
+                for item in resp.json().get("quotes", []):
+                    # Only price-able instrument types (matches what /quote can fetch).
+                    if item.get("quoteType") not in ("EQUITY", "ETF", "MUTUALFUND", "INDEX"):
+                        continue
+                    sym = item.get("symbol")
+                    if not sym:
+                        continue
+                    results.append({
+                        "symbol": str(sym).upper(),
+                        "name": str(item.get("longname") or item.get("shortname") or sym),
+                        "exchange": str(item.get("exchDisp") or item.get("exchange") or ""),
+                        "type": str(item.get("quoteType") or ""),
+                    })
+                _search_cache[key] = (results, time.time())
+    except Exception as exc:
+        logger.warning("Symbol search failed (%s): %s", q, exc)
+        if key in _search_cache:
+            return _search_cache[key][0][:limit]
+
+    return results[:limit]
 
 
 async def fetch_stock_price(ticker: str) -> float | None:

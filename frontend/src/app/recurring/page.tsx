@@ -9,7 +9,7 @@ import { ChevronDown, ChevronUp, RefreshCw, Upload } from "@/components/ui/Icons
 import { card } from "@/lib/design";
 import { useLanguage } from "@/lib/i18n";
 import {
-  getToken, getRecurring, flagSubscription, getDefaultCurrency, CURRENCY_CHANGE_EVENT,
+  getToken, getStoredUser, getRecurring, flagSubscription, getDefaultCurrency, CURRENCY_CHANGE_EVENT,
   type RecurringSubscription, type RecurringInstallment, type RecurringSummary,
 } from "@/lib/api";
 
@@ -245,6 +245,17 @@ export default function RecurringPage() {
             </>
           )}
         </>
+      )}
+
+      {/* Free tier: detection only sees the statements they can upload (1/month) —
+          honest nudge that Plus keeps this picture current. */}
+      {(getStoredUser()?.plan ?? "free") === "free" && (
+        <div className="mt-6 flex items-center justify-between gap-3 rounded-xl border border-[#176B5B]/30 bg-[#176B5B]/[0.06] px-4 py-3">
+          <p className="text-ink-soft text-xs leading-relaxed">{t("recurring.freeNudge")}</p>
+          <Link href="/upgrade" className="shrink-0 text-[#176B5B] text-xs font-semibold hover:underline">
+            {t("recurring.freeNudgeCta")}
+          </Link>
+        </div>
       )}
     </PageLayout>
   );

@@ -275,8 +275,21 @@ async def run_chat(
     context = await build_context(user.id, page_context, session, job_id=job_id)
     lang = getattr(user, "language", None) or "en"
 
+    # Business accounts get business framing: Clar speaks about "the business",
+    # "your clients", "your expenses" — not personal-finance language.
+    persona_extra = ""
+    if getattr(user, "account_type", None) == "business":
+        company = getattr(user, "company_name", None)
+        persona_extra = (
+            "\n\nThis user manages BUSINESS finances"
+            + (f' for "{company}"' if company else "")
+            + ". Frame everything in business terms: revenue, expenses, cash flow, "
+            "client receivables, supplier payments. Say 'the business' / 'your clients', "
+            "not 'your personal spending'."
+        )
+
     messages = [
-        {"role": "system", "content": f"{_SYSTEM_PROMPT}\n\nUser language: {lang}\n\nUSER FINANCIAL CONTEXT:\n{context}"}
+        {"role": "system", "content": f"{_SYSTEM_PROMPT}{persona_extra}\n\nUser language: {lang}\n\nUSER FINANCIAL CONTEXT:\n{context}"}
     ]
     for m in session_history[-10:]:
         role = m.get("role")

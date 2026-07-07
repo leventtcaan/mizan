@@ -10,6 +10,7 @@ import {
 import { FileText, ArrowRight, CheckCircle, Plus } from "@/components/ui/Icons";
 import AddTransactionModal from "@/components/AddTransactionModal";
 import MimGuide from "@/components/companion/MimGuide";
+import ProcessingOverlay from "@/components/ProcessingOverlay";
 import { useLanguage } from "@/lib/i18n";
 
 // Onboarding: a single step — upload statement(s) → (review → brief) or straight to Home.
@@ -88,12 +89,15 @@ export default function OnboardingPage() {
     }
   }, [currency]);
 
-  // Default display currency after onboarding: the uploaded statement's currency, or — when
-  // no statement was uploaded — USD (never the TRY backend default).
+  // Default display currency after onboarding: the uploaded statement's DETECTED currency,
+  // or — when no statement / no detection — USD (never the TRY backend default).
+  // When detection failed, result.currency is just the account default echoed back
+  // (browser-seeded, e.g. USD) — trusting it here is how a TRY statement ended up
+  // persisting USD. Review confirm persists the user-confirmed currency instead.
   const resolveCurrency = useCallback((): string => {
     if (hasStatement) {
-      const c = successUploads[0]?.result.currency;
-      if (c) return c;
+      const detected = successUploads.find((u) => u.result.currency_detected && u.result.currency);
+      if (detected) return detected.result.currency!;
     }
     return currency && currency !== "TRY" ? currency : "USD";
   }, [hasStatement, successUploads, currency]);
@@ -146,7 +150,7 @@ export default function OnboardingPage() {
     try {
       const result = await uploadStatement(file);
       setUploads((prev) => [...prev, { filename: file.name, result }]);
-      if (result.status === "success" && result.currency && !hasStatement) setCurrency(result.currency);
+      if (result.status === "success" && result.currency_detected && result.currency && !hasStatement) setCurrency(result.currency);
     } catch (err) {
       setError(err instanceof Error ? err.message : t("common.error"));
     } finally {
@@ -168,6 +172,12 @@ export default function OnboardingPage() {
           <p className="text-center text-ink-mute text-sm font-medium tracking-widest uppercase">Clarifin</p>
         </div>
 
+        {/* While a statement is parsing, take over with the animated "what Clar is doing"
+            screen (same one as /upload) instead of the bare "uploading…" text. */}
+        {uploading ? (
+          <ProcessingOverlay lang={lang} fileCount={1} />
+        ) : (
+        <>
         {/* Mim */}
         <div className="mb-6">
           <MimGuide message={mimMsg} mood="calm" size={56} />
@@ -184,18 +194,12 @@ export default function OnboardingPage() {
             onClick={() => fileInputRef.current?.click()}
             className={`border-2 border-dashed rounded-2xl p-7 text-center cursor-pointer transition-all mb-3 ${dragging ? "border-[#176B5B] bg-[#176B5B]/[0.07]" : "border-line hover:border-[#176B5B]/60 hover:bg-[#176B5B]/[0.03]"}`}
           >
-            <input ref={fileInputRef} type="file" accept=".pdf,.csv,.xlsx" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) handleUpload(f); }} />
+            <input ref={fileInputRef} type="file" accept=".pdf,.csv,.xlsx,.xls" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) handleUpload(f); }} />
             <div className="w-12 h-12 rounded-2xl bg-[#176B5B]/10 flex items-center justify-center mx-auto mb-3">
               <FileText size={22} className="text-[#176B5B]" />
             </div>
-            {uploading ? (
-              <span className="text-ink-mute text-sm">{t("onboarding.uploading")}</span>
-            ) : (
-              <>
-                <p className="text-ink-soft text-sm font-medium">{uploads.length > 0 ? t("onboarding.flow.addAnother") : t("onboarding.dropHere")}</p>
-                <p className="text-ink-mute text-xs mt-1">{t("onboarding.pdfCsvMax")}</p>
-              </>
-            )}
+            <p className="text-ink-soft text-sm font-medium">{uploads.length > 0 ? t("onboarding.flow.addAnother") : t("onboarding.dropHere")}</p>
+            <p className="text-ink-mute text-xs mt-1">{t("onboarding.pdfCsvMax")}</p>
           </div>
 
           <button
@@ -251,6 +255,8 @@ export default function OnboardingPage() {
             {t("onboarding.flow.skipForNow")}
           </button>
         </div>
+        </>
+        )}
       </div>
 
       {manualOpen && (

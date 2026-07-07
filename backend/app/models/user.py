@@ -134,6 +134,14 @@ class User(Base):
         server_default=text("false"),
     )
 
+    # WHY: When the USER asked for deletion (GDPR flow). Together with is_deleted this
+    # opens a 30-day recovery window; the daily purge job hard-deletes rows older than
+    # that. NULL for admin-deactivated accounts (no auto-purge for those).
+    deleted_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
+
     language: Mapped[str] = mapped_column(
         String(5),
         nullable=False,

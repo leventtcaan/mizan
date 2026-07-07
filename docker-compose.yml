@@ -5,6 +5,7 @@ services:
   # ─────────────────────────────────────────────────────────────────────────────
   postgres:
     image: postgres:16
+    restart: unless-stopped
     environment:
       POSTGRES_USER: mizan
       POSTGRES_PASSWORD: password
@@ -33,6 +34,7 @@ services:
   # ─────────────────────────────────────────────────────────────────────────────
   redis:
     image: redis:7-alpine
+    restart: unless-stopped
     # WHY appendonly: persist the limiter state across container restarts so a
     # restart doesn't reset everyone's window to zero.
     command: ["redis-server", "--appendonly", "yes"]
@@ -55,6 +57,7 @@ services:
   # ─────────────────────────────────────────────────────────────────────────────
   backend:
     build: ./backend
+    restart: unless-stopped
     # WHY 127.0.0.1 bind: Nginx proxies to the backend locally on the same host,
     # so the port only needs to be reachable from localhost — not the public internet.
     ports:
@@ -88,6 +91,7 @@ services:
   # ─────────────────────────────────────────────────────────────────────────────
   frontend:
     build: ./frontend
+    restart: unless-stopped
     # WHY 127.0.0.1 bind: Nginx proxies to the frontend locally on the same host,
     # so the port only needs to be reachable from localhost — not the public internet.
     ports:

@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useLayoutEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { login, register, setToken, setStoredUser, getStoredUser, detectBrowserCurrency, detectBrowserCountry, detectTimezone, INDUSTRIES, TEAM_SIZES, TOS_VERSION } from "@/lib/api";
+import { login, register, forgotPassword, restoreAccount, setToken, setStoredUser, getStoredUser, detectBrowserCurrency, detectBrowserCountry, detectTimezone, INDUSTRIES, TEAM_SIZES, TOS_VERSION } from "@/lib/api";
 import { useLanguage, setLanguage, detectBrowserLang, type Lang } from "@/lib/i18n";
 import ThemeToggle from "@/components/ui/ThemeToggle";
 import MimGuide from "@/components/companion/MimGuide";
@@ -36,9 +36,17 @@ export default function LoginPage() {
   const [errorMsg, setErrorMsg] = useState("");
   // A paid plan chosen on the landing pricing section (?plan=plus|pro).
   const [selectedPlan, setSelectedPlan] = useState<"plus" | "pro" | null>(null);
+  // Inline forgot-password panel state.
+  const [forgotOpen, setForgotOpen] = useState(false);
+  const [forgotSent, setForgotSent] = useState(false);
+  const [forgotBusy, setForgotBusy] = useState(false);
+  // Deleted account within its 30-day recovery window — offer restore.
+  const [recoverable, setRecoverable] = useState(false);
 
   // Open directly on register when arriving via /login?mode=register (landing CTAs).
-  useEffect(() => {
+  // useLayoutEffect (not useEffect) so the flip happens BEFORE the first paint — with
+  // client-side navigation from the landing page there is no visible login-tab flash.
+  useLayoutEffect(() => {
     const params = new URLSearchParams(window.location.search);
     if (params.get("mode") === "register") setMode("register");
     const p = params.get("plan");
@@ -118,7 +126,39 @@ export default function LoginPage() {
         router.push("/home");
       }
     } catch (err) {
-      setErrorMsg(err instanceof Error ? err.message : t("common.error"));
+      const msg = err instanceof Error ? err.message : t("common.error");
+      // Deleted-but-recoverable account (credentials already verified server-side):
+      // offer restoration instead of a dead-end error.
+      if (msg === "account_deleted_recoverable") {
+        setRecoverable(true);
+        setState("idle");
+        return;
+      }
+      setErrorMsg(msg);
+      setState("error");
+    }
+  };
+
+  const handleRestore = async () => {
+    setState("loading");
+    try {
+      const result = await restoreAccount(email, password);
+      setToken(result.access_token);
+      const resolvedLang: Lang = (result.language === "tr" || result.language === "en")
+        ? result.language : detectBrowserLang();
+      setStoredUser({
+        id: result.user_id, email: result.email,
+        onboarding_completed: result.onboarding_completed,
+        language: resolvedLang, display_currency: result.display_currency ?? detectBrowserCurrency(),
+        is_admin: result.is_admin ?? false, email_verified: result.email_verified, plan: result.plan,
+        display_name: result.full_name ?? undefined,
+        account_type: (result.account_type as "personal" | "business" | undefined) ?? undefined,
+      });
+      setLanguage(resolvedLang);
+      router.push(result.email_verified ? "/home" : `/verify?email=${encodeURIComponent(result.email)}`);
+    } catch {
+      setRecoverable(false);
+      setErrorMsg(t("auth.errorInvalid"));
       setState("error");
     }
   };
@@ -246,7 +286,44 @@ export default function LoginPage() {
                   className={inputClass} placeholder="••••••••"
                 />
                 {isRegister && <p className="text-ink-mute text-xs mt-1.5">{t("auth.passwordHint")}</p>}
+                {!isRegister && (
+                  <div className="mt-1.5 text-right">
+                    <button type="button" onClick={() => { setForgotOpen((v) => !v); setForgotSent(false); }}
+                      className="text-xs text-ink-mute hover:text-[#176B5B] transition-colors">
+                      {t("auth.forgotLink")}
+                    </button>
+                  </div>
+                )}
               </div>
+
+              {/* Inline forgot-password panel — email-based reset link */}
+              {!isRegister && forgotOpen && (
+                <div className="rounded-xl border border-line bg-surface-2/50 p-3.5">
+                  {forgotSent ? (
+                    <p className="text-pos text-xs">{t("auth.forgotSent")}</p>
+                  ) : (
+                    <>
+                      <p className="text-ink-soft text-xs mb-2">{t("auth.forgotSub")}</p>
+                      <div className="flex gap-2">
+                        <input
+                          type="email" value={email} onChange={(e) => setEmail(e.target.value)}
+                          className={inputClass + " !py-2 text-xs"} placeholder="example@email.com"
+                        />
+                        <button type="button" disabled={!email.trim() || forgotBusy}
+                          onClick={async () => {
+                            setForgotBusy(true);
+                            try { await forgotPassword(email.trim()); setForgotSent(true); }
+                            catch { setForgotSent(true); /* same non-enumerating message */ }
+                            finally { setForgotBusy(false); }
+                          }}
+                          className="shrink-0 px-3 py-2 rounded-lg bg-[#176B5B] hover:bg-[#125848] text-white text-xs font-semibold transition-colors disabled:opacity-50">
+                          {forgotBusy ? "…" : t("auth.forgotSend")}
+                        </button>
+                      </div>
+                    </>
+                  )}
+                </div>
+              )}
 
               {/* Account type — register only; tailors Mizan to personal vs business */}
               {isRegister && (
@@ -362,6 +439,18 @@ export default function LoginPage() {
               {state === "error" && (
                 <div className="p-3.5 rounded-xl bg-neg/10 border border-neg/30">
                   <p className="text-neg text-sm">{errorMsg}</p>
+                </div>
+              )}
+
+              {/* Deleted account within its recovery window — offer to bring it back */}
+              {recoverable && (
+                <div className="p-4 rounded-xl bg-warn/10 border border-warn/30 space-y-2.5">
+                  <p className="text-ink text-sm font-semibold">{t("auth.recoverableTitle")}</p>
+                  <p className="text-ink-soft text-xs leading-relaxed">{t("auth.recoverableBody")}</p>
+                  <button type="button" onClick={handleRestore} disabled={state === "loading"}
+                    className="px-4 py-2 rounded-lg bg-[#176B5B] hover:bg-[#125848] text-white text-xs font-semibold transition-colors disabled:opacity-50">
+                    {t("auth.restoreBtn")}
+                  </button>
                 </div>
               )}
 

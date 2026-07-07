@@ -2,6 +2,7 @@
 
 import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import Link from "next/link";
 import PageLayout from "@/components/ui/PageLayout";
 import { ArrowRight, Plus, X as XIcon, TrendingUp, TrendingDown, CheckCircle } from "@/components/ui/Icons";
 import CurrencySelect from "@/components/CurrencySelect";
@@ -10,6 +11,7 @@ import { CATEGORY_LABELS } from "@/lib/categories";
 import {
   getToken, getReviewBatch, saveReviewBatch, deleteBatch,
   completeOnboarding, getStoredUser, setStoredUser,
+  updatePreferences, setDefaultCurrencyLocal,
   type ReviewTransaction,
 } from "@/lib/api";
 
@@ -294,6 +296,16 @@ function ReviewContent() {
           const u = getStoredUser();
           if (u) setStoredUser({ ...u, onboarding_completed: true });
         } catch { /* non-blocking — the brief still loads */ }
+        // The statement's confirmed currency IS the user's money — make it the display
+        // currency. This is the authoritative point: even a statement whose currency
+        // couldn't be auto-detected has been confirmed row-by-row here.
+        const counts = new Map<string, number>();
+        for (const r of rows) counts.set(r.currency, (counts.get(r.currency) ?? 0) + 1);
+        const dominant = [...counts.entries()].sort((a, b) => b[1] - a[1])[0]?.[0];
+        if (dominant) {
+          setDefaultCurrencyLocal(dominant);
+          updatePreferences({ display_currency: dominant }).catch(() => null);
+        }
       }
       router.push(`/brief?job_id=${batchIds[0]}`);
     } catch (err) {
@@ -422,6 +434,17 @@ function ReviewContent() {
           <span className="w-1.5 h-1.5 rounded-full bg-[#B0741E] shrink-0" />
           {t("review.flaggedHint")}
         </p>
+      )}
+
+      {/* Honest conversion moment: garbled OCR rows are exactly what paid AI vision
+          parsing fixes — shown only when the user can actually SEE the problem. */}
+      {garbled.size > 0 && (getStoredUser()?.plan ?? "free") === "free" && (
+        <div className="mb-3 flex items-center justify-between gap-3 rounded-xl border border-[#176B5B]/30 bg-[#176B5B]/[0.06] px-3.5 py-2.5">
+          <p className="text-ink-soft text-xs leading-relaxed">{t("review.visionUpsell")}</p>
+          <Link href="/upgrade" className="shrink-0 text-[#176B5B] text-xs font-semibold hover:underline">
+            {t("review.visionUpsellCta")}
+          </Link>
+        </div>
       )}
 
       {/* Editable table — desktop / tablet */}
