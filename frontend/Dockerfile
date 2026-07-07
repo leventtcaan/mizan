@@ -14,4 +14,5 @@ EXPOSE 3000
 
 # WHY: next dev --hostname 0.0.0.0 binds to all interfaces inside the container.
 # Without this, Next.js binds to 127.0.0.1 only and Docker port mapping can't reach it.
-CMD ["npm", "run", "dev"]
+RUN npm run build
+CMD ["npm", "start"]
