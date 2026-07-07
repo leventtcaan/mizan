@@ -75,10 +75,6 @@ async def _liability_items(
     result = await session.execute(select(Liability).where(Liability.user_id == user_id))
     items = []
     for li in result.scalars().all():
-        # Credit cards are revolving debt — the balance changes with spending, so there is
-        # no fixed monthly payment to project onto the calendar.
-        if li.liability_type == "credit_card":
-            continue
         # No payment info → not a cash-flow event at all.
         if not li.monthly_payment or li.monthly_payment <= 0:
             continue

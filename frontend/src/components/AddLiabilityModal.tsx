@@ -77,12 +77,8 @@ export default function AddLiabilityModal({ onClose, onAdded, onUpdated, editDat
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Credit cards are revolving debt: the balance changes every month with spending, so
-  // there's no fixed monthly payment to schedule — just a current balance to keep updated.
-  const isCreditCard = liabilityType === "credit_card";
-
   // A recurring obligation needs both the amount and the day to be schedulable.
-  const recurringReady = isCreditCard || !recurring || (!!monthlyPayment && !!paymentDay);
+  const recurringReady = !recurring || (!!monthlyPayment && !!paymentDay);
   const canSubmit = !!name && !!amountOwed && recurringReady && !loading;
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -90,21 +86,18 @@ export default function AddLiabilityModal({ onClose, onAdded, onUpdated, editDat
     setError(null);
     setLoading(true);
     try {
-      // Only a monthly obligation carries recurring fields; credit cards never do
-      // (their balance is the whole story — it changes with every statement).
-      const isRecurring = recurring && !isCreditCard;
       const body = {
         name,
         liability_type: liabilityType,
         currency,
         // If no original amount is given, treat the owed amount as the whole balance.
-        // A card's "total" IS its current balance — there is no original loan amount.
-        total_amount: isCreditCard ? amountOwed : (originalAmount || amountOwed),
+        total_amount: originalAmount || amountOwed,
         remaining_amount: amountOwed,
-        monthly_payment: isRecurring ? (monthlyPayment || undefined) : undefined,
-        due_date: isRecurring ? dueDateFromDay(paymentDay) : undefined,
-        end_date: isRecurring ? (endDate || undefined) : undefined,
-        reminder_days: isRecurring && reminderDays
+        // Recurring fields are only sent when this is a monthly obligation.
+        monthly_payment: recurring ? (monthlyPayment || undefined) : undefined,
+        due_date: recurring ? dueDateFromDay(paymentDay) : undefined,
+        end_date: recurring ? (endDate || undefined) : undefined,
+        reminder_days: recurring && reminderDays
           ? Math.max(0, Math.min(30, parseInt(reminderDays, 10) || 0))
           : undefined,
         interest_rate: interestRate || undefined,
@@ -174,18 +167,13 @@ export default function AddLiabilityModal({ onClose, onAdded, onUpdated, editDat
             </div>
           </div>
 
-          {/* amount owed — for credit cards this is the CURRENT balance, updated as it changes */}
+          {/* amount owed */}
           <div>
-            <label className="block text-xs text-ink-mute mb-1">
-              {isCreditCard ? t("nw.ccCurrentBalance") : t("nw.remaining")}
-            </label>
+            <label className="block text-xs text-ink-mute mb-1">{t("nw.remaining")}</label>
             <input type="number" min="0" step="0.01" inputMode="decimal" value={amountOwed} onChange={(e) => setAmountOwed(e.target.value)} placeholder="0.00" required className={inputClass} />
-            {isCreditCard && <p className="text-[11px] text-ink-mute mt-1">{t("nw.ccBalanceHint")}</p>}
           </div>
 
-          {/* recurring? — the progressive fork. Not offered for credit cards: revolving
-              debt has no fixed monthly payment to schedule. */}
-          {!isCreditCard && (
+          {/* recurring? — the progressive fork */}
           <div>
             <label className="block text-xs text-ink-mute mb-1.5">{t("nw.paymentKind")}</label>
             <div className="flex gap-2">
@@ -193,10 +181,9 @@ export default function AddLiabilityModal({ onClose, onAdded, onUpdated, editDat
               <button type="button" onClick={() => setRecurring(true)} className={segBtn(recurring)}>{t("nw.monthlyRecurring")}</button>
             </div>
           </div>
-          )}
 
           {/* recurring configuration — only when monthly */}
-          {recurring && !isCreditCard && (
+          {recurring && (
             <div className="space-y-4 rounded-xl bg-surface-2/60 border border-line p-3.5">
               <p className="text-[11px] text-ink-mute">{t("nw.recurringExplainer")}</p>
               <div className="grid grid-cols-2 gap-3">
@@ -242,13 +229,10 @@ export default function AddLiabilityModal({ onClose, onAdded, onUpdated, editDat
             {showDetails && (
               <div className="space-y-4 pt-2">
                 <div className="grid grid-cols-2 gap-3">
-                  {/* An "original amount" is meaningless for a revolving card balance. */}
-                  {!isCreditCard && (
                   <div>
                     <label className="block text-xs text-ink-mute mb-1">{t("nw.total")} ({t("common.optional")})</label>
                     <input type="number" min="0" step="0.01" value={originalAmount} onChange={(e) => setOriginalAmount(e.target.value)} placeholder="0.00" className={inputClass} />
                   </div>
-                  )}
                   <div>
                     <label className="block text-xs text-ink-mute mb-1">% ({t("common.optional")})</label>
                     <input type="number" min="0" step="0.01" value={interestRate} onChange={(e) => setInterestRate(e.target.value)} className={inputClass} />

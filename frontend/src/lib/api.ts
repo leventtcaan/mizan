@@ -2043,8 +2043,9 @@ export async function markAllNotificationsRead(): Promise<void> {
   });
 }
 
-export async function generateDailyNotifications(lang = "en"): Promise<{ created: number; skipped: boolean }> {
-  const response = await fetch(`${API_BASE_URL}/notifications/generate-daily?lang=${lang}`, {
+// Notification language is decided server-side from the account's language setting.
+export async function generateDailyNotifications(): Promise<{ created: number; skipped: boolean }> {
+  const response = await fetch(`${API_BASE_URL}/notifications/generate-daily`, {
     method: "POST",
     headers: authHeaders(),
   });

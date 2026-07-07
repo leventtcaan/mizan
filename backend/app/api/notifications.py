@@ -174,7 +174,6 @@ async def mark_all_read(
 
 @router.post("/generate-daily")
 async def generate_daily(
-    lang: str = "en",
     current_user: User = Depends(get_verified_user),
     session: AsyncSession = Depends(get_session),
 ) -> dict:
@@ -182,8 +181,13 @@ async def generate_daily(
     Generates daily financial notifications for the user.
     Skips if already run today (UTC). Max one run per UTC day.
 
+    Notification language ALWAYS follows the account's language setting. (This used
+    to take a client-supplied ?lang defaulting to "en" — and since generation dedupes
+    once per UTC day, the page-load English run won the day for Turkish users.)
+
     Shares one implementation with the APScheduler job (notification_service).
     """
+    lang = current_user.language or "en"
     return await generate_for_user(current_user.id, lang, session)
 
 

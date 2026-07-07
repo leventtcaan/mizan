@@ -519,6 +519,21 @@ async def bust_networth_insight_cache(user_id: uuid.UUID, session: AsyncSession)
     logger.info("Networth insight + guidance cache busted — user_id=%s", user_id)
 
 
+async def _refresh_snapshot(user_id: uuid.UUID, session: AsyncSession) -> None:
+    """Re-upsert TODAY's net-worth snapshot after an asset/liability mutation.
+
+    The live summary recomputes from the DB, but snapshot consumers (Progress
+    trajectory's latest point, attribution trend, Home trend) otherwise keep the
+    pre-mutation value until the next page-load snapshot or the 12h job — which is
+    how a deleted liability kept showing a negative net worth. Best-effort: a
+    snapshot failure must never fail the mutation that triggered it."""
+    try:
+        from app.services.networth_snapshot_service import upsert_snapshot
+        await upsert_snapshot(user_id, session)
+    except Exception as exc:
+        logger.warning("Snapshot refresh failed — user=%s: %s", user_id, exc)
+
+
 # ---------- Assets ----------
 
 @router.get("/assets", response_model=list[AssetResponse])
@@ -560,6 +575,7 @@ async def create_asset(
     await bust_networth_insight_cache(current_user.id, session)
     await session.commit()
     await session.refresh(asset)
+    await _refresh_snapshot(current_user.id, session)
     logger.info("Asset created — user=%s type=%s value=%s %s", current_user.id, body.asset_type, body.current_value, body.currency)
     return _asset_resp(asset)
 
@@ -598,6 +614,7 @@ async def update_asset(
     await bust_networth_insight_cache(current_user.id, session)
     await session.commit()
     await session.refresh(asset)
+    await _refresh_snapshot(current_user.id, session)
     return _asset_resp(asset)
 
 
@@ -619,6 +636,7 @@ async def delete_asset(
         raise HTTPException(status_code=404, detail="Asset not found")
     await bust_networth_insight_cache(current_user.id, session)
     await session.commit()
+    await _refresh_snapshot(current_user.id, session)
 
 
 class RefreshPricesResponse(BaseModel):
@@ -684,6 +702,7 @@ async def create_liability(
     await bust_networth_insight_cache(current_user.id, session)
     await session.commit()
     await session.refresh(liability)
+    await _refresh_snapshot(current_user.id, session)
     logger.info("Liability created — user=%s type=%s remaining=%s %s", current_user.id, body.liability_type, body.remaining_amount, body.currency)
     return _liability_resp(liability)
 
@@ -724,6 +743,7 @@ async def update_liability(
     await bust_networth_insight_cache(current_user.id, session)
     await session.commit()
     await session.refresh(liability)
+    await _refresh_snapshot(current_user.id, session)
     return _liability_resp(liability)
 
 
@@ -745,6 +765,7 @@ async def delete_liability(
         raise HTTPException(status_code=404, detail="Liability not found")
     await bust_networth_insight_cache(current_user.id, session)
     await session.commit()
+    await _refresh_snapshot(current_user.id, session)
 
 
 # ---------- Receivables ----------
@@ -1154,27 +1175,6 @@ async def accept_suggestion(
             asset.as_of_date = date.today()
             asset.updated_at = now
             logger.info("Bridge accepted — asset %s balance set to %s", asset.id, value)
-
-    elif stype == "liability_balance_update":
-        # Credit-card statement matching a tracked card: SET its balance to the statement's
-        # (revolving debt — the balance changes every month; replace, never add).
-        liab = None
-        liab_id = detail.get("matched_liability_id")
-        if liab_id:
-            try:
-                liab = (await session.execute(
-                    select(Liability).where(
-                        Liability.id == uuid.UUID(liab_id),
-                        Liability.user_id == current_user.id,
-                    )
-                )).scalar_one_or_none()
-            except ValueError:
-                liab = None
-        if liab:
-            liab.remaining_amount = value
-            # A card's "total" is its current balance, not an original loan amount.
-            liab.total_amount = value
-            logger.info("Bridge accepted — liability %s balance set to %s", liab.id, value)
 
     elif stype == "statement_liability":
         # Credit-card statement → a liability (balance owed).

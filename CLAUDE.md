@@ -625,7 +625,7 @@ Systematic audit + fixes across the whole app. Highlights:
 - [x] **Statement bridge balance — date-aware everywhere** (`statement_bridge.py`): grid path (`_running_balance` phase 1+2) now reads the balance column on the row adjacent to the MOST RECENT transaction by date (`_balance_at_latest_date` + `_best_date_col`), not the sign/order-inferred top/bottom end. Fixes dateless footer/total rows + out-of-order rows being picked. PDF-text path already date-aware.
 - [x] **Onboarding fixes**: (1) completes onto **/home**, not a goal page (goal step removed → single upload step → review→brief or home); (2) Progress **trajectory chart sign** — estimated (reconstructed) points floored at 0 (the math artifact showed misleading "-TRY" for low-NW users; real snapshot data shown as-is); (3) **default currency** = the uploaded statement's currency, else **USD** (never the TRY backend default) — now persisted via `updatePreferences` + `setDefaultCurrencyLocal`.
 
-### Phase 113 — Credit card = variable-balance debt (2026-07-07)
+### Phase 113 — Credit card = variable-balance debt (2026-07-07) — **REVERTED later same day** (founder call: CC behaves like every other liability, fixed monthly payment). All of the below was backed out: modal CC branch, calendar/reminder/email skips, bridge `liability_balance_update` + accept branch + brief UI + locale keys. Kept for the record:
 - [x] **AddLiabilityModal**: type=credit_card → NO monthly-payment fork/fields; amount = **"Current balance"** (`nw.ccCurrentBalance` + hint); original-amount detail hidden; submit sends total=remaining=balance, no recurring fields.
 - [x] **Calendar/reminders**: `cashflow._liability_items` + notification follow-up/upcoming loops + email_brief upcoming-payments all SKIP `credit_card` (revolving balance ≠ fixed monthly payment; stale rows can't fire fake reminders).
 - [x] **Statement bridge CC match**: card statement fuzzy-matches existing credit_card liability (institution ≥0.6, same matcher as deposits) → new suggestion type **`liability_balance_update`** (liability id rides `source_detail`; asset_id FK can't hold it). Accept in networth.py SETs remaining+total to statement balance, ownership-checked. No match → old create path. Brief renders it as an update card (accept-in-place, `bridge.descLiabilityUpdate`); NW suggestions route via generic accept.
@@ -667,12 +667,18 @@ Systematic audit + fixes across the whole app. Highlights:
 - [x] **Business framing** (account_type=business): NW page "Business Position / Business Assets / Business Liabilities / Client Receivables" (`…Biz` locale-variant pattern + `bt()` helper), upload "Upload Statements & Exports · bank statements, invoice exports, expense reports", report doc title "Business Financial Report". **Clar's LLM persona** gets a business framing block (revenue/expenses/clients, company name injected). Home receivables-first + onboarding business lines already existed (92/101).
 - [x] **Email polish**: weekly-brief template accents indigo→teal. **Export filenames** mizan-→clarifin- (localStorage keys unchanged — renaming would log everyone out).
 
+### Phase 122 — Fix batch: CC revert · snapshot staleness · notification language (2026-07-07)
+- [x] **Phase 113 fully reverted** (see note there). Credit card = normal liability again.
+- [x] **Stale net worth after liability delete FIXED**: live summary recomputes, but TODAY's `NetworthSnapshot` kept the pre-mutation value until next NW-page load / 12h job — snapshot consumers (Progress trajectory latest point, attribution trend) showed the old negative NW. New `_refresh_snapshot()` (best-effort, never fails the mutation) re-upserts the snapshot after ALL 6 asset/liability create/update/delete endpoints.
+- [x] **Notification language FIXED**: `POST /notifications/generate-daily` took a client `?lang` defaulting to **"en"** — and since generation dedupes once per UTC day, the Home-page-load English run won the day for Turkish users. Endpoint now ignores client lang and uses `current_user.language`; frontend helper drops the param. All notification text sites already branch on lang; wealth-alert `message_template` is user-authored (fine).
+- [x] Navbar: Simulator back in avatar dropdown (main nav = Home · Money · Net Worth · Reports · Progress).
+
 ---
 
 ## Current Status
 
-**Phases 1–121 complete. Alembic head = 0045. LIVE IN PRODUCTION at https://clarifin.xyz.**
-**Since 112 (single 2026-07-07 session): credit-card variable-balance rework (113), onboarding overlay + stock name-search (114), critical bugs — .xls/currency/register-flash/sender (115), notification redesign (116), monetization audit (117), Progress slim + SimulatorBridge (118), infra+auth — restart policies/deploy webhook/forgot password/account deletion + **0045** (119), SEO/OG/Plausible + real legal pages (120), business experience + polish (121). Pending: automated tests, VPS webhook one-time setup, `alembic upgrade head` (→0045) + `pip install xlrd` on deploy, verify server env `RESEND_FROM_EMAIL`/`FRONTEND_URL=https://clarifin.xyz`.**
+**Phases 1–122 complete. Alembic head = 0045. LIVE IN PRODUCTION at https://clarifin.xyz.**
+**Since 112 (single 2026-07-07 session): credit-card variable-balance rework (113), onboarding overlay + stock name-search (114), critical bugs — .xls/currency/register-flash/sender (115), notification redesign (116), monetization audit (117), Progress slim + SimulatorBridge (118), infra+auth — restart policies/deploy webhook/forgot password/account deletion + **0045** (119), SEO/OG/Plausible + real legal pages (120), business experience + polish (121), fix batch — CC revert / snapshot staleness / notification lang (122). Pending: automated tests, VPS webhook one-time setup, `alembic upgrade head` (→0045) + `pip install xlrd` on deploy, verify server env `RESEND_FROM_EMAIL`/`FRONTEND_URL=https://clarifin.xyz`.**
 
 ### Production (LIVE since 2026-06-28)
 - **URL**: https://clarifin.xyz
@@ -1585,7 +1591,7 @@ Full stack: register/login → JWT → upload (rate-limited, busts caches) → 3
 
 ## Next Session — Start Here
 
-**Phases 1–121 complete. Alembic head = 0045. LIVE at https://clarifin.xyz.** 2026-07-07 mega-session (113–121): credit-card variable-balance rework · onboarding processing overlay + stock name-search · .xls support (xlrd) · TRY/USD currency-persist fix · register-flash fix · Clarifin sender guard · notification redesign (expand + real outcomes) · monetization audit (copy honesty + vision upsells + weekly-brief paid gate) · Progress slimmed + Simulator in main nav · restart policies + deploy webhook · forgot password · GDPR account deletion (0045 + purge job) · SEO/OG/Plausible · real ToS/Privacy · business framing + Clar business persona.
+**Phases 1–122 complete. Alembic head = 0045. LIVE at https://clarifin.xyz.** 2026-07-07 mega-session (113–121): credit-card variable-balance rework · onboarding processing overlay + stock name-search · .xls support (xlrd) · TRY/USD currency-persist fix · register-flash fix · Clarifin sender guard · notification redesign (expand + real outcomes) · monetization audit (copy honesty + vision upsells + weekly-brief paid gate) · Progress slimmed + Simulator in main nav · restart policies + deploy webhook · forgot password · GDPR account deletion (0045 + purge job) · SEO/OG/Plausible · real ToS/Privacy · business framing + Clar business persona.
 
 ### DEPLOY CHECKLIST for next release (new since 112)
 1. `docker compose exec backend alembic upgrade head` → must say **0045**.

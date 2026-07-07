@@ -21,7 +21,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
 from app.models.asset import Asset
-from app.models.liability import Liability
 from app.models.networth_suggestion import NetworthSuggestion
 from app.services.llm_provider import get_provider
 from app.services.pdf_parser import (
@@ -773,38 +772,12 @@ async def propose_statement_bridge(
         if best < 0.6:
             matched = None
 
-    # Same idea for credit cards: a card statement should UPDATE the tracked card's
-    # balance (revolving debt changes every month), not create a duplicate liability.
-    matched_liability: Liability | None = None
-    if kind == "credit_card" and institution:
-        res = await session.execute(
-            select(Liability).where(
-                Liability.user_id == user_id,
-                Liability.liability_type == "credit_card",
-            )
-        )
-        il = institution.lower()
-        best = 0.0
-        for li in res.scalars().all():
-            nl = (li.name or "").lower()
-            if not nl:
-                continue
-            ratio = SequenceMatcher(None, il, nl).ratio()
-            if il in nl or nl in il:
-                ratio = max(ratio, 0.85)
-            if ratio > best:
-                best, matched_liability = ratio, li
-        if best < 0.6:
-            matched_liability = None
-
     proposed_name = institution or ("Hesap bakiyesi" if tr else "Account balance")
     detail = json.dumps({
         "institution": institution,
         "statement_kind": kind,
         "proposed_name": proposed_name,
         "matched_asset_name": matched.name if matched else None,
-        "matched_liability_id": str(matched_liability.id) if matched_liability else None,
-        "matched_liability_name": matched_liability.name if matched_liability else None,
     })
 
     if matched is not None:
@@ -813,13 +786,6 @@ async def propose_statement_bridge(
         reason = (
             f"{matched.name} bakiyesini ekstredeki kapanış bakiyesine güncelle"
             if tr else f"Update {matched.name} to the statement's closing balance"
-        )
-    elif matched_liability is not None:
-        stype = "liability_balance_update"
-        asset_id = None
-        reason = (
-            f"{matched_liability.name} borcunu ekstredeki güncel bakiyeye güncelle"
-            if tr else f"Update {matched_liability.name} to the statement's current balance"
         )
     elif kind == "credit_card":
         stype = "statement_liability"
@@ -849,5 +815,5 @@ async def propose_statement_bridge(
     ))
     logger.info(
         "Statement bridge proposed — user=%s batch=%s type=%s matched=%s",
-        user_id, batch_id, stype, bool(matched or matched_liability),
+        user_id, batch_id, stype, bool(matched),
     )
