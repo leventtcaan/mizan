@@ -1138,6 +1138,37 @@ export async function createTransaction(body: CreateTransactionRequest): Promise
   return response.json() as Promise<Transaction>;
 }
 
+// Single-transaction edit + delete (ownership-checked server-side).
+export interface UpdateTransactionRequest {
+  amount: string;
+  transaction_type: "debit" | "credit";
+  description: string;
+  transaction_date: string;
+  category?: string | null;
+  currency?: string;
+}
+
+export async function updateTransaction(id: string, body: UpdateTransactionRequest): Promise<Transaction> {
+  const response = await fetch(`${API_BASE_URL}/transactions/${id}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json", ...authHeaders() },
+    body: JSON.stringify(body),
+  });
+  if (!response.ok) {
+    const err = await response.json().catch(() => null);
+    throw new Error(extractErrorMessage(err, "Update failed"));
+  }
+  return response.json() as Promise<Transaction>;
+}
+
+export async function deleteTransaction(id: string): Promise<void> {
+  const response = await fetch(`${API_BASE_URL}/transactions/${id}`, {
+    method: "DELETE",
+    headers: authHeaders(),
+  });
+  if (!response.ok) throw new Error(`Failed to delete transaction: ${response.status}`);
+}
+
 export interface PersonalityData {
   type: string;
   description: string;

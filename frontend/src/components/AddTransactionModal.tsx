@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { createTransaction, getDefaultCurrency, type Transaction } from "@/lib/api";
+import { createTransaction, updateTransaction, getDefaultCurrency, type Transaction } from "@/lib/api";
 import { X, ArrowDown, ArrowUp, CheckCircle } from "@/components/ui/Icons";
 import CurrencySelect from "@/components/CurrencySelect";
 import { useLanguage } from "@/lib/i18n";
@@ -37,9 +37,11 @@ interface Props {
   onClose: () => void;
   onSuccess: (tx: Transaction) => void;
   initialValues?: InitialValues;
+  // When set, the modal EDITS this transaction (PUT) instead of creating a new one.
+  editData?: Transaction | null;
 }
 
-export default function AddTransactionModal({ onClose, onSuccess, initialValues }: Props) {
+export default function AddTransactionModal({ onClose, onSuccess, initialValues, editData }: Props) {
   const { t } = useLanguage();
   // Explicit opaque surface from the resolved theme — guarantees a solid background
   // regardless of CSS-var/token resolution (overlays must never be see-through).
@@ -49,12 +51,15 @@ export default function AddTransactionModal({ onClose, onSuccess, initialValues 
   // clearly filled — solid bg-<token> utilities aren't painting reliably at runtime.
   const NEG = resolved === "dark" ? "#D17474" : "#B54747";
   const POS = resolved === "dark" ? "#40B282" : "#1F7A5C";
-  const [amount, setAmount] = useState(initialValues?.amount ?? "");
-  const [type, setType] = useState<"debit" | "credit">(initialValues?.transaction_type ?? "debit");
-  const [description, setDescription] = useState(initialValues?.description ?? "");
-  const [date, setDate] = useState(initialValues?.transaction_date ?? new Date().toISOString().slice(0, 10));
-  const [category, setCategory] = useState(initialValues?.category ?? "");
-  const [currency, setCurrency] = useState(getDefaultCurrency());
+  const isEdit = !!editData;
+  const [amount, setAmount] = useState(editData?.amount ?? initialValues?.amount ?? "");
+  const [type, setType] = useState<"debit" | "credit">(
+    (editData?.transaction_type as "debit" | "credit" | undefined) ?? initialValues?.transaction_type ?? "debit"
+  );
+  const [description, setDescription] = useState(editData?.description ?? initialValues?.description ?? "");
+  const [date, setDate] = useState(editData?.transaction_date ?? initialValues?.transaction_date ?? new Date().toISOString().slice(0, 10));
+  const [category, setCategory] = useState(editData?.category ?? initialValues?.category ?? "");
+  const [currency, setCurrency] = useState(editData?.currency ?? getDefaultCurrency());
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -63,15 +68,19 @@ export default function AddTransactionModal({ onClose, onSuccess, initialValues 
     setError(null);
     setLoading(true);
     try {
-      const tx = await createTransaction({
+      const payload = {
         amount,
         transaction_type: type,
         description,
         transaction_date: date,
         category: category || undefined,
         currency: currency || undefined,
-      });
+      };
+      const tx = isEdit && editData
+        ? await updateTransaction(editData.id, payload)
+        : await createTransaction(payload);
       onSuccess(tx);
+      if (isEdit) window.dispatchEvent(new Event("mizan-data-changed"));
     } catch (err) {
       setError(err instanceof Error ? err.message : t("common.error"));
     } finally {
@@ -86,7 +95,7 @@ export default function AddTransactionModal({ onClose, onSuccess, initialValues 
     >
       <div className="w-full max-w-md mx-4 rounded-2xl border border-line p-6 shadow-2xl shadow-black/30" style={{ backgroundColor: surfaceBg }}>
         <div className="flex items-center justify-between mb-6">
-          <h2 className="text-lg font-semibold text-ink">{t("tx.addManual")}</h2>
+          <h2 className="text-lg font-semibold text-ink">{isEdit ? t("tx.editTitle") : t("tx.addManual")}</h2>
           <button
             onClick={onClose}
             className="p-1.5 rounded-lg text-ink-mute hover:text-ink-soft hover:bg-surface-2 transition-colors"
@@ -175,7 +184,7 @@ export default function AddTransactionModal({ onClose, onSuccess, initialValues 
           {/* Live preview — what will be saved */}
           {amount && parseFloat(amount) > 0 && (
             <div className="flex items-center justify-between rounded-xl bg-surface-2 px-3.5 py-2.5">
-              <span className="text-xs text-ink-mute">{t("tx.willAdd")}</span>
+              <span className="text-xs text-ink-mute">{isEdit ? t("tx.willSave") : t("tx.willAdd")}</span>
               <span className="text-sm font-semibold tabular-nums">
                 <span className={type === "credit" ? "text-pos" : "text-neg"}>
                   {type === "credit" ? "+" : "−"}{fmtMoney(amount, currency)}
@@ -202,7 +211,7 @@ export default function AddTransactionModal({ onClose, onSuccess, initialValues 
               type="submit" disabled={loading}
               className="flex-1 py-2.5 rounded-lg bg-[#176B5B] hover:bg-[#125848] disabled:opacity-50 text-sm font-semibold text-white transition-colors"
             >
-              {loading ? t("common.loading") : t("common.add")}
+              {loading ? t("common.loading") : isEdit ? t("common.save") : t("common.add")}
             </button>
           </div>
         </form>

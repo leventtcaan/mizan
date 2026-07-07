@@ -231,6 +231,127 @@ async def create_transaction(
     )
 
 
+class TransactionUpdateRequest(BaseModel):
+    """Editable fields for a single transaction. Same validation as manual entry."""
+    amount: str
+    transaction_type: str
+    description: str
+    transaction_date: date
+    category: str | None = None
+    currency: str = "TRY"
+
+    @field_validator("currency")
+    @classmethod
+    def valid_currency(cls, v: str) -> str:
+        code = v.strip().upper()
+        if not (1 <= len(code) <= 10) or not code.isalnum():
+            raise ValueError("currency must be a 1-10 char code")
+        return code
+
+    @field_validator("transaction_type")
+    @classmethod
+    def valid_type(cls, v: str) -> str:
+        if v not in ("debit", "credit"):
+            raise ValueError("transaction_type must be 'debit' or 'credit'")
+        return v
+
+    @field_validator("category")
+    @classmethod
+    def valid_category(cls, v: str | None) -> str | None:
+        if v is not None and v not in VALID_CATEGORIES:
+            raise ValueError(f"Invalid category. Must be one of: {sorted(VALID_CATEGORIES)}")
+        return v
+
+    @field_validator("amount")
+    @classmethod
+    def valid_amount(cls, v: str) -> str:
+        try:
+            val = Decimal(v.replace(",", "."))
+        except Exception:
+            raise ValueError("Amount must be a valid number")
+        if val <= 0:
+            raise ValueError("Amount must be positive")
+        return v
+
+    @field_validator("description")
+    @classmethod
+    def non_empty_description(cls, v: str) -> str:
+        if not v.strip():
+            raise ValueError("description cannot be empty")
+        return v.strip()
+
+
+@router.put("/{transaction_id}", response_model=TransactionResponse)
+async def update_transaction(
+    transaction_id: str,
+    body: TransactionUpdateRequest,
+    current_user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
+) -> TransactionResponse:
+    """Edit a single transaction (any field the user can see). A statement-parsed row
+    becomes user_confirmed — the user has verified/corrected it by hand."""
+    try:
+        tid = uuid.UUID(transaction_id)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid transaction ID")
+
+    tx = await session.get(Transaction, tid)
+    if tx is None or tx.user_id != current_user.id:
+        raise HTTPException(status_code=404, detail="Transaction not found")
+
+    tx.amount = Decimal(body.amount.replace(",", "."))
+    tx.transaction_type = body.transaction_type
+    tx.description = body.description
+    tx.transaction_date = body.transaction_date
+    tx.category = body.category
+    tx.currency = body.currency
+    if tx.source == "statement_parsed":
+        tx.source = "user_confirmed"
+
+    await bust_insight_cache(current_user.id, session)
+    await bust_progress_cache(current_user.id, session)
+    await session.commit()
+    await session.refresh(tx)
+    logger.info("Transaction updated — user=%s tx=%s", current_user.id, tx.id)
+    return TransactionResponse(
+        id=str(tx.id),
+        user_id=str(tx.user_id),
+        upload_batch_id=tx.upload_batch_id,
+        amount=str(tx.amount),
+        currency=tx.currency,
+        transaction_type=tx.transaction_type,
+        description=tx.description,
+        transaction_date=tx.transaction_date,
+        category=tx.category,
+        behavioral_tag=tx.behavioral_tag,
+        source=tx.source,
+        created_at=tx.created_at,
+    )
+
+
+@router.delete("/{transaction_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_transaction(
+    transaction_id: str,
+    current_user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
+) -> None:
+    """Delete a single transaction (ownership-checked)."""
+    try:
+        tid = uuid.UUID(transaction_id)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid transaction ID")
+
+    tx = await session.get(Transaction, tid)
+    if tx is None or tx.user_id != current_user.id:
+        raise HTTPException(status_code=404, detail="Transaction not found")
+
+    await session.delete(tx)
+    await bust_insight_cache(current_user.id, session)
+    await bust_progress_cache(current_user.id, session)
+    await session.commit()
+    logger.info("Transaction deleted — user=%s tx=%s", current_user.id, tid)
+
+
 @router.delete("/batch/{upload_batch_id}", response_model=DeleteBatchResponse)
 async def delete_upload_batch(
     upload_batch_id: str,

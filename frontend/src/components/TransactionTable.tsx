@@ -2,7 +2,8 @@
 
 import { Fragment, useState } from "react";
 import type { Transaction, NoteResponse } from "@/lib/api";
-import { correctCategory, getNotes } from "@/lib/api";
+import { correctCategory, getNotes, deleteTransaction } from "@/lib/api";
+import { Pencil, X } from "@/components/ui/Icons";
 import CategoryBadge from "@/components/CategoryBadge";
 import NoteInput from "@/components/NoteInput";
 import { useLanguage } from "@/lib/i18n";
@@ -16,6 +17,10 @@ const CATEGORIES = [
 interface TransactionTableProps {
   transactions: Transaction[];
   onCategoryCorrection?: (txId: string, newCategory: string) => void;
+  // Editing opens the shared transaction modal (owned by the page); deletion is
+  // handled here (confirm + API) and reported up so the list can drop the row.
+  onEdit?: (tx: Transaction) => void;
+  onDeleted?: (txId: string) => void;
 }
 
 function formatAmount(amount: string, type: string, currency = "TRY"): string {
@@ -63,7 +68,7 @@ function ChevronIcon({ open }: { open: boolean }) {
   );
 }
 
-export default function TransactionTable({ transactions, onCategoryCorrection }: TransactionTableProps) {
+export default function TransactionTable({ transactions, onCategoryCorrection, onEdit, onDeleted }: TransactionTableProps) {
   const { t } = useLanguage();
   const [rows, setRows] = useState<Record<string, RowState>>(() => {
     const init: Record<string, RowState> = {};
@@ -112,6 +117,21 @@ export default function TransactionTable({ transactions, onCategoryCorrection }:
 
   const handleNoteAdded = (txId: string, note: NoteResponse) => {
     setRows((prev) => ({ ...prev, [txId]: { ...prev[txId], notes: [...prev[txId].notes, note] } }));
+  };
+
+  const handleDelete = async (tx: Transaction) => {
+    if (!window.confirm(t("tx.deleteConfirm"))) return;
+    setRows((prev) => ({ ...prev, [tx.id]: { ...prev[tx.id], saving: true, error: null } }));
+    try {
+      await deleteTransaction(tx.id);
+      onDeleted?.(tx.id);
+      window.dispatchEvent(new Event("mizan-data-changed"));
+    } catch (err) {
+      setRows((prev) => ({
+        ...prev,
+        [tx.id]: { ...prev[tx.id], saving: false, error: err instanceof Error ? err.message : t("common.error") },
+      }));
+    }
   };
 
   return (
@@ -176,6 +196,22 @@ export default function TransactionTable({ transactions, onCategoryCorrection }:
                             {formatAmount(tx.amount, tx.transaction_type, tx.currency)}
                           </p>
                           <p className="text-xs text-ink-mute mt-0.5">{formatDate(tx.transaction_date)}</p>
+                          <div className="flex items-center justify-end gap-2 mt-2.5">
+                            <button
+                              onClick={() => onEdit?.(tx)}
+                              disabled={row.saving}
+                              className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-line text-xs font-medium text-ink-soft hover:text-[#176B5B] hover:border-[#176B5B]/50 transition-colors disabled:opacity-40"
+                            >
+                              <Pencil size={13} /> {t("common.edit")}
+                            </button>
+                            <button
+                              onClick={() => void handleDelete(tx)}
+                              disabled={row.saving}
+                              className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-line text-xs font-medium text-ink-soft hover:text-danger hover:border-danger/50 transition-colors disabled:opacity-40"
+                            >
+                              <X size={13} /> {t("common.delete")}
+                            </button>
+                          </div>
                         </div>
                       </div>
 

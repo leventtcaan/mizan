@@ -48,6 +48,7 @@ export default function TransactionsPage() {
   const [showAll, setShowAll] = useState(false);
   const [showBatchHistory, setShowBatchHistory] = useState(false);
   const [showAddModal, setShowAddModal] = useState(false);
+  const [editingTx, setEditingTx] = useState<Transaction | null>(null);
   // Filters
   const [search, setSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState<"all" | "debit" | "credit">("all");
@@ -90,6 +91,15 @@ export default function TransactionsPage() {
     setTransactions((prev) => [tx, ...prev]);
     setShowAddModal(false);
     getBatches().then(setBatches).catch(() => {});
+  };
+
+  const handleTransactionEdited = (tx: Transaction) => {
+    setTransactions((prev) => prev.map((t2) => (t2.id === tx.id ? tx : t2)));
+    setEditingTx(null);
+  };
+
+  const handleTransactionDeleted = (txId: string) => {
+    setTransactions((prev) => prev.filter((t2) => t2.id !== txId));
   };
 
   const latestBatch = batches[0] ?? null;
@@ -279,7 +289,12 @@ export default function TransactionsPage() {
         </div>
       )}
       {txState === "ready" && filtered.length > 0 && (
-        <TransactionTable transactions={filtered} onCategoryCorrection={handleCategoryCorrection} />
+        <TransactionTable
+          transactions={filtered}
+          onCategoryCorrection={handleCategoryCorrection}
+          onEdit={setEditingTx}
+          onDeleted={handleTransactionDeleted}
+        />
       )}
       {txState === "ready" && filtered.length === 0 && transactions.length > 0 && (
         <div className="mt-4 bg-surface border border-line rounded-xl p-8 text-center text-ink-mute text-sm">
@@ -287,6 +302,9 @@ export default function TransactionsPage() {
         </div>
       )}
 
+      {editingTx && (
+        <AddTransactionModal editData={editingTx} onClose={() => setEditingTx(null)} onSuccess={handleTransactionEdited} />
+      )}
       {showAddModal && (
         <AddTransactionModal onClose={() => setShowAddModal(false)} onSuccess={handleTransactionAdded} />
       )}

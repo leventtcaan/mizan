@@ -1095,16 +1095,16 @@ export default function NetWorthPage() {
           <p className="text-ink-mute text-sm mb-5">{t("nw.empty.subtitle")}</p>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             {[
-              { type: "bank_account", emoji: "💰", label: t("nw.empty.cashBank") },
-              { type: "stock", emoji: "📈", label: t("nw.empty.investment") },
-              { type: "real_estate", emoji: "🏠", label: t("nw.empty.realEstate") },
+              { type: "bank_account", icon: <Wallet size={20} className="text-[#176B5B]" />, label: t("nw.empty.cashBank") },
+              { type: "stock", icon: <TrendingUp size={20} className="text-[#176B5B]" />, label: t("nw.empty.investment") },
+              { type: "real_estate", icon: <Home size={20} className="text-[#176B5B]" />, label: t("nw.empty.realEstate") },
             ].map((c) => (
               <button
                 key={c.type}
                 onClick={() => { setAddAssetInitialType(c.type); setShowAddAsset(true); }}
-                className="flex flex-col items-center gap-2 p-5 rounded-xl bg-canvas border border-line hover:border-brand transition-colors"
+                className="flex flex-col items-center gap-2.5 p-5 rounded-xl bg-canvas border border-line hover:border-[#176B5B] transition-colors"
               >
-                <span className="text-2xl">{c.emoji}</span>
+                <span className="w-10 h-10 rounded-xl bg-[#176B5B]/10 flex items-center justify-center">{c.icon}</span>
                 <span className="text-ink text-sm font-medium">{c.label}</span>
               </button>
             ))}

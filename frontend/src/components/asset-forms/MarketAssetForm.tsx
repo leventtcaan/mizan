@@ -28,6 +28,10 @@ export default function MarketAssetForm({ assetType, onDraftChange, displayCurre
   const [tried, setTried] = useState(false);
   const [shares, setShares] = useState("");
   const [manualValue, setManualValue] = useState("");
+  // "I already own this" path: the user enters their own (purchase/historical) price
+  // per share instead of using the live quote.
+  const [useManualPrice, setUseManualPrice] = useState(false);
+  const [manualPrice, setManualPrice] = useState("");
 
   const quoteFailed = tried && quotePrice === null;
   const hasQuote = quotePrice !== null;
@@ -98,29 +102,45 @@ export default function MarketAssetForm({ assetType, onDraftChange, displayCurre
     return fxRate !== null ? quotePrice * fxRate : null;
   })();
 
+  // Manual price is entered in the quote's currency when we have one (that's the
+  // currency the user thinks in for this listing), else USD.
+  const manualPriceCcy = hasQuote ? quoteCurrency.toUpperCase() : "USD";
+  const manualPriceUsd = (() => {
+    const p = parseFloat(manualPrice);
+    if (!useManualPrice || !(p > 0)) return null;
+    if (manualPriceCcy === "USD") return p;
+    const fx = usdPriceOf(manualPriceCcy);
+    return fx !== null ? p * fx : null;
+  })();
+
+  // The per-share USD price the valuation actually uses.
+  const effectivePriceUsd = useManualPrice ? manualPriceUsd : priceInUsd;
+
   useEffect(() => {
     const sym = (yahooSymbol || symbol).trim().toUpperCase();
     const sharesN = parseFloat(shares);
     const manualN = parseFloat(manualValue);
 
-    if (hasQuote && sharesN > 0 && priceInUsd !== null) {
-      const totalUsd = priceInUsd * sharesN;
+    if (effectivePriceUsd !== null && sharesN > 0 && sym) {
+      const totalUsd = effectivePriceUsd * sharesN;
       const sd = buildSourceDetail({
         subtype: assetType, symbol: sym, code: sym,
         name: name.trim() || quoteName, venue: exchange,
-        shares, last_price_usd: priceInUsd,
-        quote_currency: quoteCurrency, quote_price: quotePrice ?? undefined,
+        shares, last_price_usd: effectivePriceUsd,
+        quote_currency: useManualPrice ? manualPriceCcy : quoteCurrency,
+        quote_price: useManualPrice ? (parseFloat(manualPrice) || undefined) : (quotePrice ?? undefined),
+        ...(useManualPrice ? { manual_price: 1 } : {}),
       });
       onDraftChange({ name: name.trim() || quoteName || sym, asset_type: assetType, currency: "USD", current_value: totalUsd.toFixed(2), source_detail: sd, quantity: shares, unit_code: sym });
-    } else if (quoteFailed && manualN > 0 && sym) {
+    } else if (quoteFailed && !useManualPrice && manualN > 0 && sym) {
       const sd = buildSourceDetail({ subtype: assetType, symbol: sym, code: sym, name: name.trim(), venue: exchange });
       onDraftChange({ name: name.trim() || sym, asset_type: assetType, currency: "USD", current_value: manualValue, source_detail: sd });
     } else {
       onDraftChange(null);
     }
-  }, [symbol, name, exchange, quotePrice, quoteCurrency, yahooSymbol, shares, manualValue, quoteFailed]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [symbol, name, exchange, quotePrice, quoteCurrency, yahooSymbol, shares, manualValue, quoteFailed, useManualPrice, manualPrice]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const totalUsd = hasQuote && priceInUsd !== null && shares ? priceInUsd * parseFloat(shares || "0") : null;
+  const totalUsd = effectivePriceUsd !== null && shares ? effectivePriceUsd * parseFloat(shares || "0") : null;
   const preview = totalUsd !== null ? previewLine(totalUsd, displayCurrency, rates) : null;
 
   const nativePriceStr = (() => {
@@ -194,30 +214,54 @@ export default function MarketAssetForm({ assetType, onDraftChange, displayCurre
       </div>
 
       {/* Quote result */}
-      {hasQuote && (
-        <>
-          <div className="rounded-lg bg-pos/10 border border-pos/30 px-3 py-2 space-y-0.5">
-            <div className="flex items-center justify-between">
-              <span className="text-xs text-ink-mute">{t("assetForm.livePrice")}</span>
-              <span className="text-sm text-pos font-semibold tabular-nums">{nativePriceStr}</span>
-            </div>
-            {quoteName && <p className="text-xs text-ink-mute truncate">{quoteName}</p>}
-            {yahooSymbol && yahooSymbol !== symbol.toUpperCase() && (
-              <p className="text-[10px] text-ink-mute">Yahoo: {yahooSymbol}</p>
-            )}
+      {hasQuote && !useManualPrice && (
+        <div className="rounded-lg bg-pos/10 border border-pos/30 px-3 py-2 space-y-0.5">
+          <div className="flex items-center justify-between">
+            <span className="text-xs text-ink-mute">{t("assetForm.livePrice")}</span>
+            <span className="text-sm text-pos font-semibold tabular-nums">{nativePriceStr}</span>
           </div>
-          <div>
-            <label className="block text-xs text-ink-mute mb-1.5">{t("assetForm.shares")}</label>
-            <input type="number" min="0" step="any" value={shares} onChange={(e) => setShares(e.target.value)}
-              placeholder={t("assetForm.sharesHint")} className={sharedInputClass} />
-            {preview && <p className="text-pos text-xs mt-1.5">{preview}</p>}
-          </div>
-        </>
+          {quoteName && <p className="text-xs text-ink-mute truncate">{quoteName}</p>}
+          {yahooSymbol && yahooSymbol !== symbol.toUpperCase() && (
+            <p className="text-[10px] text-ink-mute">Yahoo: {yahooSymbol}</p>
+          )}
+        </div>
+      )}
+
+      {/* Manual price — for people entering a holding they already own (purchase /
+          historical price) instead of valuing at the live quote. */}
+      {symbol.trim() !== "" && (
+        <label className="flex items-center gap-2 cursor-pointer select-none">
+          <input type="checkbox" checked={useManualPrice}
+            onChange={(e) => setUseManualPrice(e.target.checked)}
+            className="w-4 h-4 rounded border-line accent-[#176B5B]" />
+          <span className="text-xs text-ink-soft">{t("assetForm.manualPriceToggle")}</span>
+        </label>
+      )}
+
+      {useManualPrice && (
+        <div>
+          <label className="block text-xs text-ink-mute mb-1.5">
+            {t("assetForm.manualPriceLabel")} ({manualPriceCcy})
+          </label>
+          <input type="number" min="0" step="any" inputMode="decimal" value={manualPrice}
+            onChange={(e) => setManualPrice(e.target.value)} placeholder="0.00" className={sharedInputClass} />
+          <p className="text-[11px] text-ink-mute mt-1">{t("assetForm.manualPriceHint")}</p>
+        </div>
+      )}
+
+      {/* Shares — needed for both the live-quote and manual-price paths */}
+      {(hasQuote || (useManualPrice && symbol.trim() !== "")) && (
+        <div>
+          <label className="block text-xs text-ink-mute mb-1.5">{t("assetForm.shares")}</label>
+          <input type="number" min="0" step="any" value={shares} onChange={(e) => setShares(e.target.value)}
+            placeholder={t("assetForm.sharesHint")} className={sharedInputClass} />
+          {preview && <p className="text-pos text-xs mt-1.5">{preview}</p>}
+        </div>
       )}
 
       {/* Manual fallback — shown immediately on failure. Also lets the user name it,
           since there's no live quote to derive the name from. */}
-      {quoteFailed && (
+      {quoteFailed && !useManualPrice && (
         <div className="space-y-3">
           <p className="text-warn text-xs">{t("assetForm.marketManualNote")}</p>
           <input value={name} onChange={(e) => setName(e.target.value)}

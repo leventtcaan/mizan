@@ -673,11 +673,16 @@ Systematic audit + fixes across the whole app. Highlights:
 - [x] **Notification language FIXED**: `POST /notifications/generate-daily` took a client `?lang` defaulting to **"en"** — and since generation dedupes once per UTC day, the Home-page-load English run won the day for Turkish users. Endpoint now ignores client lang and uses `current_user.language`; frontend helper drops the param. All notification text sites already branch on lang; wealth-alert `message_template` is user-authored (fine).
 - [x] Navbar: Simulator back in avatar dropdown (main nav = Home · Money · Net Worth · Reports · Progress).
 
+### Phase 123 — UX batch: icons · manual price · tx edit/delete (2026-07-07)
+- [x] NW empty state ("Nereden başlayalım?") emojis → teal icon chips (Wallet/TrendingUp/Home).
+- [x] **MarketAssetForm manual price**: "Enter price manually" toggle — per-share price in the quote's currency (USD fallback), for already-owned holdings/purchase price; `source_detail.manual_price=1`; live repricing can still update later. Shares input now also shows on the manual path.
+- [x] **Single-transaction edit + delete**: new `PUT /transactions/{id}` (validators mirror manual entry; statement_parsed→user_confirmed on edit) + `DELETE /transactions/{id}` (ownership-checked, busts insight+progress caches). TransactionTable expanded row gets Edit/Delete buttons (confirm on delete, `mizan-data-changed` dispatched); AddTransactionModal gains `editData` edit mode (PUT, "Kaydedilecek" preview); transactions page wires editingTx state.
+
 ---
 
 ## Current Status
 
-**Phases 1–122 complete. Alembic head = 0045. LIVE IN PRODUCTION at https://clarifin.xyz.**
+**Phases 1–123 complete. Alembic head = 0045. LIVE IN PRODUCTION at https://clarifin.xyz.**
 **Since 112 (single 2026-07-07 session): credit-card variable-balance rework (113), onboarding overlay + stock name-search (114), critical bugs — .xls/currency/register-flash/sender (115), notification redesign (116), monetization audit (117), Progress slim + SimulatorBridge (118), infra+auth — restart policies/deploy webhook/forgot password/account deletion + **0045** (119), SEO/OG/Plausible + real legal pages (120), business experience + polish (121), fix batch — CC revert / snapshot staleness / notification lang (122). Pending: automated tests, VPS webhook one-time setup, `alembic upgrade head` (→0045) + `pip install xlrd` on deploy, verify server env `RESEND_FROM_EMAIL`/`FRONTEND_URL=https://clarifin.xyz`.**
 
 ### Production (LIVE since 2026-06-28)
@@ -1591,7 +1596,7 @@ Full stack: register/login → JWT → upload (rate-limited, busts caches) → 3
 
 ## Next Session — Start Here
 
-**Phases 1–122 complete. Alembic head = 0045. LIVE at https://clarifin.xyz.** 2026-07-07 mega-session (113–121): credit-card variable-balance rework · onboarding processing overlay + stock name-search · .xls support (xlrd) · TRY/USD currency-persist fix · register-flash fix · Clarifin sender guard · notification redesign (expand + real outcomes) · monetization audit (copy honesty + vision upsells + weekly-brief paid gate) · Progress slimmed + Simulator in main nav · restart policies + deploy webhook · forgot password · GDPR account deletion (0045 + purge job) · SEO/OG/Plausible · real ToS/Privacy · business framing + Clar business persona.
+**Phases 1–123 complete. Alembic head = 0045. LIVE at https://clarifin.xyz.** 2026-07-07 mega-session (113–121): credit-card variable-balance rework · onboarding processing overlay + stock name-search · .xls support (xlrd) · TRY/USD currency-persist fix · register-flash fix · Clarifin sender guard · notification redesign (expand + real outcomes) · monetization audit (copy honesty + vision upsells + weekly-brief paid gate) · Progress slimmed + Simulator in main nav · restart policies + deploy webhook · forgot password · GDPR account deletion (0045 + purge job) · SEO/OG/Plausible · real ToS/Privacy · business framing + Clar business persona.
 
 ### DEPLOY CHECKLIST for next release (new since 112)
 1. `docker compose exec backend alembic upgrade head` → must say **0045**.
