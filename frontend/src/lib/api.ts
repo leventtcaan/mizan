@@ -1780,6 +1780,37 @@ export async function searchMarketSymbols(q: string): Promise<MarketSearchResult
   return data.results ?? [];
 }
 
+// --- Feedback ---
+
+export interface FeedbackItem {
+  id: string;
+  user_id: string | null;
+  user_email: string | null;
+  category: "bug" | "suggestion" | "other";
+  message: string;
+  email: string | null;
+  created_at: string;
+}
+
+export async function submitFeedback(body: { category: string; message: string; email?: string }): Promise<void> {
+  const response = await fetch(`${API_BASE_URL}/feedback`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...authHeaders() },
+    body: JSON.stringify(body),
+  });
+  if (!response.ok) {
+    const err = await response.json().catch(() => null);
+    throw new Error(extractErrorMessage(err, "Feedback failed"));
+  }
+}
+
+export async function getFeedbackList(category?: string): Promise<FeedbackItem[]> {
+  const q = category ? `?category=${encodeURIComponent(category)}` : "";
+  const response = await fetch(`${API_BASE_URL}/feedback${q}`, { headers: authHeaders() });
+  if (!response.ok) throw new Error(`Failed to load feedback: ${response.status}`);
+  return response.json() as Promise<FeedbackItem[]>;
+}
+
 // --- Reconciliation ---
 
 export interface FinancialEventItem {

@@ -40,6 +40,7 @@ from app.api.simulator import router as simulator_router
 from app.api.reports import router as reports_router
 from app.api.admin import router as admin_router
 from app.api.billing import router as billing_router
+from app.api.feedback import router as feedback_router
 from app.api.webhooks import router as webhooks_router
 from app.core.config import settings
 from app.core.database import engine
@@ -66,6 +67,7 @@ from app.models.wealth_alert import WealthAlert  # noqa: F401 — registers tabl
 from app.models.app_notification import AppNotification  # noqa: F401 — registers table in metadata
 from app.models.assistant_action import AssistantAction  # noqa: F401 — registers table in metadata
 from app.models.admin_audit_log import AdminAuditLog  # noqa: F401 — registers table in metadata
+from app.models.feedback import Feedback  # noqa: F401 — registers table in metadata
 
 logging.basicConfig(
     level=logging.INFO,
@@ -149,6 +151,7 @@ app.include_router(reports_router)
 app.include_router(admin_router)
 app.include_router(billing_router)
 app.include_router(webhooks_router)
+app.include_router(feedback_router)
 
 
 @app.get("/health")

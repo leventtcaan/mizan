@@ -898,6 +898,15 @@ export const tr = {
     freeNudge: "Bu tablo son ekstren kadar güncel. Plus sınırsız ekstre okur — yeni abonelikler ve taksitler anında görünür.",
     freeNudgeCta: "Plus'a bak →",
   },
+  feedback: {
+    button: "Geri bildirim",
+    title: "Geri bildirim gönder",
+    cat: { bug: "Hata", suggestion: "Öneri", other: "Diğer" },
+    placeholder: "Ne bozuk, ne eksik, ne daha iyi olabilir?",
+    emailPlaceholder: "Yanıt için e-posta (isteğe bağlı)",
+    send: "Gönder",
+    thanks: "Teşekkürler — her mesajı okuyoruz.",
+  },
   notifications: {
     title: "Bildirimler",
     empty: "Her şey yolunda",

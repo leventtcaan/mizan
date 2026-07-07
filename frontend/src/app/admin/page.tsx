@@ -18,6 +18,7 @@ import {
   updateAdminUser, deleteAdminUser, runAdminJob, sendAdminMessage, impersonateUser,
   type AdminOverview, type AdminSystem, type AdminUserRow,
   type AdminUserProfile, type AdminTxn,
+  getFeedbackList, type FeedbackItem,
 } from "@/lib/api";
 
 const TEAL = "#176B5B";
@@ -80,7 +81,7 @@ function fmtUTC(iso: string | null): string {
   } catch { return iso; }
 }
 
-type Tab = "dashboard" | "users" | "system";
+type Tab = "dashboard" | "users" | "feedback" | "system";
 
 export default function AdminPage() {
   const router = useRouter();
@@ -175,7 +176,7 @@ export default function AdminPage() {
 
       {/* Tabs */}
       <div className="inline-flex rounded-xl border border-line p-1 mb-6 bg-surface">
-        {(["dashboard", "users", "system"] as Tab[]).map((tb) => (
+        {(["dashboard", "users", "feedback", "system"] as Tab[]).map((tb) => (
           <button key={tb} onClick={() => setTab(tb)}
             className={`px-4 py-1.5 rounded-lg text-sm font-medium capitalize transition-colors ${tab === tb ? "text-white" : "text-ink-mute hover:text-ink-soft"}`}
             style={tab === tb ? { backgroundColor: TEAL } : undefined}>
@@ -194,6 +195,7 @@ export default function AdminPage() {
           founderId={overview?.founder_user_id ?? null}
         />
       )}
+      {tab === "feedback" && <FeedbackTab />}
       {tab === "system" && <System system={system} onJob={async (j) => { await runAdminJob(j); setTimeout(() => void loadSystem(), 1200); }} />}
 
       {/* User detail slide-over */}
@@ -903,6 +905,69 @@ function SkeletonGrid() {
   return (
     <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
       {[1, 2, 3, 4].map((i) => <div key={i} className="h-24 rounded-2xl bg-surface-2 animate-pulse" />)}
+    </div>
+  );
+}
+
+
+// ── Feedback inbox — every submission, filterable by category ────────────────
+function FeedbackTab() {
+  const [items, setItems] = useState<FeedbackItem[]>([]);
+  const [filter, setFilter] = useState<string>("");
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    setLoading(true);
+    getFeedbackList(filter || undefined)
+      .then(setItems)
+      .catch(() => setItems([]))
+      .finally(() => setLoading(false));
+  }, [filter]);
+
+  const CAT_STYLE: Record<string, string> = {
+    bug: "bg-danger/10 text-danger border-danger/30",
+    suggestion: "bg-[#176B5B]/10 text-[#176B5B] border-[#176B5B]/30",
+    other: "bg-surface-2 text-ink-soft border-line",
+  };
+
+  return (
+    <div>
+      <div className="flex items-center gap-2 mb-4">
+        {["", "bug", "suggestion", "other"].map((c) => (
+          <button key={c || "all"} onClick={() => setFilter(c)}
+            className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
+              filter === c ? "text-white border-transparent" : "bg-surface border-line text-ink-soft hover:text-ink"
+            }`}
+            style={filter === c ? { backgroundColor: TEAL } : undefined}>
+            {c === "" ? "All" : c}
+          </button>
+        ))}
+        <span className="text-ink-mute text-xs ml-auto">{items.length} item(s)</span>
+      </div>
+
+      {loading ? (
+        <div className="space-y-2">{[1, 2, 3].map((i) => <div key={i} className="h-16 rounded-xl bg-surface animate-pulse" />)}</div>
+      ) : items.length === 0 ? (
+        <div className="bg-surface border border-line rounded-2xl p-10 text-center text-ink-mute text-sm">No feedback yet.</div>
+      ) : (
+        <div className="space-y-2">
+          {items.map((f) => (
+            <div key={f.id} className="bg-surface border border-line rounded-xl p-4">
+              <div className="flex items-center gap-2 mb-1.5 flex-wrap">
+                <span className={`px-2 py-0.5 rounded-full text-[11px] font-semibold border ${CAT_STYLE[f.category] ?? CAT_STYLE.other}`}>
+                  {f.category}
+                </span>
+                <span className="text-ink-soft text-xs">{f.user_email ?? "deleted user"}</span>
+                {f.email && f.email !== f.user_email && (
+                  <span className="text-ink-mute text-xs">reply-to: {f.email}</span>
+                )}
+                <span className="text-ink-mute text-[11px] ml-auto">{new Date(f.created_at).toLocaleString()}</span>
+              </div>
+              <p className="text-ink text-sm whitespace-pre-wrap leading-relaxed">{f.message}</p>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

@@ -156,3 +156,5 @@ assistant_limiter = _make_limiter("assistant")
 resend_verification_limiter = _make_limiter("resend_verification")
 # WHY: Same protection for password-reset requests — max 3 per hour per email address.
 password_reset_limiter = _make_limiter("password_reset")
+# WHY: Feedback is open to any signed-in user — throttle to 5/hour so it can't be spammed.
+feedback_limiter = _make_limiter("feedback")

@@ -898,6 +898,15 @@ export const en = {
     freeNudge: "This picture is only as fresh as your last statement. Plus reads unlimited statements, so new subscriptions and installments show up as they happen.",
     freeNudgeCta: "See Plus →",
   },
+  feedback: {
+    button: "Feedback",
+    title: "Send feedback",
+    cat: { bug: "Bug", suggestion: "Suggestion", other: "Other" },
+    placeholder: "What's broken, missing, or could be better?",
+    emailPlaceholder: "Email for a reply (optional)",
+    send: "Send",
+    thanks: "Thank you — we read every message.",
+  },
   notifications: {
     title: "Notifications",
     empty: "All caught up",

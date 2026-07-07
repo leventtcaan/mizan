@@ -37,6 +37,8 @@ class Settings(BaseSettings):
     # WHY: From-address for outbound email. Default is Resend's shared sandbox sender
     # (works without domain verification); prod must set a verified domain sender.
     RESEND_FROM_EMAIL: str = "Clarifin <onboarding@resend.dev>"
+    # Where user-feedback notifications land (founder inbox).
+    FEEDBACK_NOTIFY_EMAIL: str = "ceylanleventcan@gmail.com"
 
     # WHY: SECRET_KEY signs JWTs — must be random and long (32+ bytes of entropy).
     # No default: a missing SECRET_KEY raises a Pydantic ValidationError when Settings()

@@ -4,6 +4,7 @@ import "./globals.css";
 import Navbar from "@/components/ui/Navbar";
 import GlobalAssistant from "@/components/GlobalAssistant";
 import ClarTour from "@/components/ClarTour";
+import FeedbackButton from "@/components/FeedbackButton";
 import HtmlLangSync from "@/components/HtmlLangSync";
 import { THEME_BOOTSTRAP } from "@/lib/theme";
 
@@ -57,6 +58,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         {children}
         <GlobalAssistant />
         <ClarTour />
+        <FeedbackButton />
       </body>
     </html>
   );
