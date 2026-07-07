@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import Link from "next/link";
 import { getToken, getStoredUser, setStoredUser, clearToken, updatePreferences, getMe } from "@/lib/api";
-import { BarChart2, Upload, LogOut, Menu, X, Scale, Home, Settings, Sparkles, FileText, ShieldCheck, Sun, Moon, Monitor } from "@/components/ui/Icons";
+import { BarChart2, Upload, LogOut, Menu, X, Home, Settings, Sparkles, FileText, ShieldCheck, Sun, Moon, Monitor, TrendingUp } from "@/components/ui/Icons";
 import { useLanguage, type Lang } from "@/lib/i18n";
 import { useTheme, type ThemePref } from "@/lib/theme";
 import NotificationDropdown from "@/components/NotificationDropdown";
@@ -20,11 +20,15 @@ const THEME_OPTS: { value: ThemePref; Icon: typeof Sun; label: string }[] = [
 // otherwise a logged-in visitor to the landing page sees two navbars.
 const HIDDEN_PATHS = ["/", "/login", "/onboarding", "/brief", "/verify", "/reset-password", "/join"];
 
-function PieChartMini() {
+// Lucide's arrow-left-right, inline (the shared Icons.tsx set doesn't carry it yet).
+// Stroke width matches the other nav icons so all five read as one family.
+function ArrowLeftRight() {
   return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M21.21 15.89A10 10 0 1 1 8 2.83" />
-      <path d="M22 12A10 10 0 0 0 12 2v10z" />
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M8 3 4 7l4 4" />
+      <path d="M4 7h16" />
+      <path d="m16 21 4-4-4-4" />
+      <path d="M20 17H4" />
     </svg>
   );
 }
@@ -48,12 +52,14 @@ export default function Navbar() {
   const MONEY_PATHS = ["/transactions", "/cashflow", "/recurring"];
   // Reports is a top-level destination (the artifact someone replacing Excel wants);
   // the Simulator lives in the account menu as a power-user tool.
+  // One consistent outline family (Lucide style), uniform 16px + stroke weight:
+  // Home · ArrowLeftRight (money flow) · BarChart2 (net worth) · FileText · TrendingUp.
   const NAV_LINKS = [
     { href: "/home", label: t("nav.home"), icon: <Home size={16} />, match: ["/home"] },
-    { href: "/transactions", label: t("nav.money"), icon: <PieChartMini />, match: MONEY_PATHS },
-    { href: "/networth", label: t("nav.networth"), icon: <Scale size={16} />, match: ["/networth"] },
+    { href: "/transactions", label: t("nav.money"), icon: <ArrowLeftRight />, match: MONEY_PATHS },
+    { href: "/networth", label: t("nav.networth"), icon: <BarChart2 size={16} />, match: ["/networth"] },
     { href: "/reports", label: t("report.title"), icon: <FileText size={16} />, match: ["/reports"] },
-    { href: "/progress", label: t("nav.progress"), icon: <BarChart2 size={16} />, match: ["/progress"] },
+    { href: "/progress", label: t("nav.progress"), icon: <TrendingUp size={16} />, match: ["/progress"] },
   ];
 
   useEffect(() => {
