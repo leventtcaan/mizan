@@ -255,6 +255,16 @@ export function Send({ size, className, strokeWidth }: IconProps) {
   );
 }
 
+export function Key({ size, className, strokeWidth }: IconProps) {
+  return (
+    <Icon size={size} className={className} strokeWidth={strokeWidth}>
+      <circle cx="7.5" cy="15.5" r="5.5" />
+      <path d="m21 2-9.6 9.6" />
+      <path d="m15.5 7.5 3 3L22 7l-3-3" />
+    </Icon>
+  );
+}
+
 export function Zap({ size, className, strokeWidth }: IconProps) {
   return (
     <Icon size={size} className={className} strokeWidth={strokeWidth}>

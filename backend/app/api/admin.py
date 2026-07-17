@@ -261,6 +261,10 @@ class SendMessageRequest(BaseModel):
     body: str
 
 
+class AdminResetPasswordRequest(BaseModel):
+    new_password: str
+
+
 class ImpersonateResponse(BaseModel):
     access_token: str
     email: str
@@ -888,6 +892,34 @@ async def send_user_message(
     _audit(admin, "message_sent", user, session, title=title)
     await session.commit()
     logger.info("Admin %s messaged user %s", admin.id, user.id)
+    return {"ok": True}
+
+
+@router.post("/users/{user_id}/reset-password", status_code=status.HTTP_200_OK)
+async def admin_reset_password(
+    user_id: str,
+    body: AdminResetPasswordRequest,
+    admin: User = Depends(get_admin_user),
+    session: AsyncSession = Depends(get_session),
+) -> dict:
+    """Set a new password for any user directly — no email round-trip. Instant.
+
+    Changing the hash also invalidates any outstanding emailed reset link (those are
+    bound to the old hash via the `pwv` claim). The new password is NEVER logged; the
+    audit row records only that a reset happened, by whom, on whom."""
+    from app.core.security import hash_password
+
+    new_password = body.new_password or ""
+    if len(new_password) < 8:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                            detail="Password must be at least 8 characters.")
+
+    user = await _load_user(user_id, session)
+    user.password_hash = hash_password(new_password)
+    session.add(user)
+    _audit(admin, "password_reset", user, session)
+    await session.commit()
+    logger.info("Admin %s reset password for user %s", admin.id, user.id)
     return {"ok": True}
 
 

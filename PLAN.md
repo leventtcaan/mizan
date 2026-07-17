@@ -47,11 +47,11 @@
 
 - Part: 1 - Fikirden Ilk Calisan Sisteme
 - Spiral: 3 - Ilk Vertical Slice Mantigi
-- Node: 3.1 - Vertical slice nedir?
+- Node: 3.2 - Health check neden ilk endpoint olur?
 - Status: Not started
-- Last completed: Node 2.7 - Clarifin kus bakisi
-- Last permanent idea: Clarifin repo'su kavramsal katmanlara bolunmustur: frontend `app/components/lib/locales`, backend `api/services/models/core`. Frontend kullanici deneyimini ve API client'i tasir; backend request, business logic, data model ve core altyapiyi ayirir. Backend dependency direction kuralı `api -> services -> models` olmalidir.
-- Next: Spiral 3 / Node 3.1 ile devam et; vertical slice kavramini sifirdan anlat, neden katman katman devasa sistem kurmak yerine kucuk ama uctan uca calisan akis kuruldugunu Clarifin'in ilk `/health` + frontend fetch ornegiyle bagla.
+- Last completed: Node 3.1 - Vertical slice nedir?
+- Last permanent idea: Vertical slice, sistemi katman katman bitirmeye calismak yerine kullanici degeri veya teknik risk tasiyan en kucuk uctan uca akis olarak kurmaktir. Clarifin'in ilk slice'i frontend page'in backend `/health` endpoint'ini cagirip sonucu gostermesiydi; bu frontend, backend, HTTP, config ve local dev baglantisini erken dogruladi.
+- Next: Node 3.2 ile devam et; health check endpoint'inin neden ilk endpoint oldugunu anlat, servis ayakta mi, Docker healthcheck, frontend connectivity ve production monitoring baglantisini Clarifin `GET /health` uzerinden acikla.
 
 ## Not Formatı
 

@@ -2355,6 +2355,10 @@ export function impersonateUser(id: string): Promise<{ access_token: string; ema
   return adminFetch<{ access_token: string; email: string }>(`/users/${id}/impersonate`, { method: "POST" });
 }
 
+export function adminResetUserPassword(id: string, newPassword: string): Promise<{ ok: boolean }> {
+  return adminFetch<{ ok: boolean }>(`/users/${id}/reset-password`, { method: "POST", body: JSON.stringify({ new_password: newPassword }) });
+}
+
 export function getAdminSystem(): Promise<AdminSystem> {
   return adminFetch<AdminSystem>("/system");
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { resetPassword } from "@/lib/api";
@@ -15,11 +15,16 @@ const inputClass =
 export default function ResetPasswordPage() {
   const router = useRouter();
   const { t, lang } = useLanguage();
-  // Token from ?token= — lazy init so there's no post-mount flash. Static prerender
-  // has no window; the client fills it on hydration via the state updater below.
-  const [token] = useState<string>(() =>
-    typeof window === "undefined" ? "" : new URLSearchParams(window.location.search).get("token") ?? ""
-  );
+  // Token from ?token= — read AFTER mount. `window` is undefined during SSR/prerender,
+  // and a lazy useState initializer never re-runs on the client, so the token must be
+  // pulled in an effect. `ready` gates the invalid-link message so it can't flash before
+  // the URL has actually been read.
+  const [token, setToken] = useState("");
+  const [ready, setReady] = useState(false);
+  useEffect(() => {
+    setToken(new URLSearchParams(window.location.search).get("token") ?? "");
+    setReady(true);
+  }, []);
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
   const [busy, setBusy] = useState(false);
@@ -92,7 +97,7 @@ export default function ResetPasswordPage() {
                   className="w-full py-3 rounded-xl bg-[#176B5B] hover:bg-[#125848] text-white font-semibold transition-colors disabled:opacity-50">
                   {busy ? "…" : t("auth.resetBtn")}
                 </button>
-                {!token && <p className="text-warn text-xs text-center">{t("auth.resetInvalid")}</p>}
+                {ready && !token && <p className="text-warn text-xs text-center">{t("auth.resetInvalid")}</p>}
               </form>
 
               <div className="mt-4 text-center">

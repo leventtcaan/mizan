@@ -8,14 +8,14 @@ import {
 } from "recharts";
 import {
   ShieldCheck, RefreshCw, Wallet, Send, Monitor,
-  CheckCircle, Sparkles, Zap, X as XIcon, TrendingUp,
+  CheckCircle, Sparkles, Zap, X as XIcon, TrendingUp, Key,
 } from "@/components/ui/Icons";
 import { useTheme } from "@/lib/theme";
 import {
   getToken, getStoredUser, setToken, setStoredUser,
   getAdminOverview, getAdminSystem, getAdminUsers,
   getAdminUserProfile, getAdminUserTransactions,
-  updateAdminUser, deleteAdminUser, runAdminJob, sendAdminMessage, impersonateUser,
+  updateAdminUser, deleteAdminUser, runAdminJob, sendAdminMessage, impersonateUser, adminResetUserPassword,
   type AdminOverview, type AdminSystem, type AdminUserRow,
   type AdminUserProfile, type AdminTxn,
   getFeedbackList, type FeedbackItem,
@@ -499,6 +499,8 @@ function UserDetail({ profile, surfaceBg, onClose, onChanged }: {
   const [msgOpen, setMsgOpen] = useState(false);
   const [msgTitle, setMsgTitle] = useState("");
   const [msgBody, setMsgBody] = useState("");
+  const [pwOpen, setPwOpen] = useState(false);
+  const [pwValue, setPwValue] = useState("");
   const [toast, setToast] = useState<string | null>(null);
   const [txns, setTxns] = useState<AdminTxn[] | null>(null);
   const [txnTotal, setTxnTotal] = useState(0);
@@ -535,6 +537,13 @@ function UserDetail({ profile, surfaceBg, onClose, onChanged }: {
   const sendMsg = async () => {
     if (!p || !msgBody.trim() || busy) return; setBusy(true);
     try { await sendAdminMessage(p.id, msgTitle.trim() || "Message", msgBody.trim()); setMsgOpen(false); setMsgTitle(""); setMsgBody(""); flash("Message sent"); } catch { flash("Failed"); } finally { setBusy(false); }
+  };
+  const resetPw = async () => {
+    if (!p || busy) return;
+    if (pwValue.length < 8) { flash("Min 8 characters"); return; }
+    if (!confirm(`Set a new password for ${p.email}?\n\nThey'll need to use this password to log in. Any pending reset link is invalidated.`)) return;
+    setBusy(true);
+    try { await adminResetUserPassword(p.id, pwValue); setPwOpen(false); setPwValue(""); flash("Password reset"); } catch { flash("Failed"); } finally { setBusy(false); }
   };
   const softDelete = async () => {
     if (!p || busy) return;
@@ -604,6 +613,8 @@ function UserDetail({ profile, surfaceBg, onClose, onChanged }: {
               <div className="flex items-center gap-2 flex-wrap">
                 <ActBtn onClick={toggleVerify} busy={busy} icon={<CheckCircle size={13} />}>{p.email_verified ? "Unverify" : "Verify email"}</ActBtn>
                 <ActBtn onClick={() => setMsgOpen((v) => !v)} icon={<Send size={13} />}>Message</ActBtn>
+                <ActBtn onClick={() => setPwOpen((v) => !v)} icon={<Key size={13} />}>Şifre Sıfırla</ActBtn>
+                <InfoTip text="Kullanıcı için doğrudan yeni bir şifre belirle. E-posta gerekmez, anında geçerli olur. Bekleyen sıfırlama bağlantıları geçersiz olur." />
                 <ActBtn onClick={doImpersonate} icon={<Monitor size={13} />}>View as user</ActBtn>
                 <InfoTip text="Bu kullanıcı olarak uygulamaya giriş yap (impersonate). Kendi admin hesabına dönmek için çıkış yapıp tekrar giriş yap." />
                 <ActBtn onClick={softDelete} busy={busy} danger icon={<XIcon size={13} />}>Delete</ActBtn>
@@ -617,6 +628,15 @@ function UserDetail({ profile, surfaceBg, onClose, onChanged }: {
                     className="w-full bg-canvas border border-line rounded-lg px-3 py-2 text-sm text-ink placeholder:text-ink-mute focus:outline-none focus:border-[#176B5B] resize-none" />
                   <button disabled={busy || !msgBody.trim()} onClick={sendMsg}
                     className="px-3 py-1.5 rounded-lg text-white text-xs font-semibold disabled:opacity-50" style={{ backgroundColor: TEAL }}>Send</button>
+                </div>
+              )}
+              {pwOpen && (
+                <div className="space-y-2 pt-1">
+                  <input type="text" value={pwValue} onChange={(e) => setPwValue(e.target.value)} autoComplete="off"
+                    placeholder="New password (min 8 characters)"
+                    className="w-full bg-canvas border border-line rounded-lg px-3 py-2 text-sm text-ink placeholder:text-ink-mute focus:outline-none focus:border-[#176B5B]" />
+                  <button disabled={busy || pwValue.length < 8} onClick={resetPw}
+                    className="px-3 py-1.5 rounded-lg text-white text-xs font-semibold disabled:opacity-50" style={{ backgroundColor: TEAL }}>Set password</button>
                 </div>
               )}
             </div>
